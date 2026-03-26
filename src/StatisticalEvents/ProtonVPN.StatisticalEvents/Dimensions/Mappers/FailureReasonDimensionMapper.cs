@@ -17,17 +17,27 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Common.Core.Networking;
-using ProtonVPN.StatisticalEvents.Dimensions.Mappers;
+using ProtonVPN.StatisticalEvents.Dimensions.Mappers.Bases;
 
-namespace ProtonVPN.StatisticalEvents.Tests.DimensionMapping;
+namespace ProtonVPN.StatisticalEvents.Dimensions.Mappers;
 
-[TestClass]
-public class VpnProtocolMapperTest : DimensionMapperTestBase<VpnProtocol, VpnProtocolDimensionMapper>
+public class FailureReasonDimensionMapper : DimensionMapperBase, IFailureReasonDimensionMapper
 {
-    protected override Func<VpnProtocolDimensionMapper, VpnProtocol?, string> MapFunction => (mapper, value) => mapper.Map(value);
+    private const int LOCAL_AGENT_ERROR_CODE_START = 86100;
+    private const int LOCAL_AGENT_ERROR_CODE_END = 86999;
 
-    protected override IEnumerable<VpnProtocol> ValuesToIgnore => [
-        VpnProtocol.Smart,
-    ];
+    public string Map(int? failureCode)
+    {
+        return failureCode switch
+        {
+            int code when IsLocalAgentError(code) => code.ToString(),
+            _ => NOT_AVAILABLE
+        };
+    }
+
+    private bool IsLocalAgentError(int failureCode)
+    {
+        return failureCode >= LOCAL_AGENT_ERROR_CODE_START 
+            && failureCode <= LOCAL_AGENT_ERROR_CODE_END;
+    }
 }
