@@ -5,27 +5,20 @@ param (
 New-Item -ItemType Directory -Force -Path "TestResults" | Out-Null
 $reportPath = "TestResults\results_${Category}.xml"
 
-$output = & VSTest.Console.exe src\bin\e2e\ProtonVPN.UI.Tests.dll /Settings:.testsettings.xml /TestCaseFilter:"Category=$Category" /Logger:"junit;LogFilePath=$reportPath"
-$exitCode = $LASTEXITCODE
-
 $keywords = @("BVI-", "BackdropLocal", "missing frame","worldTransform", "0.00, 0.00", "chunk", "decoding stream")
 
-#Filter noise from some of the runners
-$filteredOutput = $output | Where-Object {
+& VSTest.Console.exe src\bin\e2e\ProtonVPN.UI.Tests.dll /Settings:.testsettings.xml /TestCaseFilter:"Category=$Category" /Logger:"junit;LogFilePath=$reportPath" |
+ForEach-Object {
     $line = $_
     $shouldDrop = $false
-    $keywords | ForEach-Object {
-        if ($line -match $_) { 
-            $shouldDrop = $true
+    foreach ($keyword in $keywords) {
+        if ($line -match $keyword) { 
+            $shouldDrop = $true 
         }
     }
-	
-    if ($line -match "passed" -or $line -match "failed") {
-        $shouldDrop = $false
+    if (-not $shouldDrop) {
+        Write-Host $line 
     }
-    return -not $shouldDrop
 }
 
-$filteredOutput
-
-exit $exitCode
+exit $LASTEXITCODE
