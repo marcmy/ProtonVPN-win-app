@@ -504,7 +504,7 @@ release-binary-to-prod:
       when: manual
     - when: never
 
-promote-release:
+merge-release-to-master:
   image: $HARBOR_URL/docker.io/library/python:latest
   stage: release
   tags:
@@ -516,7 +516,21 @@ promote-release:
     - /^release\/9\.9\.9-from.*/
   script:
     - apt-get update && apt-get install -y python3 python3-pip git
-    - python3 ci/build-scripts/promote_release.py  
+    - python3 ci/build-scripts/merge_release_to_master.py
+  variables:
+    GIT_DEPTH: "0"
+
+merge-master-to-develop:
+  image: $HARBOR_URL/docker.io/library/python:latest
+  stage: release
+  tags:
+    - shared-small
+  when: manual
+  only:
+    - master
+  script:
+    - apt-get update && apt-get install -y python3 python3-pip git
+    - python3 ci/build-scripts/merge_master_to_develop.py
   variables:
     GIT_DEPTH: "0"
 
