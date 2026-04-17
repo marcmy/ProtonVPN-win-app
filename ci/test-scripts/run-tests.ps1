@@ -2,8 +2,8 @@ param (
     [string]$Category
 )
 
-New-Item -ItemType Directory -Force -Path "TestResults" | Out-Null
-$reportPath = "TestResults\results_${Category}.xml"
+New-Item -ItemType Directory -Force -Path $env:UI_TEST_REPORT_PATH | Out-Null
+$reportPath = "$env:UI_TEST_REPORT_PATH\results_$Category.xml"
 
 $keywords = @("BVI-", "BackdropLocal", "missing frame","worldTransform", "0.00, 0.00", "chunk", "decoding stream")
 

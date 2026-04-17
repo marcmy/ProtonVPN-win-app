@@ -16,16 +16,17 @@
     - ci\test-scripts\install-the-app.ps1
     - dotnet build src/Tests/ProtonVPN.UI.Tests/ProtonVPN.UI.Tests.csproj --arch x64 -o src/bin/e2e
     - ci\test-scripts\run-tests.ps1 -Category ${CATEGORY}
+  after_script:
     - ci\test-scripts\uninstall-app.ps1
   artifacts:
     when: always
     name: "result-ui"
     paths:
       - $SCREENSHOT_PATH
-      - TestResults/
+      - $UI_TEST_REPORT_PATH
     expire_in: 1 weeks
     reports:
-      junit: TestResults/*.xml
+      junit: $UI_TEST_REPORT_PATH/*.xml
   
 .unit_test_config:
   stage: test

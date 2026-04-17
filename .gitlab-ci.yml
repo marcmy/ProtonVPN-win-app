@@ -64,6 +64,7 @@ include:
 variables:
   PUBLIC_REPO_URL: git@github.com:ProtonVPN/win-app.git
   SCREENSHOT_PATH: src/bin/e2e/TestFailureData/
+  UI_TEST_REPORT_PATH: src/bin/e2e/TestResults
   TEST_REPORT_PATH: results/
   PROJECT_ID: "13"
   MILESTONE: "Windows"
