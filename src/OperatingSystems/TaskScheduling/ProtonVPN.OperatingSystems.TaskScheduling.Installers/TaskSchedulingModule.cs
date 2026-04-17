@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2025 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -19,14 +19,12 @@
 
 using Autofac;
 
-namespace ProtonVPN.OperatingSystems.NRPT.Installers;
+namespace ProtonVPN.OperatingSystems.TaskScheduling.Installers;
 
-public class NameResolutionPolicyTableModule : Module
+public class TaskSchedulingModule : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
-        builder.RegisterType<NrptInvoker>().AsImplementedInterfaces().SingleInstance();
-        builder.RegisterType<NrptWatchdogScheduler>().AsImplementedInterfaces().SingleInstance();
-        builder.RegisterType<NrptWatchdogStarter>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<TaskScheduler>().AsImplementedInterfaces().SingleInstance();
     }
 }

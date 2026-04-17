@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2025 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,16 +17,9 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Autofac;
+namespace ProtonVPN.OperatingSystems.NRPT.Contracts;
 
-namespace ProtonVPN.OperatingSystems.NRPT.Installers;
-
-public class NameResolutionPolicyTableModule : Module
+public interface INrptWatchdogStarter
 {
-    protected override void Load(ContainerBuilder builder)
-    {
-        builder.RegisterType<NrptInvoker>().AsImplementedInterfaces().SingleInstance();
-        builder.RegisterType<NrptWatchdogScheduler>().AsImplementedInterfaces().SingleInstance();
-        builder.RegisterType<NrptWatchdogStarter>().AsImplementedInterfaces().SingleInstance();
-    }
+    void Start();
 }
