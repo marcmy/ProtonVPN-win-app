@@ -19,11 +19,9 @@
 
 namespace ProtonVPN.UI.Tests.Enums;
 
-public enum CountryTab
+public enum VpnConnectionOption
 {
-    All,
-    SecureCore,
-    P2P,
-    Tor,
-    Profile,
+    Fast,
+    Random,
+    Last,
 }
