@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -18,13 +18,27 @@
  */
 
 using ProtonVPN.Client.Settings.Contracts;
-using ProtonVPN.Client.Settings.Repositories.Contracts;
 
 namespace ProtonVPN.Client.Settings;
 
-public class Settings : UserSettings, ISettings
+/// <summary>
+/// Settings that are not persisted and only valid for the current app session.
+/// </summary>
+public class TransientSettings : ITransientSettings
 {
-    public Settings(IGlobalSettingsCache globalSettingsCache, IUserSettingsCache userSettingsCache)
-        : base(globalSettingsCache, userSettingsCache)
-    { }
+    public bool IsDebugModeEnabled
+    {
+        get
+        {
+            #if DEBUG
+                return true;
+            #else
+                return false;
+            #endif
+        }
+    }
+
+    public bool SkipNoConnectionsPage { get; set; }
+
+    public bool SkipOnboarding { get; set; }
 }
