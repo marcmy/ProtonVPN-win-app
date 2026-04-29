@@ -262,7 +262,7 @@ ui-tests-group:
     - schedules
   parallel:
     matrix:
-      - CATEGORY: ["1", "2", "3"]
+      - CATEGORY: ["1", "2", "3", "4"]
 
 ui-tests-full-arm:
   extends: .ui_test_execution_script
