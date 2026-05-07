@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2024 Proton AG
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,27 +17,17 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Client.Common.Enums;
-using ProtonVPN.Client.Logic.Connection.Contracts;
+using ProtonVPN.Common.Core.Networking;
 
-namespace ProtonVPN.Client.Logic.Connection.ConnectionErrors;
+namespace ProtonVPN.OperatingSystems.Network.Contracts;
 
-public class NoConnectionError : IConnectionError
+public interface INetworkInterfaceProvider
 {
-    public Severity Severity => Severity.None;
+    INetworkInterface GetProTunInterface();
+    INetworkInterface GetWireGuardInterface(VpnProtocol protocol);
+    INetworkInterface GetOpenVpnTunInterface();
+    INetworkInterface GetOpenVpnTapInterface();
 
-    public string Title => string.Empty;
-
-    public string Message => string.Empty;
-
-    public string ActionLabel => string.Empty;
-
-    public bool IsToCloseErrorOnDisconnect => false;
-
-    public bool IsToCloseErrorOnConnecting => true;
-
-    public Task ExecuteActionAsync()
-    {
-        return Task.CompletedTask;
-    }
+    INetworkInterface GetByVpnProtocol(VpnProtocol vpnProtocol, OpenVpnAdapter? openVpnAdapter);
+    INetworkInterface GetByOpenVpnAdapter(OpenVpnAdapter? openVpnAdapter);
 }

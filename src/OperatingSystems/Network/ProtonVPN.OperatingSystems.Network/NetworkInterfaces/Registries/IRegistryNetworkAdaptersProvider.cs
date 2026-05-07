@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2024 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,27 +17,9 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Client.Common.Enums;
-using ProtonVPN.Client.Logic.Connection.Contracts;
+namespace ProtonVPN.OperatingSystems.Network.NetworkInterfaces.Registries;
 
-namespace ProtonVPN.Client.Logic.Connection.ConnectionErrors;
-
-public class NoConnectionError : IConnectionError
+public interface IRegistryNetworkAdaptersProvider
 {
-    public Severity Severity => Severity.None;
-
-    public string Title => string.Empty;
-
-    public string Message => string.Empty;
-
-    public string ActionLabel => string.Empty;
-
-    public bool IsToCloseErrorOnDisconnect => false;
-
-    public bool IsToCloseErrorOnConnecting => true;
-
-    public Task ExecuteActionAsync()
-    {
-        return Task.CompletedTask;
-    }
+    List<RegistryNetworkAdapter> Get();
 }
