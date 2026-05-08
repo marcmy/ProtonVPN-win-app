@@ -17,10 +17,11 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.StatisticalEvents.Contracts.Enums;
-using ProtonVPN.StatisticalEvents.Dimensions.Mappers.Bases;
+namespace ProtonVPN.Client.Logic.Connection.Contracts.Statistics;
 
-namespace ProtonVPN.StatisticalEvents.Dimensions.Mappers;
-
-public interface IUserFeedbackDimensionMapper : IDimensionMapper<UserFeedback?>
-{ }
+public interface IConnectionStatisticsFeedback
+{
+    void InitializeFeedback();
+    void SubmitPositiveFeedback();
+    void SubmitNegativeFeedback();
+}

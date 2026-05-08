@@ -17,10 +17,9 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.StatisticalEvents.Contracts.Enums;
-using ProtonVPN.StatisticalEvents.Dimensions.Mappers.Bases;
+namespace ProtonVPN.Client.UI.Main.Home.Upsell;
 
-namespace ProtonVPN.StatisticalEvents.Dimensions.Mappers;
-
-public interface IUserFeedbackDimensionMapper : IDimensionMapper<UserFeedback?>
-{ }
+public interface IConnectionCardUpsellBannerModerator
+{
+    bool IsBannerVisible { get; }
+}
