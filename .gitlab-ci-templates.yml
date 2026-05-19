@@ -1,3 +1,15 @@
+.push_results_to_testmo:
+  stage: ui-test
+  when: always
+  needs:
+    - job: ui-tests-group
+      optional: false
+  tags:
+    - redesign
+  script:
+    - ci\test-scripts\push-results-to-testmo.ps1
+  allow_failure: false
+
 .ui_test_execution_script:
   stage: ui-test
   needs:

@@ -264,6 +264,10 @@ ui-tests-group:
     matrix:
       - CATEGORY: ["1", "2", "3", "4"]
 
+push_results_to_testmo:
+  extends: .push_results_to_testmo
+  coverage: '/Automation coverage: (\d+\.?\d+)%/'
+
 ui-tests-full-arm:
   extends: .ui_test_execution_script
   tags:
