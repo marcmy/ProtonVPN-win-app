@@ -1,6 +1,11 @@
 .push_results_to_testmo:
   stage: ui-test
   when: always
+  except:
+    - /^debug.*$/
+    - /^release\/9\.9\.9.*$/
+    - master
+    - schedules
   needs:
     - job: ui-tests-group
       optional: false
