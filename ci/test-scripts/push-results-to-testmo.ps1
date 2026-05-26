@@ -49,6 +49,9 @@ function Main {
             }
 
             $testCaseIdRaw = $testcase.properties.property | Where-Object { $_.name -eq "TestCaseId" } | Select-Object -ExpandProperty value
+            if ($testCaseIdRaw -eq "IGNORE") {
+                continue
+            }
 
             $status = Get-TestStatus $testcase $testCaseIdRaw
 
@@ -59,7 +62,7 @@ function Main {
                 "retest" { $skippedCountManualRetest++; $skippedManualRetest += $testcase.name }
             }
 
-            if (-not $testCaseIdRaw -or $testCaseIdRaw -eq "NO_TC_FOUND") {
+            if (-not $testCaseIdRaw -or $testCaseIdRaw -eq "NO_TC_FOUND" -or $testCaseIdRaw -eq "IGNORE") {
                 $baseTestName = $testcase.name -replace "\(.*\)$", ""
                 if (-not $seenNoTcTests.ContainsKey($baseTestName)) {
                     $skippedNoTc += $testcase.name
@@ -162,7 +165,13 @@ function Get-TestStatus {
     }
     else {
         if ($testCaseIdRaw -eq "602439") { # Case ID of the flaky Port Forwarding test
-            $status = "retest"
+            $systemOut = $testcase."system-out"
+            if ($systemOut -match "SUCCESS") {
+                $status = "passed"
+            }
+            else {
+                $status = "retest"
+            }
         } else {
             $status = "passed"
         }
