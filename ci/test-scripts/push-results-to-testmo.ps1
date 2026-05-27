@@ -370,7 +370,7 @@ function Show-Summary {
     Write-Host "Executed: $executedTests = Passed($passedCount) + Failed($failedCount)"
     Write-Host "Upload Calculation: $uploadedFromExecuted = Executed ($executedTests) - Missing tests from TestMo ($skippedCountNoTestCase) - Parameterized duplicates ($parameterizedDuplicates) + Additional TC from Merged tests ($mergedTestCount)"
     Write-Host "Final Upload: $uploadedTestCount = Upload Calculation ($uploadedFromExecuted) + Skipped ($skippedCountKnownIssue) + Retest ($skippedCountManualRetest)"
-    Write-Host "Automated (TestMo): $($automatedCount-5) (exclude 5 auto-startup tests)"
+    Write-Host "Automated (TestMo): $($automatedCount)"
     Write-Host "Manual (TestMo): $manualCount"
     Write-Host "Total Tests (TestMo): $totalTestsInTestMo"
     Write-Host "Automation coverage: $automatedPercentage%"

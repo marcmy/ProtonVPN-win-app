@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,22 +17,10 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using NUnit.Framework;
+namespace ProtonVPN.UI.Tests.Enums;
 
-namespace ProtonVPN.UI.Tests.TestBase;
-
-// SetUp class that creates fresh client sessions for each test
-public class FreshSessionSetUp : BaseTest
+public enum AutoLaunchOption
 {
-    [SetUp]
-    public void BeforeTest()
-    {
-        LaunchClient();
-    }
-
-    [TearDown]
-    public void AfterTest()
-    {
-        Cleanup();
-    }
+    MinimizeToSystemTray,
+    OpenOnDesktop,
 }
