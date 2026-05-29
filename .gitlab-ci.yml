@@ -90,7 +90,8 @@ stages:
   - test
   - build-installer
   - publish
-  - ui-test
+  - ui-test-full
+  - ui-test-smoke
   - generate
   - deploy
   - publish-to-slack
@@ -254,21 +255,20 @@ grype-scan-release-arm64:
       when: on_success
 
 ui-tests-group:
+  stage: ui-test-full
   extends: .ui_test_execution_script
-  except:
-    - /^debug.*$/
-    - /^release\/9\.9\.9.*$/
-    - master
-    - schedules
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/9\.9\.9.*$/'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH =~ /^release.*$/ || $CI_COMMIT_BRANCH =~ /^automation.*$/'
+      when: on_success
+    - when: manual
   parallel:
     matrix:
       - CATEGORY: ["1", "2", "3", "4"]
 
-push_results_to_testmo:
-  extends: .push_results_to_testmo
-  coverage: '/Automation coverage: (\d+\.?\d+)%/'
-
 ui-tests-full-arm:
+  stage: ui-test-full
   extends: .ui_test_execution_script
   tags:
     - windows-arm64-ui
@@ -281,9 +281,35 @@ ui-tests-full-arm:
     - /^debug.*$/
     - /^release\/9\.9\.9.*$/
     - master
-    - schedules
   variables:
     CATEGORY: "ARM"
+
+ui-tests-smoke:
+  stage: ui-test-smoke
+  extends: .ui_test_execution_script
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^feat.*$/ || $CI_COMMIT_BRANCH =~ /^feature.*$/ || $CI_COMMIT_BRANCH =~ /^fix.*$/'
+      when: on_success
+    - when: manual
+  parallel:
+    matrix:
+      - CATEGORY: ["SMOKE_1", "SMOKE_2", "SMOKE_3", "SMOKE_4"]
+
+push-results-to-testmo-full:
+  stage: ui-test-full
+  extends: .push_results_to_testmo
+  needs:
+    - job: ui-tests-group
+      optional: false
+  coverage: '/Automation coverage: (\d+\.?\d+)%/'
+
+push-results-to-testmo-smoke:
+  stage: ui-test-smoke
+  extends: .push_results_to_testmo
+  needs:
+    - job: ui-tests-smoke
+      optional: false
+  coverage: '/Automation coverage: (\d+\.?\d+)%/'
 
 unit-tests:
   extends:

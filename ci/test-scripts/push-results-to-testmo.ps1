@@ -7,11 +7,14 @@ function Main {
     $projectId = 1
     $testmoUrl = $env:TESTMO_URL.Replace('/api/v1', '')
 
+    $xmlFiles = @(Get-ChildItem -Path $env:UI_TEST_REPORT_PATH -Filter "*.xml" -Recurse)
+    $isSmokeTest = $xmlFiles.Count -gt 0 -and $xmlFiles[0].Name -match "SMOKE"
+
     $subfolders, $folderMap = Get-Subfolders
 
     $automatedCount, $manualCount, $testMoCasesMap = Get-TestCases $subfolders
 
-    $runId = Create-Run
+    $runId = Create-Run $isSmokeTest
 
     $passedCount = 0
     $failedCount = 0
@@ -34,7 +37,6 @@ function Main {
 
     $totalRunElapsed = 0
 
-    $xmlFiles = @(Get-ChildItem -Path $env:UI_TEST_REPORT_PATH -Filter "*.xml" -Recurse)
     foreach ($xmlFile in $xmlFiles) {
         [xml]$xml = Get-Content $xmlFile.FullName
         $testResults = @()
@@ -141,7 +143,7 @@ function Main {
     
     Complete-Run $runId $totalMinutes $skippedCountNoTestCase $automatedPercentage
 
-    Show-Summary $automatedCountInCode $automatedCount $manualCount $totalTestsInTestMo $automatedPercentage $passedCount $failedCount $skippedCountNoTestCase $skippedCountKnownIssue $skippedCountManualRetest $totalMinutes $skippedNoTc $skippedManualRetest $skippedKnownIssue $uploadedTestCount $mergedTestCount $mergedTestCases $totalTestsInCode $parameterizedUploadCount $allParameterizedVariants $totalParameterizedInstances $parameterizedTests $parameterizedDuplicates
+    Show-Summary $isSmokeTest $automatedCountInCode $automatedCount $manualCount $totalTestsInTestMo $automatedPercentage $passedCount $failedCount $skippedCountNoTestCase $skippedCountKnownIssue $skippedCountManualRetest $totalMinutes $skippedNoTc $skippedManualRetest $skippedKnownIssue $uploadedTestCount $mergedTestCount $mergedTestCases $totalTestsInCode $parameterizedUploadCount $allParameterizedVariants $totalParameterizedInstances $parameterizedTests $parameterizedDuplicates
 }
 
 function Get-TestStatus {
@@ -239,7 +241,10 @@ function Get-TestCases {
 }
 
 function Create-Run {
-    $runType = if ($env:CI_COMMIT_REF_NAME -like "release/*" -or $env:CI_COMMIT_REF_NAME -eq "develop" -or $env:CI_COMMIT_REF_NAME -like "automation/*") { "Full regression" } else { "Smoke" }
+    param(
+        $isSmokeTest)
+
+    $runType = if ($isSmokeTest) { "Smoke" } else { "Full regression" }
     $runName = "$runType $version - Automation"
     $source = if ($env:CI_COMMIT_REF_NAME -like "release/*") { "Release" } elseif ($env:CI_COMMIT_REF_NAME -eq "develop") { "Develop" } else { "Automation" }
     $tag = $env:CI_COMMIT_REF_NAME.Replace("/","-").Replace(".","-") -replace "VPNWIN-\d+-", ""
@@ -334,6 +339,7 @@ function Complete-Run {
 
 function Show-Summary {
     param(
+        $isSmokeTest,
         $automatedCountInCode,
         $automatedCount, 
         $manualCount, 
@@ -365,11 +371,13 @@ function Show-Summary {
     Write-Host "`n========================================"
     Write-Host "Test Coverage & Results"
     Write-Host "========================================"
-    Write-Host "Automated (Code): $totalTestsInCode"
 
+    $automatedSmokeTests = if ($isSmokeTest) { "[smoke tests only]" } else { "" }
+
+    Write-Host "Automated (Code): $totalTestsInCode $automatedSmokeTests"
     Write-Host "Executed: $executedTests = Passed($passedCount) + Failed($failedCount)"
-    Write-Host "Upload Calculation: $uploadedFromExecuted = Executed ($executedTests) - Missing tests from TestMo ($skippedCountNoTestCase) - Parameterized duplicates ($parameterizedDuplicates) + Additional TC from Merged tests ($mergedTestCount)"
-    Write-Host "Final Upload: $uploadedTestCount = Upload Calculation ($uploadedFromExecuted) + Skipped ($skippedCountKnownIssue) + Retest ($skippedCountManualRetest)"
+    Write-Host "Upload Calculation: $uploadedFromExecuted = Executed($executedTests) - Missing tests from TestMo($skippedCountNoTestCase) - Parameterized duplicates($parameterizedDuplicates) + Additional TC from Merged tests($mergedTestCount)"
+    Write-Host "Final Upload: $uploadedTestCount = Upload Calculation($uploadedFromExecuted) + Skipped($skippedCountKnownIssue) + Retest($skippedCountManualRetest)"
     Write-Host "Automated (TestMo): $($automatedCount)"
     Write-Host "Manual (TestMo): $manualCount"
     Write-Host "Total Tests (TestMo): $totalTestsInTestMo"

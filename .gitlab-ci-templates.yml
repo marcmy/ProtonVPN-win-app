@@ -1,14 +1,10 @@
 .push_results_to_testmo:
-  stage: ui-test
   when: always
   except:
     - /^debug.*$/
     - /^release\/9\.9\.9.*$/
     - master
     - schedules
-  needs:
-    - job: ui-tests-group
-      optional: false
   tags:
     - redesign
   script:
@@ -16,7 +12,6 @@
   allow_failure: false
 
 .ui_test_execution_script:
-  stage: ui-test
   needs:
     - job: build-installer-debug-x64
       optional: true
