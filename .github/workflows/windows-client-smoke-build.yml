@@ -45,9 +45,27 @@ jobs:
       - name: Build client project
         run: dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64
 
-      - name: Upload bin artifact
+      - name: Publish self-contained client project
+        run: >-
+          dotnet publish src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --no-restore
+          -p:Platform=x64
+          -p:WindowsAppSDKSelfContained=true
+          -p:PublishDir=${{ github.workspace }}\artifacts\ProtonVPN.Client\
+
+      - name: Upload build output artifact
         if: always() && hashFiles('src/bin/**') != ''
         uses: actions/upload-artifact@v4
         with:
           name: protonvpn-client-bin
           path: src/bin
+
+      - name: Upload self-contained publish artifact
+        if: always() && hashFiles('artifacts/ProtonVPN.Client/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-self-contained
+          path: artifacts/ProtonVPN.Client
