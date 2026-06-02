@@ -45,6 +45,19 @@ jobs:
       - name: Build client project
         run: dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64
 
+      - name: Create patch-only artifact folder
+        run: |
+          $patchDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts\ProtonVPN.Client.Patch'
+          New-Item -ItemType Directory -Force -Path $patchDir | Out-Null
+          Copy-Item 'src\bin\ProtonVPN.Client.dll' $patchDir -Force
+          Copy-Item 'src\bin\ProtonVPN.Client.Core.dll' $patchDir -Force
+
+      - name: Upload patch-only artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-patch-dlls
+          path: artifacts/ProtonVPN.Client.Patch
+
       - name: Upload build output artifact
         if: always() && hashFiles('src/bin/**') != ''
         uses: actions/upload-artifact@v4
