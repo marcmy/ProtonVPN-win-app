@@ -54,6 +54,7 @@ jobs:
           --no-restore
           -p:Platform=x64
           -p:WindowsAppSDKSelfContained=true
+          -p:ErrorOnDuplicatePublishOutputFiles=false
           -p:PublishDir=${{ github.workspace }}\artifacts\ProtonVPN.Client\
 
       - name: Upload build output artifact
