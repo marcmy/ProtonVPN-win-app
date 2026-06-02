@@ -58,6 +58,19 @@ jobs:
           name: protonvpn-client-patch-dlls
           path: artifacts/ProtonVPN.Client.Patch
 
+      - name: Create managed DLL artifact folder
+        run: |
+          $managedDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts\ProtonVPN.Client.ManagedDlls'
+          New-Item -ItemType Directory -Force -Path $managedDir | Out-Null
+          $exclude = @('hostfxr.dll','hostpolicy.dll','coreclr.dll','clrjit.dll','mscordaccore.dll','mscordbi.dll','wireguard.dll','wintun.dll','tunnel.dll','wireguard-tunnel-tcp.dll','libssl-3-x64.dll','libcrypto-3-x64.dll','libpkcs11-helper-1.dll','LocalAgent.dll','proton_srp_cffi.dll','proton_vpn_binary_status.dll')
+          Get-ChildItem 'src\bin' -Filter '*.dll' -File | Where-Object { $_.Name -notin $exclude } | Copy-Item -Destination $managedDir -Force
+
+      - name: Upload managed DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-managed-dlls
+          path: artifacts/ProtonVPN.Client.ManagedDlls
+
       - name: Upload build output artifact
         if: always() && hashFiles('src/bin/**') != ''
         uses: actions/upload-artifact@v4
