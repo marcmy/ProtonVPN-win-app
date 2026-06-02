@@ -124,9 +124,7 @@ public class TunnelingApp : ExternalApp
                 return false;
             }
 
-            resolvedAppPaths = Directory
-                .EnumerateFiles(searchRoot, fileNamePattern, SearchOption.AllDirectories)
-                .Where(path => IsPathMatch(path, directoryPattern, fileNamePattern))
+            resolvedAppPaths = ResolveAppPathPattern(searchRoot, relativeDirectoryPattern, fileNamePattern)
                 .Distinct(System.StringComparer.OrdinalIgnoreCase)
                 .OrderByDescending(File.GetLastWriteTimeUtc)
                 .ToList();
@@ -145,16 +143,40 @@ public class TunnelingApp : ExternalApp
         }
     }
 
-    private static bool IsPathMatch(string path, string directoryPattern, string fileNamePattern)
+    private static IEnumerable<string> ResolveAppPathPattern(string searchRoot, string relativeDirectoryPattern, string fileNamePattern)
     {
-        string directory = Path.GetDirectoryName(path) ?? string.Empty;
-        return MatchesWildcard(directory, directoryPattern)
-            && MatchesWildcard(Path.GetFileName(path), fileNamePattern);
+        string[] directorySegments = relativeDirectoryPattern.Split(DIRECTORY_SEPARATOR_CHAR, System.StringSplitOptions.RemoveEmptyEntries);
+        IEnumerable<string> directories = [searchRoot];
+
+        foreach (string directorySegment in directorySegments)
+        {
+            directories = directories.SelectMany(directory => EnumerateDirectoriesIgnoringErrors(directory, directorySegment));
+        }
+
+        return directories.SelectMany(directory => EnumerateFilesIgnoringErrors(directory, fileNamePattern));
     }
 
-    private static bool MatchesWildcard(string input, string pattern)
+    private static IEnumerable<string> EnumerateDirectoriesIgnoringErrors(string directory, string searchPattern)
     {
-        string regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
-        return System.Text.RegularExpressions.Regex.IsMatch(input, regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        try
+        {
+            return Directory.EnumerateDirectories(directory, searchPattern, SearchOption.TopDirectoryOnly).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static IEnumerable<string> EnumerateFilesIgnoringErrors(string directory, string searchPattern)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(directory, searchPattern, SearchOption.TopDirectoryOnly).ToList();
+        }
+        catch
+        {
+            return [];
+        }
     }
 }
