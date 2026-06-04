@@ -1,0 +1,128 @@
+name: Windows fast patch build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: What to build
+        type: choice
+        default: client
+        options:
+          - client
+          - service
+          - both
+      upload_full_bin:
+        description: Upload full src/bin output
+        type: boolean
+        default: false
+
+jobs:
+  patch:
+    name: Build patch artifact
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Go
+        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore client project
+        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64
+
+      - name: Restore service project
+        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        run: dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64
+
+      - name: Build client project
+        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal
+
+      - name: Build service project
+        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        run: dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal
+
+      - name: Create patch artifact folder
+        run: |
+          $sourceDir = Join-Path $env:GITHUB_WORKSPACE 'src\bin'
+          $patchDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts\ProtonVPN.Client.Patch'
+          New-Item -ItemType Directory -Force -Path $patchDir | Out-Null
+
+          function Copy-FirstMatch($name, [bool] $required = $true) {
+            $match = Get-ChildItem $sourceDir -Recurse -File -Filter $name | Sort-Object FullName | Select-Object -First 1
+            if ($null -eq $match) {
+              if ($required) { throw "Required patch file missing: $name" }
+              Write-Host "Optional patch file missing: $name"
+              return
+            }
+            Copy-Item $match.FullName $patchDir -Force
+            Write-Host "Copied $name from $($match.FullName)"
+          }
+
+          $clientFiles = @(
+            'ProtonVPN.Client.dll',
+            'ProtonVPN.Client.Core.dll',
+            'ProtonVPN.Client.Settings.dll',
+            'ProtonVPN.Client.Settings.Contracts.dll',
+            'ProtonVPN.Client.Logic.Updates.dll',
+            'ProtonVPN.Client.Logic.Updates.Contracts.dll',
+            'ProtonVPN.Update.Contracts.dll'
+          )
+
+          $serviceFiles = @('ProtonVPNService.dll')
+
+          if ('${{ inputs.build_mode }}' -in @('client', 'both')) {
+            foreach ($file in $clientFiles) { Copy-FirstMatch $file }
+            Copy-FirstMatch 'ProtonVPN.Client.pri' $false
+            Copy-FirstMatch 'resources.pri' $false
+            Get-ChildItem $sourceDir -Recurse -File -Include '*.xbf' | ForEach-Object {
+              $relativePath = [System.IO.Path]::GetRelativePath($sourceDir, $_.FullName)
+              $targetPath = Join-Path $patchDir $relativePath
+              New-Item -ItemType Directory -Force -Path (Split-Path $targetPath -Parent) | Out-Null
+              Copy-Item $_.FullName $targetPath -Force
+            }
+          }
+
+          if ('${{ inputs.build_mode }}' -in @('service', 'both')) {
+            foreach ($file in $serviceFiles) { Copy-FirstMatch $file }
+          }
+
+      - name: Upload patch artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-patch-${{ inputs.build_mode }}
+          path: artifacts/ProtonVPN.Client.Patch
+
+      - name: Upload full bin artifact
+        if: ${{ inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-bin
+          path: src/bin
