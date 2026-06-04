@@ -21,19 +21,18 @@ using ProtonVPN.Client.Logic.Connection.Contracts.Models;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Features;
 using ProtonVPN.Client.Logic.Servers.Contracts.Enums;
 using ProtonVPN.Client.Logic.Servers.Contracts.Extensions;
+using ProtonVPN.Client.Logic.Connection.Contracts.Enums;
+using ProtonVPN.Client.Logic.Profiles.Contracts.Models;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Client.Settings.Contracts.Enums;
 using ProtonVPN.Common.Core.Geographical;
 using ProtonVPN.Logging.Contracts;
+using ProtonVPN.Logging.Contracts.Events.StatisticsLogs;
 using ProtonVPN.OperatingSystems.Network.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.StatisticalEvents.Contracts;
 using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
 using ProtonVPN.StatisticalEvents.Contracts.Models;
-using ProtonVPN.Logging.Contracts.Events.StatisticsLogs;
-using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
-using ProtonVPN.Client.Logic.Connection.Contracts.Enums;
-using ProtonVPN.Client.Settings.Contracts.Observers;
-using ProtonVPN.Client.Settings.Contracts.Enums;
-using ProtonVPN.Client.Logic.Profiles.Contracts.Models;
 
 namespace ProtonVPN.Client.Logic.Connection.Statistics;
 
@@ -42,7 +41,6 @@ public class ConnectionStatisticalEventsManager : IConnectionStatisticalEventsMa
     private readonly IVpnConnectionReporter _vpnConnectionReporter;
     private readonly IVpnDisconnectionReporter _vpnDisconnectionReporter;
     private readonly ISystemNetworkInterfaces _networkInterfaces;
-    private readonly IFeatureFlagsObserver _featureFlagsObserver;
     private readonly ISettings _settings;
     private readonly ILogger _logger;
 
@@ -57,14 +55,12 @@ public class ConnectionStatisticalEventsManager : IConnectionStatisticalEventsMa
         IVpnConnectionReporter vpnConnectionReporter,
         IVpnDisconnectionReporter vpnDisconnectionReporter,
         ISystemNetworkInterfaces networkInterfaces,
-        IFeatureFlagsObserver featureFlagsObserver,
         ISettings settings,
         ILogger logger)
     {
         _vpnConnectionReporter = vpnConnectionReporter;
         _vpnDisconnectionReporter = vpnDisconnectionReporter;
         _networkInterfaces = networkInterfaces;
-        _featureFlagsObserver = featureFlagsObserver;
         _settings = settings;
         _logger = logger;
     }
@@ -235,7 +231,7 @@ public class ConnectionStatisticalEventsManager : IConnectionStatisticalEventsMa
             VpnCountry = _lastKnownConnectionDetails?.ExitCountryCode,
             Port = _lastKnownConnectionDetails?.Port ?? 0,
             VpnPlan = _settings.VpnPlan,
-            IsIpv6Enabled = _featureFlagsObserver.IsIpv6SupportEnabled && _settings.IsIpv6Enabled,
+            IsIpv6Enabled = _settings.IsIpv6Enabled,
             Server = new ServerDetailsEventData
             {
                 Name = _lastKnownConnectionDetails?.Server.Name,
