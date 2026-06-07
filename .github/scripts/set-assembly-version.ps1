@@ -29,7 +29,7 @@ $content = Get-Content -LiteralPath $AssemblyInfoPath -Raw
 
 $replacements = [ordered]@{
     '\[assembly:\s*AssemblyVersion\("[^"]+"\)\]' = "[assembly: AssemblyVersion(`"$assemblyVersion`")]"
-    '\[assembly:\s*AssemblyFileVersion\("[^"]+"\)\]' = "[assembly: AssemblyFileVersion(`"$assemblyVersion`")]"
+    '\[assembly:\s*AssemblyFileVersion\("[^"]+"\)\]' = "[assembly: AssemblyFileVersion(`"$fileVersion`")]"
     '\[assembly:\s*AssemblyInformationalVersion\("[^"]+"\)\]' = "[assembly: AssemblyInformationalVersion(`"$version`")]"
 }
 
