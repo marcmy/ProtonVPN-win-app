@@ -12,6 +12,18 @@ on:
         type: string
         required: false
         default: ''
+  push:
+    branches:
+      - marc/github-built-runtime-artifact
+    paths:
+      - .github/scripts/set-assembly-version.ps1
+      - .github/workflows/windows-full-runtime-build.yml
+      - Directory.Build.props
+      - Directory.Build.targets
+      - Directory.Packages.props
+      - NuGet.config
+      - global.json
+      - src/**
 
 permissions:
   contents: read
