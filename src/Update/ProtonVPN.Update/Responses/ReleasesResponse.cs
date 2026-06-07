@@ -24,4 +24,5 @@ namespace ProtonVPN.Update.Responses;
 public class ReleasesResponse
 {
     public IReadOnlyList<ReleaseResponse> Releases { get; set; }
+    public IReadOnlyList<CategoryResponse> Categories { get; set; }
 }

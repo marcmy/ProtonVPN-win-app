@@ -82,7 +82,8 @@ public class WebReleaseStorage : IReleaseStorage
     public async Task<IEnumerable<Release>> GetReleasesAsync()
     {
         Uri feedUrl = _config.FeedUriProvider.GetFeedUrl();
-        IEnumerable<ReleaseResponse> releases = (await GetAsync(feedUrl)).Releases.Where(ReleaseFilter);
+        ReleasesResponse response = await GetAsync(feedUrl);
+        IEnumerable<ReleaseResponse> releases = GetReleases(response).Where(ReleaseFilter);
         return new Releases.Releases(_logger, releases, _config.CurrentVersion, _config.EarlyAccessCategoryName);
     }
 
@@ -147,5 +148,23 @@ public class WebReleaseStorage : IReleaseStorage
         using JsonTextReader jsonTextReader = new(streamReader);
         T result = _jsonSerializer.Deserialize<T>(jsonTextReader);
         return result == null ? throw new JsonException() : result;
+    }
+
+    private static IEnumerable<ReleaseResponse> GetReleases(ReleasesResponse response)
+    {
+        if (response.Releases is { Count: > 0 })
+        {
+            return response.Releases;
+        }
+        if (response.Categories is { Count: > 0 })
+        {
+            return response.Categories.SelectMany(c => c.Releases ?? []);
+        }
+        return [];
+    }
+
+    if (message.State?.ReleaseHistory.Count > 0)
+    {
+        Releases.Reset(_releaseViewModelFactory.GetReleases(message.State.ReleaseHistory));
     }
 }
