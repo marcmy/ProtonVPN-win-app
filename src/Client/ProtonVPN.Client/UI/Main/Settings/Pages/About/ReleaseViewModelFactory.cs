@@ -19,12 +19,15 @@
 
 using ProtonVPN.Client.Localization.Contracts;
 using ProtonVPN.Client.UI.Settings.Pages.About.Models;
+using ProtonVPN.Common.Core.Helpers;
 using ProtonVPN.Update.Contracts;
 
 namespace ProtonVPN.Client.UI.Main.Settings.Pages.About;
 
 public class ReleaseViewModelFactory
 {
+    private const string FORK_CHANGELOG_ENTRY = "Marcmy split-tunnel patch: split tunneling can match apps by executable name/pattern so Store-packaged apps and renamed app paths can keep working.";
+
     private readonly ILocalizationProvider _localizer;
 
     public ReleaseViewModelFactory(ILocalizationProvider localizer)
@@ -34,13 +37,24 @@ public class ReleaseViewModelFactory
 
     public IReadOnlyList<Release> GetReleases(IReadOnlyList<ReleaseContract> releases)
     {
-        return releases.Select(r => new Release
+        List<Release> releaseViewModels = releases.Select(r => new Release
         {
-            Version = r.Version,
+            Version = r.Version.ToString(),
             NewVersionLabel = r.IsNew ? _localizer.Get("Common_Tags_New") : string.Empty,
             BetaVersionLabel = r.IsEarlyAccess ? _localizer.Get("Common_Tags_Beta") : string.Empty,
             ReleaseDate = r.ReleaseDate,
             ChangeLog = r.ChangeLog,
         }).ToList();
+
+        releaseViewModels.Insert(0, new Release
+        {
+            Version = AssemblyVersion.Get(),
+            NewVersionLabel = string.Empty,
+            BetaVersionLabel = string.Empty,
+            ReleaseDate = null,
+            ChangeLog = new[] { FORK_CHANGELOG_ENTRY },
+        });
+
+        return releaseViewModels;
     }
 }
