@@ -37,7 +37,7 @@ public class ReleaseViewModelFactory
 
     public IReadOnlyList<Release> GetReleases(IReadOnlyList<ReleaseContract> releases)
     {
-        List<Release> releaseViewModels = releases.Select(r => new Release
+        List<Release> releaseViewModels = (releases ?? []).Select(r => new Release
         {
             Version = r.Version.ToString(),
             NewVersionLabel = r.IsNew ? _localizer.Get("Common_Tags_New") : string.Empty,

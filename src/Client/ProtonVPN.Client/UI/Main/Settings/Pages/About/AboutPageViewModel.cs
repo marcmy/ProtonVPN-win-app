@@ -105,6 +105,8 @@ public partial class AboutPageViewModel : SettingsPageViewModelBase,
     {
         base.OnNavigatedTo(parameter, isBackNavigation);
 
+        Releases.Reset(_releaseViewModelFactory.GetReleases([]));
+
         StartCheckingForUpdate();
     }
 
