@@ -6,6 +6,7 @@ on:
       build_mode:
         description: What to build
         type: choice
+        required: true
         default: client
         options:
           - client
@@ -14,11 +15,15 @@ on:
       upload_full_bin:
         description: Upload full src/bin output
         type: boolean
+        required: true
         default: false
+
+permissions:
+  contents: read
 
 jobs:
   patch:
-    name: Build patch artifact
+    name: Build ${{ inputs.build_mode }} patch artifact
     runs-on: windows-latest
 
     defaults:
@@ -29,4 +34,357 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          sub
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Go
+        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Prepare artifact folders
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/ProtonVPN.Client.Patch | Out-Null
+
+      - name: Clean previous build output
+        run: |
+          Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Restore client project
+        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64 -bl:artifacts/logs/client-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/client-restore.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Client restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Restore service project
+        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64 -bl:artifacts/logs/service-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/service-restore.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Service restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Build client project
+        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/client-build.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/client-build.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Client build failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Stage client patch build output
+        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $clientOutputDir = Join-Path $env:GITHUB_WORKSPACE 'src/bin'
+          $stageDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/client-build-output'
+
+          if (-not (Test-Path -LiteralPath (Join-Path $clientOutputDir 'ProtonVPN.Client.dll') -PathType Leaf)) {
+            throw "Client build output missing ProtonVPN.Client.dll in $clientOutputDir"
+          }
+
+          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
+
+          function Copy-ToStageRoot {
+            param(
+              [Parameter(Mandatory)] [string] $SourcePath
+            )
+
+            $targetPath = Join-Path $stageDir ([System.IO.Path]::GetFileName($SourcePath))
+            Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
+            Write-Host "Staged $SourcePath -> $targetPath"
+          }
+
+          function Copy-RelativeClientFileToStage {
+            param(
+              [Parameter(Mandatory)] [string] $RelativePath
+            )
+
+            $sourcePath = Join-Path $clientOutputDir $RelativePath
+            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+              throw "Required client patch file missing: $RelativePath"
+            }
+
+            $targetPath = Join-Path $stageDir $RelativePath
+            $targetParent = Split-Path -Path $targetPath -Parent
+            New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
+            Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
+            Write-Host "Staged $RelativePath"
+          }
+
+          $clientDlls = @(
+            Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
+              Where-Object {
+                $_.Name -ne 'ProtonVPNService.dll' -and
+                  $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
+                  $_.Name -notlike 'ProtonVPN.Tests*.dll'
+              } |
+              Sort-Object Name
+          )
+
+          if ($clientDlls.Count -eq 0) {
+            throw "No first-party ProtonVPN*.dll files found in $clientOutputDir"
+          }
+
+          foreach ($dll in $clientDlls) {
+            Copy-ToStageRoot $dll.FullName
+          }
+
+          Copy-RelativeClientFileToStage 'ProtonVPN.Client.pri'
+          Copy-RelativeClientFileToStage 'App.xbf'
+          Copy-RelativeClientFileToStage 'MainWindow.xbf'
+
+          $uiDir = Join-Path $clientOutputDir 'UI'
+          if (-not (Test-Path -LiteralPath $uiDir -PathType Container)) {
+            throw "Client UI resource directory missing: $uiDir"
+          }
+
+          $uiXbfFiles = @(Get-ChildItem -LiteralPath $uiDir -Recurse -File -Filter '*.xbf' | Sort-Object FullName)
+          if ($uiXbfFiles.Count -eq 0) {
+            throw "No UI/**/*.xbf resources found in $uiDir"
+          }
+
+          foreach ($xbf in $uiXbfFiles) {
+            $relativePath = [System.IO.Path]::GetRelativePath($clientOutputDir, $xbf.FullName)
+            Copy-RelativeClientFileToStage $relativePath
+          }
+
+          Write-Host "Staged $($clientDlls.Count) client DLLs and $($uiXbfFiles.Count) UI XBF resources"
+
+      - name: Build service project
+        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/service-build.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/service-build.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Service build failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Create patch artifact folder
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $buildMode = '${{ inputs.build_mode }}'
+          $binDir = Join-Path $env:GITHUB_WORKSPACE 'src/bin'
+          $clientOutputDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/client-build-output'
+          $patchDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ProtonVPN.Client.Patch'
+
+          if (-not (Test-Path -LiteralPath $binDir -PathType Container)) {
+            throw "Build output directory missing: $binDir"
+          }
+
+          Remove-Item -LiteralPath $patchDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $patchDir | Out-Null
+
+          function Copy-ToPatchRoot {
+            param(
+              [Parameter(Mandatory)] [string] $SourcePath
+            )
+
+            if (-not (Test-Path -LiteralPath $SourcePath -PathType Leaf)) {
+              throw "Required patch file missing: $SourcePath"
+            }
+
+            $targetPath = Join-Path $patchDir ([System.IO.Path]::GetFileName($SourcePath))
+            Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
+            Write-Host "Copied $SourcePath -> $targetPath"
+          }
+
+          function Copy-RelativeClientFile {
+            param(
+              [Parameter(Mandatory)] [string] $RelativePath
+            )
+
+            $sourcePath = Join-Path $clientOutputDir $RelativePath
+            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+              throw "Required client patch file missing: $RelativePath"
+            }
+
+            $targetPath = Join-Path $patchDir $RelativePath
+            $targetParent = Split-Path -Path $targetPath -Parent
+            New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
+            Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
+            Write-Host "Copied $RelativePath"
+          }
+
+          if ($buildMode -in @('client', 'both')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $clientOutputDir 'ProtonVPN.Client.dll') -PathType Leaf)) {
+              throw "Staged client patch output missing ProtonVPN.Client.dll in $clientOutputDir"
+            }
+
+            $clientDlls = @(
+              Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
+                Where-Object {
+                  $_.Name -ne 'ProtonVPNService.dll' -and
+                    $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
+                    $_.Name -notlike 'ProtonVPN.Tests*.dll'
+                } |
+                Sort-Object Name
+            )
+
+            if ($clientDlls.Count -eq 0) {
+              throw "No first-party ProtonVPN*.dll files found in $clientOutputDir"
+            }
+
+            foreach ($dll in $clientDlls) {
+              Copy-ToPatchRoot $dll.FullName
+            }
+
+            Copy-RelativeClientFile 'ProtonVPN.Client.pri'
+            Copy-RelativeClientFile 'App.xbf'
+            Copy-RelativeClientFile 'MainWindow.xbf'
+
+            $uiDir = Join-Path $clientOutputDir 'UI'
+            if (-not (Test-Path -LiteralPath $uiDir -PathType Container)) {
+              throw "Client UI resource directory missing: $uiDir"
+            }
+
+            $uiXbfFiles = @(Get-ChildItem -LiteralPath $uiDir -Recurse -File -Filter '*.xbf' | Sort-Object FullName)
+            if ($uiXbfFiles.Count -eq 0) {
+              throw "No UI/**/*.xbf resources found in $uiDir"
+            }
+
+            foreach ($xbf in $uiXbfFiles) {
+              $relativePath = [System.IO.Path]::GetRelativePath($clientOutputDir, $xbf.FullName)
+              Copy-RelativeClientFile $relativePath
+            }
+          }
+
+          if ($buildMode -in @('service', 'both')) {
+            $serviceCandidates = @(
+              (Join-Path $binDir 'win-x64/ProtonVPNService.dll'),
+              (Join-Path $binDir 'ProtonVPNService.dll')
+            )
+
+            $servicePath = $serviceCandidates |
+              Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+              Select-Object -First 1
+
+            if ($null -eq $servicePath) {
+              throw "Service build output missing ProtonVPNService.dll"
+            }
+
+            Copy-ToPatchRoot $servicePath
+          }
+
+          $patchFiles = @(Get-ChildItem -LiteralPath $patchDir -Recurse -File)
+          if ($patchFiles.Count -eq 0) {
+            throw "Patch artifact is empty"
+          }
+
+          $forbiddenExactNames = @(
+            'ProtonVPN.Client.exe',
+            'ProtonVPN.Client.deps.json',
+            'ProtonVPN.Client.runtimeconfig.json',
+            'ProtonVPNService.exe',
+            'ProtonVPNService.deps.json',
+            'ProtonVPNService.runtimeconfig.json',
+            'hostfxr.dll',
+            'hostpolicy.dll',
+            'coreclr.dll'
+          )
+
+          $forbiddenFiles = @(
+            $patchFiles | Where-Object {
+              $forbiddenExactNames -contains $_.Name -or
+                $_.Name -like 'System*.dll' -or
+                $_.Name -like 'Microsoft*.dll' -or
+                $_.Name -like 'ProtonVPN.*Tests*.dll' -or
+                $_.Name -like 'ProtonVPN.Tests*.dll'
+            }
+          )
+
+          if ($forbiddenFiles.Count -gt 0) {
+            $names = ($forbiddenFiles | ForEach-Object { [System.IO.Path]::GetRelativePath($patchDir, $_.FullName) }) -join ', '
+            throw "Patch artifact contains forbidden install-unsafe files: $names"
+          }
+
+          $unexpectedFiles = @(
+            $patchFiles | Where-Object {
+              $relativePath = [System.IO.Path]::GetRelativePath($patchDir, $_.FullName)
+              $isFirstPartyDll = $_.Name -like 'ProtonVPN*.dll'
+              $isClientPri = $relativePath -eq 'ProtonVPN.Client.pri'
+              $isRootXbf = $relativePath -in @('App.xbf', 'MainWindow.xbf')
+              $isUiXbf = $relativePath -like 'UI/*.xbf' -or $relativePath -like 'UI\*.xbf'
+
+              -not ($isFirstPartyDll -or $isClientPri -or $isRootXbf -or $isUiXbf)
+            }
+          )
+
+          if ($unexpectedFiles.Count -gt 0) {
+            $names = ($unexpectedFiles | ForEach-Object { [System.IO.Path]::GetRelativePath($patchDir, $_.FullName) }) -join ', '
+            throw "Patch artifact contains unexpected files: $names"
+          }
+
+          Write-Host "Patch artifact file count: $($patchFiles.Count)"
+
+      - name: Upload patch artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-patch-${{ inputs.build_mode }}
+          path: artifacts/ProtonVPN.Client.Patch
+          if-no-files-found: error
+
+      - name: Upload full bin artifact
+        if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-bin-${{ inputs.build_mode }}
+          path: src/bin
+          if-no-files-found: error
+
+      - name: Upload build logs
+        if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-client-patch-logs-${{ inputs.build_mode }}
+          path: artifacts/logs
+          if-no-files-found: ignore
