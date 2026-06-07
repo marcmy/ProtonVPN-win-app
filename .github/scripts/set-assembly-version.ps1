@@ -42,4 +42,4 @@ foreach ($replacement in $replacements.GetEnumerator()) {
 }
 
 Set-Content -LiteralPath $AssemblyInfoPath -Value $content -NoNewline
-Write-Host "Set $AssemblyInfoPath assembly version metadata to $version ($assemblyVersion)."
+Write-Host "Set $AssemblyInfoPath version metadata: AssemblyVersion=$assemblyVersion; AssemblyFileVersion=$fileVersion; AssemblyInformationalVersion=$version."
