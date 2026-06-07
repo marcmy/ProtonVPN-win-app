@@ -35,10 +35,10 @@ public class RequiredReconnectionSettings : IRequiredReconnectionSettings
         {
             {nameof(ISettings.IsSplitTunnelingEnabled), () => true},
             {nameof(ISettings.SplitTunnelingMode), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingStandardAppsList), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingInverseAppsList), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => settings.IsSplitTunnelingEnabled},
+            {nameof(ISettings.SplitTunnelingStandardAppsList), () => false},
+            {nameof(ISettings.SplitTunnelingInverseAppsList), () => false},
+            {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => false},
+            {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => false},
 
             {nameof(ISettings.VpnProtocol), () => true},
             {nameof(ISettings.OpenVpnAdapter), () => true},

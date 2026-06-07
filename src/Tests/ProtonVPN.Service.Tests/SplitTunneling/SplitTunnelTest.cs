@@ -18,6 +18,7 @@
  */
 
 using System;
+using System.Linq;
 using System.Net;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
@@ -296,6 +297,38 @@ public class SplitTunnelTest
 
         // Act
         splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true));
+    }
+
+    [TestMethod]
+    public void OnServiceSettingsChanged_WhenConnectedInBlockMode_ReappliesSplitTunnelSettings()
+    {
+        // Arrange
+        string[] initialApps = ["initial-app.exe"];
+        string[] updatedApps = ["updated-app.exe"];
+        SplitTunnelSettingsIpcEntity splitTunnelSettings = new()
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = initialApps,
+            Ips = [],
+        };
+        _serviceSettings.SplitTunnelSettings.Returns(_ => splitTunnelSettings);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        // Act
+        splitTunnelSettings = new()
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = updatedApps,
+            Ips = [],
+        };
+        ((IServiceSettingsAware)splitTunnel).OnServiceSettingsChanged(new MainSettingsIpcEntity());
+
+        // Assert
+        _splitTunnelClient.Received(1).EnableExcludeMode(
+            Arg.Is<string[]>(paths => paths.SequenceEqual(updatedApps)),
+            Arg.Any<IPAddress>(),
+            Arg.Any<IPAddress>());
     }
 
     private SplitTunnel GetSplitTunnel(bool enabled = false, bool reverseEnabled = false)

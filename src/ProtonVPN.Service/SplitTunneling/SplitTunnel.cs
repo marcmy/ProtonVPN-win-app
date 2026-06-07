@@ -25,6 +25,7 @@ using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.NetworkFilter;
 using ProtonVPN.OperatingSystems.Network.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.Settings;
@@ -34,10 +35,11 @@ using Action = ProtonVPN.NetworkFilter.Action;
 
 namespace ProtonVPN.Service.SplitTunneling;
 
-public class SplitTunnel : IVpnStateAware
+public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
 {
     private bool _reverseEnabled;
     private bool _enabled;
+    private VpnState _lastVpnState = new(VpnStatus.Disconnected, default);
 
     private readonly INetworkUtilities _networkUtilities;
     private readonly ISystemNetworkInterfaces _networkInterfaces;
@@ -89,6 +91,7 @@ public class SplitTunnel : IVpnStateAware
 
     public void OnVpnConnecting(VpnState vpnState)
     {
+        _lastVpnState = vpnState;
         DisableReversed();
         Disable();
 
@@ -106,36 +109,55 @@ public class SplitTunnel : IVpnStateAware
 
     public void OnVpnConnected(VpnState state)
     {
-        if (_serviceSettings.SplitTunnelSettings.Mode == SplitTunnelModeIpcEntity.Disabled)
-        {
-            return;
-        }
-
-        switch (_serviceSettings.SplitTunnelSettings.Mode)
-        {
-            case SplitTunnelModeIpcEntity.Block:
-                DisableReversed();
-                Enable();
-                break;
-            case SplitTunnelModeIpcEntity.Permit:
-                _appFilter.RemoveAll();
-                Disable();
-                EnableReversed(state);
-                break;
-        }
+        _lastVpnState = state;
+        ApplySplitTunnelSettings(state);
     }
 
     public void OnVpnDisconnected(VpnState state)
     {
+        _lastVpnState = state;
         if (state.Error == VpnError.None)
         {
             DisableSplitTunnel();
             _appFilter.RemoveAll();
+            _permittedRemoteAddress.RemoveAll();
         }
     }
 
     public void AssigningIp(VpnState state)
     {
+        _lastVpnState = state;
+    }
+
+    public void OnServiceSettingsChanged(MainSettingsIpcEntity settings)
+    {
+        if (_lastVpnState.Status == VpnStatus.Connected)
+        {
+            ApplySplitTunnelSettings(_lastVpnState);
+        }
+    }
+
+    private void ApplySplitTunnelSettings(VpnState state)
+    {
+        switch (_serviceSettings.SplitTunnelSettings.Mode)
+        {
+            case SplitTunnelModeIpcEntity.Disabled:
+                DisableSplitTunnel();
+                _appFilter.RemoveAll();
+                _permittedRemoteAddress.RemoveAll();
+                break;
+            case SplitTunnelModeIpcEntity.Block:
+                DisableReversed();
+                Disable();
+                Enable();
+                break;
+            case SplitTunnelModeIpcEntity.Permit:
+                _appFilter.RemoveAll();
+                _permittedRemoteAddress.RemoveAll();
+                Disable();
+                EnableReversed(state);
+                break;
+        }
     }
 
     private void DisableSplitTunnel()

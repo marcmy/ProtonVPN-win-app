@@ -49,6 +49,10 @@ public class ServiceSettingChangeHandler : IHandler, IEventMessageReceiver<Setti
             {nameof(ISettings.IsShareCrashReportsEnabled), () => true},
             {nameof(ISettings.IsLocalAreaNetworkAccessEnabled), () => true},
             {nameof(ISettings.IsIpv6Enabled), () => true},
+            {nameof(ISettings.SplitTunnelingStandardAppsList), () => true},
+            {nameof(ISettings.SplitTunnelingInverseAppsList), () => true},
+            {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => true},
+            {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => true},
         };
     }
 
