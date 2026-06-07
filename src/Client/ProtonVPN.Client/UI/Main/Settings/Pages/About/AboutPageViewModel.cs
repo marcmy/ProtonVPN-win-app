@@ -93,7 +93,7 @@ public partial class AboutPageViewModel : SettingsPageViewModelBase,
     {
         LatestAppUpdateStatus = message.State?.Status ?? AppUpdateStatus.None;
 
-        if (message.State?.ReleaseHistory.Count > 0)
+        if (message.State is not null)
         {
             Releases.Reset(_releaseViewModelFactory.GetReleases(message.State.ReleaseHistory));
         }

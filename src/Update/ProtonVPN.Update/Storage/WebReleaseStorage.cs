@@ -162,9 +162,4 @@ public class WebReleaseStorage : IReleaseStorage
         }
         return [];
     }
-
-    if (message.State?.ReleaseHistory.Count > 0)
-    {
-        Releases.Reset(_releaseViewModelFactory.GetReleases(message.State.ReleaseHistory));
-    }
 }
