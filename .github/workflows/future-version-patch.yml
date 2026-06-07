@@ -1,17 +1,29 @@
-name: Windows fast patch build
+name: Future version patch automation
 
 on:
   workflow_dispatch:
     inputs:
-      build_mode:
-        description: What to build
-        type: choice
+      base_branch:
+        description: Branch to use as the unpatched base
         required: true
-        default: client
-        options:
-          - client
-          - service
-          - both
+        default: master
+      source_patch_branch:
+        description: Branch containing the split-tunnel patch, and optionally updater-skip hunks
+        required: true
+        default: marc/updater-skip-and-patch-automation
+      target_branch:
+        description: New branch to create for the patched version
+        required: true
+      include_updater_skip:
+        description: Also port updater/beta skip behavior from source_patch_branch
+        type: boolean
+        required: true
+        default: false
+      force_reset_target:
+        description: Reset target_branch from base_branch if it already exists
+        type: boolean
+        required: true
+        default: false
       upload_full_bin:
         description: Upload full src/bin output
         type: boolean
@@ -19,11 +31,11 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  patch:
-    name: Build ${{ inputs.build_mode }} patch artifact
+  patch-build:
+    name: Patch future branch and build install-safe artifact
     runs-on: windows-latest
 
     defaults:
@@ -31,9 +43,10 @@ jobs:
         shell: pwsh
 
     steps:
-      - name: Checkout repository
+      - name: Checkout automation branch
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
 
       - name: Setup .NET
@@ -42,7 +55,6 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Setup Go
-        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
         uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
@@ -58,6 +70,26 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
+      - name: Apply requested patch hunks
+        id: apply_patch
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $includeUpdaterSkip = [System.Convert]::ToBoolean('${{ inputs.include_updater_skip }}')
+          $forceResetTarget = [System.Convert]::ToBoolean('${{ inputs.force_reset_target }}')
+
+          .\.github\scripts\apply-future-version-patch.ps1 `
+            -BaseBranch '${{ inputs.base_branch }}' `
+            -SourcePatchBranch '${{ inputs.source_patch_branch }}' `
+            -TargetBranch '${{ inputs.target_branch }}' `
+            -IncludeUpdaterSkip:$includeUpdaterSkip `
+            -ForceResetTarget:$forceResetTarget
+
+      - name: Update submodules for patched branch
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
       - name: Prepare artifact folders
         run: |
           New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
@@ -68,7 +100,6 @@ jobs:
           Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Restore client project
-        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -83,7 +114,6 @@ jobs:
           }
 
       - name: Restore service project
-        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -98,7 +128,6 @@ jobs:
           }
 
       - name: Build client project
-        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -113,7 +142,6 @@ jobs:
           }
 
       - name: Stage client patch build output
-        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -194,7 +222,6 @@ jobs:
           Write-Host "Staged $($clientDlls.Count) client DLLs and $($uiXbfFiles.Count) UI XBF resources"
 
       - name: Build service project
-        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -212,7 +239,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $buildMode = '${{ inputs.build_mode }}'
           $binDir = Join-Path $env:GITHUB_WORKSPACE 'src/bin'
           $clientOutputDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/client-build-output'
           $patchDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ProtonVPN.Client.Patch'
@@ -255,65 +281,61 @@ jobs:
             Write-Host "Copied $RelativePath"
           }
 
-          if ($buildMode -in @('client', 'both')) {
-            if (-not (Test-Path -LiteralPath (Join-Path $clientOutputDir 'ProtonVPN.Client.dll') -PathType Leaf)) {
-              throw "Staged client patch output missing ProtonVPN.Client.dll in $clientOutputDir"
-            }
-
-            $clientDlls = @(
-              Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
-                Where-Object {
-                  $_.Name -ne 'ProtonVPNService.dll' -and
-                    $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
-                    $_.Name -notlike 'ProtonVPN.Tests*.dll'
-                } |
-                Sort-Object Name
-            )
-
-            if ($clientDlls.Count -eq 0) {
-              throw "No first-party ProtonVPN*.dll files found in $clientOutputDir"
-            }
-
-            foreach ($dll in $clientDlls) {
-              Copy-ToPatchRoot $dll.FullName
-            }
-
-            Copy-RelativeClientFile 'ProtonVPN.Client.pri'
-            Copy-RelativeClientFile 'App.xbf'
-            Copy-RelativeClientFile 'MainWindow.xbf'
-
-            $uiDir = Join-Path $clientOutputDir 'UI'
-            if (-not (Test-Path -LiteralPath $uiDir -PathType Container)) {
-              throw "Client UI resource directory missing: $uiDir"
-            }
-
-            $uiXbfFiles = @(Get-ChildItem -LiteralPath $uiDir -Recurse -File -Filter '*.xbf' | Sort-Object FullName)
-            if ($uiXbfFiles.Count -eq 0) {
-              throw "No UI/**/*.xbf resources found in $uiDir"
-            }
-
-            foreach ($xbf in $uiXbfFiles) {
-              $relativePath = [System.IO.Path]::GetRelativePath($clientOutputDir, $xbf.FullName)
-              Copy-RelativeClientFile $relativePath
-            }
+          if (-not (Test-Path -LiteralPath (Join-Path $clientOutputDir 'ProtonVPN.Client.dll') -PathType Leaf)) {
+            throw "Staged client patch output missing ProtonVPN.Client.dll in $clientOutputDir"
           }
 
-          if ($buildMode -in @('service', 'both')) {
-            $serviceCandidates = @(
-              (Join-Path $binDir 'win-x64/ProtonVPNService.dll'),
-              (Join-Path $binDir 'ProtonVPNService.dll')
-            )
+          $clientDlls = @(
+            Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
+              Where-Object {
+                $_.Name -ne 'ProtonVPNService.dll' -and
+                  $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
+                  $_.Name -notlike 'ProtonVPN.Tests*.dll'
+              } |
+              Sort-Object Name
+          )
 
-            $servicePath = $serviceCandidates |
-              Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-              Select-Object -First 1
-
-            if ($null -eq $servicePath) {
-              throw "Service build output missing ProtonVPNService.dll"
-            }
-
-            Copy-ToPatchRoot $servicePath
+          if ($clientDlls.Count -eq 0) {
+            throw "No first-party ProtonVPN*.dll files found in $clientOutputDir"
           }
+
+          foreach ($dll in $clientDlls) {
+            Copy-ToPatchRoot $dll.FullName
+          }
+
+          Copy-RelativeClientFile 'ProtonVPN.Client.pri'
+          Copy-RelativeClientFile 'App.xbf'
+          Copy-RelativeClientFile 'MainWindow.xbf'
+
+          $uiDir = Join-Path $clientOutputDir 'UI'
+          if (-not (Test-Path -LiteralPath $uiDir -PathType Container)) {
+            throw "Client UI resource directory missing: $uiDir"
+          }
+
+          $uiXbfFiles = @(Get-ChildItem -LiteralPath $uiDir -Recurse -File -Filter '*.xbf' | Sort-Object FullName)
+          if ($uiXbfFiles.Count -eq 0) {
+            throw "No UI/**/*.xbf resources found in $uiDir"
+          }
+
+          foreach ($xbf in $uiXbfFiles) {
+            $relativePath = [System.IO.Path]::GetRelativePath($clientOutputDir, $xbf.FullName)
+            Copy-RelativeClientFile $relativePath
+          }
+
+          $serviceCandidates = @(
+            (Join-Path $binDir 'win-x64/ProtonVPNService.dll'),
+            (Join-Path $binDir 'ProtonVPNService.dll')
+          )
+
+          $servicePath = $serviceCandidates |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+            Select-Object -First 1
+
+          if ($null -eq $servicePath) {
+            throw "Service build output missing ProtonVPNService.dll"
+          }
+
+          Copy-ToPatchRoot $servicePath
 
           $patchFiles = @(Get-ChildItem -LiteralPath $patchDir -Recurse -File)
           if ($patchFiles.Count -eq 0) {
@@ -366,10 +388,24 @@ jobs:
 
           Write-Host "Patch artifact file count: $($patchFiles.Count)"
 
+      - name: Push patched target branch
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $targetBranch = '${{ steps.apply_patch.outputs.target_branch }}'
+          $targetExists = [System.Convert]::ToBoolean('${{ steps.apply_patch.outputs.target_exists }}')
+          $forceResetTarget = [System.Convert]::ToBoolean('${{ inputs.force_reset_target }}')
+
+          if ($targetExists -and $forceResetTarget) {
+            git push --force-with-lease origin "HEAD:refs/heads/$targetBranch"
+          }
+          else {
+            git push origin "HEAD:refs/heads/$targetBranch"
+          }
+
       - name: Upload patch artifact
         uses: actions/upload-artifact@v4
         with:
-          name: protonvpn-client-patch-${{ inputs.build_mode }}
+          name: protonvpn-client-patch-both-${{ steps.apply_patch.outputs.target_slug }}
           path: artifacts/ProtonVPN.Client.Patch
           if-no-files-found: error
 
@@ -377,7 +413,7 @@ jobs:
         if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: protonvpn-client-bin-${{ inputs.build_mode }}
+          name: protonvpn-client-bin-both-${{ steps.apply_patch.outputs.target_slug }}
           path: src/bin
           if-no-files-found: error
 
@@ -385,6 +421,6 @@ jobs:
         if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: protonvpn-client-patch-logs-${{ inputs.build_mode }}
+          name: protonvpn-client-patch-logs-both-${{ steps.apply_patch.outputs.target_slug }}
           path: artifacts/logs
           if-no-files-found: ignore
