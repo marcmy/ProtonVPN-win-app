@@ -152,14 +152,16 @@ public class WebReleaseStorage : IReleaseStorage
 
     private static IEnumerable<ReleaseResponse> GetReleases(ReleasesResponse response)
     {
-        if (response.Releases is { Count: > 0 })
+        if (response?.Releases is { Count: > 0 })
         {
             return response.Releases;
         }
-        if (response.Categories is { Count: > 0 })
+
+        if (response?.Categories is { Count: > 0 })
         {
             return response.Categories.SelectMany(c => c.Releases ?? []);
         }
+
         return [];
     }
 }
