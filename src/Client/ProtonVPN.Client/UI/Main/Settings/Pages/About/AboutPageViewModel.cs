@@ -81,7 +81,7 @@ public partial class AboutPageViewModel : SettingsPageViewModelBase,
         _updatesManager = updatesManager;
         _releaseViewModelFactory = releaseViewModelFactory;
 
-        ClientVersion = AssemblyVersion.Get();
+        ClientVersion = AssemblyVersion.GetDisplayVersion();
     }
 
     public void Receive(ClientUpdateStateChangedMessage message)
