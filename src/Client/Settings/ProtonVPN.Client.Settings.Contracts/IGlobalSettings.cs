@@ -49,6 +49,7 @@ public interface IGlobalSettings
     bool IsKillSwitchEnabled { get; set; }
     bool IsBetaAccessEnabled { get; set; }
     bool AreAutomaticUpdatesEnabled { get; set; }
+    string? SkippedUpdateVersion { get; set; }
     bool IsGlobalSettingsMigrationDone { get; set; }
     KillSwitchMode KillSwitchMode { get; set; }
     List<FeatureFlag> FeatureFlags { get; set; }

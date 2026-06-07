@@ -71,7 +71,14 @@ public class UpdatesManager : PollingObserverBase, IUpdatesManager,
 
     public bool IsAutoUpdateInProgress { get; private set; }
 
-    public bool IsUpdateAvailable => _lastUpdateState?.IsReady == true && (!_settings.AreAutomaticUpdatesEnabled || IsAutoUpdated);
+    public bool IsUpdateAvailable => _lastUpdateState?.IsReady == true
+        && !ShouldSuppressUpdate(_lastUpdateState)
+        && (!_settings.AreAutomaticUpdatesEnabled || IsAutoUpdated || IsBetaUpdate(_lastUpdateState));
+
+    public bool CanSkipCurrentUpdate => _lastUpdateState?.IsReady == true
+        && !IsAutoUpdated
+        && !IsAutoUpdateInProgress
+        && !ShouldSuppressUpdate(_lastUpdateState);
 
     public UpdatesManager(
         ILogger logger,
@@ -123,6 +130,11 @@ public class UpdatesManager : PollingObserverBase, IUpdatesManager,
     {
         if (message.PropertyName == nameof(ISettings.IsBetaAccessEnabled))
         {
+            if (!_settings.IsBetaAccessEnabled && _lastUpdateState?.IsReady == true && IsBetaUpdate(_lastUpdateState))
+            {
+                SkipUpdate(_lastUpdateState);
+            }
+
             SendClientUpdateStateChangeMessage(new ClientUpdateStateChangedMessage());
             CheckForUpdate(true);
         }
@@ -141,7 +153,16 @@ public class UpdatesManager : PollingObserverBase, IUpdatesManager,
     public void Receive(UpdateStateIpcEntity message)
     {
         AppUpdateStateContract state = _entityMapper.Map<UpdateStateIpcEntity, AppUpdateStateContract>(message);
-        if (state.IsReady && _settings.AreAutomaticUpdatesEnabled && state.Status == AppUpdateStatus.Ready)
+
+        if (state.IsReady && ShouldSuppressUpdate(state))
+        {
+            IsAutoUpdated = false;
+            IsAutoUpdateInProgress = false;
+            OnUpdateStateChanged(state);
+            return;
+        }
+
+        if (state.IsReady && _settings.AreAutomaticUpdatesEnabled && state.Status == AppUpdateStatus.Ready && !IsBetaUpdate(state))
         {
             IsAutoUpdateInProgress = true;
             SendClientUpdateStateChangeMessage(new ClientUpdateStateChangedMessage());
@@ -200,7 +221,7 @@ public class UpdatesManager : PollingObserverBase, IUpdatesManager,
 
     public async Task UpdateAsync(bool isToOpenOnDesktop)
     {
-        if (_lastUpdateState == null)
+        if (_lastUpdateState == null || ShouldSuppressUpdate(_lastUpdateState))
         {
             return;
         }
@@ -214,6 +235,54 @@ public class UpdatesManager : PollingObserverBase, IUpdatesManager,
         {
             await UpdateManuallyAsync(isToOpenOnDesktop);
         }
+    }
+
+    public void SkipCurrentUpdate()
+    {
+        if (_lastUpdateState?.IsReady != true)
+        {
+            return;
+        }
+
+        SkipUpdate(_lastUpdateState);
+        SendClientUpdateStateChangeMessage(new ClientUpdateStateChangedMessage
+        {
+            State = _lastUpdateState
+        });
+    }
+
+    private void SkipUpdate(AppUpdateStateContract state)
+    {
+        _settings.SkippedUpdateVersion = GetUpdateVersionBuildIdentifier(state);
+        IsAutoUpdated = false;
+        IsAutoUpdateInProgress = false;
+        Logger.Info<AppUpdateLog>($"Skipping app update '{_settings.SkippedUpdateVersion}'.");
+    }
+
+    private bool ShouldSuppressUpdate(AppUpdateStateContract state)
+    {
+        return IsSkippedUpdate(state) || (!_settings.IsBetaAccessEnabled && IsBetaUpdate(state));
+    }
+
+    private bool IsSkippedUpdate(AppUpdateStateContract state)
+    {
+        return !string.IsNullOrWhiteSpace(_settings.SkippedUpdateVersion)
+            && string.Equals(
+                _settings.SkippedUpdateVersion,
+                GetUpdateVersionBuildIdentifier(state),
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsBetaUpdate(AppUpdateStateContract state)
+    {
+        return state.ReleaseHistory.Any(r => r.Version == state.Version && r.IsEarlyAccess);
+    }
+
+    private static string GetUpdateVersionBuildIdentifier(AppUpdateStateContract state)
+    {
+        string fileName = Path.GetFileName(state.FilePath ?? string.Empty);
+
+        return $"{state.Version}|{fileName}|{state.FileArguments}";
     }
 
     private async Task UpdateManuallyAsync(bool isToOpenOnDesktop)

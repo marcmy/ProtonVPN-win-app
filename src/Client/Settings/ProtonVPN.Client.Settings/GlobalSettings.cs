@@ -158,6 +158,12 @@ public class GlobalSettings : IGlobalSettings
         set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
+    public string? SkippedUpdateVersion
+    {
+        get => _globalCache.GetReferenceType<string>(SettingEncryption.Unencrypted);
+        set => _globalCache.SetReferenceType(value, SettingEncryption.Unencrypted);
+    }
+
     public bool IsGlobalSettingsMigrationDone
     {
         get => _globalCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsGlobalSettingsMigrationDone;
