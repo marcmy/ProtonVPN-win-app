@@ -29,7 +29,7 @@ $content = Get-Content -LiteralPath $AssemblyInfoPath -Raw
 
 $replacements = [ordered]@{
     '\[assembly:\s*AssemblyVersion\("[^"]+"\)\]' = "[assembly: AssemblyVersion(`"$assemblyVersion`")]"
-    '\[assembly:\s*AssemblyFileVersion\("[^"]+"\)\]' = "[assembly: AssemblyFileVersion(`"$assemblyVersion`")]"
+    '\[assembly:\s*AssemblyFileVersion\("[^"]+"\)\]' = "[assembly: AssemblyFileVersion(`"$fileVersion`")]"
     '\[assembly:\s*AssemblyInformationalVersion\("[^"]+"\)\]' = "[assembly: AssemblyInformationalVersion(`"$version`")]"
 }
 
@@ -42,4 +42,4 @@ foreach ($replacement in $replacements.GetEnumerator()) {
 }
 
 Set-Content -LiteralPath $AssemblyInfoPath -Value $content -NoNewline
-Write-Host "Set $AssemblyInfoPath assembly version metadata to $version ($assemblyVersion)."
+Write-Host "Set $AssemblyInfoPath version metadata: AssemblyVersion=$assemblyVersion; AssemblyFileVersion=$fileVersion; AssemblyInformationalVersion=$version."
