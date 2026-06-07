@@ -14,6 +14,9 @@ on:
       target_branch:
         description: New branch to create for the patched version
         required: true
+      target_version:
+        description: App version to stamp into the patched target branch, for example 4.4.2
+        required: true
       include_updater_skip:
         description: Also port updater/beta skip behavior from source_patch_branch
         type: boolean
@@ -70,6 +73,11 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
+      - name: Prepare automation scripts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Copy-Item -LiteralPath .\.github\scripts\set-assembly-version.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'set-assembly-version.ps1') -Force
+
       - name: Apply requested patch hunks
         id: apply_patch
         run: |
@@ -83,6 +91,24 @@ jobs:
             -TargetBranch '${{ inputs.target_branch }}' `
             -IncludeUpdaterSkip:$includeUpdaterSkip `
             -ForceResetTarget:$forceResetTarget
+
+      - name: Stamp target app version
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & (Join-Path $env:RUNNER_TEMP 'set-assembly-version.ps1') -TargetVersion '${{ inputs.target_version }}'
+
+          git add src/GlobalAssemblyInfo.cs
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Target app version was already ${{ inputs.target_version }}."
+          }
+          elseif ($LASTEXITCODE -eq 1) {
+            git diff --cached --check
+            git commit -m "Set app version to ${{ inputs.target_version }}"
+          }
+          else {
+            throw "Unable to inspect staged app version changes."
+          }
 
       - name: Update submodules for patched branch
         run: |

@@ -17,6 +17,11 @@ on:
         type: boolean
         required: true
         default: false
+      target_version:
+        description: Optional app version to stamp into patched DLLs, for example 4.4.1
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -66,6 +71,12 @@ jobs:
       - name: Clean previous build output
         run: |
           Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Stamp target app version
+        if: ${{ inputs.target_version != '' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\.github\scripts\set-assembly-version.ps1 -TargetVersion '${{ inputs.target_version }}'
 
       - name: Restore client project
         if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
