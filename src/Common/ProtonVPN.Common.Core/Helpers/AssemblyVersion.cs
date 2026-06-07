@@ -28,7 +28,8 @@ public static class AssemblyVersion
 
     private static string CreateVersion()
     {
-        return (Assembly.GetExecutingAssembly().GetName().Version ?? new()).ToString(3);
+        Version version = Assembly.GetExecutingAssembly().GetName().Version ?? new();
+        return version.Revision > 0 ? version.ToString(4) : version.ToString(3);
     }
 
     private static string CreateDisplayVersion()
