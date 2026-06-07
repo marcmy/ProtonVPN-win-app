@@ -59,7 +59,9 @@ public class Releases : IEnumerable<Release>
             {
                 yield return new Release
                 {
-                    ChangeLog = release.ReleaseNotes.FirstOrDefault()?.Notes ?? [],
+                    ChangeLog = release.ReleaseNotes?.FirstOrDefault()?.Notes
+                        ?? release.ChangeLog
+                        ?? [],
                     IsEarlyAccess = isEarlyAccess,
                     File = release.File,
                     IsNew = version > _currentVersion,
