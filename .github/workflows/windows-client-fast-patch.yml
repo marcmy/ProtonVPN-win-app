@@ -18,7 +18,7 @@ on:
         required: true
         default: false
       target_version:
-        description: Optional app version to stamp into patched DLLs, for example 4.4.1
+        description: Optional app version override to stamp into patched DLLs, for example 4.4.1
         type: string
         required: false
         default: ''
@@ -72,11 +72,37 @@ jobs:
         run: |
           Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Stamp target app version
-        if: ${{ inputs.target_version != '' }}
+      - name: Resolve target app version
+        id: app-version
         run: |
           $ErrorActionPreference = 'Stop'
-          .\.github\scripts\set-assembly-version.ps1 -TargetVersion '${{ inputs.target_version }}'
+
+          $targetVersion = '${{ inputs.target_version }}'.Trim()
+          $assemblyInfoPath = 'src/GlobalAssemblyInfo.cs'
+
+          if ($targetVersion -eq '') {
+            if (-not (Test-Path -LiteralPath $assemblyInfoPath -PathType Leaf)) {
+              throw "Assembly info file was not found: $assemblyInfoPath"
+            }
+
+            $content = Get-Content -LiteralPath $assemblyInfoPath -Raw
+            $match = [regex]::Match($content, '\[assembly:\s*AssemblyInformationalVersion\("(?<version>[^"]+)"\)\]')
+            if (-not $match.Success) {
+              $match = [regex]::Match($content, '\[assembly:\s*AssemblyVersion\("(?<version>[^"]+)"\)\]')
+            }
+
+            if (-not $match.Success) {
+              throw "Could not determine target version from $assemblyInfoPath"
+            }
+
+            $targetVersion = $match.Groups['version'].Value
+            Write-Host "No target_version override provided; using existing app version $targetVersion from $assemblyInfoPath."
+          } else {
+            Write-Host "Using target_version override: $targetVersion"
+            .\.github\scripts\set-assembly-version.ps1 -TargetVersion $targetVersion
+          }
+
+          "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
 
       - name: Restore client project
         if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
