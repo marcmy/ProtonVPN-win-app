@@ -21,3 +21,12 @@ jobs:
     name: Build patch artifact
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sub
