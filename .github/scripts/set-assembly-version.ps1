@@ -14,10 +14,12 @@ if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
     throw "TargetVersion must be a numeric 3- or 4-part version such as 4.4.1 or 4.4.1.0. Received '$TargetVersion'."
 }
 
-$assemblyVersion = $version
-if (($assemblyVersion.ToCharArray() | Where-Object { $_ -eq '.' }).Count -eq 2) {
-    $assemblyVersion = "$assemblyVersion.0"
+$fileVersion = $version
+if (($fileVersion.ToCharArray() | Where-Object { $_ -eq '.' }).Count -eq 2) {
+    $fileVersion = "$fileVersion.0"
 }
+
+$assemblyVersion = [regex]::Replace($fileVersion, '\.\d+$', '.0')
 
 if (-not (Test-Path -LiteralPath $AssemblyInfoPath -PathType Leaf)) {
     throw "Assembly info file was not found: $AssemblyInfoPath"
