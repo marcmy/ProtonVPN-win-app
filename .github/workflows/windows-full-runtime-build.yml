@@ -1,0 +1,282 @@
+name: Windows full runtime build
+
+# This workflow produces a development runtime artifact from GitHub-built output.
+# It is not a production installer and does not install, sign, or package drivers,
+# TAP/Wintun/OpenVPN assets, services, registry entries, or installer custom actions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: Optional app version override to stamp before building, for example 4.4.1.1-marcmy-split-tunnel
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: Build GitHub runtime artifact
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Prepare artifact folders
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/ProtonVPN.GitHubRuntime | Out-Null
+
+      - name: Clean previous build output
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Resolve target app version
+        id: app-version
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $targetVersion = '${{ inputs.target_version }}'.Trim()
+          $assemblyInfoPath = 'src/GlobalAssemblyInfo.cs'
+
+          if ($targetVersion -eq '') {
+            if (-not (Test-Path -LiteralPath $assemblyInfoPath -PathType Leaf)) {
+              throw "Assembly info file was not found: $assemblyInfoPath"
+            }
+
+            $content = Get-Content -LiteralPath $assemblyInfoPath -Raw
+            $match = [regex]::Match($content, '\[assembly:\s*AssemblyInformationalVersion\("(?<version>[^"]+)"\)\]')
+            if (-not $match.Success) {
+              $match = [regex]::Match($content, '\[assembly:\s*AssemblyVersion\("(?<version>[^"]+)"\)\]')
+            }
+
+            if (-not $match.Success) {
+              throw "Could not determine target version from $assemblyInfoPath"
+            }
+
+            $targetVersion = $match.Groups['version'].Value
+            Write-Host "No target_version override provided; using existing app version $targetVersion from $assemblyInfoPath."
+          } else {
+            Write-Host "Using target_version override: $targetVersion"
+            .\.github\scripts\set-assembly-version.ps1 -TargetVersion $targetVersion
+          }
+
+          "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Restore client project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64 -bl:artifacts/logs/client-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/client-restore.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Client restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Restore service project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64 -bl:artifacts/logs/service-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/service-restore.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Service restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Build client project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/client-build.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/client-build.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Client build failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Build service project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/service-build.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/service-build.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Service build failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Stage runtime artifact folder
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $binDir = Join-Path $env:GITHUB_WORKSPACE 'src/bin'
+          $runtimeDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ProtonVPN.GitHubRuntime'
+
+          if (-not (Test-Path -LiteralPath $binDir -PathType Container)) {
+            throw "Build output directory missing: $binDir"
+          }
+
+          Remove-Item -LiteralPath $runtimeDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+
+          Copy-Item -Path (Join-Path $binDir '*') -Destination $runtimeDir -Recurse -Force
+
+          $junkPatterns = @(
+            '*.pdb',
+            '*.binlog',
+            '*.log',
+            '*.cache',
+            '*.tmp',
+            '*.Tests.dll',
+            '*.Tests.deps.json',
+            '*.Tests.runtimeconfig.json',
+            '*.Test.dll',
+            '*.Test.deps.json',
+            '*.Test.runtimeconfig.json',
+            '*TestAdapter*',
+            'testhost*',
+            'Microsoft.TestPlatform*',
+            'MSTest*',
+            'nunit*',
+            'xunit*',
+            'coverlet*'
+          )
+
+          foreach ($pattern in $junkPatterns) {
+            Get-ChildItem -LiteralPath $runtimeDir -Recurse -File -Filter $pattern -ErrorAction SilentlyContinue |
+              Remove-Item -Force
+          }
+
+          function Assert-StagedFile {
+            param(
+              [Parameter(Mandatory)] [string] $Name,
+              [Parameter(Mandatory)] [string] $Description
+            )
+
+            $matches = @(Get-ChildItem -LiteralPath $runtimeDir -Recurse -File -Filter $Name)
+            if ($matches.Count -eq 0) {
+              throw "$Description missing from staged runtime artifact: $Name"
+            }
+
+            Write-Host "$Description present: $($matches[0].FullName)"
+          }
+
+          function Assert-StagedIfProduced {
+            param(
+              [Parameter(Mandatory)] [string] $Name,
+              [Parameter(Mandatory)] [string] $Description
+            )
+
+            $sourceMatches = @(Get-ChildItem -LiteralPath $binDir -Recurse -File -Filter $Name)
+            if ($sourceMatches.Count -eq 0) {
+              Write-Host "$Description was not produced by the build: $Name"
+              return
+            }
+
+            Assert-StagedFile -Name $Name -Description $Description
+          }
+
+          Assert-StagedIfProduced -Name 'ProtonVPN.Client.exe' -Description 'Client executable'
+          Assert-StagedIfProduced -Name 'ProtonVPNService.exe' -Description 'Service executable'
+          Assert-StagedFile -Name 'ProtonVPN.Client.dll' -Description 'Client assembly'
+          Assert-StagedFile -Name 'ProtonVPNService.dll' -Description 'Service assembly'
+          Assert-StagedFile -Name 'ProtonVPN.Native.dll' -Description 'Native compatibility assembly'
+          Assert-StagedFile -Name 'ProtonVPN.Client.pri' -Description 'Client PRI resources'
+          Assert-StagedFile -Name 'App.xbf' -Description 'App XBF resources'
+          Assert-StagedFile -Name 'MainWindow.xbf' -Description 'MainWindow XBF resources'
+
+          $firstPartyDlls = @(
+            Get-ChildItem -LiteralPath $runtimeDir -Recurse -File -Filter 'ProtonVPN*.dll' |
+              Where-Object {
+                $_.Name -notlike '*.Tests.dll' -and
+                  $_.Name -notlike '*.Test.dll'
+              } |
+              Sort-Object FullName
+          )
+
+          if ($firstPartyDlls.Count -eq 0) {
+            throw "No first-party ProtonVPN*.dll files were staged."
+          }
+
+          $uiXbfFiles = @(
+            Get-ChildItem -LiteralPath $runtimeDir -Recurse -File -Filter '*.xbf' |
+              Where-Object {
+                [System.IO.Path]::GetRelativePath($runtimeDir, $_.FullName) -like 'UI\*'
+              } |
+              Sort-Object FullName
+          )
+
+          if ($uiXbfFiles.Count -eq 0) {
+            throw "No UI/**/*.xbf resources were staged."
+          }
+
+          Write-Host "Staged $($firstPartyDlls.Count) first-party ProtonVPN*.dll files."
+          Write-Host "Staged $($uiXbfFiles.Count) UI XBF resource files."
+          Write-Host "Full staged runtime file list:"
+
+          Get-ChildItem -LiteralPath $runtimeDir -Recurse -File |
+            Sort-Object FullName |
+            ForEach-Object {
+              Write-Host ([System.IO.Path]::GetRelativePath($runtimeDir, $_.FullName))
+            }
+
+      - name: Upload GitHub runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-github-runtime
+          path: artifacts/ProtonVPN.GitHubRuntime
+          if-no-files-found: error
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: protonvpn-github-runtime-logs
+          path: artifacts/logs
+          if-no-files-found: warn
