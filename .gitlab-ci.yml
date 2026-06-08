@@ -263,6 +263,7 @@ ui-tests-group:
     - if: '$CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH =~ /^release.*$/ || $CI_COMMIT_BRANCH =~ /^automation.*$/'
       when: on_success
     - when: manual
+      allow_failure: true
   parallel:
     matrix:
       - CATEGORY: ["1", "2", "3", "4"]
@@ -291,6 +292,7 @@ ui-tests-smoke:
     - if: '$CI_COMMIT_BRANCH =~ /^feat.*$/ || $CI_COMMIT_BRANCH =~ /^feature.*$/ || $CI_COMMIT_BRANCH =~ /^fix.*$/'
       when: on_success
     - when: manual
+      allow_failure: true
   parallel:
     matrix:
       - CATEGORY: ["SMOKE_1", "SMOKE_2", "SMOKE_3", "SMOKE_4"]
@@ -298,6 +300,10 @@ ui-tests-smoke:
 push-results-to-testmo-full:
   stage: ui-test-full
   extends: .push_results_to_testmo
+  only:
+    - develop
+    - /^release.*$/
+    - /^automation.*$/
   needs:
     - job: ui-tests-group
       optional: false
@@ -306,6 +312,10 @@ push-results-to-testmo-full:
 push-results-to-testmo-smoke:
   stage: ui-test-smoke
   extends: .push_results_to_testmo
+  only:
+    - /^feat.*$/
+    - /^feature.*$/
+    - /^fix.*$/
   needs:
     - job: ui-tests-smoke
       optional: false
