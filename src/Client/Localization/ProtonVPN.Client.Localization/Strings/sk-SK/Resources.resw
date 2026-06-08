@@ -207,6 +207,9 @@
   <data name="Common_Actions_Connect">
     <value>Pripojiť</value>
   </data>
+  <data name="System_Tray_Actions_Connect">
+    <value>Pripojiť</value>
+  </data>
   <data name="Common_Actions_ContactUs">
     <value>Kontaktujte nás</value>
   </data>
@@ -214,6 +217,9 @@
     <value>Vymazať</value>
   </data>
   <data name="Common_Actions_Disconnect">
+    <value>Odpojiť</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
     <value>Odpojiť</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -3770,7 +3776,14 @@ Vysoké vyťaženie servera môže spomaliť vaše pripojenie.</value>
   <data name="Tray_Actions_ExitApplication">
     <value>Skončiť</value>
   </data>
+  <data name="System_Tray_Actions_ExitApplication">
+    <value>Skončiť</value>
+  </data>
   <data name="Tray_Actions_OpenApplication">
+    <value>Otvoriť {0}</value>
+    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="System_Tray_Actions_OpenApplication">
     <value>Otvoriť {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
