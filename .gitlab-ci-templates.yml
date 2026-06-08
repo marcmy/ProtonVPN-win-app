@@ -8,6 +8,7 @@
   tags:
     - redesign
   script:
+    - if (!(Test-Path $UI_TEST_REPORT_PATH)) { Write-Host "No results found"; exit 1 }
     - ci\test-scripts\push-results-to-testmo.ps1
   allow_failure: false
 

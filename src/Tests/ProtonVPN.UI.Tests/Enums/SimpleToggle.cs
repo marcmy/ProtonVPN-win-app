@@ -19,8 +19,8 @@
 
 namespace ProtonVPN.UI.Tests.Enums;
 
-public enum KillSwitchMode
+public enum SimpleToggle
 {
-    Standard,
-    Advanced,
+    On,
+    Off,
 }
