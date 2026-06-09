@@ -33,6 +33,7 @@ using ProtonVPN.OperatingSystems.PowerEvents.Contracts;
 using ProtonVPN.OperatingSystems.Services.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts;
 using ProtonVPN.Service.Firewall;
+using ProtonVPN.Service.PortMapping;
 using ProtonVPN.Vpn.Common;
 
 namespace ProtonVPN.Service;
@@ -50,6 +51,7 @@ internal partial class VpnService : ServiceBase
     private readonly IGrpcServer _grpcServer;
     private readonly IServiceFactory _serviceFactory;
     private readonly INrptInvoker _nrptInvoker;
+    private readonly PortForwardingForAppsRouter _portForwardingForAppsRouter;
     private bool _isConnected;
 
     public VpnService(
@@ -61,7 +63,8 @@ internal partial class VpnService : ServiceBase
         IGrpcServer grpcServer,
         IPowerEventNotifier powerEventNotifier,
         IServiceFactory serviceFactory,
-        INrptInvoker nrptInvoker)
+        INrptInvoker nrptInvoker,
+        PortForwardingForAppsRouter portForwardingForAppsRouter)
     {
         _logger = logger;
         _issueReporter = issueReporter;
@@ -71,6 +74,7 @@ internal partial class VpnService : ServiceBase
         _grpcServer = grpcServer;
         _serviceFactory = serviceFactory;
         _nrptInvoker = nrptInvoker;
+        _portForwardingForAppsRouter = portForwardingForAppsRouter;
 
         powerEventNotifier.OnResume += OnPowerEventResume;
         _vpnConnection.StateChanged += OnVpnStateChanged;
@@ -136,6 +140,7 @@ internal partial class VpnService : ServiceBase
             _logger.Info<AppServiceStopLog>("Service is stopping");
             LogEvent("Service is stopping");
 
+            await _portForwardingForAppsRouter.StopAsync();
             _vpnConnection.Disconnect();
             StopWireGuardService();
 
@@ -205,6 +210,7 @@ internal partial class VpnService : ServiceBase
     private void OnVpnStateChanged(object sender, Common.Legacy.EventArgs<VpnState> e)
     {
         _isConnected = e.Data.Status == VpnStatus.Connected;
+        _portForwardingForAppsRouter.SetVpnState(e.Data);
     }
 
     private bool IsBfeServiceRunningAndEnabled()
