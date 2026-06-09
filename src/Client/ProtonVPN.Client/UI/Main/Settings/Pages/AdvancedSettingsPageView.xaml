@@ -226,6 +226,19 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                            TextWrapping="Wrap" />
                             </StackPanel>
                         </RadioButton>
+                        <CheckBox AutomationProperties.AutomationId="PortForwardingForAppsCheckBox"
+                                  VerticalContentAlignment="Top"
+                                  IsChecked="{x:Bind ViewModel.IsPortForwardingForAppsEnabled, Mode=TwoWay}"
+                                  Style="{StaticResource CheckBoxStyle}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource BodyTextBlockStyle}"
+                                           Text="Use VPN port forwarding for UPnP/NAT-PMP apps" />
+                                <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Text="Expose Proton's active forwarded port to local apps that support UPnP IGD v2 or NAT-PMP. This only works while connected to a server with an active forwarded port."
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </CheckBox>
                     </toolkit:SettingsExpander.Items>
                 </toolkit:SettingsExpander>
 
