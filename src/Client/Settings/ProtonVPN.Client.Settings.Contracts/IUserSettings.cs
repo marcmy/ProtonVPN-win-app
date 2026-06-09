@@ -63,6 +63,7 @@ public interface IUserSettings
     NetShieldMode NetShieldMode { get; set; }
     bool IsPortForwardingEnabled { get; set; }
     bool IsPortForwardingNotificationEnabled { get; set; }
+    bool IsPortForwardingForAppsEnabled { get; set; }
     bool IsSplitTunnelingEnabled { get; set; }
     bool IsSmartReconnectEnabled { get; set; }
     bool IsUserSettingsMigrationDone { get; set; }
