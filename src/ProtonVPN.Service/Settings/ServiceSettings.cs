@@ -134,6 +134,15 @@ public class ServiceSettings : IServiceSettings
         }
     }
 
+    public bool IsPortForwardingForAppsEnabled
+    {
+        get
+        {
+            Load();
+            return _settings.PortForwardingForApps;
+        }
+    }
+
     public void Apply(MainSettingsIpcEntity settings)
     {
         Ensure.NotNull(settings, nameof(settings));
