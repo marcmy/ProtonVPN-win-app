@@ -260,6 +260,12 @@ public class GlobalSettings : IGlobalSettings
         set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
+    public bool IsPortForwardingForAppsEnabled
+    {
+        get => _globalCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
+    }
+
     public GlobalSettings(IGlobalSettingsCache globalSettingsCache)
     {
         _globalCache = globalSettingsCache;
