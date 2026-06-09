@@ -34,7 +34,9 @@ using ProtonVPN.OperatingSystems.Services.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.PortMapping;
+using ProtonVPN.Service.Settings;
 using ProtonVPN.Vpn.Common;
+using ProtonVPN.Vpn.PortMapping;
 
 namespace ProtonVPN.Service;
 
@@ -64,7 +66,8 @@ internal partial class VpnService : ServiceBase
         IPowerEventNotifier powerEventNotifier,
         IServiceFactory serviceFactory,
         INrptInvoker nrptInvoker,
-        PortForwardingForAppsRouter portForwardingForAppsRouter)
+        IServiceSettings serviceSettings,
+        IPortMappingProtocolClient portMappingProtocolClient)
     {
         _logger = logger;
         _issueReporter = issueReporter;
@@ -74,7 +77,7 @@ internal partial class VpnService : ServiceBase
         _grpcServer = grpcServer;
         _serviceFactory = serviceFactory;
         _nrptInvoker = nrptInvoker;
-        _portForwardingForAppsRouter = portForwardingForAppsRouter;
+        _portForwardingForAppsRouter = new PortForwardingForAppsRouter(logger, serviceSettings, portMappingProtocolClient);
 
         powerEventNotifier.OnResume += OnPowerEventResume;
         _vpnConnection.StateChanged += OnVpnStateChanged;
