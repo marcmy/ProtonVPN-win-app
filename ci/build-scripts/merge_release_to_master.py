@@ -57,7 +57,37 @@ def fetch_branch(branch_name: str) -> None:
 
 def merge_release_into_target(branch_name: str, version: str) -> None:
     remote_ref = f"origin/{branch_name}"
-    run_git("merge", remote_ref, "--no-ff", "-m", f"Promote release {version} into {TARGET_BRANCH}")
+    # Try a regular merge first; if it fails, inspect conflicts and auto-resolve
+    result = subprocess.run(["git", "merge", remote_ref, "--no-ff", "-m", f"Promote release {version} into {TARGET_BRANCH}"], check=False)
+    if result.returncode == 0:
+        return
+
+    # Merge failed — check unmerged files
+    ls = subprocess.run(["git", "ls-files", "-u"], capture_output=True, text=True)
+    if ls.returncode != 0:
+        raise SystemExit(f"Git command failed: git merge origin/{branch_name} --no-ff -m Promote release {version} into {TARGET_BRANCH}")
+
+    unmerged = set()
+    for line in ls.stdout.splitlines():
+        # ls-files -u output: <mode> <hash> <stage>\t<file>
+        parts = line.split()
+        if len(parts) >= 4:
+            path = parts[3]
+            unmerged.add(path)
+
+    target_file = "src/GlobalAssemblyInfo.cs"
+    if unmerged and all(p == target_file for p in unmerged):
+        print(f"Auto-resolving expected conflict in {target_file} using release branch version.")
+        run_git("checkout", "--theirs", target_file)
+        run_git("add", target_file)
+        run_git("commit", "--no-edit")
+        return
+
+    # Unknown conflicts — abort and surface the error
+    if unmerged:
+        raise SystemExit(f"Merge failed with conflicts in: {', '.join(sorted(unmerged))}")
+    else:
+        raise SystemExit(f"Git merge failed for unknown reasons when merging {remote_ref} into {TARGET_BRANCH}")
 
 def release_tag(tag_name: str) -> None:
     run_git("tag", "-a", tag_name, "-m", f"Release {tag_name}")

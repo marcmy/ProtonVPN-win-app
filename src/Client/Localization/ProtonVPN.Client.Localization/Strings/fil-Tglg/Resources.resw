@@ -121,280 +121,274 @@
     <value>Proton VPN Free</value>
   </data>
   <data name="Automation_Properties_ConnectionDetails_Page">
-    <value>Sida för anslutningsdetaljer</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ ᜇᜒᜆᜎ᜔ᜌᜒ ᜈᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Automation_Properties_ConnectionPreferences_Page">
-    <value>Connection preferences page</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ ᜃᜄᜓᜐ᜔ᜆᜓᜑᜈ᜔ ᜐ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Automation_Properties_Connection_Card_Component">
-    <value>Anslutningskort</value>
+    <value>ᜃᜇ᜔ᜇ᜔ ᜈᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Automation_Properties_KillSwitch_Page">
-    <value>Sida för kill switch</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ kill switch</value>
   </data>
   <data name="Automation_Properties_LocationDetails_Page">
-    <value>Sida för platsdetaljer</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ ᜇᜒᜆᜎ᜔ᜌᜒ ᜈᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Automation_Properties_Login_Page">
-    <value>Inloggningssida</value>
+    <value>ᜉᜑᜒᜈ ᜐ ᜉᜄ᜔-log in</value>
   </data>
   <data name="Automation_Properties_Main_Page">
-    <value>Huvudsida</value>
+    <value>ᜉᜅᜓᜈᜑᜒᜅ᜔ ᜉᜑᜒᜈ</value>
   </data>
   <data name="Automation_Properties_NetShield_Page">
-    <value>NetShield-sida</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ NetShield</value>
   </data>
   <data name="Automation_Properties_NoServers_Page">
-    <value>No servers page</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜏᜎᜅ᜔ ᜋᜅ server</value>
   </data>
   <data name="Automation_Properties_PortForwarding_Page">
-    <value>Sida för vidarebefordring av port</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ port forwarding</value>
   </data>
   <data name="Automation_Properties_Profile_Page">
-    <value>Profilsida</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ profile</value>
   </data>
   <data name="Automation_Properties_Settings_Advanced_Page">
-    <value>Sida för avancerade inställningar</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ advanced ᜈ ᜐᜒᜆ᜔ᜆᜒᜅ᜔</value>
   </data>
   <data name="Automation_Properties_Settings_Common_Page">
-    <value>Sida för vanliga inställningar</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ ᜃᜇᜈᜒᜏᜈ᜔ᜄ᜔ ᜐᜒᜆ᜔ᜆᜒᜈ᜔ᜄ᜔</value>
   </data>
   <data name="Automation_Properties_Settings_Page">
-    <value>Sida för inställningar</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ ᜐᜒᜆ᜔ᜆᜒᜅ᜔</value>
   </data>
   <data name="Automation_Properties_Sidebar">
-    <value>Sidopanel</value>
+    <value>Sidebar</value>
   </data>
   <data name="Automation_Properties_Sidebar_Connections_Countries_Page">
-    <value>Sida för länder</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Automation_Properties_Sidebar_Connections_Gateways_Page">
-    <value>Sida för gateways</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ gateway</value>
   </data>
   <data name="Automation_Properties_Sidebar_Connections_Page">
-    <value>Sida för anslutningar</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Automation_Properties_Sidebar_Connections_Profiles_Page">
-    <value>Sida för profiler</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ profile</value>
   </data>
   <data name="Automation_Properties_Sidebar_Connections_Recents_Page">
-    <value>Sida för senaste</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ ᜋᜅ recent</value>
   </data>
   <data name="Automation_Properties_Sidebar_Search_Results_Page">
-    <value>Sökresultat</value>
+    <value>ᜋᜅ ᜇᜒᜐᜓᜎ᜔ᜆ ᜈᜅ᜔ ᜉᜄ᜔ᜑᜑᜈᜉ᜔</value>
   </data>
   <data name="Automation_Properties_SplitTunneling_Page">
-    <value>Sida för split tunneling</value>
+    <value>ᜉᜑᜒᜈ ᜈᜅ᜔ split tunneling</value>
   </data>
   <data name="City_Fastest">
-    <value>Snabbaste stad</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜎᜓᜅ᜔ᜐᜓᜇ᜔</value>
   </data>
   <data name="City_Random">
-    <value>Slumpmässig stad</value>
+    <value>Random ᜈ ᜎᜓᜅ᜔ᜐᜓᜇ᜔</value>
   </data>
   <data name="Common_Actions_Add">
-    <value>Lägg till</value>
+    <value>ᜁᜇᜄ᜔ᜇᜄ᜔</value>
   </data>
   <data name="Common_Actions_Back">
-    <value>Tillbaka</value>
+    <value>ᜊᜓᜋᜎᜒᜃ᜔</value>
   </data>
   <data name="Common_Actions_Cancel">
-    <value>Avbryt</value>
+    <value>ᜃᜈ᜔ᜐᜒᜎᜑᜒᜈ᜔</value>
   </data>
   <data name="Common_Actions_Change">
-    <value>Ändra</value>
+    <value>ᜊᜄᜓᜑᜒᜈ᜔</value>
   </data>
   <data name="Common_Actions_Close">
-    <value>Stäng</value>
+    <value>ᜁᜐᜇ</value>
   </data>
   <data name="Common_Actions_Connect">
-    <value>Anslut</value>
-  </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>Anslut</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ</value>
   </data>
   <data name="Common_Actions_ContactUs">
-    <value>Kontakta oss</value>
+    <value>ᜋᜃᜒᜉᜄ᜔-ᜂᜄ᜔ᜈᜌᜈ᜔ ᜐ ᜀᜋᜒᜈ᜔</value>
   </data>
   <data name="Common_Actions_Delete">
-    <value>Ta bort</value>
+    <value>ᜊᜓᜇᜑᜒᜈ᜔</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>Koppla från</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
-    <value>Koppla från</value>
+    <value>ᜁ-disconnect</value>
   </data>
   <data name="Common_Actions_Duplicate">
-    <value>Duplicera</value>
+    <value>ᜁ-duplicate</value>
   </data>
   <data name="Common_Actions_Edit">
-    <value>Redigera</value>
+    <value>ᜁ-edit</value>
   </data>
   <data name="Common_Actions_Enable">
-    <value>Aktivera</value>
+    <value>ᜉᜄᜈᜑᜒᜈ᜔</value>
   </data>
   <data name="Common_Actions_Exit_ProtonVPN">
-    <value>Avsluta Proton VPN</value>
+    <value>ᜎᜓᜋᜊᜐ᜔ ᜈᜅ᜔ Proton VPN</value>
   </data>
   <data name="Common_Actions_GotIt">
-    <value>Förstått</value>
+    <value>ᜈᜁᜈ᜔ᜆᜒᜈ᜔ᜇᜒᜑᜈ᜔</value>
   </data>
   <data name="Common_Actions_Install">
-    <value>Installera</value>
+    <value>ᜁ-install</value>
   </data>
   <data name="Common_Actions_MoveDown">
-    <value>Flytta ner</value>
+    <value>ᜁᜎᜒᜉᜆ᜔ ᜉᜊᜊ</value>
   </data>
   <data name="Common_Actions_MoveUp">
-    <value>Flytta upp</value>
+    <value>ᜁᜎᜒᜉᜆ᜔ ᜉᜆᜀᜐ᜔</value>
   </data>
   <data name="Common_Actions_Reconnect">
-    <value>Anslut igen</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆᜅ᜔ ᜋᜓᜎᜒ</value>
   </data>
   <data name="Common_Actions_Refresh">
-    <value>Uppdatera</value>
+    <value>ᜁ-refresh</value>
   </data>
   <data name="Common_Actions_Remove">
-    <value>Ta bort</value>
+    <value>ᜀᜎᜒᜐᜒᜈ᜔</value>
   </data>
   <data name="Common_Actions_Restart">
-    <value>Starta om</value>
+    <value>ᜁ-restart</value>
   </data>
   <data name="Common_Actions_Save">
-    <value>Spara</value>
+    <value>ᜁ-save</value>
   </data>
   <data name="Common_Actions_TryAgain">
-    <value>Försök igen</value>
+    <value>ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ</value>
   </data>
   <data name="Common_Actions_Update">
-    <value>Uppdatera</value>
+    <value>ᜁ-update</value>
   </data>
   <data name="Common_Actions_Upgrade">
-    <value>Uppgradera</value>
+    <value>ᜁ-upgrade</value>
   </data>
   <data name="Common_Confirmation_KillSwitch_Message">
-    <value>Avancerad kill switch är aktiverad. För att använda internet utan VPN, inaktivera avancerad kill switch.</value>
+    <value>ᜈᜃ-enable ᜀᜅ᜔ advanced kill switch. ᜂᜉᜅ᜔ ᜄᜋᜒᜆᜒᜈ᜔ ᜀᜅ᜔ internet ᜈᜅ᜔ ᜏᜎᜅ᜔ VPN, ᜁ-disable ᜀᜅ᜔ advanced kill switch.</value>
   </data>
   <data name="Common_Confirmation_YouWillBeDisconnectedWithKillSwitch_Message">
-    <value>Avancerad kill switch är aktiverad. Om du fortsätter kommer du att kopplas från från internet.</value>
+    <value>ᜈᜃ-enable ᜀᜅ᜔ advanced kill switch. ᜃᜓᜅ᜔ ᜋᜄ᜔ᜉᜉᜆᜓᜎᜓᜌ᜔ ᜃ, ᜋᜇᜒ-disconnect ᜃ ᜋᜓᜎ ᜐ internet.</value>
   </data>
   <data name="Common_Confirmation_YouWillBeDisconnected_Message">
-    <value>Du kommer bli frånkopplad från VPN.</value>
+    <value>ᜋᜇᜒ-disconnect ᜃ ᜐ VPN.</value>
   </data>
   <data name="Common_Links_LearnMore">
-    <value>Lär dig mer</value>
+    <value>ᜋᜆᜓᜆᜓ ᜉ</value>
   </data>
   <data name="Common_Message_AppNotFound">
-    <value>Applikation hittades inte</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜈᜑᜈᜉ᜔ ᜀᜅ᜔ application</value>
   </data>
   <data name="Common_States_Off">
-    <value>Av</value>
+    <value>ᜈᜃ-off</value>
   </data>
   <data name="Common_States_On">
-    <value>På</value>
+    <value>ᜈᜃ-on</value>
   </data>
   <data name="Common_Tags_Beta">
     <value>BETA</value>
     <comment>This tag indicates that this version of the app is currently in beta (early access)</comment>
   </data>
   <data name="Common_Tags_New">
-    <value>NYTT</value>
+    <value>ᜊᜄᜓ</value>
     <comment>This tag indicates that a newer version of the app is currently available</comment>
   </data>
   <data name="Common_Tags_Recommended">
-    <value>Rekommenderad</value>
+    <value>ᜁᜈᜒᜇᜒᜇᜒᜃᜓᜋᜒᜈ᜔ᜇ</value>
     <comment>This tag indicates that a given option in the settings is recommended by Proton</comment>
   </data>
   <data name="Components_Update_GetMostFromYourVpn">
-    <value>Få ut det mesta av din VPN genom att uppdatera till den senaste versionen av appen.</value>
+    <value>ᜐᜓᜎᜒᜆᜒᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ VPN ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔-update ᜐ ᜉᜒᜈᜃᜊᜄᜓᜅ᜔ ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ app.</value>
   </data>
   <data name="Components_Update_MoreLikelyIssues">
-    <value>Det är mer sannolikt att du har problem med äldre versioner av Proton VPN.</value>
+    <value>ᜋᜐ᜔ ᜋᜎᜃᜒ ᜀᜅ᜔ ᜉᜓᜐᜒᜊᜒᜎᜒᜇᜇ᜔ ᜈ ᜋᜄ᜔ᜃᜇᜓᜂᜈ᜔ ᜃ ᜈᜅ᜔ ᜁᜐ᜔ᜌᜓ ᜐ ᜋᜅ ᜎᜓᜋᜅ᜔ ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ Proton VPN.</value>
   </data>
   <data name="Components_Update_UpdateAvailable">
-    <value>Uppdatering tillgänglig</value>
+    <value>ᜋᜌ᜔ update ᜈ available</value>
   </data>
   <data name="Components_Update_UpdateProtonVpn">
-    <value>Uppdatera Proton VPN</value>
+    <value>ᜁ-update ᜀᜅ᜔ Proton VPN</value>
   </data>
   <data name="Connection_Error_AllServersExcluded">
-    <value>Dina preferenser exkluderar alla tillgängliga servrar. Justera exkluderingar för att ansluta.</value>
+    <value>ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜋᜅ ᜃᜄᜓᜐ᜔ᜆᜓᜑᜈ᜔ ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ available ᜈ server. I-adjust ᜀᜅ᜔ ᜋᜅ exclusion ᜉᜇ ᜋᜃᜃᜓᜈᜒᜃ᜔ᜆ.</value>
   </data>
   <data name="Connection_Error_AllServersExcluded_Action">
-    <value>Exkluderade platser</value>
+    <value>ᜋᜅ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Connection_Error_ConflictingAdapter_Description">
-    <value>För att åtgärda det, stäng eller avinstallera appen associerad med:</value>
+    <value>ᜉᜇ ᜀᜌᜓᜐᜒᜈ᜔ ᜁᜆᜓ, ᜁᜐᜇ ᜂ ᜁ-ᜀᜈ᜔ᜁᜈ᜔ᜐ᜔ᜆᜓᜎ᜔ ᜀᜅ᜔ ᜀᜉ᜔ ᜈ ᜈᜌᜓᜊᜅ᜔ ᜐ:</value>
   </data>
   <data name="Connection_Error_ConflictingAdapter_Title">
-    <value>Another app might be preventing Proton VPN from connecting</value>
+    <value>ᜋᜀᜇᜒᜅ᜔ ᜋᜌ᜔ ᜁᜊᜅ᜔ ᜀᜉ᜔ ᜈ ᜉᜓᜋᜒᜉᜒᜄᜒᜎ᜔ ᜐ Proton VPN ᜈ ᜃᜓᜋᜓᜈᜃ᜔ᜆ</value>
   </data>
   <data name="Connection_Error_EditProfile">
-    <value>Redigera profil</value>
+    <value>ᜁ-ᜁᜇᜒᜆ᜔ ᜀᜅ᜔ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔</value>
   </data>
   <data name="Connection_Error_MissingConnectionCertificate">
-    <value>Proton VPN kunde inte hämta autentiseringscertifikat på grund av nätverksproblem.</value>
+    <value>ᜈᜊᜒᜄᜓ ᜀᜅ᜔ Proton VPN ᜈ ᜃᜓᜈᜒᜈ᜔ ᜀᜅ᜔ ᜐᜒᜇ᜔ᜆᜒᜉᜒᜃᜒᜌ᜔ᜆ᜔ ᜈᜅ᜔ ᜉᜄ᜔-ᜂᜆᜒᜈ᜔ᜆᜒᜃᜒᜌ᜔ᜆ᜔ ᜇᜑᜒᜎ᜔ ᜐ ᜁᜐ᜔ᜌᜓ ᜐ ᜈᜒᜆ᜔ᜏᜓᜇ᜔ᜃ᜔.</value>
   </data>
   <data name="Connection_Error_MobileHotspotEnabled">
-    <value>Anslutningen blockerades av nätverksinställningarna på din enhet. Detta kan orsakas av en mobil hotspot, en annan VPN-applikation eller programvara för virtuella maskiner. Granska din nätverkskonfiguration eller kontakta support för hjälp.</value>
+    <value>ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜀᜌ᜔ ᜑᜒᜈᜇᜅ᜔ ᜈᜅ᜔ ᜋᜅ ᜐᜒᜆ᜔ᜆᜒᜅ᜔ ᜈᜅ᜔ ᜈᜒᜆ᜔ᜏᜓᜇ᜔ᜃ᜔ ᜐ ᜁᜌᜓᜅ᜔ device. ᜋᜀᜀᜇᜒᜅ᜔ ᜁᜆᜓ ᜀᜅ᜔ ᜇᜑᜒᜎ᜔ ᜐ mobile hotspot, ᜁᜊ ᜉᜅ᜔ VPN application, ᜂ virtual machine software. ᜋᜀᜇᜒᜅ᜔ ᜐᜓᜇᜒᜁᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ network configuration ᜂ ᜋᜃᜒᜉᜄ᜔-ᜂᜄ᜔ᜈᜌᜈ᜔ ᜐ support ᜉᜇ ᜐ ᜆᜓᜎᜓᜅ᜔.</value>
   </data>
   <data name="Connection_Error_NoServers">
-    <value>Alla servrar i ditt val är inte tillgängliga. Utöka ditt val eller försök igen senare.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ available ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ ᜈᜉᜒᜎᜒ ᜋᜓᜅ᜔ server. ᜉᜃᜒᜎᜏᜃᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜉᜄ᜔ᜉᜒᜎᜒ ᜂ ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ ᜋᜋᜌ.</value>
   </data>
   <data name="Connection_Error_NoServers_Profile">
-    <value>Ditt serverval för '{0}' är inte tillgängligt. Välj en annan server eller försök igen senare.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ available ᜀᜅ᜔ ᜉᜒᜈᜒᜎᜒ ᜋᜓᜅ᜔ server ᜉᜇ ᜐ {0}. ᜉᜓᜋᜒᜎᜒ ᜈᜅ᜔ ᜁᜊᜅ᜔ server ᜂ ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ ᜋᜋᜌ.</value>
     <comment>{0} is a placeholder for the profile name</comment>
   </data>
   <data name="Connection_Error_NoTapAdapters">
-    <value>Nätverksadaptern saknas.</value>
+    <value>ᜈᜏᜏᜎ ᜀᜅ᜔ network adapter.</value>
   </data>
   <data name="Connection_Error_ReportAnIssue">
-    <value>Rapportera ett problem</value>
+    <value>ᜋᜄ᜔-ᜂᜎᜆ᜔ ᜈᜅ᜔ ᜁᜐ᜔ᜌᜓ</value>
   </data>
   <data name="Connection_Error_RpcServerUnavailable">
-    <value>Proton VPN kan inte ansluta eftersom RPC-servern är otillgänglig på ditt system.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜀᜅ᜔ Proton VPN ᜇᜑᜒᜎ᜔ ᜑᜒᜈ᜔ᜇᜒ available ᜀᜅ᜔ RPC server ᜐ system ᜋᜓ.</value>
   </data>
   <data name="Connection_Error_SessionLimitReachedFreeUser">
-    <value>Du har nått din maximala enhetsgräns. Koppla från en annan enhet för att ansluta denna eller uppgradera till PLUS för att få upp till 10 enheter anslutna samtidigt.</value>
+    <value>ᜈᜀᜊᜓᜆ᜔ ᜋᜓ ᜈ ᜀᜅ᜔ maximum ᜈ ᜎᜒᜋᜒᜆᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ device ᜋᜓ. ᜋᜅ᜔ᜌᜇᜒᜅ᜔ ᜋᜄ᜔-disconnect ᜈᜅ᜔ ᜁᜊᜅ᜔ device ᜂᜉᜅ᜔ ᜋᜁᜃᜓᜈᜒᜃ᜔ᜆ ᜁᜆᜓ ᜂ ᜋᜄ᜔-upgrade ᜐ Plus ᜂᜉᜅ᜔ ᜋᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜈᜅ᜔ ᜑᜅ᜔ᜄᜅ᜔ 10 device ᜈᜅ᜔ ᜐᜊᜌ᜔-ᜐᜊᜌ᜔.</value>
   </data>
   <data name="Connection_Error_SessionLimitReachedPaidUser">
-    <value>Du har nått din maximala enhetsgräns. Koppla från en annan enhet för att ansluta denna.</value>
+    <value>ᜈᜀᜊᜓᜆ᜔ ᜋᜓ ᜈ ᜀᜅ᜔ maximum ᜈ ᜎᜒᜋᜒᜆᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ device ᜋᜓ. ᜉᜃᜒ-disconnect ᜀᜅ᜔ ᜁᜊᜅ᜔ device ᜂᜉᜅ᜔ ᜋᜁᜃᜓᜈᜒᜃ᜔ᜆ ᜁᜆᜓ.</value>
   </data>
   <data name="Connection_Error_TapAdapterInUse">
-    <value>Din nätverksadapter används för närvarande.</value>
+    <value>ᜃᜐᜎᜓᜃᜓᜌᜅ᜔ ᜄᜒᜈᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ network adapter.</value>
   </data>
   <data name="Connection_Error_TapRequiresUpdate">
-    <value>Nätverksadapterns version är föråldrad.</value>
+    <value>ᜎᜓᜋ ᜈ ᜀᜅ᜔ ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ network adapter.</value>
   </data>
   <data name="Connection_Error_Title">
-    <value>Anslutning misslyckades</value>
+    <value>ᜈᜊᜒᜄᜓ ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Connection_Error_TlsCertificate">
-    <value>Det finns ett problem med att validera VPN-servercertifikatet, vilket kan tyda på att nätverksanslutningen manipuleras eller att servern du försöker ansluta till har ett konfigurationsproblem. Få hjälp från vår kundsupport genom att skicka en problemrapport.</value>
+    <value>ᜋᜌ᜔ ᜉ᜔ᜇᜓᜊ᜔ᜎᜒᜋ ᜐ ᜉᜄ᜔-validate ᜈᜅ᜔ certificate ᜈᜅ᜔ VPN server, ᜈ ᜋᜀᜀᜇᜒᜅ᜔ ᜈᜄ᜔ᜉᜉᜑᜒᜏᜆᜒᜄ᜔ ᜈ ᜉᜒᜈᜃᜒᜀᜎᜋ᜔ ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ network ᜂ ᜋᜌ᜔ ᜉ᜔ᜇᜓᜊ᜔ᜎᜒᜋ ᜐ configuration ᜀᜅ᜔ server ᜈ ᜐᜒᜈᜓᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜆᜑᜈ᜔. ᜑᜓᜋᜒᜅᜒ ᜈᜅ᜔ ᜆᜓᜎᜓᜅ᜔ ᜐ ᜀᜋᜒᜅ᜔ customer support ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔-ᜉᜉᜇᜎ ᜈᜅ᜔ ᜂᜎᜆ᜔ ᜈᜅ᜔ ᜁᜐ᜔ᜌᜓ.</value>
   </data>
   <data name="Connection_Error_TwoFactorRequired_Description">
-    <value>För att ansluta till VPN, gå till din organisations 2FA-portal och tryck på din säkerhetsnyckel.</value>
+    <value>ᜂᜉᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ VPN, ᜉᜓᜋᜓᜈ᜔ᜆ ᜐ 2FA portal ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜂᜇ᜔ᜄᜈᜒᜐᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ i-tap ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ security key.</value>
   </data>
   <data name="Connection_Error_TwoFactorRequired_Title">
-    <value>Tvåfaktorsautentisering (2FA) krävs</value>
+    <value>ᜃᜒᜈᜃᜁᜎᜅ᜔ᜈ᜔ ᜀᜅ᜔ two-factor authentication (2FA)</value>
   </data>
   <data name="Connection_Error_Unknown">
-    <value>Kontrollera din internetanslutning och försök igen. Om det inte fungerar, kontakta vårt kundsupportteam.
+    <value>ᜐᜓᜇᜒᜁᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ internet ᜀᜆ᜔ ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ. ᜃᜓᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜁᜌᜓᜈ᜔ ᜄᜓᜋᜈ, ᜋᜃᜒᜉᜄ᜔-ᜂᜄ᜔ᜈᜌᜈ᜔ ᜐ ᜀᜋᜒᜅ᜔ customer support team.
 
-Felkod: {0}</value>
+Error code: {0}</value>
   </data>
   <data name="Connection_Error_ViewPossibleSolutions">
-    <value>Visa lösningar</value>
+    <value>ᜆᜒᜅ᜔ᜈᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜉᜄ᜔-ᜀᜀᜌᜓᜐ᜔</value>
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
-    <value>Din enhets WireGuard-adapter används. Koppla från alla andra VPN som körs på din enhet och försök sedan igen.</value>
+    <value>ᜄᜒᜈᜄᜋᜒᜆ᜔ ᜀᜅ᜔ WireGuard adapter ᜈᜅ᜔ device ᜋᜓ. ᜋᜄ᜔-disconnect ᜋᜓᜎ ᜐ ᜀᜈᜓᜋᜅ᜔ ᜁᜊ ᜉᜅ᜔ VPN ᜈ ᜆᜓᜋᜆᜃ᜔ᜊᜓ ᜐ device ᜋᜓ, ᜉᜄ᜔ᜃᜆᜉᜓᜐ᜔ ᜀᜌ᜔ ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Connection_Feedback_Question">
-    <value>Hur är din anslutning?</value>
+    <value>ᜃᜓᜋᜓᜐ᜔ᜆ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜃ᜔ᜐᜌᜓᜈ᜔?</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
-    <value>Automatiskt valt från</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜉᜒᜈᜒᜎᜒ ᜋᜓᜎ ᜐ</value>
     <comment>Appears in the connection card for free users. A set of flags is displayed after the text (eg. Auto-selected from [us-flag] [jp-flag]...)</comment>
   </data>
   <data name="Connection_Via_SecureCore">
@@ -402,265 +396,265 @@ Felkod: {0}</value>
     <comment>Label used when connecting through Secure Core. {0} is a place holder for the name of the country the user is going through.</comment>
   </data>
   <data name="Connections_Cities_One">
-    <value>Ort ({0})</value>
+    <value>ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ({0})</value>
   </data>
   <data name="Connections_Cities_Other">
-    <value>Orter ({0})</value>
+    <value>ᜋᜅ ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ({0})</value>
   </data>
   <data name="Connections_City">
-    <value>Ort</value>
+    <value>ᜎᜓᜅ᜔ᜐᜓᜇ᜔</value>
   </data>
   <data name="Connections_City_Restricted">
-    <value>Servrar i dessa orter är tillgängliga med VPN Plus</value>
+    <value>Available ᜀᜅ᜔ ᜋᜅ server ᜐ ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ᜈ ᜁᜆᜓ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Connections_City_UnderMaintenance">
-    <value>Alla servrar i denna ort underhålls</value>
+    <value>ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ server ᜐ ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ᜈ ᜁᜆᜓ ᜀᜌ᜔ ᜐᜓᜋᜐᜁᜎᜎᜒᜋ᜔ ᜐ maintenance</value>
   </data>
   <data name="Connections_Countries_One">
-    <value>Land ({0})</value>
+    <value>ᜊᜈ᜔ᜐ ({0})</value>
   </data>
   <data name="Connections_Countries_Other">
-    <value>Länder ({0})</value>
+    <value>ᜋᜅ ᜊᜈ᜔ᜐ ({0})</value>
   </data>
   <data name="Connections_Country">
-    <value>Land</value>
+    <value>ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Connections_Country_Middle">
-    <value>Mellanland</value>
+    <value>ᜄᜒᜆ᜔ᜈᜅ᜔ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Connections_Country_Restricted">
-    <value>Servrar i detta land är tillgängliga med VPN Plus</value>
+    <value>Available ᜀᜅ᜔ ᜋᜅ server ᜐ ᜊᜈ᜔ᜐᜅ᜔ ᜁᜆᜓ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Connections_Country_UnderMaintenance">
-    <value>Alla servrar i detta land underhålls</value>
+    <value>ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ server ᜐ ᜊᜈ᜔ᜐᜅ᜔ ᜁᜆᜓ ᜀᜌ᜔ ᜐᜓᜋᜐᜁᜎᜎᜒᜋ᜔ ᜐ maintenance</value>
   </data>
   <data name="Connections_Country_UnderMaintenance_Title">
-    <value>Kan inte ansluta</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜃᜃᜓᜈᜒᜃ᜔ᜆ</value>
   </data>
   <data name="Connections_Fastest">
-    <value>Snabbast</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔</value>
   </data>
   <data name="Connections_Free_Servers_One">
-    <value>Gratisserver</value>
+    <value>ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server</value>
   </data>
   <data name="Connections_Free_Servers_Other">
-    <value>Gratisservrar</value>
+    <value>ᜋᜅ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server</value>
   </data>
   <data name="Connections_Gateway">
     <value>Gateway</value>
   </data>
   <data name="Connections_Gateway_Restricted">
-    <value>Servrar i denna gateway är tillgängliga med VPN Plus</value>
+    <value>Available ᜀᜅ᜔ ᜋᜅ server ᜐ gateway ᜈ ᜁᜆᜓ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Connections_Gateway_UnderMaintenance">
-    <value>Alla servrar i denna gateway underhålls</value>
+    <value>ᜐᜓᜋᜐᜀᜁᜎᜎᜒᜋ᜔ ᜐ maintenance ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ server ᜐ gateway ᜈ ᜁᜆᜓ</value>
   </data>
   <data name="Connections_Gateways_One">
-    <value>Gateway ({0})</value>
+    <value>gateway ({0})</value>
   </data>
   <data name="Connections_Gateways_Other">
-    <value>Gateways ({0})</value>
+    <value>ᜋᜄ gateway ({0})</value>
   </data>
   <data name="Connections_Gateways_Server">
-    <value>Dedikerad server</value>
+    <value>Dedicated server</value>
   </data>
   <data name="Connections_Gateways_Servers_One">
-    <value>Dedikerad server ({0})</value>
+    <value>dedicated server ({0})</value>
   </data>
   <data name="Connections_Gateways_Servers_Other">
-    <value>Dedikerade servrar ({0})</value>
+    <value>ᜋᜅ dedicated server ({0})</value>
   </data>
   <data name="Connections_P2P_Cities_One">
-    <value>P2P-ort ({0})</value>
+    <value>ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ᜈ P2P ({0})</value>
   </data>
   <data name="Connections_P2P_Cities_Other">
-    <value>P2P-orter ({0})</value>
+    <value>ᜋᜅ ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ᜈ P2P ({0})</value>
   </data>
   <data name="Connections_P2P_Countries_One">
-    <value>P2P-land ({0})</value>
+    <value>P2P ᜈ ᜊᜈ᜔ᜐ ({0})</value>
   </data>
   <data name="Connections_P2P_Countries_Other">
-    <value>P2P-länder ({0})</value>
+    <value>ᜋᜅ P2P ᜈ ᜊᜈ᜔ᜐ ({0})</value>
   </data>
   <data name="Connections_P2P_Servers_One">
-    <value>P2P-server</value>
+    <value>P2P server</value>
   </data>
   <data name="Connections_P2P_Servers_Other">
-    <value>P2P-servrar</value>
+    <value>ᜋᜅ P2P server</value>
   </data>
   <data name="Connections_P2P_States_One">
-    <value>P2P-delstat ({0})</value>
+    <value>P2P ᜈ ᜁᜐ᜔ᜆᜇᜓ ({0})</value>
   </data>
   <data name="Connections_P2P_States_Other">
-    <value>P2P-delstater ({0})</value>
+    <value>ᜋᜅ P2P ᜈ ᜁᜐ᜔ᜆᜇᜓ ({0})</value>
   </data>
   <data name="Connections_Profiles_One">
-    <value>Profil ({0})</value>
+    <value>ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔ ({0})</value>
   </data>
   <data name="Connections_Profiles_Other">
-    <value>Profiler ({0})</value>
+    <value>ᜋᜅ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔ ({0})</value>
   </data>
   <data name="Connections_Profiles_Create">
-    <value>Skapa profil</value>
+    <value>ᜄᜓᜋᜏ ᜈᜅ᜔ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔</value>
     <comment>"Create profile" is more appropriate for the empty profiles page, when you have no profiles</comment>
   </data>
   <data name="Connections_Profiles_Delete">
-    <value>Ta bort profil</value>
+    <value>ᜊᜓᜇᜑᜒᜈ᜔ ᜀᜅ᜔ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔</value>
   </data>
   <data name="Connections_Profiles_Delete_Message">
-    <value>'{0}' kommer att tas bort permanent.</value>
+    <value>ᜉᜒᜇ᜔ᜋᜈᜒᜈ᜔ᜆᜒᜅ᜔ ᜀᜀᜎᜒᜐᜒᜈ᜔ ᜀᜅ᜔ '{0}'.</value>
     <comment>{0} is a placeholder for the name of the profile.</comment>
   </data>
   <data name="Connections_Profiles_Delete_Title">
-    <value>Ta bort profil?</value>
+    <value>ᜊᜓᜇᜑᜒᜈ᜔ ᜀᜅ᜔ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔?</value>
   </data>
   <data name="Connections_Profiles_Empty_Description">
-    <value>Profiler är sparade anslutningar med ditt val av plats, server och protokoll.</value>
+    <value>ᜀᜅ᜔ ᜋᜅ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔ ᜀᜌ᜔ ᜋᜅ ᜈᜃ-save ᜋᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈ ᜋᜌ᜔ ᜈᜉᜒᜎᜒᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔, server ᜀᜆ᜔ protocol.</value>
   </data>
   <data name="Connections_Profiles_Empty_Title">
-    <value>Skapa din första profil</value>
+    <value>ᜄᜓᜋᜏ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜂᜈᜅ᜔ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔</value>
   </data>
   <data name="Connections_Profiles_Location_Header">
-    <value>Välj anslutningstyp och plats</value>
+    <value>ᜉᜒᜎᜒᜁᜈ᜔ ᜀᜅ᜔ ᜂᜇᜒ ᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Connections_Profiles_Name">
-    <value>Ge din profil ett namn</value>
+    <value>ᜉᜅᜎᜈᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔</value>
   </data>
   <data name="Connections_Profiles_Name_Default">
-    <value>Ingen rubrik</value>
+    <value>ᜏᜎᜅ᜔ ᜉᜋᜄᜆ᜔</value>
     <comment>This will be used as the default profile name if the user creates a profile without entering a name</comment>
   </data>
   <data name="Connections_Profiles_Name_Duplicate">
-    <value>Kopia av {0}</value>
+    <value>ᜃᜓᜉ᜔ᜌ ᜈᜅ᜔ {0}</value>
     <comment>This will be used as the profile name when duplicating a profile. {0} is a placeholder for the original profile name.</comment>
   </data>
   <data name="Connections_Profiles_New">
-    <value>Ny profil</value>
+    <value>ᜊᜄᜓᜈ᜔ᜄ᜔ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔</value>
     <comment>"New profile" is more appropriate when you already have a profile</comment>
   </data>
   <data name="Connections_Profiles_NotAvailable_Tooltip">
-    <value>Profiler är tillgängliga med VPN Plus</value>
+    <value>Available ᜀᜅ᜔ ᜋᜅ ᜉ᜔ᜇᜓᜉᜌ᜔ᜎ᜔ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ Proton VPN Plus</value>
     <comment>The text in the tooltip when hovering a profile and the user has a free plan</comment>
   </data>
   <data name="Connections_Recents_One">
-    <value>Senaste ({0})</value>
+    <value>ᜃᜋᜃᜁᜎᜈ᜔ ({0})</value>
   </data>
   <data name="Connections_Recents_Other">
-    <value>Senaste ({0})</value>
+    <value>ᜋᜅ ᜃᜋᜃᜁᜎᜈ᜔ ({0})</value>
   </data>
   <data name="Connections_Recents_Empty_Description">
-    <value>Visa din anslutningshistorik här.</value>
+    <value>ᜆᜒᜅ᜔ᜈᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ history ᜈᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜇᜒᜆᜓ</value>
   </data>
   <data name="Connections_Recents_Empty_Title">
-    <value>Inga senaste ännu</value>
+    <value>ᜏᜎ ᜉᜅ᜔ ᜋᜅ recent</value>
   </data>
   <data name="Connections_Recents_Pinned_One">
-    <value>Fäst ({0})</value>
+    <value>ᜈᜃ-pin ({0})</value>
   </data>
   <data name="Connections_Recents_Pinned_Other">
-    <value>Fäst ({0})</value>
+    <value>ᜋᜅ ᜈᜃ-pin ({0})</value>
   </data>
   <data name="Connections_SecureCore_Countries_One">
-    <value>Secure Core-land ({0})</value>
+    <value>ᜊᜈ᜔ᜐᜅ᜔ Secure Core ({0})</value>
   </data>
   <data name="Connections_SecureCore_Countries_Other">
-    <value>Secure Core-länder ({0})</value>
+    <value>ᜋᜅ ᜊᜈ᜔ᜐᜅ᜔ Secure Core ({0})</value>
   </data>
   <data name="Connections_SecureCore_Servers_One">
-    <value>Secure Core-server</value>
+    <value>Secure Core ᜈ server</value>
   </data>
   <data name="Connections_SecureCore_Servers_Other">
-    <value>Secure Core-servrar</value>
+    <value>ᜋᜅ Secure Core ᜈ server</value>
   </data>
   <data name="Connections_Server_Restricted">
-    <value>Server tillgänglig med VPN Plus</value>
+    <value>Available ᜀᜅ᜔ server ᜐ VPN Plus</value>
   </data>
   <data name="Connections_Server_UnderMaintenance">
-    <value>Denna server underhålls</value>
+    <value>ᜐᜓᜋᜐᜁᜎᜎᜒᜋ᜔ ᜐ maintenance ᜀᜅ᜔ server ᜈ ᜁᜆᜓ</value>
   </data>
   <data name="Connections_Servers_One">
     <value>Server</value>
   </data>
   <data name="Connections_Servers_Other">
-    <value>Servrar</value>
+    <value>ᜋᜅ Server</value>
   </data>
   <data name="Connections_State">
-    <value>Tillstånd</value>
+    <value>ᜁᜐ᜔ᜆᜇᜓ</value>
   </data>
   <data name="Connections_State_Restricted">
-    <value>Servrar i denna delstat är tillgängliga med VPN Plus.</value>
+    <value>Available ᜀᜅ᜔ ᜋᜄ server ᜐ ᜁᜐ᜔ᜆᜇᜓᜅ᜔ ᜁᜆᜓ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus.</value>
     <comment>Message appears as a tooltip whenever a free user is trying to connect to a state. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
   </data>
   <data name="Connections_State_UnderMaintenance">
-    <value>Alla servrar i denna delstat underhålls.</value>
+    <value>ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ server ᜐ ᜁᜐ᜔ᜆᜇᜓᜅ᜔ ᜁᜆᜓ ᜀᜌ᜔ ᜐᜓᜋᜐᜁᜎᜎᜒᜋ᜔ ᜐ maintenance.</value>
     <comment>Message appears as a tooltip whenever all the servers from that state are under maintenance. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
   </data>
   <data name="Connections_States_One">
-    <value>Delstat ({0})</value>
+    <value>ᜁᜐ᜔ᜆᜇᜓ ({0})</value>
   </data>
   <data name="Connections_States_Other">
-    <value>Delstater ({0})</value>
+    <value>ᜋᜅ ᜁᜐ᜔ᜆᜇᜓ ({0})</value>
   </data>
   <data name="Connections_Tor_Countries_One">
-    <value>Tor-land ({0})</value>
+    <value>ᜊᜈ᜔ᜐᜅ᜔ Tor ({0})</value>
   </data>
   <data name="Connections_Tor_Countries_Other">
-    <value>Tor-länder ({0})</value>
+    <value>ᜋᜅ ᜊᜈ᜔ᜐᜅ᜔ Tor ({0})</value>
   </data>
   <data name="Connections_Tor_Servers_One">
-    <value>Tor-server</value>
+    <value>Tor server</value>
   </data>
   <data name="Connections_Tor_Servers_Other">
-    <value>Tor-servrar</value>
+    <value>ᜋᜅ Tor server</value>
   </data>
   <data name="Countries">
-    <value>Länder</value>
+    <value>ᜋᜅ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Countries_All">
-    <value>Alla</value>
+    <value>ᜎᜑᜆ᜔</value>
   </data>
   <data name="Countries_P2P">
     <value>P2P</value>
   </data>
   <data name="Countries_P2P_Description">
-    <value>Ladda ner filer via P2P-nätverk (peer-to-peer) och förbättra din upplevelse av onlinespel och videosamtal.</value>
+    <value>ᜋᜄ᜔-download ᜈᜅ᜔ ᜋᜅ file ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ network ᜈ P2P (peer-to-peer) ᜀᜆ᜔ ᜉᜑᜓᜐᜌᜒᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜇᜈᜐᜈ᜔ ᜐ online gaming ᜀᜆ᜔ video call.</value>
   </data>
   <data name="Countries_SecureCore">
     <value>Secure Core</value>
   </data>
   <data name="Countries_SecureCore_Description">
-    <value>Lägg till ytterligare ett lager av kryptering till din VPN-anslutning.</value>
+    <value>ᜋᜄ᜔ᜇᜄ᜔ᜇᜄ᜔ ᜈᜅ᜔ ᜁᜐ ᜉᜅ᜔ layer ᜈᜅ᜔ encryption ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Countries_ServerLoad">
-    <value>Serverbelastning</value>
+    <value>Load ᜈᜅ᜔ server</value>
   </data>
   <data name="Countries_SmartRouting">
-    <value>Smart dirigering</value>
+    <value>Smart routing</value>
   </data>
   <data name="Countries_Tor">
     <value>Tor</value>
   </data>
   <data name="Countries_Tor_Description">
-    <value>Använd Tor-nätverket över din VPN-anslutning för extra integritet.</value>
+    <value>ᜄᜋᜒᜆᜒᜈ᜔ ᜀᜅ᜔ Tor network ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN ᜉᜇ ᜐ ᜃᜇᜄ᜔ᜇᜄᜅ᜔ privacy.</value>
   </data>
   <data name="Country_Fastest">
-    <value>Snabbaste land</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Country_Fastest_ExcludingMyCountry">
-    <value>Snabbast (exklusive mitt land)</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ (ᜑᜒᜈ᜔ᜇᜒ ᜃᜐᜋ ᜀᜅ᜔ ᜀᜃᜒᜅ᜔ ᜊᜈ᜔ᜐ)</value>
   </data>
   <data name="Country_Random">
-    <value>Slumpmässigt land</value>
+    <value>Random ᜈ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Country_Random_ExcludingMyCountry">
-    <value>Slumpmässigt (exklusive mitt land)</value>
+    <value>Random (ᜑᜒᜈ᜔ᜇᜒ ᜃᜐᜋ ᜀᜅ᜔ ᜀᜃᜒᜅ᜔ ᜊᜈ᜔ᜐ)</value>
   </data>
   <data name="Country_val_AD">
     <value>Andorra</value>
     <comment>The name of AD country</comment>
   </data>
   <data name="Country_val_AE">
-    <value>Förenade Arabemiraten</value>
+    <value>United Arab Emirates</value>
     <comment>The name of AE country</comment>
   </data>
   <data name="Country_val_AF">
@@ -668,7 +662,7 @@ Felkod: {0}</value>
     <comment>The name of AF country</comment>
   </data>
   <data name="Country_val_AG">
-    <value>Antigua och Barbuda</value>
+    <value>Antigua and Barbuda</value>
     <comment>The name of AG country</comment>
   </data>
   <data name="Country_val_AI">
@@ -676,11 +670,11 @@ Felkod: {0}</value>
     <comment>The name of AI country</comment>
   </data>
   <data name="Country_val_AL">
-    <value>Albanien</value>
+    <value>Albania</value>
     <comment>The name of AL country</comment>
   </data>
   <data name="Country_val_AM">
-    <value>Armenien</value>
+    <value>Armenia</value>
     <comment>The name of AM country</comment>
   </data>
   <data name="Country_val_AO">
@@ -688,7 +682,7 @@ Felkod: {0}</value>
     <comment>The name of AO country</comment>
   </data>
   <data name="Country_val_AQ">
-    <value>Antarktis</value>
+    <value>Antarctica</value>
     <comment>The name of AQ country</comment>
   </data>
   <data name="Country_val_AR">
@@ -696,15 +690,15 @@ Felkod: {0}</value>
     <comment>The name of AR country</comment>
   </data>
   <data name="Country_val_AS">
-    <value>Amerikanska Samoa</value>
+    <value>American Samoa</value>
     <comment>The name of AS country</comment>
   </data>
   <data name="Country_val_AT">
-    <value>Österrike</value>
+    <value>Austria</value>
     <comment>The name of AT country</comment>
   </data>
   <data name="Country_val_AU">
-    <value>Australien</value>
+    <value>Australia</value>
     <comment>The name of AU country</comment>
   </data>
   <data name="Country_val_AW">
@@ -712,15 +706,15 @@ Felkod: {0}</value>
     <comment>The name of AW country</comment>
   </data>
   <data name="Country_val_AX">
-    <value>Åland</value>
+    <value>Aland Islands</value>
     <comment>The name of AX country</comment>
   </data>
   <data name="Country_val_AZ">
-    <value>Azerbajdzjan</value>
+    <value>Azerbaijan</value>
     <comment>The name of AZ country</comment>
   </data>
   <data name="Country_val_BA">
-    <value>Bosnien och Hercegovina</value>
+    <value>Bosnia and Herzegovina</value>
     <comment>The name of BA country</comment>
   </data>
   <data name="Country_val_BB">
@@ -732,7 +726,7 @@ Felkod: {0}</value>
     <comment>The name of BD country</comment>
   </data>
   <data name="Country_val_BE">
-    <value>Belgien</value>
+    <value>Belgium</value>
     <comment>The name of BE country</comment>
   </data>
   <data name="Country_val_BF">
@@ -740,7 +734,7 @@ Felkod: {0}</value>
     <comment>The name of BF country</comment>
   </data>
   <data name="Country_val_BG">
-    <value>Bulgarien</value>
+    <value>Bulgaria</value>
     <comment>The name of BG country</comment>
   </data>
   <data name="Country_val_BH">
@@ -772,11 +766,11 @@ Felkod: {0}</value>
     <comment>The name of BO country</comment>
   </data>
   <data name="Country_val_BQ">
-    <value>Bonaire, Sint Eustatius och Saba</value>
+    <value>Bonaire, Sint Eustatius and Saba</value>
     <comment>The name of BQ country</comment>
   </data>
   <data name="Country_val_BR">
-    <value>Brasilien</value>
+    <value>Brazil</value>
     <comment>The name of BR country</comment>
   </data>
   <data name="Country_val_BS">
@@ -788,7 +782,7 @@ Felkod: {0}</value>
     <comment>The name of BT country</comment>
   </data>
   <data name="Country_val_BV">
-    <value>Bouvetön</value>
+    <value>Bouvet Island</value>
     <comment>The name of BV country</comment>
   </data>
   <data name="Country_val_BW">
@@ -804,35 +798,35 @@ Felkod: {0}</value>
     <comment>The name of BZ country</comment>
   </data>
   <data name="Country_val_CA">
-    <value>Kanada</value>
+    <value>Canada</value>
     <comment>The name of CA country</comment>
   </data>
   <data name="Country_val_CC">
-    <value>Kokosöarna</value>
+    <value>Cocos (Keeling) Islands</value>
     <comment>The name of CC country</comment>
   </data>
   <data name="Country_val_CD">
-    <value>Kongo (Demokratiska republiken)</value>
+    <value>Congo (Democratic Republic of the Congo)</value>
     <comment>The name of CD country</comment>
   </data>
   <data name="Country_val_CF">
-    <value>Centralafrikanska republiken</value>
+    <value>Central African Republic</value>
     <comment>The name of CF country</comment>
   </data>
   <data name="Country_val_CG">
-    <value>Kongo</value>
+    <value>Congo</value>
     <comment>The name of CG country</comment>
   </data>
   <data name="Country_val_CH">
-    <value>Schweiz</value>
+    <value>Switzerland</value>
     <comment>The name of CH country</comment>
   </data>
   <data name="Country_val_CI">
-    <value>Elfenbenskusten</value>
+    <value>Côte d'Ivoire</value>
     <comment>The name of CI country</comment>
   </data>
   <data name="Country_val_CK">
-    <value>Cooköarna</value>
+    <value>Cook Islands</value>
     <comment>The name of CK country</comment>
   </data>
   <data name="Country_val_CL">
@@ -840,11 +834,11 @@ Felkod: {0}</value>
     <comment>The name of CL country</comment>
   </data>
   <data name="Country_val_CM">
-    <value>Kamerun</value>
+    <value>Cameroon</value>
     <comment>The name of CM country</comment>
   </data>
   <data name="Country_val_CN">
-    <value>Kina</value>
+    <value>China</value>
     <comment>The name of CN country</comment>
   </data>
   <data name="Country_val_CO">
@@ -856,11 +850,11 @@ Felkod: {0}</value>
     <comment>The name of CR country</comment>
   </data>
   <data name="Country_val_CU">
-    <value>Kuba</value>
+    <value>Cuba</value>
     <comment>The name of CU country</comment>
   </data>
   <data name="Country_val_CV">
-    <value>Kap Verde</value>
+    <value>Cape Verde</value>
     <comment>The name of CV country</comment>
   </data>
   <data name="Country_val_CW">
@@ -868,19 +862,19 @@ Felkod: {0}</value>
     <comment>The name of CW country</comment>
   </data>
   <data name="Country_val_CX">
-    <value>Julön</value>
+    <value>Christmas Island</value>
     <comment>The name of CX country</comment>
   </data>
   <data name="Country_val_CY">
-    <value>Cypern</value>
+    <value>Cyprus</value>
     <comment>The name of CY country</comment>
   </data>
   <data name="Country_val_CZ">
-    <value>Tjeckien</value>
+    <value>Czechia</value>
     <comment>The name of CZ country</comment>
   </data>
   <data name="Country_val_DE">
-    <value>Tyskland</value>
+    <value>Germany</value>
     <comment>The name of DE country</comment>
   </data>
   <data name="Country_val_DJ">
@@ -888,7 +882,7 @@ Felkod: {0}</value>
     <comment>The name of DJ country</comment>
   </data>
   <data name="Country_val_DK">
-    <value>Danmark</value>
+    <value>Denmark</value>
     <comment>The name of DK country</comment>
   </data>
   <data name="Country_val_DM">
@@ -896,11 +890,11 @@ Felkod: {0}</value>
     <comment>The name of DM country</comment>
   </data>
   <data name="Country_val_DO">
-    <value>Dominikanska republiken</value>
+    <value>Dominican Republic</value>
     <comment>The name of DO country</comment>
   </data>
   <data name="Country_val_DZ">
-    <value>Algeriet</value>
+    <value>Algeria</value>
     <comment>The name of DZ country</comment>
   </data>
   <data name="Country_val_EC">
@@ -908,15 +902,15 @@ Felkod: {0}</value>
     <comment>The name of EC country</comment>
   </data>
   <data name="Country_val_EE">
-    <value>Estland</value>
+    <value>Estonia</value>
     <comment>The name of EE country</comment>
   </data>
   <data name="Country_val_EG">
-    <value>Egypten</value>
+    <value>Egypt</value>
     <comment>The name of EG country</comment>
   </data>
   <data name="Country_val_EH">
-    <value>Västsahara</value>
+    <value>Western Sahara</value>
     <comment>The name of EH country</comment>
   </data>
   <data name="Country_val_ER">
@@ -924,11 +918,11 @@ Felkod: {0}</value>
     <comment>The name of ER country</comment>
   </data>
   <data name="Country_val_ES">
-    <value>Spanien</value>
+    <value>Spain</value>
     <comment>The name of ES country</comment>
   </data>
   <data name="Country_val_ET">
-    <value>Etiopien</value>
+    <value>Ethiopia</value>
     <comment>The name of ET country</comment>
   </data>
   <data name="Country_val_FI">
@@ -940,19 +934,19 @@ Felkod: {0}</value>
     <comment>The name of FJ country</comment>
   </data>
   <data name="Country_val_FK">
-    <value>Falklandsöarna (Malvinas)</value>
+    <value>Falkland Islands (Malvinas)</value>
     <comment>The name of FK country</comment>
   </data>
   <data name="Country_val_FM">
-    <value>Mikronesien</value>
+    <value>Micronesia</value>
     <comment>The name of FM country</comment>
   </data>
   <data name="Country_val_FO">
-    <value>Färöarna</value>
+    <value>Faroe Islands</value>
     <comment>The name of FO country</comment>
   </data>
   <data name="Country_val_FR">
-    <value>Frankrike</value>
+    <value>France</value>
     <comment>The name of FR country</comment>
   </data>
   <data name="Country_val_GA">
@@ -960,7 +954,7 @@ Felkod: {0}</value>
     <comment>The name of GA country</comment>
   </data>
   <data name="Country_val_GB">
-    <value>Storbritannien</value>
+    <value>United Kingdom</value>
     <comment>The name of GB country</comment>
   </data>
   <data name="Country_val_GD">
@@ -968,11 +962,11 @@ Felkod: {0}</value>
     <comment>The name of GD country</comment>
   </data>
   <data name="Country_val_GE">
-    <value>Georgien</value>
+    <value>Georgia</value>
     <comment>The name of GE country</comment>
   </data>
   <data name="Country_val_GF">
-    <value>Franska Guyana</value>
+    <value>French Guiana</value>
     <comment>The name of GF country</comment>
   </data>
   <data name="Country_val_GG">
@@ -988,7 +982,7 @@ Felkod: {0}</value>
     <comment>The name of GI country</comment>
   </data>
   <data name="Country_val_GL">
-    <value>Grönland</value>
+    <value>Greenland</value>
     <comment>The name of GL country</comment>
   </data>
   <data name="Country_val_GM">
@@ -1004,15 +998,15 @@ Felkod: {0}</value>
     <comment>The name of GP country</comment>
   </data>
   <data name="Country_val_GQ">
-    <value>Ekvatorialguinea</value>
+    <value>Equatorial Guinea</value>
     <comment>The name of GQ country</comment>
   </data>
   <data name="Country_val_GR">
-    <value>Grekland</value>
+    <value>Greece</value>
     <comment>The name of GR country</comment>
   </data>
   <data name="Country_val_GS">
-    <value>Sydgeorgien och Södra Sandwichöarna</value>
+    <value>South Georgia and the South Sandwich Islands</value>
     <comment>The name of GS country</comment>
   </data>
   <data name="Country_val_GT">
@@ -1032,11 +1026,11 @@ Felkod: {0}</value>
     <comment>The name of GY country</comment>
   </data>
   <data name="Country_val_HK">
-    <value>Hongkong</value>
+    <value>Hong Kong</value>
     <comment>The name of HK country</comment>
   </data>
   <data name="Country_val_HM">
-    <value>Heard- och McDonaldsöarna</value>
+    <value>Heard Island and McDonald Islands</value>
     <comment>The name of HM country</comment>
   </data>
   <data name="Country_val_HN">
@@ -1044,7 +1038,7 @@ Felkod: {0}</value>
     <comment>The name of HN country</comment>
   </data>
   <data name="Country_val_HR">
-    <value>Kroatien</value>
+    <value>Croatia</value>
     <comment>The name of HR country</comment>
   </data>
   <data name="Country_val_HT">
@@ -1052,15 +1046,15 @@ Felkod: {0}</value>
     <comment>The name of HT country</comment>
   </data>
   <data name="Country_val_HU">
-    <value>Ungern</value>
+    <value>Hungary</value>
     <comment>The name of HU country</comment>
   </data>
   <data name="Country_val_ID">
-    <value>Indonesien</value>
+    <value>Indonesia</value>
     <comment>The name of ID country</comment>
   </data>
   <data name="Country_val_IE">
-    <value>Irland</value>
+    <value>Ireland</value>
     <comment>The name of IE country</comment>
   </data>
   <data name="Country_val_IL">
@@ -1072,15 +1066,15 @@ Felkod: {0}</value>
     <comment>The name of IM country</comment>
   </data>
   <data name="Country_val_IN">
-    <value>Indien</value>
+    <value>India</value>
     <comment>The name of IN country</comment>
   </data>
   <data name="Country_val_IO">
-    <value>Brittiska territoriet i Indiska oceanen</value>
+    <value>British Indian Ocean Territory</value>
     <comment>The name of IO country</comment>
   </data>
   <data name="Country_val_IQ">
-    <value>Irak</value>
+    <value>Iraq</value>
     <comment>The name of IQ country</comment>
   </data>
   <data name="Country_val_IR">
@@ -1088,11 +1082,11 @@ Felkod: {0}</value>
     <comment>The name of IR country</comment>
   </data>
   <data name="Country_val_IS">
-    <value>Island</value>
+    <value>Iceland</value>
     <comment>The name of IS country</comment>
   </data>
   <data name="Country_val_IT">
-    <value>Italien</value>
+    <value>Italy</value>
     <comment>The name of IT country</comment>
   </data>
   <data name="Country_val_JE">
@@ -1104,7 +1098,7 @@ Felkod: {0}</value>
     <comment>The name of JM country</comment>
   </data>
   <data name="Country_val_JO">
-    <value>Jordanien</value>
+    <value>Jordan</value>
     <comment>The name of JO country</comment>
   </data>
   <data name="Country_val_JP">
@@ -1116,11 +1110,11 @@ Felkod: {0}</value>
     <comment>The name of KE country</comment>
   </data>
   <data name="Country_val_KG">
-    <value>Kirgizistan</value>
+    <value>Kyrgyzstan</value>
     <comment>The name of KG country</comment>
   </data>
   <data name="Country_val_KH">
-    <value>Kambodja</value>
+    <value>Cambodia</value>
     <comment>The name of KH country</comment>
   </data>
   <data name="Country_val_KI">
@@ -1128,19 +1122,19 @@ Felkod: {0}</value>
     <comment>The name of KI country</comment>
   </data>
   <data name="Country_val_KM">
-    <value>Komorerna</value>
+    <value>Comoros</value>
     <comment>The name of KM country</comment>
   </data>
   <data name="Country_val_KN">
-    <value>Saint Kitts och Nevis</value>
+    <value>Saint Kitts and Nevis</value>
     <comment>The name of KN country</comment>
   </data>
   <data name="Country_val_KP">
-    <value>Nordkorea</value>
+    <value>North Korea</value>
     <comment>The name of KP country</comment>
   </data>
   <data name="Country_val_KR">
-    <value>Sydkorea</value>
+    <value>South Korea</value>
     <comment>The name of KR country</comment>
   </data>
   <data name="Country_val_KW">
@@ -1148,11 +1142,11 @@ Felkod: {0}</value>
     <comment>The name of KW country</comment>
   </data>
   <data name="Country_val_KY">
-    <value>Caymanöarna</value>
+    <value>Cayman Islands</value>
     <comment>The name of KY country</comment>
   </data>
   <data name="Country_val_KZ">
-    <value>Kazakstan</value>
+    <value>Kazakhstan</value>
     <comment>The name of KZ country</comment>
   </data>
   <data name="Country_val_LA">
@@ -1160,7 +1154,7 @@ Felkod: {0}</value>
     <comment>The name of LA country</comment>
   </data>
   <data name="Country_val_LB">
-    <value>Libanon</value>
+    <value>Lebanon</value>
     <comment>The name of LB country</comment>
   </data>
   <data name="Country_val_LC">
@@ -1184,23 +1178,23 @@ Felkod: {0}</value>
     <comment>The name of LS country</comment>
   </data>
   <data name="Country_val_LT">
-    <value>Litauen</value>
+    <value>Lithuania</value>
     <comment>The name of LT country</comment>
   </data>
   <data name="Country_val_LU">
-    <value>Luxemburg</value>
+    <value>Luxembourg</value>
     <comment>The name of LU country</comment>
   </data>
   <data name="Country_val_LV">
-    <value>Lettland</value>
+    <value>Latvia</value>
     <comment>The name of LV country</comment>
   </data>
   <data name="Country_val_LY">
-    <value>Libyen</value>
+    <value>Libya</value>
     <comment>The name of LY country</comment>
   </data>
   <data name="Country_val_MA">
-    <value>Marocko</value>
+    <value>Morocco</value>
     <comment>The name of MA country</comment>
   </data>
   <data name="Country_val_MC">
@@ -1208,7 +1202,7 @@ Felkod: {0}</value>
     <comment>The name of MC country</comment>
   </data>
   <data name="Country_val_MD">
-    <value>Moldavien</value>
+    <value>Moldova</value>
     <comment>The name of MD country</comment>
   </data>
   <data name="Country_val_ME">
@@ -1216,19 +1210,19 @@ Felkod: {0}</value>
     <comment>The name of ME country</comment>
   </data>
   <data name="Country_val_MF">
-    <value>Saint Martin (franska delen)</value>
+    <value>Saint Martin (French part)</value>
     <comment>The name of MF country</comment>
   </data>
   <data name="Country_val_MG">
-    <value>Madagaskar</value>
+    <value>Madagascar</value>
     <comment>The name of MG country</comment>
   </data>
   <data name="Country_val_MH">
-    <value>Marshallöarna</value>
+    <value>Marshall Islands</value>
     <comment>The name of MH country</comment>
   </data>
   <data name="Country_val_MK">
-    <value>Makedonien</value>
+    <value>Macedonia</value>
     <comment>The name of MK country</comment>
   </data>
   <data name="Country_val_ML">
@@ -1240,7 +1234,7 @@ Felkod: {0}</value>
     <comment>The name of MM country</comment>
   </data>
   <data name="Country_val_MN">
-    <value>Mongoliet</value>
+    <value>Mongolia</value>
     <comment>The name of MN country</comment>
   </data>
   <data name="Country_val_MO">
@@ -1248,7 +1242,7 @@ Felkod: {0}</value>
     <comment>The name of MO country</comment>
   </data>
   <data name="Country_val_MP">
-    <value>Nordmarianerna</value>
+    <value>Northern Mariana Islands</value>
     <comment>The name of MP country</comment>
   </data>
   <data name="Country_val_MQ">
@@ -1256,7 +1250,7 @@ Felkod: {0}</value>
     <comment>The name of MQ country</comment>
   </data>
   <data name="Country_val_MR">
-    <value>Mauretanien</value>
+    <value>Mauritania</value>
     <comment>The name of MR country</comment>
   </data>
   <data name="Country_val_MS">
@@ -1272,7 +1266,7 @@ Felkod: {0}</value>
     <comment>The name of MU country</comment>
   </data>
   <data name="Country_val_MV">
-    <value>Maldiverna</value>
+    <value>Maldives</value>
     <comment>The name of MV country</comment>
   </data>
   <data name="Country_val_MW">
@@ -1280,7 +1274,7 @@ Felkod: {0}</value>
     <comment>The name of MW country</comment>
   </data>
   <data name="Country_val_MX">
-    <value>Mexiko</value>
+    <value>Mexico</value>
     <comment>The name of MX country</comment>
   </data>
   <data name="Country_val_MY">
@@ -1288,7 +1282,7 @@ Felkod: {0}</value>
     <comment>The name of MY country</comment>
   </data>
   <data name="Country_val_MZ">
-    <value>Moçambique</value>
+    <value>Mozambique</value>
     <comment>The name of MZ country</comment>
   </data>
   <data name="Country_val_NA">
@@ -1296,7 +1290,7 @@ Felkod: {0}</value>
     <comment>The name of NA country</comment>
   </data>
   <data name="Country_val_NC">
-    <value>Nya Kaledonien</value>
+    <value>New Caledonia</value>
     <comment>The name of NC country</comment>
   </data>
   <data name="Country_val_NE">
@@ -1304,7 +1298,7 @@ Felkod: {0}</value>
     <comment>The name of NE country</comment>
   </data>
   <data name="Country_val_NF">
-    <value>Norfolkön</value>
+    <value>Norfolk Island</value>
     <comment>The name of NF country</comment>
   </data>
   <data name="Country_val_NG">
@@ -1316,11 +1310,11 @@ Felkod: {0}</value>
     <comment>The name of NI country</comment>
   </data>
   <data name="Country_val_NL">
-    <value>Nederländerna</value>
+    <value>Netherlands</value>
     <comment>The name of NL country</comment>
   </data>
   <data name="Country_val_NO">
-    <value>Norge</value>
+    <value>Norway</value>
     <comment>The name of NO country</comment>
   </data>
   <data name="Country_val_NP">
@@ -1336,7 +1330,7 @@ Felkod: {0}</value>
     <comment>The name of NU country</comment>
   </data>
   <data name="Country_val_NZ">
-    <value>Nya Zeeland</value>
+    <value>New Zealand</value>
     <comment>The name of NZ country</comment>
   </data>
   <data name="Country_val_OM">
@@ -1352,15 +1346,15 @@ Felkod: {0}</value>
     <comment>The name of PE country</comment>
   </data>
   <data name="Country_val_PF">
-    <value>Franska Polynesien</value>
+    <value>French Polynesia</value>
     <comment>The name of PF country</comment>
   </data>
   <data name="Country_val_PG">
-    <value>Papua Nya Guinea</value>
+    <value>Papua New Guinea</value>
     <comment>The name of PG country</comment>
   </data>
   <data name="Country_val_PH">
-    <value>Filippinerna</value>
+    <value>ᜉᜒᜎᜒᜉᜒᜈᜐ᜔</value>
     <comment>The name of PH country</comment>
   </data>
   <data name="Country_val_PK">
@@ -1368,11 +1362,11 @@ Felkod: {0}</value>
     <comment>The name of PK country</comment>
   </data>
   <data name="Country_val_PL">
-    <value>Polen</value>
+    <value>Poland</value>
     <comment>The name of PL country</comment>
   </data>
   <data name="Country_val_PM">
-    <value>Saint Pierre och Miquelon</value>
+    <value>Saint Pierre and Miquelon</value>
     <comment>The name of PM country</comment>
   </data>
   <data name="Country_val_PN">
@@ -1384,7 +1378,7 @@ Felkod: {0}</value>
     <comment>The name of PR country</comment>
   </data>
   <data name="Country_val_PS">
-    <value>Palestina</value>
+    <value>Palestine</value>
     <comment>The name of PS country</comment>
   </data>
   <data name="Country_val_PT">
@@ -1408,15 +1402,15 @@ Felkod: {0}</value>
     <comment>The name of RE country</comment>
   </data>
   <data name="Country_val_RO">
-    <value>Rumänien</value>
+    <value>Romania</value>
     <comment>The name of RO country</comment>
   </data>
   <data name="Country_val_RS">
-    <value>Serbien</value>
+    <value>Serbia</value>
     <comment>The name of RS country</comment>
   </data>
   <data name="Country_val_RU">
-    <value>Ryssland</value>
+    <value>Russia</value>
     <comment>The name of RU country</comment>
   </data>
   <data name="Country_val_RW">
@@ -1424,15 +1418,15 @@ Felkod: {0}</value>
     <comment>The name of RW country</comment>
   </data>
   <data name="Country_val_SA">
-    <value>Saudiarabien</value>
+    <value>Saudi Arabia</value>
     <comment>The name of SA country</comment>
   </data>
   <data name="Country_val_SB">
-    <value>Salomonöarna</value>
+    <value>Solomon Islands</value>
     <comment>The name of SB country</comment>
   </data>
   <data name="Country_val_SC">
-    <value>Seychellerna</value>
+    <value>Seychelles</value>
     <comment>The name of SC country</comment>
   </data>
   <data name="Country_val_SD">
@@ -1440,7 +1434,7 @@ Felkod: {0}</value>
     <comment>The name of SD country</comment>
   </data>
   <data name="Country_val_SE">
-    <value>Sverige</value>
+    <value>Sweden</value>
     <comment>The name of SE country</comment>
   </data>
   <data name="Country_val_SG">
@@ -1448,19 +1442,19 @@ Felkod: {0}</value>
     <comment>The name of SG country</comment>
   </data>
   <data name="Country_val_SH">
-    <value>Saint Helena, Ascension och Tristan da Cunha</value>
+    <value>Saint Helena, Ascension and Tristan da Cunha</value>
     <comment>The name of SH country</comment>
   </data>
   <data name="Country_val_SI">
-    <value>Slovenien</value>
+    <value>Slovenia</value>
     <comment>The name of SI country</comment>
   </data>
   <data name="Country_val_SJ">
-    <value>Svalbard och Jan Mayen</value>
+    <value>Svalbard and Jan Mayen</value>
     <comment>The name of SJ country</comment>
   </data>
   <data name="Country_val_SK">
-    <value>Slovakien</value>
+    <value>Slovakia</value>
     <comment>The name of SK country</comment>
   </data>
   <data name="Country_val_SL">
@@ -1480,15 +1474,15 @@ Felkod: {0}</value>
     <comment>The name of SO country</comment>
   </data>
   <data name="Country_val_SR">
-    <value>Surinam</value>
+    <value>Suriname</value>
     <comment>The name of SR country</comment>
   </data>
   <data name="Country_val_SS">
-    <value>Sydsudan</value>
+    <value>South Sudan</value>
     <comment>The name of SS country</comment>
   </data>
   <data name="Country_val_ST">
-    <value>Sao Tome och Principe</value>
+    <value>Sao Tome and Principe</value>
     <comment>The name of ST country</comment>
   </data>
   <data name="Country_val_SV">
@@ -1496,11 +1490,11 @@ Felkod: {0}</value>
     <comment>The name of SV country</comment>
   </data>
   <data name="Country_val_SX">
-    <value>Sint Maarten (nederländska delen)</value>
+    <value>Sint Maarten (Dutch part)</value>
     <comment>The name of SX country</comment>
   </data>
   <data name="Country_val_SY">
-    <value>Syriska Arabrepubliken</value>
+    <value>Syrian Arab Republic</value>
     <comment>The name of SY country</comment>
   </data>
   <data name="Country_val_SZ">
@@ -1508,15 +1502,15 @@ Felkod: {0}</value>
     <comment>The name of SZ country</comment>
   </data>
   <data name="Country_val_TC">
-    <value>Turks- och Caicosöarna</value>
+    <value>Turks and Caicos Islands</value>
     <comment>The name of TC country</comment>
   </data>
   <data name="Country_val_TD">
-    <value>Tchad</value>
+    <value>Chad</value>
     <comment>The name of TD country</comment>
   </data>
   <data name="Country_val_TF">
-    <value>Franska sydterritorierna</value>
+    <value>French Southern Territories</value>
     <comment>The name of TF country</comment>
   </data>
   <data name="Country_val_TG">
@@ -1528,7 +1522,7 @@ Felkod: {0}</value>
     <comment>The name of TH country</comment>
   </data>
   <data name="Country_val_TJ">
-    <value>Tadzjikistan</value>
+    <value>Tajikistan</value>
     <comment>The name of TJ country</comment>
   </data>
   <data name="Country_val_TK">
@@ -1544,7 +1538,7 @@ Felkod: {0}</value>
     <comment>The name of TM country</comment>
   </data>
   <data name="Country_val_TN">
-    <value>Tunisien</value>
+    <value>Tunisia</value>
     <comment>The name of TN country</comment>
   </data>
   <data name="Country_val_TO">
@@ -1552,11 +1546,11 @@ Felkod: {0}</value>
     <comment>The name of TO country</comment>
   </data>
   <data name="Country_val_TR">
-    <value>Turkiet</value>
+    <value>Türkiye</value>
     <comment>The name of TR country</comment>
   </data>
   <data name="Country_val_TT">
-    <value>Trinidad och Tobago</value>
+    <value>Trinidad and Tobago</value>
     <comment>The name of TT country</comment>
   </data>
   <data name="Country_val_TV">
@@ -1572,7 +1566,7 @@ Felkod: {0}</value>
     <comment>The name of TZ country</comment>
   </data>
   <data name="Country_val_UA">
-    <value>Ukraina</value>
+    <value>Ukraine</value>
     <comment>The name of UA country</comment>
   </data>
   <data name="Country_val_UG">
@@ -1580,15 +1574,15 @@ Felkod: {0}</value>
     <comment>The name of UG country</comment>
   </data>
   <data name="Country_val_UK">
-    <value>Storbritannien</value>
+    <value>United Kingdom</value>
     <comment>The name of UK country</comment>
   </data>
   <data name="Country_val_UM">
-    <value>Förenta staternas mindre öar i Oceanien och Västindien</value>
+    <value>United States Minor Outlying Islands</value>
     <comment>The name of UM country</comment>
   </data>
   <data name="Country_val_US">
-    <value>Förenta Staterna</value>
+    <value>United States</value>
     <comment>The name of US country</comment>
   </data>
   <data name="Country_val_UY">
@@ -1600,11 +1594,11 @@ Felkod: {0}</value>
     <comment>The name of UZ country</comment>
   </data>
   <data name="Country_val_VA">
-    <value>Vatikanstaten</value>
+    <value>Vatican City</value>
     <comment>The name of VA country</comment>
   </data>
   <data name="Country_val_VC">
-    <value>Saint Vincent och Grenadinerna</value>
+    <value>Saint Vincent and the Grenadines</value>
     <comment>The name of VC country</comment>
   </data>
   <data name="Country_val_VE">
@@ -1612,11 +1606,11 @@ Felkod: {0}</value>
     <comment>The name of VE country</comment>
   </data>
   <data name="Country_val_VG">
-    <value>Brittiska Jungfruöarna</value>
+    <value>Virgin Islands, British</value>
     <comment>The name of VG country</comment>
   </data>
   <data name="Country_val_VI">
-    <value>Jungfruöarna, USA</value>
+    <value>Virgin Islands, USA</value>
     <comment>The name of VI country</comment>
   </data>
   <data name="Country_val_VN">
@@ -1628,7 +1622,7 @@ Felkod: {0}</value>
     <comment>The name of VU country</comment>
   </data>
   <data name="Country_val_WF">
-    <value>Wallis- och Futunaöarna</value>
+    <value>Wallis and Futuna</value>
     <comment>The name of WF country</comment>
   </data>
   <data name="Country_val_WS">
@@ -1640,7 +1634,7 @@ Felkod: {0}</value>
     <comment>The name of XK country</comment>
   </data>
   <data name="Country_val_YE">
-    <value>Jemen</value>
+    <value>Yemen</value>
     <comment>The name of YE country</comment>
   </data>
   <data name="Country_val_YT">
@@ -1648,7 +1642,7 @@ Felkod: {0}</value>
     <comment>The name of YT country</comment>
   </data>
   <data name="Country_val_ZA">
-    <value>Sydafrika</value>
+    <value>South Africa</value>
     <comment>The name of ZA country</comment>
   </data>
   <data name="Country_val_ZM">
@@ -1660,98 +1654,98 @@ Felkod: {0}</value>
     <comment>The name of ZW country</comment>
   </data>
   <data name="Country_val_ZZ">
-    <value>Okänd</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜀᜎᜋ᜔</value>
     <comment>The name of ZZ (unknown or not specified) country</comment>
   </data>
   <data name="Dialogs_BaseFilteringEngine_Description">
-    <value>Tjänsten Base Filtering Engine (BFE) på din Windows-enhet är inaktiverad. Denna tjänst behöver aktiveras för att Proton VPN ska fungera korrekt.</value>
+    <value>ᜈᜃ-disable ᜀᜅ᜔ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓᜅ᜔ Base Filtering Engine (BFE) ᜐ ᜁᜌᜓᜅ᜔ Windows device. ᜃᜁᜎᜅᜅ᜔ ᜁ-enable ᜀᜅ᜔ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓᜅ᜔ ᜁᜆᜓ ᜂᜉᜅ᜔ ᜄᜓᜋᜈ ᜈᜅ᜔ ᜋᜀᜌᜓᜐ᜔ ᜀᜅ᜔ Proton VPN.</value>
   </data>
   <data name="Dialogs_BaseFilteringEngine_HowToEnable">
-    <value>Hur man aktiverar Base Filtering Engine</value>
+    <value>ᜉᜀᜈᜓ ᜁ-enable ᜀᜅ᜔ Base Filtering Engine</value>
   </data>
   <data name="Dialogs_BaseFilteringEngine_Title">
-    <value>Aktivera Base Filtering Engine för att fortsätta</value>
+    <value>ᜁ-enable ᜀᜅ᜔ Base Filtering Engine ᜂᜉᜅ᜔ ᜋᜄ᜔ᜉᜆᜓᜎᜓᜌ᜔</value>
   </data>
   <data name="Dialogs_ChangeServer_GetUnlimitedServerChanges">
-    <value>Få obegränsade serverändringar med VPN Plus.</value>
+    <value>ᜋᜄ᜔ᜃᜇᜓᜂᜐᜓᜈ᜔ ᜈᜅ᜔ unlimited server changes ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus.</value>
   </data>
   <data name="Dialogs_ChangeServer_MaximumServerChangesReached">
-    <value>Du har nått det maximala antalet gratis serverändringar för tillfället</value>
+    <value>ᜈᜀᜊᜓᜆ᜔ ᜋᜓ ᜈ ᜀᜅ᜔ ᜋᜃ᜔ᜐᜒᜋᜓᜋ᜔ (maximum) ᜈ ᜊᜒᜎᜅ᜔ ᜈᜅ᜔ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ ᜉᜄ᜔ᜉᜉᜎᜒᜆ᜔ ᜈᜅ᜔ server ᜐ ᜅᜌᜓᜈ᜔</value>
   </data>
   <data name="Dialogs_Common_GetStarted">
-    <value>Kom igång</value>
+    <value>ᜋᜄ᜔ᜐᜒᜋᜓᜎ</value>
   </data>
   <data name="Dialogs_Common_SubscriptionExpired">
-    <value>Prenumeration löpt ut</value>
+    <value>ᜈᜄ᜔-ᜁᜃ᜔ᜐ᜔ᜉᜌᜇ᜔ (expired) ᜈ ᜀᜅ᜔ ᜐᜊ᜔ᜐ᜔ᜃ᜔ᜇᜒᜉ᜔ᜐ᜔ᜌᜓᜈ᜔ (subscription)</value>
   </data>
   <data name="Dialogs_Common_UpgradeToGetPlusFeatures">
-    <value>Uppgradera för att få åtkomst till Plus-servrar och funktioner igen.</value>
+    <value>ᜋᜄ᜔-upgrade ᜂᜉᜅ᜔ ᜋᜄ᜔ᜃᜇᜓᜐᜓᜅ᜔ ᜋᜓᜎᜒ ᜈᜅ᜔ access ᜐ ᜋᜅ server ᜀᜆ᜔ feature ᜈᜅ᜔ Plus.</value>
   </data>
   <data name="Dialogs_DisabledService_Description">
-    <value>Det verkar som om Proton VPN-tjänsten är inaktiverad. Du måste återaktivera tjänsten för att ansluta.</value>
+    <value>ᜋᜓᜃ᜔ᜑᜅ᜔ ᜈᜃ-disable ᜀᜅ᜔ Proton VPN Service. ᜃᜃᜁᜎᜅᜈᜒᜈ᜔ ᜋᜓᜅ᜔ ᜁ-enable ᜋᜓᜎᜒ ᜀᜅ᜔ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓ ᜂᜉᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ.</value>
   </data>
   <data name="Dialogs_DisabledService_Title">
-    <value>Aktivera Windows-tjänst för att fortsätta</value>
+    <value>ᜁ-enable ᜀᜅ᜔ Windows Service ᜂᜉᜅ᜔ ᜋᜄ᜔ᜉᜆᜓᜎᜓᜌ᜔</value>
   </data>
   <data name="Dialogs_FreeConnections_Description_One">
-    <value>Proton Free ansluter dig automatiskt till den snabbaste tillgängliga gratisservern från vårt {0} gratis land. Detta kommer vanligtvis vara servern närmast dig.</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓ ᜃᜅ᜔ ᜁᜃᜒᜈᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜈᜅ᜔ Proton Free ᜐ ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ available ᜈ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server ᜋᜓᜎ ᜐ ᜀᜋᜒᜅ᜔ {0} ᜎᜒᜊ᜔ᜇᜒᜅ᜔ ᜊᜈ᜔ᜐ. ᜃᜇᜈᜒᜏᜅ᜔ ᜁᜆᜓ ᜀᜅ᜔ ᜉᜒᜈᜃᜋᜎᜉᜒᜆ᜔ ᜈ server ᜐ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ.</value>
   </data>
   <data name="Dialogs_FreeConnections_Description_Other">
-    <value>Proton Free ansluter dig automatiskt till den snabbaste tillgängliga gratisservern från våra {0} gratis länder. Detta kommer vanligtvis vara servern närmast dig.</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓ ᜃᜅ᜔ ᜁᜃᜒᜈᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜈᜅ᜔ Proton Free ᜐ ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ available ᜈ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server ᜋᜓᜎ ᜐ ᜀᜋᜒᜅ᜔ {0} ᜋᜅ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ ᜊᜈ᜔ᜐ. ᜃᜇᜈᜒᜏᜅ᜔ ᜁᜆᜓ ᜀᜅ᜔ ᜉᜒᜈᜃᜋᜎᜉᜒᜆ᜔ ᜈ ᜐᜒᜇ᜔ᜊᜒᜇ᜔ ᜐ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ.</value>
   </data>
   <data name="Dialogs_FreeConnections_Header_One">
-    <value>Gratis serverland ({0})</value>
+    <value>ᜊᜈ᜔ᜐᜅ᜔ ᜋᜌ᜔ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server ({0})</value>
   </data>
   <data name="Dialogs_FreeConnections_Header_Other">
-    <value>Gratis serverländer ({0})</value>
+    <value>ᜋᜅ ᜊᜈ᜔ᜐᜅ᜔ ᜋᜌ᜔ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server ({0})</value>
   </data>
   <data name="Dialogs_FreeConnections_Title">
-    <value>Gratis anslutningar</value>
+    <value>ᜋᜅ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Dialogs_NpsSurvey_CommentLabel">
-    <value>Berätta gärna varför du gav det betyget</value>
+    <value>ᜁᜉᜀᜎᜋ᜔ ᜐ ᜀᜋᜒᜈ᜔ ᜃᜓᜅ᜔ ᜊᜃᜒᜆ᜔ ᜁᜊᜒᜈᜒᜄᜌ᜔ ᜋᜓ ᜀᜅ᜔ rating ᜈ ᜁᜌᜓᜈ᜔</value>
   </data>
   <data name="Dialogs_NpsSurvey_ErrorSubtitle">
-    <value>Vi kunde inte skicka din feedback. Kontrollera din anslutning och försök igen.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜈᜋᜒᜈ᜔ ᜋᜁᜉᜇᜎ ᜀᜅ᜔ feedback ᜋᜓ. ᜉᜃᜒᜐᜓᜇᜒ ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ ᜀᜆ᜔ ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Dialogs_NpsSurvey_ErrorTitle">
-    <value>Något gick fel</value>
+    <value>ᜈᜄ᜔ᜃᜇᜓᜂᜈ᜔ ᜈᜅ᜔ ᜉ᜔ᜇᜓᜊ᜔ᜎᜒᜋ</value>
   </data>
   <data name="Dialogs_NpsSurvey_HighRateDescription">
-    <value>10 är mycket troligt</value>
+    <value>ᜀᜅ᜔ 10 ᜀᜌ᜔ ᜆᜎᜄᜅ᜔ ᜉᜓᜐᜒᜊ᜔ᜎᜒ</value>
   </data>
   <data name="Dialogs_NpsSurvey_LowRateDescription">
-    <value>0 är minst troligt</value>
+    <value>ᜀᜅ᜔ 0 ᜀᜌ᜔ ᜆᜎᜄᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜉᜓᜐᜒᜊ᜔ᜎᜒ</value>
   </data>
   <data name="Dialogs_NpsSurvey_Optional">
-    <value>Valfritt</value>
+    <value>ᜂᜉ᜔ᜐ᜔ᜌᜓᜈᜎ᜔</value>
   </data>
   <data name="Dialogs_NpsSurvey_ShareAnonymously">
-    <value>Dela anonymt</value>
+    <value>ᜁᜊᜑᜄᜒ ᜈᜅ᜔ anonymous</value>
   </data>
   <data name="Dialogs_NpsSurvey_SuccessSubtitle">
-    <value>Din feedback hjälper oss att förbättra Proton VPN.</value>
+    <value>ᜈᜃᜃᜆᜓᜎᜓᜅ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ feedback ᜈ ᜋᜉᜊᜓᜆᜒ ᜈᜋᜒᜈ᜔ ᜀᜅ᜔ Proton VPN.</value>
   </data>
   <data name="Dialogs_NpsSurvey_SuccessTitle">
-    <value>Tack för din feedback</value>
+    <value>ᜐᜎᜋᜆ᜔ ᜐ ᜁᜌᜓᜅ᜔ feedback</value>
   </data>
   <data name="Dialogs_NpsSurvey_Title">
-    <value>Hur troligt är det att du kommer att rekommendera Proton VPN till en vän?</value>
+    <value>ᜁᜇᜒᜇᜒᜃᜓᜋᜒᜈ᜔ᜇ ᜋᜓ ᜊ ᜀᜅ᜔ Proton VPN ᜐ ᜁᜐᜅ᜔ ᜃᜁᜊᜒᜄᜈ᜔?</value>
   </data>
   <data name="Dialogs_NpsSurvey_TryAgain">
-    <value>Försök igen</value>
+    <value>ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ</value>
   </data>
   <data name="Dialogs_P2PDetection_Description">
-    <value>Uppgradera för att låsa upp P2P-servrar (peer-to-peer) för snabb onlinespel och torrenting, eller avsluta din P2P-aktivitet för att återställa din anslutning.</value>
+    <value>ᜋᜄ᜔-upgrade ᜂᜉᜅ᜔ ᜋ-unlock ᜀᜅ᜔ ᜋᜅ P2P (peer-to-peer) server ᜉᜇ ᜐ ᜋᜊᜒᜎᜒᜐ᜔ ᜈ online gaming ᜀᜆ᜔ torrenting, ᜂ ᜆᜉᜓᜐᜒᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ P2P activity ᜂᜉᜅ᜔ ᜋᜁᜊᜎᜒᜃ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Dialogs_P2PDetection_Title">
-    <value>P2P är inte tillåtet på gratis VPN-servrar</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜉᜒᜈᜉᜌᜄᜈ᜔ ᜀᜅ᜔ P2P ᜐ ᜋᜄ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ VPN server</value>
   </data>
   <data name="Dialogs_P2PDetection_WindowTitle">
-    <value>Upptäck VPN Plus</value>
+    <value>ᜆᜓᜃ᜔ᜎᜐᜒᜈ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Dialogs_ReportIssue_ContactForm_Email">
-    <value>E-post</value>
+    <value>Email</value>
     <comment>The label for user e-mail address in Report an issue window</comment>
   </data>
   <data name="Dialogs_ReportIssue_ContactForm_Email_Description">
@@ -1759,257 +1753,257 @@ Felkod: {0}</value>
     <comment>The watermark text displayed in empty user e-mail text box in Report an issue window</comment>
   </data>
   <data name="Dialogs_ReportIssue_ContactForm_IncludeLogs">
-    <value>Skicka felloggar</value>
+    <value>ᜁᜉᜇᜎ ᜀᜅ᜔ ᜋᜅ error log</value>
     <comment>The label for the Send error logs checkbox in Report an issue window</comment>
   </data>
   <data name="Dialogs_ReportIssue_ContactForm_IncludeLogs_Description">
-    <value>Felloggar visar oss vad som gick fel och vilka åtgärder som ledde till ditt problem. Vi kommer endast använda dem för att hjälpa våra ingenjörer att åtgärda fel.</value>
+    <value>ᜁᜉᜒᜈᜉᜃᜒᜆ ᜅ᜔ ᜋᜅ error log ᜃᜓᜅ᜔ ᜀᜈᜓ ᜀᜅ᜔ ᜈᜅ᜔ᜌᜇᜒ ᜀᜆ᜔ ᜃᜓᜅ᜔ ᜀᜎᜒᜅ᜔ ᜋᜅ ᜀᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜀᜅ᜔ ᜈᜄ᜔ᜇᜓᜎᜓᜆ᜔ ᜅ᜔ ᜁᜐ᜔ᜌᜓ ᜋᜓ. ᜄᜄᜋᜒᜆᜒᜈ᜔ ᜎᜅ᜔ ᜈᜋᜒᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜁᜆᜓ ᜉᜇ ᜆᜓᜎᜓᜅᜈ᜔ ᜀᜅ᜔ ᜀᜋᜒᜅ᜔ ᜋᜅ engineer ᜈ ᜀᜌᜓᜐᜒᜈ᜔ ᜀᜅ᜔ ᜋᜅ bug.</value>
     <comment>The tooltip displayed on the Send error logs checkbox in Report an issue window</comment>
   </data>
   <data name="Dialogs_ReportIssue_Header">
-    <value>Vad är problemet?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ ᜁᜐ᜔ᜌᜓ?</value>
   </data>
   <data name="Dialogs_ReportIssue_NoLogsWarning">
-    <value>Felloggar hjälper oss att gå till botten med ditt problem. Om du inte inkluderar dem kanske vi inte kan undersöka dem fullständigt.</value>
+    <value>ᜈᜃᜃᜆᜓᜎᜓᜅ᜔ ᜀᜅ᜔ ᜋᜅ error log ᜂᜉᜅ᜔ ᜋᜎᜋᜈ᜔ ᜈᜋᜒᜈ᜔ ᜀᜅ᜔ ᜉᜒᜈᜄ᜔ᜋᜓᜎᜈ᜔ ᜅ᜔ ᜁᜐ᜔ᜌᜓ ᜋᜓ. ᜃᜓᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜋᜓ ᜁᜐᜐᜋ ᜀᜅ᜔ ᜋᜅ ᜁᜆᜓ, ᜋᜀᜀᜇᜒᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜃᜋᜒ ᜎᜓᜊᜓᜐ᜔ ᜈ ᜋᜃᜉᜄ᜔-ᜁᜋ᜔ᜊᜒᜐ᜔ᜆᜒᜄ.</value>
   </data>
   <data name="Dialogs_ReportIssue_QuickFixes">
-    <value>Snabba åtgärder</value>
+    <value>ᜋᜊᜒᜊᜒᜎᜒᜐ᜔ ᜈ ᜐᜓᜎᜓᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Dialogs_ReportIssue_QuickFixes_Footer">
-    <value>Fungerade det inte?</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜄᜓᜋᜈ?</value>
   </data>
   <data name="Dialogs_ReportIssue_QuickFixes_Header">
-    <value>Dessa tips kan hjälpa dig att lösa ditt problem snabbare.</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜋᜃᜆᜓᜎᜓᜅ᜔ ᜀᜅ᜔ ᜋᜅ ᜆᜒᜉ᜔ ᜈ ᜁᜆᜓ ᜂᜉᜅ᜔ ᜋᜐ᜔ ᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜋᜐᜓᜎᜓᜐ᜔ᜌᜓᜈᜈ᜔ ᜀᜅ᜔ ᜁᜐ᜔ᜌᜓ ᜋᜓ.</value>
   </data>
   <data name="Dialogs_ReportIssue_Result_DoneAction">
-    <value>Klar</value>
+    <value>ᜆᜉᜓᜐ᜔ ᜈ</value>
   </data>
   <data name="Dialogs_ReportIssue_Result_Fail">
-    <value>Något gick fel</value>
+    <value>ᜈᜄ᜔ᜃᜇᜓᜂᜈ᜔ ᜅ᜔ ᜉ᜔ᜇᜓᜊ᜔ᜎᜒᜋ</value>
   </data>
   <data name="Dialogs_ReportIssue_Result_Fail_Description">
-    <value>Vi kunde inte skicka din rapport. Kontrollera din anslutning och försök igen.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜈᜋᜒᜈ᜔ ᜋᜁᜉᜇᜎ ᜀᜅ᜔ ᜇᜒᜉᜓᜇ᜔ᜆ᜔ ᜋᜓ. ᜉᜃᜒᜐᜓᜇᜒ ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ ᜀᜆ᜔ ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Dialogs_ReportIssue_Result_Success">
-    <value>Rapport skickad</value>
+    <value>ᜁᜉᜒᜈᜇᜎ ᜀᜅ᜔ ᜇᜒᜉᜓᜇ᜔ᜆ᜔</value>
   </data>
   <data name="Dialogs_ReportIssue_Result_Success_Description">
-    <value>Tack för din feedback. Vi återkommer till dig så snart vi kan.</value>
+    <value>ᜐᜎᜋᜆ᜔ ᜐ ᜁᜌᜓᜅ᜔ feedback. ᜊᜊᜎᜒᜃᜈ᜔ ᜃ ᜈᜋᜒᜈ᜔ ᜐ ᜎᜎᜓᜅ᜔ ᜋᜇᜎᜒᜅ᜔ ᜉᜈᜑᜓᜈ᜔.</value>
   </data>
   <data name="Dialogs_ReportIssue_SendReport">
-    <value>Skicka rapport</value>
+    <value>ᜋᜄ᜔ᜉᜇᜎ ᜈᜅ᜔ ᜇᜒᜉᜓᜇ᜔ᜆ᜔</value>
   </data>
   <data name="Dialogs_ReportIssue_Steps">
-    <value>Steg {0} av {1}</value>
+    <value>ᜑᜃ᜔ᜊᜅ᜔ {0} ᜈᜅ᜔ {1}</value>
     <comment>Steps header for the Report an issue dialog. {0} is a placeholder for the current step. {1} is a placeholder for the total number of steps. (eg. Step 1 of 3)</comment>
   </data>
   <data name="Dialogs_ReportIssue_Title">
-    <value>Rapportera ett problem</value>
+    <value>ᜋᜄ᜔-ᜂᜎᜆ᜔ ᜈᜅ᜔ ᜁᜐ᜔ᜌᜓ</value>
   </data>
   <data name="Dialogs_StreamingDetection_WindowTitle">
-    <value>Upptäck VPN Plus</value>
+    <value>ᜆᜓᜃ᜔ᜎᜐᜒᜈ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Dialogs_StreamingWarning_Description">
-    <value>VPN Plus-servrar låter dig njuta av dina favoritfilmer och TV-program från hela världen.</value>
+    <value>ᜊᜒᜈᜒᜊᜒᜄ᜔ᜌᜅ᜔-ᜇᜀᜈ᜔ ᜈᜅ᜔ ᜋᜄ server ᜈᜅ᜔ VPN Plus ᜈ ᜋ-enjoy ᜋᜓ ᜀᜅ᜔ ᜋᜅ ᜉᜊᜓᜇᜒᜆᜓ ᜋᜓᜅ᜔ ᜉᜒᜎᜒᜃᜓᜎ ᜀᜆ᜔ ᜉᜎᜊᜐ᜔ ᜐ TV ᜋᜓᜎ ᜐ ᜊᜓᜂᜅ᜔ ᜋᜓᜈ᜔ᜇᜓ.</value>
   </data>
   <data name="Dialogs_StreamingWarning_Title">
-    <value>Uppgradera för att kringgå VPN-blockeringar</value>
+    <value>ᜋᜄ᜔-upgrade ᜂᜉᜅ᜔ ᜁ-bypass ᜀᜅ᜔ ᜋᜅ VPN block</value>
   </data>
   <data name="Dialogs_SubscriptionExpired_MaybeLater">
-    <value>Kanske senare</value>
+    <value>ᜋᜋᜌ ᜈ ᜎᜅ᜔</value>
   </data>
   <data name="Dialogs_SystemProxy_Description">
-    <value>Det verkar som att din enhet använder en proxyserver. Detta kan störa ditt VPN-skydd.</value>
+    <value>ᜋᜓᜃ᜔ᜑᜅ᜔ ᜄᜓᜋᜄᜋᜒᜆ᜔ ᜈᜅ᜔ proxy server ᜀᜅ᜔ device ᜋᜓ. ᜊᜃ ᜋᜃᜐᜄᜊᜎ᜔ ᜁᜆᜓ ᜐ ᜁᜌᜓᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Dialogs_SystemProxy_Title">
-    <value>Proxyserver upptäckt</value>
+    <value>ᜋᜌ᜔ ᜈ-detect ᜈproxy server</value>
   </data>
   <data name="Dialogs_Troubleshooting_Antivirus">
-    <value>Stäng av antivirus- eller brandväggsprogram</value>
+    <value>ᜁ-off ᜀᜅ᜔ antivirus ᜂ firewall software</value>
   </data>
   <data name="Dialogs_Troubleshooting_Antivirus_Description">
-    <value>Dessa program kan störa VPN-anslutningar.</value>
+    <value>ᜊᜃ ᜋᜃᜐᜄᜊᜎ᜔ ᜀᜅ᜔ ᜋᜅ ᜉ᜔ᜇᜓᜄ᜔ᜇᜋᜅ᜔ ᜁᜆᜓ ᜐ ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Dialogs_Troubleshooting_CheckInternet">
-    <value>Kontrollera din internetanslutning</value>
+    <value>ᜐᜓᜇᜒᜁᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜁᜈ᜔ᜆᜒᜇ᜔ᜈᜒᜆ᜔</value>
   </data>
   <data name="Dialogs_Troubleshooting_CheckInternet_Description">
-    <value>Se till att du är online och att din anslutning är stabil.</value>
+    <value>ᜐᜒᜂᜇᜇᜓᜑᜒᜅ᜔ online ᜃ ᜀᜆ᜔ stable ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ.</value>
   </data>
   <data name="Dialogs_Troubleshooting_Description">
-    <value>Dessa snabba lösningar kan hjälpa dig att ansluta till Proton.</value>
+    <value>ᜊᜃ ᜋᜃᜆᜓᜎᜓᜅ᜔ ᜀᜅ᜔ ᜋᜊᜒᜊᜒᜎᜒᜐ᜔ ᜈ ᜐᜓᜎᜓᜐ᜔ᜌᜓᜅ᜔ ᜁᜆᜓ ᜂᜉᜅ᜔ ᜋᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜃ ᜐ Proton.</value>
   </data>
   <data name="Dialogs_Troubleshooting_DifferentNetwork">
-    <value>Använd ett annat nätverk</value>
+    <value>ᜄᜓᜋᜋᜒᜆ᜔ ᜅ᜔ ᜁᜊᜅ᜔ ᜈᜒᜆ᜔ᜏᜓᜇ᜔ᜃ᜔</value>
   </data>
   <data name="Dialogs_Troubleshooting_DifferentNetwork_Description">
-    <value>Prova att byta Wi-Fi-nätverk eller använd mobildata istället.</value>
+    <value>ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜄ᜔ᜉᜎᜒᜆ᜔ ᜈᜅ᜔ ᜋᜅ Wi-Fi network ᜂ ᜄᜓᜋᜋᜒᜆ᜔ ᜈ ᜎᜅ᜔ ᜈᜅ᜔ mobile data.</value>
   </data>
   <data name="Dialogs_Troubleshooting_StatusPage">
-    <value>Kolla vår statussida</value>
+    <value>ᜆᜒᜅ᜔ᜈᜈ᜔ ᜀᜅ᜔ ᜀᜋᜒᜅ᜔ ᜉᜑᜒᜈ ᜈᜅ᜔ ᜐ᜔ᜆᜆᜓᜐ᜔</value>
   </data>
   <data name="Dialogs_Troubleshooting_StatusPage_Description">
-    <value>Bara för att vara säker på att Proton-tjänsterna fungerar som vanligt.</value>
+    <value>Pᜉᜇ ᜎᜅ᜔ ᜋᜆᜒᜌᜃ᜔ ᜈ ᜆᜓᜋᜆᜃ᜔ᜊᜓ ᜈᜅ᜔ ᜈᜓᜇ᜔ᜋᜎ᜔ ᜀᜅ᜔ ᜋᜅ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓ ᜈᜅ᜔ Proton</value>
   </data>
   <data name="Dialogs_Troubleshooting_Title">
-    <value>Anslutningshjälp</value>
+    <value>ᜆᜓᜎᜓᜅ᜔ ᜐ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Dialogs_UpdateConfirmation_Message_KillSwitchOff">
-    <value>Detta kommer koppla från dig från VPN. Alla aktiva internetanslutningar kommer vara tillfälligt oskyddade.</value>
+    <value>ᜁᜇᜒ-disconnect ᜃ ᜈᜒᜆᜓ ᜋᜓᜎ ᜐ VPN. ᜀᜅ᜔ ᜀᜈᜓᜋᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜁᜈ᜔ᜆᜒᜇ᜔ᜈᜒᜆ᜔ ᜀᜌ᜔ ᜉᜈ᜔ᜐᜋᜈ᜔ᜆᜎᜅ᜔ ᜋᜏᜏᜎᜈ᜔ ᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Dialogs_UpdateConfirmation_Message_KillSwitchOn">
-    <value>Detta kommer koppla från dig från VPN och tillfälligt inaktivera kill switch. Alla aktiva internetanslutningar kommer vara tillfälligt oskyddade.</value>
+    <value>ᜁᜇᜒ-disconnect ᜃ ᜈᜒᜆᜓ ᜋᜓᜎ ᜐ VPN ᜀᜆ᜔ ᜉᜈ᜔ᜐᜋᜈ᜔ᜆᜎᜅ᜔ ᜁᜇᜒ-disable ᜀᜅ᜔ kill switch. ᜀᜅ᜔ ᜀᜈᜓᜋᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜁᜈ᜔ᜆᜒᜇ᜔ᜈᜒᜆ᜔ ᜀᜌ᜔ ᜉᜈ᜔ᜐᜋᜈ᜔ᜆᜎᜅ᜔ ᜋᜏᜏᜎᜈ᜔ ᜈᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Dialogs_UpdateConfirmation_Title_Install">
-    <value>Installera uppdatering?</value>
+    <value>ᜁ-install ᜀᜅ᜔ update?</value>
   </data>
   <data name="Dialogs_UpdateConfirmation_Title_Restart">
-    <value>Starta om Proton VPN för att slutföra uppdatering</value>
+    <value>ᜁ-ᜇᜒᜐ᜔ᜆᜇ᜔ᜆ᜔ ᜀᜅ᜔ Proton VPN ᜂᜉᜅ᜔ ᜃᜓᜋ᜔ᜉ᜔ᜎᜒᜆᜓᜑᜒᜈ᜔ ᜀᜅ᜔ update</value>
   </data>
   <data name="Dialogs_UpdateSystemClock_Description">
-    <value>Det verkar som om din systemklocka inte är synkroniserad. Detta kan orsaka problem när du ansluter till VPN.</value>
+    <value>ᜋᜓᜃ᜔ᜑᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜈᜃ-sync ᜀᜅ᜔ system clock ᜋᜓ. ᜋᜀᜀᜇᜒ ᜁᜆᜓᜅ᜔ ᜋᜄ᜔ᜇᜓᜎᜓᜆ᜔ ᜅ᜔ ᜋ᜔ᜄ ᜁᜐ᜔ᜌᜓ ᜃᜉᜄ᜔ ᜃᜓᜋᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜐ VPN.</value>
   </data>
   <data name="Dialogs_UpdateSystemClock_PrimaryButton">
-    <value>Hur man uppdaterar systemklocka</value>
+    <value>ᜉᜀᜈᜓ ᜁ-update ᜀᜅ᜔ system clock</value>
   </data>
   <data name="Dialogs_UpdateSystemClock_Title">
-    <value>Uppdatera systemklocka</value>
+    <value>ᜁ-update ᜀᜅ᜔ system clock</value>
   </data>
   <data name="Dialogs_WelcomeB2B_Description">
-    <value>Enkel. Sömlös. Säker. Skydda dig själv online och kom säkert åt din organisations webbplatser, programvara och filer.</value>
+    <value>ᜐᜒᜋ᜔ᜉ᜔ᜎᜒ. ᜆᜓᜎᜓᜌ᜔-ᜆᜓᜎᜓᜌ᜔. ᜎᜒᜄ᜔ᜆᜐ᜔. ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜐᜇᜒᜎᜒ online ᜀᜆ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔ ᜈ ᜁ-access ᜀᜅ᜔ ᜋᜅ site, software ᜀᜆ᜔ file ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜂᜇ᜔ᜄᜈᜒᜐᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Dialogs_WelcomeToProton_Title">
-    <value>Välkommen till Proton VPN</value>
+    <value>Welcome ᜐ Proton VPN</value>
   </data>
   <data name="Dialogs_WelcomeToVpnFree_Description">
-    <value>Surfa privat, åtkomst till blockerat innehåll och njut av digital frihet utan data eller hastighetsbegränsningar.</value>
+    <value>ᜋᜄ᜔-browse ᜈᜅ᜔ ᜉ᜔ᜇᜒᜊᜇᜓ, ᜁ-access ᜀᜅ᜔ ᜈᜃ-block ᜈ content ᜀᜆ᜔ ᜁ-enjoy ᜀᜅ᜔ digital freedom ᜈᜅ᜔ ᜏᜎᜅ᜔ ᜎᜒᜋᜒᜆᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜇᜆ ᜂ ᜊᜒᜎᜒᜐ᜔.</value>
   </data>
   <data name="Dialogs_WelcomeToVpnFree_NoLogs">
-    <value>Certifierat VPN utan loggning</value>
+    <value>VPN ᜈ ᜐᜒᜇ᜔ᜆᜒᜉᜒᜃᜇᜓᜅ᜔ ᜏᜎᜅ᜔ logs</value>
   </data>
   <data name="Dialogs_WelcomeToVpnFree_NoLogs_Description">
-    <value>Din aktivitet skyddas av schweiziska integritetslagar. Vi kommer aldrig att spåra dig online eller dela din information med tredje part.</value>
+    <value>ᜉᜒᜈᜓᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜈᜅ᜔ ᜋᜅ ᜊᜆᜐ᜔ ᜐ privacy ᜈᜅ᜔ Switzerland ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜇ᜔. ᜑᜒᜈ᜔ᜇᜒᜅ᜔-ᜑᜒᜈ᜔ᜇᜒ ᜃ ᜈᜋᜒᜈ᜔ ᜁᜆ-track online ᜂ ᜁᜊᜊᜑᜄᜒ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜁᜋ᜔ᜉᜓᜇ᜔ᜋᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜋᜅ third party.</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely">
-    <value>Surfa fritt från var som helst</value>
+    <value>ᜋᜄ᜔-browse ᜈᜅ᜔ ᜋᜎᜌ ᜋᜓᜎ ᜃᜑᜒᜆ᜔ ᜐᜀᜈ᜔</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_One">
-    <value>Dölj din virtuella plats och upplev Internet från {0} tillgängligt land.</value>
+    <value>ᜁᜆᜄᜓ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ virtual ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ ᜋᜇᜈᜐᜈ᜔ ᜀᜅ᜔ ᜁᜈ᜔ᜆᜒᜇ᜔ᜈᜒᜆ᜔ ᜋᜓᜎ ᜐ ᜀᜎᜒᜈ᜔ᜋᜈ᜔ ᜐ ᜀᜋᜒᜅ᜔ {0} available ᜈ ᜊᜈ᜔ᜐ.</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_Other">
-    <value>Dölj din virtuella plats och upplev Internet från något av våra {0} tillgängliga länder.</value>
+    <value>ᜁᜆᜄᜓ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ virtual ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ ᜋᜇᜈᜐᜈ᜔ ᜀᜅ᜔ ᜁᜈ᜔ᜆᜒᜇ᜔ᜈᜒᜆ᜔ ᜋᜓᜎ ᜐ ᜀᜎᜒᜈ᜔ᜋᜈ᜔ ᜐ ᜀᜋᜒᜅ᜔ {0} ᜋᜅ available ᜈ ᜊᜈ᜔ᜐ.</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_ProtectDevices">
-    <value>Skydda 10 enheter samtidigt</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ 10 devices ᜈᜅ᜔ ᜐᜊᜌ᜔-ᜐᜊᜌ᜔</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_ProtectDevices_Description">
-    <value>Utöka VPN-skydd till din stationära dator, mobil, webbläsare, TV och mer. </value>
+    <value>ᜉᜎᜏᜃᜒᜈ᜔ ᜀᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN ᜐ ᜌᜓᜅ᜔ desktop, mobile, browser, TV, ᜀᜆ᜔ ᜋᜇᜋᜒ ᜉ.</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_Stream">
-    <value>Streama i hög upplösning</value>
+    <value>ᜋᜄ᜔-stream ᜐ high resolution</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_Stream_Description">
-    <value>Se filmer och TV-program från hela världen utan att kompromissa med hastighet eller kvalitet.</value>
+    <value>ᜋᜈᜓᜂᜇ᜔ ᜈᜅ᜔ ᜋᜅ ᜉᜒᜎᜒᜃᜓᜎ ᜀᜆ᜔ ᜉᜎᜊᜐ᜔ ᜐ TV ᜋᜓᜎ ᜐ ᜊᜓᜂᜅ᜔ ᜋᜓᜈ᜔ᜇᜓ ᜈᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜈᜃᜓᜃᜓᜋ᜔ᜉ᜔ᜇᜓᜋᜒᜐᜓ ᜀᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜂ ᜃᜎᜒᜇᜇ᜔.</value>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_Title">
-    <value>Välkommen till VPN Plus</value>
+    <value>Welcome ᜐ VPN Plus</value>
   </data>
   <data name="Dialogs_WelcomeUnlimited_Description">
-    <value>Du låste upp alla premiumfunktioner i Proton VPN, Mail, Calendar, Drive och Pass.</value>
+    <value>ᜈ-unlock ᜋᜓ ᜈ ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ premium ᜈ feature ᜈᜅ᜔ Proton VPN, Mail, Calendar, Drive, ᜀᜆ᜔ Pass.</value>
   </data>
   <data name="Dialogs_WelcomeUnlimited_Title">
-    <value>Välkommen till {0}</value>
+    <value>ᜋᜎᜒᜄᜌᜅ᜔ ᜉᜄ᜔ᜇᜆᜒᜅ᜔ ᜐ {0}</value>
     <comment>Title to welcome the user after an account upgrade. {0} is a placeholder for the name of the new plan (eg. Proton Unlimited, Proton Duo, Proton Family).</comment>
   </data>
   <data name="Dialogs_WhatsNew_LanConnections_Description">
-    <value>Du kan nu ansluta till skrivare, högtalare och andra enheter på ditt lokala nätverk (LAN) och kringgå VPN-tunneln.</value>
+    <value>ᜋᜀᜀᜇᜒ ᜃ ᜈ ᜅᜌᜓᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ ᜋᜅ ᜉ᜔printer, speaker, ᜀᜆ᜔ ᜁᜊ ᜉᜅ᜔ devices ᜐ ᜁᜌᜓᜅ᜔ local network (LAN) ᜈᜅ᜔ ᜊᜒᜈ-bypass ᜀᜅ᜔ VPN tunnel.</value>
   </data>
   <data name="Dialogs_WhatsNew_LanConnections_Title">
-    <value>LAN-anslutningar</value>
+    <value>ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ LAN</value>
   </data>
   <data name="Dialogs_WhatsNew_PortNumber_Description">
-    <value>När vidarebefordring av port är aktiverad ser du nu ditt aktiva portnummer på startskärmen.</value>
+    <value>ᜃᜉᜄ᜔ ᜈᜃ-enable ᜀᜅ᜔ port forwarding, ᜋᜃᜒᜃᜒᜆ ᜋᜓ ᜈ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ active port number ᜐ home screen.</value>
   </data>
   <data name="Dialogs_WhatsNew_PortNumber_Title">
-    <value>Aktivt portnummer</value>
+    <value>ᜀᜃ᜔ᜆᜒᜊᜓᜅ᜔ port number</value>
   </data>
   <data name="Dialogs_WhatsNew_TakeALook">
-    <value>Ta en titt</value>
+    <value>ᜆᜒᜅ᜔ᜈᜈ᜔</value>
   </data>
   <data name="Dialogs_WhatsNew_Title">
-    <value>Vad som är nytt</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ ᜊᜄᜓ</value>
   </data>
   <data name="Dialogs_WhatsNew_TrayApp_Description">
-    <value>Du kan nu ansluta, koppla från och ändra din standardanslutning från systemfältet.</value>
+    <value>ᜋᜀᜀᜇᜒ ᜃ ᜈ ᜅᜌᜓᜅ᜔ ᜃᜓᜋᜓᜈ᜔ᜒᜃ᜔ᜆ, ᜋᜄ᜔-disconnect, ᜀᜆ᜔ ᜋᜄ᜔ᜉᜎᜒᜆ᜔ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ default ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓᜎ ᜐ system tray.</value>
   </data>
   <data name="Dialogs_WhatsNew_TrayApp_Title">
-    <value>New system tray app</value>
+    <value>ᜊᜄᜓᜅ᜔ system tray app</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_ExcludeLocations">
-    <value>Exkludera platser</value>
+    <value>ᜁ-exclude ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Message">
-    <value>Om det finns platser som du inte vill anslutas till automatiskt kan du exkludera dem från landet "Snabbast" och "Slumpmässigt".</value>
+    <value>ᜃᜓᜅ᜔ ᜋᜌ᜔ ᜋᜅ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜈ ᜑᜒᜈ᜔ᜇᜒ ᜋᜓ ᜄᜓᜐ᜔ᜆᜓᜅ᜔ ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜋᜃᜓᜈᜒᜃ᜔ᜆ, ᜋᜀᜀᜇᜒ ᜋᜓ ᜐᜒᜎᜅ᜔ ᜀᜎᜒᜐᜒᜈ᜔ ᜋᜓᜎ ᜐ Fastest ᜀᜆ᜔ Random ᜈ ᜊᜈ᜔ᜐ.</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Skip">
-    <value>Hoppa över</value>
+    <value>ᜎᜃ᜔ᜆᜏᜈ᜔</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Title">
-    <value>Inte det land du ville ha?</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜀᜅ᜔ ᜊᜈ᜔ᜐᜅ᜔ ᜄᜓᜐ᜔ᜆᜓ ᜋᜓ?</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_ActionButton">
-    <value>Exkludera platser</value>
+    <value>ᜁ-exclude ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_CloseButton">
-    <value>Kanske senare</value>
+    <value>ᜐᜒᜄᜓᜇᜓ ᜐ ᜁᜊᜅ᜔ ᜉᜄ᜔ᜃᜃᜆᜓᜈ᜔</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_Subtitle">
-    <value>Du kan nu exkludera länder eller orter från "Snabbaste" och "Slumpmässiga" anslutningar.</value>
+    <value>ᜋᜀᜀᜇᜒ ᜋᜓ ᜈᜅ᜔ ᜁ-exclude ᜀᜅ᜔ ᜋᜅ ᜊᜈ᜔ᜐ ᜂ ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ᜋᜓᜎ ᜐ Fastest ᜀᜆ᜔ Random ᜈ ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_Title">
-    <value>Undvik oönskade platser</value>
+    <value>ᜁᜏᜐᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜑᜒᜈ᜔ᜇᜒ ᜈᜁᜐ᜔ ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Exit_Confirmation_Title">
-    <value>Avsluta Proton VPN?</value>
+    <value>ᜎᜓᜋᜊᜐ᜔ ᜈᜅ᜔ Proton VPN?</value>
   </data>
   <data name="Exit_Message">
-    <value>Kopplar från VPN …</value>
+    <value>ᜇᜓᜋᜒ-disconnect ᜋᜓᜎ ᜐ VPN...</value>
   </data>
   <data name="Exit_Title">
-    <value>Avsluta Proton VPN</value>
+    <value>ᜎᜓᜋᜊᜐ᜔ ᜈᜅ᜔ Proton VPN</value>
   </data>
   <data name="Flyouts_Country_Description1">
-    <value>Att surfa utan VPN gör dig sårbar för platsbaserade internetrestriktioner.</value>
+    <value>ᜃᜉᜄ᜔ ᜈᜄ᜔-browse ᜈᜅ᜔ ᜏᜎᜅ᜔ VPN, ᜋᜄᜒᜄᜒᜅ᜔ vulnerable ᜃ ᜐ ᜋᜅ restriction ᜐ internet ᜈ ᜈᜃᜊᜆᜌ᜔ ᜐ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Flyouts_Country_Description2">
-    <value>Webbplatser kan använda geoblockering för att begränsa innehåll till vissa platser. Regeringar kan också uppmana internetleverantörer att blockera vissa webbplatser i sitt land.</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜄᜓᜋᜓᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ website ᜈᜅ᜔ ᜋᜅ geoblock ᜂᜉᜅ᜔ ᜁ-restrict ᜀᜅ᜔ content ᜐ ᜁᜎᜅ᜔ ᜉᜇ᜔ᜆᜒᜃᜓᜎᜇ᜔ ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔. ᜋᜀᜀᜇᜒ ᜇᜒᜅ᜔ ᜂᜆᜓᜐᜈ᜔ ᜈᜅ᜔ ᜋᜅ ᜄᜓᜊ᜔ᜌᜒᜇ᜔ᜈᜓ ᜀᜅ᜔ ᜋᜅ ISP (Internet Service Provider) ᜈ ᜁ-block ᜀᜅ᜔ ᜁᜎᜅ᜔ ᜉᜇ᜔ᜆᜒᜃᜓᜎᜇ᜔ ᜈ website ᜐ ᜃᜈᜒᜎᜅ᜔ ᜊᜈ᜔ᜐ.</value>
   </data>
   <data name="Flyouts_Country_Description3">
-    <value>En VPN får det att se ut som att du surfar från någon annanstans och skyddar dig från övervakning och censur.</value>
+    <value>ᜄᜒᜈᜄᜏ ᜈᜅ᜔ VPN ᜈ ᜉᜇᜅ᜔ ᜈᜄ᜔ᜊ-browse ᜃ ᜋᜓᜎ ᜐ ᜁᜊᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔, ᜈ ᜈᜄ᜔ᜉᜓᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆ ᜐ ᜁᜌᜓ ᜋᜓᜎ ᜐ surveillance ᜀᜆ᜔ censorship.</value>
   </data>
   <data name="Flyouts_Country_Title">
-    <value>Land</value>
+    <value>ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Flyouts_Country_Warning">
-    <value>Anslut till VPN för att ändra din virtuella plats</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ VPN ᜂᜉᜅ᜔ ᜊᜄᜓᜑᜒᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ virtual ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Flyouts_IpAddress_Description_Connected">
-    <value>Din VPN-IP maskerar din riktiga IP-adress. Detta gör att det ser ut som att du surfar från din VPN-plats, så din aktivitet online inte kan inte länkas till din enhet.</value>
+    <value>ᜁᜆᜒᜈᜆᜄᜓ ᜈᜅ᜔ VPN IP ᜀᜅ᜔ ᜆᜓᜆᜓᜂ ᜋᜓᜅ᜔ IP address. ᜇᜑᜒᜎ᜔ ᜇᜒᜆᜓ, ᜈᜄ᜔ᜋᜓᜋᜓᜃ᜔ᜑᜅ᜔ ᜈᜄ᜔ᜊ-browse ᜃ ᜋᜓᜎ ᜐ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN, ᜃᜌ ᜑᜒᜈ᜔ᜇᜒ ᜋᜁᜂᜂᜄ᜔ᜈᜌ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ online ᜈ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜇ᜔ ᜐ device ᜋᜓ.</value>
   </data>
   <data name="Flyouts_IpAddress_Description_Disconnected1">
-    <value>Den här unika koden kan användas av webbplatser och internetleverantörer för att länka din plats och webbhistorik till din enhet.</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜄᜋᜒᜆᜒᜈ᜔ ᜈᜅ᜔ ᜋᜅ website ᜀᜆ᜔ ISP (Internet Service Provider) ᜀᜅ᜔ unique code ᜈ ᜁᜆᜓ ᜂᜉᜅ᜔ ᜁᜂᜄ᜔ᜈᜌ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ history ᜈᜅ᜔ ᜉᜄ᜔-browse ᜐ ᜁᜌᜓᜅ᜔ device.</value>
   </data>
   <data name="Flyouts_IpAddress_Description_Disconnected2">
-    <value>En VPN maskerar din IP-adress vilket gör det svårare för din aktivitet att spåras tillbaka till dig.</value>
+    <value>ᜁᜆᜒᜈᜆᜄᜓ ᜈᜅ᜔ VPN ᜀᜅ᜔ ᜆᜓᜆᜓᜂ ᜋᜓᜅ᜔ IP address, ᜃᜌ ᜋᜐ᜔ ᜋᜑᜒᜇᜉ᜔ ᜈ ᜁ-trace ᜉᜊᜎᜒᜃ᜔ ᜐ ᜁᜌᜓ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜇ᜔.</value>
   </data>
   <data name="Flyouts_IpAddress_KnowledgeBaseLinkTitle">
-    <value>Vad är en IP-adress?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ IP address?</value>
   </data>
   <data name="Flyouts_IpAddress_Title">
-    <value>IP-adress</value>
+    <value>IP address</value>
   </data>
   <data name="Flyouts_IpAddress_VpnIp">
-    <value>VPN-IP</value>
+    <value>VPN IP</value>
   </data>
   <data name="Flyouts_IpAddress_VpnIpv4">
     <value>VPN IPv4</value>
@@ -2018,193 +2012,193 @@ Felkod: {0}</value>
     <value>VPN IPv6</value>
   </data>
   <data name="Flyouts_IpAddress_YourIp">
-    <value>Din IP</value>
+    <value>IP ᜋᜓ</value>
   </data>
   <data name="Flyouts_IpAddress_YourIpIsVisible">
-    <value>Din IP-adress är synlig</value>
+    <value>ᜈᜃᜒᜃᜒᜆ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ IP address</value>
   </data>
   <data name="Flyouts_Isp_Description1">
-    <value>Din ISP (Internetleverantör) är företaget som ansluter dig till internet.</value>
+    <value>ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ISP (Internet Service Provider) ᜀᜌ᜔ ᜀᜅ᜔ ᜃᜓᜋ᜔ᜉᜈ᜔ᜌᜅ᜔ ᜈᜄ᜔ᜃᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜌᜓ ᜐ internet.</value>
   </data>
   <data name="Flyouts_Isp_Description2">
-    <value>De kan logga din aktivitet online. I vissa länder kan de sälja din data till annonsörer. I andra kan de åläggas att lämna över det till regeringen.</value>
+    <value>ᜋᜀᜀᜇᜒ ᜈᜒᜎᜅ᜔ ᜁ-log ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ online ᜈ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜇ᜔. ᜐ ᜁᜎᜅ᜔ ᜊᜈ᜔ᜐ, ᜋᜀᜀᜇᜒ ᜈᜒᜎᜅ᜔ ᜁᜊᜒᜈ᜔ᜆ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ data ᜐ ᜋᜅ advertiser. ᜐ ᜁᜊ ᜈᜋᜈ᜔, ᜋᜀᜀᜇᜒ ᜐᜒᜎᜅ᜔ ᜀᜆᜐᜈ᜔ ᜈ ᜁᜊᜒᜄᜌ᜔ ᜁᜆᜓ ᜐ ᜄᜓᜊ᜔ᜌᜒᜇ᜔ᜈᜓ.</value>
   </data>
   <data name="Flyouts_Isp_Description3">
-    <value>En VPN döljer din IP-adress och skyddar dig från ISP-inblandning.</value>
+    <value>ᜁᜆᜒᜈᜆᜄᜓ ᜈᜅ᜔ VPN ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ IP address, ᜈ ᜈᜄ᜔ᜉᜓᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆ ᜐ ᜁᜌᜓ ᜋᜓᜎ ᜐ ISP interference.</value>
   </data>
   <data name="Flyouts_Isp_KnowledgeBaseLinkTitle">
-    <value>Vad är en internetleverantör (ISP)?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ Internet Service Provider (ISP)?</value>
   </data>
   <data name="Flyouts_Isp_Title">
-    <value>Leverantör</value>
+    <value>Provider</value>
   </data>
   <data name="Flyouts_Isp_Warning">
-    <value>Din leverantör kan se vilka webbplatser du besöker</value>
+    <value>ᜈᜃᜒᜃᜒᜆ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ provider ᜃᜓᜅ᜔ ᜀᜎᜒᜅ᜔ ᜋᜅ website ᜀᜅ᜔ ᜊᜒᜈᜒᜊᜒᜐᜒᜆ ᜋᜓ</value>
   </data>
   <data name="Flyouts_KillSwitch_Advanced_Success">
-    <value>Blockerar all internetåtkomst när du inte är ansluten till Proton VPN</value>
+    <value>ᜊᜒᜈ-block ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ access ᜐ internet ᜃᜉᜄ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜃ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜐ Proton VPN</value>
   </data>
   <data name="Flyouts_KillSwitch_Info">
-    <value>Din IP-adress kan exponeras om din VPN-anslutning tappas</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜋ-expose ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ IP address ᜃᜓᜅ᜔ ᜋᜉᜓᜆᜓᜎ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="Flyouts_KillSwitch_Info_Disconnected">
-    <value>Avancerad kill switch inaktiverar din internetanslutning för att skydda din IP-adress när du inte är ansluten till Proton VPN.</value>
+    <value>ᜁᜇᜒ-disable ᜈᜅ᜔ advanced kill switch ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ internet ᜂᜉᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ IP address ᜑᜊᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜃ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜐ Proton VPN.</value>
   </data>
   <data name="Flyouts_KillSwitch_Standard_Success">
-    <value>Om din VPN-anslutning tappas kommer du att kopplas från från internet tills VPN återställs</value>
+    <value>ᜃᜓᜅ᜔ ᜋᜉᜓᜆᜓᜎ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ VPN, ᜋᜇᜒ-disconnect ᜃ ᜋᜓᜎ ᜐ internet ᜑᜅ᜔ᜄᜅ᜔ ᜐ ᜋᜁᜊᜎᜒᜃ᜔ ᜀᜅ᜔ VPN</value>
   </data>
   <data name="Flyouts_KillSwitch_Warning_Connected">
-    <value>Avancerad kill switch tillämpas även om du avsiktligt kopplar från från VPN</value>
+    <value>ᜄᜓᜋᜄᜈ ᜉ ᜇᜒᜈ᜔ ᜀᜅ᜔ advanced kill switch ᜃᜑᜒᜆ᜔ ᜐᜇ᜔ᜌᜅ᜔ ᜋᜄ᜔-disconnect ᜃ ᜐ VPN</value>
   </data>
   <data name="Flyouts_KillSwitch_Warning_Disconnected">
-    <value>För att komma tillbaka online, anslut till VPN eller inaktivera avancerad kill switch</value>
+    <value>ᜂᜉᜅ᜔ ᜋᜃᜊᜎᜒᜃ᜔ online, ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ VPN ᜂ ᜁ-disable ᜀᜅ᜔ advanced kill switch</value>
   </data>
   <data name="Flyouts_NetShield_AdsMalwareTrackersAdultContent_Success">
-    <value>Du är skyddad från annonser, spårare, skadlig kod och vuxet innehåll.</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ ᜃ ᜋᜓᜎ ᜐ ᜋᜅ ad, tracker, malware, ᜀᜆ᜔ ᜉᜓᜇ᜔ᜈᜓᜄ᜔ᜇᜉᜒᜌ.</value>
   </data>
   <data name="Flyouts_NetShield_AdsMalwareTrackers_Success">
-    <value>Du är skyddad från annonser, spårare och skadlig kod.</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ ᜃ ᜋᜓᜎ ᜐ ᜋᜅ ad, tracker, ᜀᜆ᜔ malware.</value>
   </data>
   <data name="Flyouts_NetShield_Info">
-    <value>Skydda din surfning på webbplatser och appar.</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜉᜄ᜔-browse ᜐ ᜋᜅ website ᜀᜆ᜔ app.</value>
   </data>
   <data name="Flyouts_NetShield_MalwareOnly_Success">
-    <value>Du är endast skyddad från skadlig kod.</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ ᜃ ᜋᜓᜎ ᜐ malware ᜎᜋᜅ᜔.</value>
   </data>
   <data name="Flyouts_NetShield_Upsell_Description">
-    <value>Blockera annonser, spårare, skadlig kod och vuxet innehåll med VPN Plus.</value>
+    <value>ᜁ-block ᜀᜅ᜔ ᜋᜅ ad, tracker, malware, ᜀᜆ᜔ ᜉᜓᜇ᜔ᜈᜓᜄ᜔ᜇᜉᜒᜌ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus.</value>
   </data>
   <data name="Flyouts_NetShield_Upsell_Title">
-    <value>Njut av annonsfri surfning</value>
+    <value>ᜁ-enjoy ᜀᜅ᜔ ᜉᜄ᜔-browse ᜈᜅ᜔ ᜏᜎᜅ᜔ ads</value>
   </data>
   <data name="Flyouts_PortForwarding_ActivePort">
-    <value>Aktivt portnummer</value>
+    <value>ᜀᜃ᜔ᜆᜒᜊᜓᜅ᜔ port number</value>
   </data>
   <data name="Flyouts_PortForwarding_ActivePort_Error">
-    <value>Kan inte hämta aktivt portnummer. Starta om din anslutning och försök igen.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜃᜓᜑ ᜀᜅ᜔ active port number. ᜁ-restart ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ ᜀᜆ᜔ ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Flyouts_PortForwarding_ActivePort_Info">
-    <value>Ange det aktiva portnumret i din torrentklient eller P2P-app för förbättrad prestanda.</value>
+    <value>ᜁᜎᜄᜌ᜔ ᜀᜅ᜔ active port number ᜐ ᜁᜌᜓᜅ᜔ torrent client ᜂ P2P app ᜉᜇ ᜐ ᜉᜒᜈᜑᜓᜐᜌ᜔ ᜈ performance.</value>
   </data>
   <data name="Flyouts_PortForwarding_Info">
-    <value>Förbättrar peer-to-peer nedladdningshastigheter</value>
+    <value>ᜉᜒᜈᜉᜑᜓᜐᜌ᜔ ᜀᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ peer-to-peer download</value>
   </data>
   <data name="Flyouts_PortForwarding_Upsell_Description">
-    <value>Öka prestandan för peer-to-peer (P2P) fildelning med VPN Plus.</value>
+    <value>ᜉᜑᜓᜐᜌᜒᜈ᜔ ᜀᜅ᜔ performance ᜈᜅ᜔ peer-to-peer (P2P) file sharing ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus.</value>
   </data>
   <data name="Flyouts_PortForwarding_Upsell_Title">
-    <value>Förbättra P2P-hastigheten</value>
+    <value>ᜉᜑᜓᜐᜌᜒᜈ᜔ ᜀᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ P2P</value>
   </data>
   <data name="Flyouts_PortForwarding_Warning">
-    <value>Anslut till en P2P-server för att förbättra torrenthastigheter</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ P2P server ᜂᜉᜅ᜔ ᜋᜉᜑᜓᜐᜌ᜔ ᜀᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ torrenting</value>
   </data>
   <data name="Flyouts_Protocol_Description">
-    <value>Ett VPN-protokoll bestämmer hur trafik krypteras och överförs över VPN.</value>
+    <value>ᜆᜒᜈᜓᜆᜓᜃᜓᜌ᜔ ᜈᜅ᜔ VPN protocol ᜃᜓᜅ᜔ ᜉᜀᜈᜓ ᜁᜈᜒ-encrypt ᜀᜆ᜔ ᜁᜉᜒᜈᜉᜇᜎ ᜀᜅ᜔ traffic ᜐ VPN.</value>
   </data>
   <data name="Flyouts_Protocol_KnowledgeBaseLinkTitle">
-    <value>Vilket VPN-protokoll är bäst?</value>
+    <value>ᜀᜎᜒᜅ᜔ VPN protocol ᜀᜅ᜔ ᜉᜒᜈᜃᜋᜑᜓᜐᜌ᜔?</value>
   </data>
   <data name="Flyouts_Protocol_Title">
-    <value>Protokoll</value>
+    <value>Protocol</value>
   </data>
   <data name="Flyouts_ServerLoad_Description">
-    <value>Serverbelastning visar hur nära en server är sin maximala kapacitet. En hög serverbelastning kan sakta ner din anslutning.</value>
+    <value>ᜁᜉᜒᜈᜉᜃᜒᜆ ᜈᜅ᜔ load ᜈᜅ᜔ server ᜃᜓᜅ᜔ ᜄᜀᜈᜓ ᜃᜎᜉᜒᜆ᜔ ᜀᜅ᜔ ᜁᜐᜅ᜔ server ᜐ maximum ᜈ ᜃᜉᜐᜒᜇᜇ᜔ ᜈᜒᜆᜓ. ᜋᜀᜀᜇᜒᜅ᜔ ᜉᜊᜄᜎᜒᜈ᜔ ᜈᜅ᜔ ᜋᜆᜀᜐ᜔ ᜈ load ᜈᜅ᜔ server ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ.</value>
   </data>
   <data name="Flyouts_ServerLoad_High">
-    <value>Hög (91-100 %)</value>
+    <value>ᜋᜆᜀᜐ᜔ (91-100%)</value>
   </data>
   <data name="Flyouts_ServerLoad_High_Description">
-    <value>VPN kan gå långsammare än normalt</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜆᜓᜋᜃ᜔ᜊᜓ ᜀᜅ᜔ VPN ᜈᜅ᜔ ᜋᜐ᜔ ᜋᜊᜄᜎ᜔ ᜃᜌ᜔ᜐ normal</value>
   </data>
   <data name="Flyouts_ServerLoad_KnowledgeBaseLinkTitle">
-    <value>Vad är serverbelastning?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ load ᜈᜅ᜔ server?</value>
   </data>
   <data name="Flyouts_ServerLoad_Low">
-    <value>Låg (1-75 %)</value>
+    <value>ᜋᜊᜊ (1-75%)</value>
   </data>
   <data name="Flyouts_ServerLoad_Low_Description">
-    <value>Blixtsnabba hastigheter</value>
+    <value>ᜈᜉᜃᜊᜒᜎᜒᜐ᜔ ᜈ speed</value>
   </data>
   <data name="Flyouts_ServerLoad_Medium">
-    <value>Medium (76-90 %)</value>
+    <value>ᜃᜆᜋ᜔ᜆᜋᜈ᜔ (76-90%)</value>
   </data>
   <data name="Flyouts_ServerLoad_Medium_Description">
-    <value>Osannolikt att det påverkar anslutningshastighet</value>
+    <value>ᜋᜎᜋᜅ᜔ ᜈ ᜑᜒᜈ᜔ᜇᜒ ᜋᜃᜀᜉᜒᜃ᜔ᜆᜓ ᜐ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Flyouts_ServerLoad_Title">
-    <value>Serverbelastning</value>
+    <value>Load ᜈᜅ᜔ server</value>
   </data>
   <data name="Flyouts_Speed_Description1">
-    <value>Visar hur mycket data som går genom VPN-tunneln i realtid.</value>
+    <value>ᜁᜉᜒᜈᜉᜃᜒᜆ ᜃᜓᜅ᜔ ᜄᜀᜈᜓ ᜃᜇᜋᜒᜅ᜔ data ᜀᜅ᜔ ᜇᜓᜋᜇᜀᜈ᜔ ᜐ VPN tunnel ᜈᜅ᜔ real time</value>
   </data>
   <data name="Flyouts_Speed_Description2">
-    <value>Detta är baserat på din enhets nuvarande aktivitet. I de flesta fall representerar det inte VPN:s maximala hastighet.</value>
+    <value>ᜈᜃᜊᜆᜌ᜔ ᜁᜆᜓ ᜐ ᜃᜐᜎᜓᜃᜓᜌᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜇ᜔ ᜈᜅ᜔ device ᜋᜓ. ᜐ ᜃᜇᜋᜒᜑᜈ᜔ ᜈᜅ᜔ ᜋᜅ ᜃᜐᜓ, ᜑᜒᜈ᜔ᜇᜒ ᜈᜒᜆᜓ ᜈᜒᜇᜒ-represent ᜀᜅ᜔ maximum ᜈ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Flyouts_Speed_Download">
-    <value>Nedladdning</value>
+    <value>Download</value>
     <comment>Refers to the download speed (e.g., Download [new line] 10 MB/s).</comment>
   </data>
   <data name="Flyouts_Speed_KnowledgeBaseLinkTitle">
-    <value>VPN-hastighet och trafik förklaras</value>
+    <value>ᜉᜎᜒᜏᜈᜄ᜔ ᜐ VPN speed ᜀᜆ᜔ traffic</value>
   </data>
   <data name="Flyouts_Speed_Title">
-    <value>Nuvarande trafik</value>
+    <value>ᜃᜐᜎᜓᜃᜓᜌᜅ᜔ traffic</value>
   </data>
   <data name="Flyouts_Speed_Upload">
-    <value>Uppladdning</value>
+    <value>Upload</value>
     <comment>Refers to the upload speed (e.g., Upload [new line] 2.5 MB/s).</comment>
   </data>
   <data name="Flyouts_SplitTunneling_Excluded_Apps_One">
-    <value>Exkluderad app ({0})</value>
+    <value>ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ app ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Excluded_Apps_Other">
-    <value>Exkluderade appar ({0})</value>
+    <value>ᜋᜅ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ app ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Excluded_Ips_One">
-    <value>Exkluderad IP-adress ({0})</value>
+    <value>ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ IP address ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Excluded_Ips_Other">
-    <value>Exkluderade IP-adresser ({0})</value>
+    <value>ᜋᜅ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ IP address ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Info">
-    <value>Tillåter betrodda appar och IP-adresser att ansluta utan VPN-skydd</value>
+    <value>ᜉᜒᜈᜉᜌᜄᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜉᜒᜈᜄ᜔ᜃᜃᜆᜒᜏᜎᜀᜅ᜔ app ᜀᜆ᜔ IP address ᜈ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜈᜅ᜔ ᜏᜎᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="Flyouts_SplitTunneling_Inverse_Info">
-    <value>Endast dessa appar och IP-adresser ansluter genom VPN. All annan trafik är oskyddad.</value>
+    <value>ᜀᜅ᜔ ᜋᜅ ᜉᜒᜈᜒᜎᜒᜅ᜔ app ᜀᜆ᜔ IP address ᜎᜅ᜔ ᜀᜅ᜔ ᜃᜓᜋᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ VPN. ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ ᜁᜊ ᜉᜅ᜔ traffic ᜀᜌ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ.</value>
   </data>
   <data name="Flyouts_SplitTunneling_Protected_Apps_One">
-    <value>Skyddad app ({0})</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓᜅ᜔ app ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Protected_Apps_Other">
-    <value>Skyddade appar ({0})</value>
+    <value>ᜋᜅ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓᜅ᜔ app ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Protected_Ips_One">
-    <value>Skyddad IP-adress ({0})</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓᜅ᜔ IP address ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Protected_Ips_Other">
-    <value>Skyddade IP-adresser ({0})</value>
+    <value>ᜋᜅ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓᜅ᜔ IP address ({0})</value>
   </data>
   <data name="Flyouts_SplitTunneling_Standard_Info">
-    <value>Dessa appar och IP-adresser ansluter utan VPN-skydd. All annan trafik är skyddad.</value>
+    <value>ᜃᜓᜋᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜀᜅ᜔ ᜋᜅ app ᜀᜆ᜔ IP address ᜈ ᜁᜆᜓ ᜈᜅ᜔ ᜏᜎᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN. ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ ᜁᜊ ᜉᜅ᜔ traffic.</value>
   </data>
   <data name="Flyouts_SplitTunneling_Upsell_Description">
-    <value>Dela upp din trafik i VPN- och icke-VPN-tunnlar med VPN Plus.</value>
+    <value>ᜑᜆᜒᜁᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ traffic ᜐ ᜋᜅ VPN ᜀᜆ᜔ non-VPN tunnel ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus.</value>
   </data>
   <data name="Flyouts_SplitTunneling_Upsell_Title">
-    <value>Få det bästa av två världar</value>
+    <value>ᜐᜓᜎᜒᜆᜒᜈ᜔ ᜀᜅ᜔ ᜇᜎᜏᜅ᜔ ᜋᜓᜈ᜔ᜇᜓ</value>
   </data>
   <data name="Flyouts_Volume_Description">
-    <value>Visar den totala mängden data som passerat genom VPN-tunneln sedan du anslöt.</value>
+    <value>ᜁᜉᜒᜈᜉᜃᜒᜆ ᜀᜅ᜔ ᜃᜊᜓᜂᜀᜅ᜔ ᜇᜋᜒ ᜈᜅ᜔ data ᜈ ᜇᜓᜋᜀᜈ᜔ ᜐ VPN tunnel ᜋᜓᜎ ᜈᜓᜂᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜃ</value>
   </data>
   <data name="Flyouts_Volume_Download">
-    <value>Nedladdat</value>
+    <value>Download</value>
     <comment>Refers to the downloaded volume (e.g., Download [new line] 250 MB).</comment>
   </data>
   <data name="Flyouts_Volume_Title">
-    <value>Total trafik</value>
+    <value>ᜃᜊᜓᜂᜀᜅ᜔ traffic</value>
   </data>
   <data name="Flyouts_Volume_Upload">
-    <value>Uppladdat</value>
+    <value>Upload</value>
     <comment>Refers to the uploaded volume (e.g., Upload [new line] 250 MB).</comment>
   </data>
   <data name="Format_Size_Bytes">
@@ -2236,7 +2230,7 @@ Felkod: {0}</value>
     <comment>Format a size in Terabytes. {0} is a place holder for the number of Terabytes (eg. 30 TB)</comment>
   </data>
   <data name="Format_SpeedUnit">
-    <value>Nuvarande trafik ({0})</value>
+    <value>ᜃᜐᜎᜓᜃᜓᜌᜅ᜔ traffic ({0})</value>
     <comment>This string is used to format speed measurements in various units. The placeholder {0} will be replaced by the appropriate unit of measurement, such as B/s (Bytes per second), kB/s (Kilobytes per second), MB/s (Megabytes per second), and so on.</comment>
   </data>
   <data name="Format_Speed_BytesPerSecond">
@@ -2268,23 +2262,23 @@ Felkod: {0}</value>
     <comment>Format a speed in Terabytes per second. {0} is a place holder for the number of Terabytes per second (eg. 30 TB/s)</comment>
   </data>
   <data name="Format_Time_Day_One">
-    <value>{0} dag</value>
+    <value>{0} ᜀᜇᜏ᜔</value>
   </data>
   <data name="Format_Time_Day_Other">
-    <value>{0} dagar</value>
+    <value>{0} ᜋᜅ ᜀᜇᜏ᜔</value>
   </data>
   <data name="Format_Time_DayHour_One">
-    <value>{0} dag {1} tim.</value>
+    <value>{0} ᜀᜇᜏ᜔ {1} hr</value>
   </data>
   <data name="Format_Time_DayHour_Other">
-    <value>{0} dagar {1} tim.</value>
+    <value>{0} ᜋᜅ ᜀᜇᜏ᜔ {1} hr</value>
   </data>
   <data name="Format_Time_Hours">
-    <value>{0} tim.</value>
+    <value>{0} hr</value>
     <comment>Format a time as a number of hours. {0} is a placeholder for the number of hours (eg. 1 hr or 20 hr). Use abbreviations, no pluralization.</comment>
   </data>
   <data name="Format_Time_HoursMinutes">
-    <value>{0} tim. {1} min.</value>
+    <value>{0} hr {1} min</value>
     <comment>Format a time as a number of hours and minutes. {0} is a placeholder for the number of hours and {1} for the number of minutes (eg. 5 hr 36 min). Use abbreviations, no pluralization.</comment>
   </data>
   <data name="Format_Time_HoursMinutesSeconds_Short">
@@ -2292,17 +2286,17 @@ Felkod: {0}</value>
     <comment>Format a time as a number of hours, minutes and seconds in a short format. 'hh' is a placeholder for the number of hours, 'mm' is a placeholder for the number of minutes and 'ss' for the number of seconds. The separator (if any) needs to be escaped using '' character (eg. hh\:mm\:ss gives 01:05:36).</comment>
   </data>
   <data name="Format_Time_Hours_Ago_One">
-    <value>{0} timme sedan</value>
+    <value>{0} ᜂᜇᜐ᜔ ᜀᜅ᜔ ᜈᜃᜎᜒᜉᜐ᜔</value>
   </data>
   <data name="Format_Time_Hours_Ago_Other">
-    <value>{0} timmar sedan</value>
+    <value>{0} ᜋᜅ ᜂᜇᜐ᜔ ᜀᜅ᜔ ᜈᜃᜎᜒᜉᜐ᜔</value>
   </data>
   <data name="Format_Time_Minutes">
-    <value>{0} min.</value>
+    <value>{0} min</value>
     <comment>Format a time as a number of minutes. {0} is a placeholder for the number of minutes (eg. 1 min or 20 min). Use abbreviations, no pluralization.</comment>
   </data>
   <data name="Format_Time_MinutesSeconds">
-    <value>{0} min. {1} sek.</value>
+    <value>{0} min {1} seg</value>
     <comment>Format a time as a number of minutes and seconds. {0} is a placeholder for the number of minutes and {1} for the number of seconds (eg. 5 min 36 sec). Use abbreviations, no pluralization.</comment>
   </data>
   <data name="Format_Time_MinutesSeconds_Short">
@@ -2310,537 +2304,537 @@ Felkod: {0}</value>
     <comment>Format a time as a number of minutes and seconds in a short format. 'mm' is a placeholder for the number of minutes and 'ss' for the number of seconds. The separator (if any) needs to be escaped using '' character (eg. mm\:ss gives 05:36).</comment>
   </data>
   <data name="Format_Time_Minutes_Ago_One">
-    <value>{0} minut sedan</value>
+    <value>{0} ᜋᜒᜈᜓᜆᜓ ᜀᜅ᜔ ᜈᜃᜎᜒᜉᜐ᜔</value>
   </data>
   <data name="Format_Time_Minutes_Ago_Other">
-    <value>{0} minuter sedan</value>
+    <value>{0} ᜋᜅ ᜋᜒᜈᜓᜆᜓ ᜀᜅ᜔ ᜈᜃᜎᜒᜉᜐ᜔</value>
   </data>
   <data name="Format_Time_Seconds">
-    <value>{0} sek.</value>
+    <value>{0} seg</value>
     <comment>Format a time as a number of seconds. {0} is a placeholder for the number of second (eg. 1 sec or 20 sec). Use abbreviations for seconds, no pluralization.</comment>
   </data>
   <data name="Format_Time_Seconds_Ago_One">
-    <value>{0} sekund sedan</value>
+    <value>{0} ᜐᜒᜄᜓᜈ᜔ᜇᜓ ᜀᜅ᜔ ᜈᜃᜎᜒᜉᜐ᜔</value>
   </data>
   <data name="Format_Time_Seconds_Ago_Other">
-    <value>{0} sekunder sedan</value>
+    <value>{0} ᜋᜅ ᜐᜒᜄᜓᜈ᜔ᜇᜓ ᜀᜅ᜔ ᜈᜃᜎᜒᜉᜐ᜔</value>
   </data>
   <data name="FreeConnections_P2PUpsell">
-    <value>Ladda ner filer via BitTorrent och andra fildelningsprotokoll</value>
+    <value>ᜋᜄ᜔-download ᜈᜅ᜔ ᜋᜅ file ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ BitTorrent ᜀᜆ᜔ ᜁᜊ ᜉᜅ᜔ protocol ᜐ ᜉᜄ᜔ᜊᜊᜑᜄᜒ ᜈᜅ᜔ file</value>
   </data>
   <data name="FreeConnections_SecureCoreUpsell">
-    <value>Lägg till ytterligare ett lager av kryptering till din VPN-anslutning</value>
+    <value>ᜋᜄ᜔ᜇᜄ᜔ᜇᜄ᜔ ᜈᜅ᜔ ᜁᜐ ᜉᜅ᜔ layer ᜈᜅ᜔ encryption ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="FreeConnections_TorUpsell">
-    <value>Använd Tor-nätverket över din VPN-anslutning för extra integritet</value>
+    <value>ᜄᜋᜒᜆᜒᜈ᜔ ᜀᜅ᜔ Tor network ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN ᜉᜇ ᜐ ᜃᜇᜄ᜔ᜇᜄᜅ᜔ privacy</value>
   </data>
   <data name="FreeConnections_WorldwideCoverageUpsell">
-    <value>Få världsomspännande täckning med VPN Plus</value>
+    <value>ᜋᜄ᜔ᜃᜇᜓᜂᜈ᜔ ᜈᜅ᜔ ᜉᜈ᜔ᜇᜁᜄ᜔ᜇᜒᜄᜅ᜔ coverage ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Gateway_Fastest">
-    <value>Snabbaste gateway</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ gateway</value>
   </data>
   <data name="Gateway_Random">
-    <value>Slumpmässig gateway</value>
+    <value>ᜇᜈ᜔ᜇᜓᜋ᜔ ᜈ gateway</value>
   </data>
   <data name="Gateways_Page_Description">
-    <value>Anslut till en gateway för att komma åt din organisations VPN.</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜐᜅ᜔ gateway ᜂᜉᜅ᜔ ᜋ-access ᜀᜅ᜔ VPN ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜂᜇ᜔ᜄᜈᜒᜐᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Gateways_Page_Title">
-    <value>Gateways</value>
+    <value>ᜋᜅ Gateway</value>
   </data>
   <data name="Home_Account_SignOut">
-    <value>Logga ut</value>
+    <value>ᜋᜄ᜔-sign out</value>
   </data>
   <data name="Home_Account_SignOut_Confirmation_Title">
-    <value>Logga ut från {0}?</value>
+    <value>ᜋᜄ᜔-sign out ᜋᜓᜎ ᜐ {0}?</value>
     <comment>{0} is a placeholder for the username</comment>
   </data>
   <data name="Home_ConnectionCard_ChangeDefaultConnection">
-    <value>Ändra standardanslutning</value>
+    <value>ᜊᜄᜓᜑᜒᜈ᜔ ᜀᜅ᜔ default ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Home_ConnectionCard_ChangeServer">
-    <value>Byt server</value>
+    <value>ᜋᜄ᜔ᜉᜎᜒᜆ᜔ ᜈᜅ᜔ server</value>
   </data>
   <data name="Home_ConnectionDetails_AdvancedKillSwitchActivated">
-    <value>Avancerad kill switch aktiverad</value>
+    <value>activated ᜀᜅ᜔ advanced kill switch</value>
   </data>
   <data name="Home_ConnectionDetails_ConnectToRestoreConnection">
-    <value>Anslut till VPN för att återställa din internetanslutning.</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ VPN ᜂᜉᜅ᜔ ᜋᜁᜊᜎᜒᜃ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ internet.</value>
   </data>
   <data name="Home_ConnectionDetails_Connecting">
-    <value>Ansluter</value>
+    <value>ᜃᜓᜋᜓᜃᜓᜈᜒᜃ᜔ᜆ</value>
   </data>
   <data name="Home_ConnectionDetails_ConnectingSubLabel">
-    <value>Skyddar din digitala identitet...</value>
+    <value>ᜉᜒᜈᜓᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜀᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ digital ᜈ ᜉᜄ᜔ᜃᜃᜃᜒᜎᜈ᜔ᜎᜈ᜔...</value>
   </data>
   <data name="Home_ConnectionDetails_Country">
-    <value>Land</value>
+    <value>ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Home_ConnectionDetails_Isp">
-    <value>Leverantör</value>
+    <value>Provider</value>
   </data>
   <data name="Home_ConnectionDetails_Protected">
-    <value>Skyddad</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ</value>
   </data>
   <data name="Home_ConnectionDetails_Protocol">
-    <value>Protokoll</value>
+    <value>Protocol</value>
   </data>
   <data name="Home_ConnectionDetails_ServerLoad">
-    <value>Serverbelastning</value>
+    <value>Load ᜈᜅ᜔ server</value>
   </data>
   <data name="Home_ConnectionDetails_TwoFactorRequired_Description">
-    <value>Autentisera igen i din organisations 2FA-portal för att fortsätta.</value>
+    <value>ᜋᜄ᜔-authenticate ᜋᜓᜎᜒ ᜐ 2FA portal ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜂᜇ᜔ᜄᜈᜒᜐᜐ᜔ᜌᜓᜈ᜔ ᜂᜉᜅ᜔ ᜋᜄ᜔ᜉᜆᜓᜎᜓᜌ᜔.</value>
   </data>
   <data name="Home_ConnectionDetails_TwoFactorRequired_Title">
-    <value>2FA löpt ut</value>
+    <value>ᜈᜄ᜔-expire ᜀᜅ᜔ 2FA</value>
   </data>
   <data name="Home_ConnectionDetails_Unprotected">
-    <value>Oskyddad</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ</value>
   </data>
   <data name="Home_ConnectionDetails_UnprotectedSubLabel">
-    <value>Kryptera din aktivitet online genom att ansluta till VPN.</value>
+    <value>ᜁ-encrypt ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ online ᜈ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜓᜇ᜔ ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔ᜃᜓᜈᜒᜃ᜔ᜆ ᜐ VPN.</value>
   </data>
   <data name="Home_ConnectionDetails_Volume">
-    <value>Total trafik</value>
+    <value>ᜃᜊᜓᜂᜀᜅ᜔ traffic</value>
   </data>
   <data name="Home_ConnectionDetails_VpnIp">
-    <value>VPN-IP</value>
+    <value>VPN IP</value>
   </data>
   <data name="Home_ConnectionDetails_YourIpAddress">
-    <value>Din IP-adress</value>
+    <value>ᜁᜌᜓᜅ᜔ IP address</value>
   </data>
   <data name="Home_FreeConnections_About">
-    <value>Mer information om gratis anslutningar</value>
+    <value>ᜃᜇᜄ᜔ᜇᜄᜅ᜔ ᜁᜋ᜔ᜉᜓᜇ᜔ᜋᜐ᜔ᜌᜓᜈ᜔ ᜆᜓᜅ᜔ᜃᜓᜎ᜔ ᜐ ᜋᜅ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Home_NetShield_AdsBlocked_One">
-    <value>Annons blockerad</value>
+    <value>ad ᜈ ᜈ-block</value>
   </data>
   <data name="Home_NetShield_AdsBlocked_Other">
-    <value>Annonser blockerade</value>
+    <value>ᜋᜅ ads ᜈ ᜈ-block</value>
   </data>
   <data name="Home_NetShield_AdsBlocked_Description">
-    <value>Annonser är reklambanners eller popup som visas på webbplatser och appar.</value>
+    <value>ᜀᜅ᜔ ᜋᜅ ads ᜀᜌ᜔ ᜋᜅ ᜉ᜔ᜇᜓᜋᜓᜐ᜔ᜌᜓᜈᜎ᜔ ᜈ banner ᜂ pop-up ᜈ ᜎᜓᜋᜎᜊᜐ᜔ ᜐ ᜋᜅ website ᜀᜆ᜔ app.</value>
   </data>
   <data name="Home_NetShield_DataSaved">
-    <value>Data sparad</value>
+    <value>Data ᜈ ᜈ-save</value>
   </data>
   <data name="Home_NetShield_DataSaved_Description">
-    <value>Uppskattad data sparad genom att blockera oönskade annonser, spårare och skadlig kod.</value>
+    <value>Estimated data ᜈ ᜈ-save ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔-block ᜈᜅ᜔ ᜋᜅ ᜑᜒᜈ᜔ᜇᜒ ᜄᜓᜐ᜔ᜆᜓᜅ᜔ ads, tracker, at malware</value>
   </data>
   <data name="Home_NetShield_TrackersStopped_One">
-    <value>Spårare stoppad</value>
+    <value>tracker ᜈ ᜈᜑᜒᜈ᜔ᜆᜓ</value>
   </data>
   <data name="Home_NetShield_TrackersStopped_Other">
-    <value>Spårare stoppade</value>
+    <value>ᜋᜅ tracker ᜈ ᜈᜑᜒᜈ᜔ᜆᜓ</value>
   </data>
   <data name="Home_NetShield_TrackersStopped_Description">
-    <value>Spårare är cookies och tredjepartswebbplatser som samlar in, lagrar och säljer information om din webbaktivitet.</value>
+    <value>ᜀᜅ᜔ ᜋᜅ tracker ᜀᜌ᜔ ᜋᜅ cookie ᜀᜆ᜔ third-party ᜈ website ᜈ ᜈᜅᜓᜅᜓᜎᜒᜃ᜔ᜆ, ᜈᜄ᜔-ᜁᜁᜋ᜔ᜊᜃ᜔ ᜀᜆ᜔ ᜈᜄ᜔ᜊᜒᜊᜒᜈ᜔ᜆ ᜈᜅ᜔ ᜁᜋ᜔ᜉᜓᜇ᜔ᜋᜐ᜔ᜌᜓᜈ᜔ ᜆᜓᜅ᜔ᜃᜓᜎ᜔ ᜐ ᜁᜌᜓᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜇ᜔ ᜐ web.</value>
   </data>
   <data name="Home_Recents_Pin">
-    <value>Fäst</value>
+    <value>ᜁ-pin</value>
   </data>
   <data name="Home_Recents_Restricted">
-    <value>Server är tillgänglig med VPN Plus</value>
+    <value>Available ᜀᜅ᜔ server ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Home_Recents_ServerUnderMaintenance">
-    <value>Servern är underhålls</value>
+    <value>ᜐᜓᜋᜐᜁᜎᜎᜒᜋ᜔ ᜐ maintenance ᜀᜅ᜔ server</value>
   </data>
   <data name="Home_Recents_Title">
-    <value>Senaste</value>
+    <value>ᜋᜅ Recent</value>
   </data>
   <data name="Home_Recents_Unpin">
-    <value>Lossa</value>
+    <value>ᜁ-unpin</value>
   </data>
   <data name="Home_TitleBar_Menu_About">
-    <value>Om</value>
+    <value>ᜆᜓᜅ᜔ᜃᜓᜎ᜔ ᜇᜒᜆᜓ</value>
   </data>
   <data name="Home_TitleBar_Menu_Account">
-    <value>Konto</value>
+    <value>Account</value>
   </data>
   <data name="Home_TitleBar_Menu_ExitTheApp">
-    <value>Avsluta appen</value>
+    <value>ᜎᜓᜋᜊᜐ᜔ ᜐ app</value>
   </data>
   <data name="Home_TitleBar_Menu_Help">
-    <value>Hjälp</value>
+    <value>ᜆᜓᜎᜓᜅ᜔</value>
   </data>
   <data name="Home_TitleBar_Menu_Help_WhatsTheIssue">
-    <value>Vad är problemet?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ ᜁᜐ᜔ᜌᜓ?</value>
   </data>
   <data name="Home_TitleBar_Menu_Settings">
-    <value>Inställningar</value>
+    <value>ᜋᜅ setting</value>
   </data>
   <data name="Home_TitleBar_Menu_Signout">
-    <value>Logga ut</value>
+    <value>ᜋᜄ᜔-sign out</value>
   </data>
   <data name="Home_TitleBar_Menu_UpdateNow">
-    <value>Uppdatera nu</value>
+    <value>ᜁ-update ᜅᜌᜓᜈ᜔</value>
   </data>
   <data name="LoadingPage_Tip">
-    <value>En bättre värld börjar med integritet och digital frihet.</value>
+    <value>ᜈᜄ᜔ᜐᜒᜐᜒᜋᜓᜎ ᜀᜅ᜔ ᜋᜐ᜔ ᜋᜄᜈ᜔ᜇᜅ᜔ ᜋᜓᜈ᜔ᜇᜓ ᜐ privacy ᜀᜆ᜔ digital ᜈ ᜃᜎᜌᜀᜈ᜔.</value>
   </data>
   <data name="Login_Error_GetSessionDetailsFailed">
-    <value>Ett fel uppstod vid hämtning av sessionsdetaljerna. Försök igen.</value>
+    <value>ᜈᜄ᜔ᜃᜇᜓᜇᜓᜈ᜔ ᜈᜅ᜔ error ᜐ ᜉᜄ᜔ᜃᜓᜑ ᜈᜅ᜔ ᜋᜅ ᜇᜒᜆᜎ᜔ᜌᜒ ᜈᜅ᜔ session. ᜉᜃᜒᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Login_Error_GuestHoleFailedDueToMobileHotspot">
-    <value>Kan inte logga in på grund av nätverksinställningarna på din enhet. Detta kan orsakas av en mobil hotspot, en annan VPN-applikation eller programvara för virtuella maskiner. Kontrollera din nätverkskonfiguration eller kontakta support för hjälp.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜃᜉᜄ᜔-sign in ᜇᜑᜒᜎ᜔ ᜐ ᜋᜅ ᜐᜒᜆ᜔ᜆᜒᜅ᜔ ᜈᜅ᜔ network ᜐ ᜁᜌᜓᜅ᜔ device. ᜋᜀᜀᜇᜒᜅ᜔ ᜐᜈ᜔ᜑᜒ ᜁᜆᜓ ᜈᜅ᜔ mobile hotspot, ᜁᜊᜅ᜔ VPN application, ᜂ virtual machine software. ᜉᜃᜒ-review ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ network configuration ᜂ makipag-ugnayan ᜐ support ᜉᜇ ᜐ ᜆᜓᜎᜓᜅ᜔.</value>
   </data>
   <data name="Login_Error_IncorrectTwoFactorCode">
-    <value>Felaktig kod. Försök igen.</value>
+    <value>ᜋᜎᜒᜅ᜔ code. ᜉᜃᜒᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Login_Error_SessionExpired">
-    <value>Din session har löpt ut. Logga in igen.</value>
+    <value>ᜈᜄ᜔-expire ᜈ ᜀᜅ᜔ session ᜋᜓ. ᜋᜅ᜔ᜌᜇᜒᜅ᜔ ᜋᜄ᜔-sign in ᜋᜓᜎᜒ.</value>
     <comment>The message displayed in Login window when expired session is detected</comment>
   </data>
   <data name="Login_Error_SsoAuthFailed">
-    <value>SSO-autentisering misslyckades. Försök igen.</value>
+    <value>ᜈᜊᜒᜄᜓ ᜀᜅ᜔ SSO Authentication. ᜉᜃᜒᜐᜓᜊᜓᜃᜅ᜔ ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Login_Error_TwoFactorFailed">
-    <value>Tvåfaktorsautentisering misslyckades. Logga in igen.</value>
+    <value>ᜈᜊᜒᜄᜓ ᜀᜅ᜔ two-factor authentication. ᜉᜃᜒᜐᜓᜊᜓᜃᜅ᜔ ᜋᜄ᜔-sign in ᜋᜓᜎᜒ.</value>
   </data>
   <data name="Login_Error_WebAuthnNotSupported">
-    <value>Security key authentication is not available for your device or remote desktop connection.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ available ᜀᜅ᜔ ecurity key authentication ᜉᜇ ᜐ ᜁᜌᜓᜅ᜔ device ᜂ remote desktop connection.</value>
   </data>
   <data name="Login_TwoFactorForm_Authenticate">
-    <value>Autentisera</value>
+    <value>ᜋᜄ᜔-authenticate</value>
     <comment>Authenticate button inside two factor form during login</comment>
   </data>
   <data name="Login_TwoFactorForm_Subtitle">
-    <value>6-siffrig autentiseringskod</value>
+    <value>6-digit authentication code</value>
   </data>
   <data name="Login_TwoFactorForm_Title">
-    <value>Tvåfaktorsautentisering</value>
+    <value>Two-factor authentication</value>
   </data>
   <data name="Login_TwoFactor_Authenticator">
-    <value>Autentiseringsapp</value>
+    <value>Authenticator app</value>
   </data>
   <data name="Login_TwoFactor_Digit1">
-    <value>Första siffran</value>
+    <value>ᜐᜈᜅ᜔ digit</value>
   </data>
   <data name="Login_TwoFactor_Digit2">
-    <value>Andra siffran</value>
+    <value>ᜉᜅᜎᜓᜏᜅ᜔ digit</value>
   </data>
   <data name="Login_TwoFactor_Digit3">
-    <value>Tredje siffran</value>
+    <value>ᜉᜅᜆ᜔ᜎᜓᜅ᜔ digit</value>
   </data>
   <data name="Login_TwoFactor_Digit4">
-    <value>Fjärde siffran</value>
+    <value>ᜉᜅ᜔-ᜀᜉᜆ᜔ ᜈ digit</value>
   </data>
   <data name="Login_TwoFactor_Digit5">
-    <value>Femte siffran</value>
+    <value>ᜉᜅ᜔-ᜎᜒᜋᜅ᜔ digit</value>
   </data>
   <data name="Login_TwoFactor_Digit6">
-    <value>Sjätte siffran</value>
+    <value>ᜉᜅ᜔-ᜀᜈᜒᜋ᜔ ᜈ digit</value>
   </data>
   <data name="Login_TwoFactor_EnterCode">
-    <value>Ange din kod</value>
+    <value>ᜁᜎᜄᜌ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ code</value>
   </data>
   <data name="Login_TwoFactor_NoMethodAvailable">
-    <value>Inga kända tvåfaktorsautentiseringsmetoder hittades.</value>
+    <value>ᜏᜎᜅ᜔ ᜈᜃᜒᜆᜅ᜔ ᜃᜒᜎᜎᜅ᜔ ᜉᜇᜀᜈ᜔ ᜈᜅ᜔ two-factor authentication</value>
   </data>
   <data name="Login_TwoFactor_SecurityKey">
-    <value>Säkerhetsnyckel</value>
+    <value>Security key</value>
   </data>
   <data name="Login_TwoFactor_SecurityKey_Description">
-    <value>Infoga U2F eller FIDO-nyckeln länkat till ditt Proton-konto.</value>
+    <value>ᜁᜎᜄᜌ᜔ ᜀᜅ᜔ U2F ᜂ FIDO key ᜈ ᜈᜃ-link ᜐ Proton Account ᜋᜓ.</value>
   </data>
   <data name="Main_Loading">
-    <value>Laddar in, vänta …</value>
+    <value>Loading, ᜋᜅ᜔ᜌᜄᜒᜅ᜔ ᜋᜄ᜔ᜑᜒᜈ᜔ᜆᜌ᜔...</value>
     <comment>Message in the loading screen when starting the app</comment>
   </data>
   <data name="Main_Loading_SigningIn">
-    <value>Loggar in, vänta …</value>
+    <value>ᜈᜄ᜔ᜐ-sign in. ᜋᜅ᜔ᜌᜇᜒᜅ᜔ ᜋᜄ᜔ᜑᜒᜈ᜔ᜆᜌ᜔...</value>
     <comment>Message in the loading screen when signing in</comment>
   </data>
   <data name="Main_Loading_SigningIn_Longer">
-    <value>Det här tar längre tid än vanligt, men vi jobbar på det.</value>
+    <value>ᜋᜐ᜔ ᜋᜆᜄᜎ᜔ ᜁᜆᜓ ᜃᜌ᜔ᜐ ᜃᜇᜈᜒᜏᜈ᜔, ᜅᜓᜈᜒᜆ᜔ ᜁᜈᜀᜐᜒᜃᜐᜓ ᜈ ᜈᜋᜒᜈ᜔ ᜁᜆᜓ.</value>
     <comment>Message in the loading screen when sign in action takes longer than expected</comment>
   </data>
   <data name="Main_Loading_SigningOut">
-    <value>Loggar ut, vänta …</value>
+    <value>ᜈᜄ᜔ᜐ-sign out. ᜋᜅ᜔ᜌᜇᜒᜅ᜔ ᜋᜄ᜔ᜑᜒᜈ᜔ᜆᜌ᜔...</value>
     <comment>Message in the loading screen when signing out</comment>
   </data>
   <data name="Map_ConnectTo">
-    <value>Anslut - {0}</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ - {0}</value>
     <comment>A label inside a map pin tooltip. {0} is a placeholder for country, state or city. (eg. "Connect - United States", "Connect - New York")</comment>
   </data>
   <data name="NoServers_ContactUs">
-    <value>Kontakta oss</value>
+    <value>ᜋᜃᜒᜉᜄ᜔-ᜄᜓᜈᜌᜈ᜔ ᜐ ᜀᜋᜒᜈ᜔</value>
   </data>
   <data name="NoServers_FailedToLoad">
-    <value>Vi kunde inte ladda serverlistan.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜈᜋᜒᜈ᜔ ᜋ-load ᜀᜅ᜔ ᜎᜒᜐ᜔ᜆᜑᜈ᜔ ᜈᜅ᜔ ᜋᜅ server.</value>
   </data>
   <data name="NoServers_NeedHelp">
-    <value>Behöver du hjälp?</value>
+    <value>ᜃᜁᜎᜅᜈ᜔ ᜈᜅ᜔ ᜆᜓᜎᜓᜅ᜔?</value>
   </data>
   <data name="NoServers_SignOut">
-    <value>Logga ut</value>
+    <value>ᜋᜄ᜔-sign out</value>
   </data>
   <data name="NoServers_Tip">
-    <value>Be din administratör att aktivera VPN-åtkomst för ditt konto.</value>
+    <value>ᜑᜒᜎᜒᜅᜒᜈ᜔ ᜐ ᜁᜌᜓᜅ᜔ administrator ᜈ ᜁ-enable ᜀᜅ᜔ access ᜐ VPN ᜉᜇ ᜐ account ᜋᜓ.</value>
   </data>
   <data name="NoServers_Title">
-    <value>Inga VPN-anslutningar tillgängliga</value>
+    <value>ᜏᜎᜅ᜔ available ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="NoServers_UnderMaintenance_Tip">
-    <value>Vi kunde inte ladda några servrar. Klicka ”Uppdatera” för att uppdatera serverlistan.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜈᜋᜒᜈ᜔ ᜋ-load ᜀᜅ᜔ ᜀᜈᜓᜋᜅ᜔ server. ᜁ-click ᜀᜅ᜔ Refresh ᜂᜉᜅ᜔ ᜁ-update ᜀᜅ᜔ ᜎᜒᜐ᜔ᜆᜑᜈ᜔ ᜅ᜔ server.</value>
   </data>
   <data name="Notifications_KillSwitch_Description">
-    <value>För att skydda din IP-adress blockerar kill switch din internetanslutning.</value>
+    <value>ᜂᜉᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ IP address, ᜊᜒᜈ-block ᜈᜅ᜔ kill switch ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ internet.</value>
   </data>
   <data name="Notifications_PortForwarding_CopyPortNumber">
-    <value>Kopiera portnummer</value>
+    <value>ᜃᜓᜉ᜔ᜌᜑᜒᜈ᜔ ᜀᜅ᜔ port number</value>
   </data>
   <data name="Notifications_PortForwarding_Description">
-    <value>Gå till din torrentklient eller P2P-app och ange detta nummer.</value>
+    <value>ᜉᜓᜋᜓᜈ᜔ᜆ ᜐ ᜁᜌᜓᜅ᜔ torrent client ᜂ P2P app ᜀᜆ᜔ ᜁᜎᜄᜌ᜔ ᜀᜅ᜔ ᜈᜓᜋᜒᜇᜓᜅ᜔ ᜁᜆᜓ.</value>
   </data>
   <data name="Notifications_SessionLimit_Description">
-    <value>Du har nått din maximala enhetsgräns. För att återansluta till VPN, koppla från annan enhet.</value>
+    <value>ᜈᜀᜊᜓᜆ᜔ ᜋᜓ ᜈ ᜀᜅ᜔ maximum ᜈ ᜎᜒᜋᜒᜆᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ device ᜋᜓ. ᜂᜉᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆᜅ᜔ ᜋᜓᜎᜒ ᜐ VPN, ᜋᜅ᜔ᜌᜇᜒᜅ᜔ ᜋᜄ᜔-disconnect ᜋᜓᜎ ᜐ ᜁᜊᜅ᜔ device.</value>
   </data>
   <data name="Notifications_SubscriptionExpired_Description_Connected">
-    <value>Ditt paket har nedgraderats till Proton Free och vi återansluter dig till den snabbaste gratisservern.</value>
+    <value>ᜈ-downgrade ᜀᜅ᜔ plan ᜋᜓ ᜐ Proton Free, ᜀᜆ᜔ ᜋᜓᜎᜒ ᜃ ᜈᜋᜒᜅ᜔ ᜁᜃᜒᜈᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server.</value>
   </data>
   <data name="Notifications_UnsecureWifi_Description">
-    <value>Offentliga Wi-Fi-nätverk är mer sårbara för säkerhetshot. Anslut till VPN för att surfa säkert.</value>
+    <value>ᜋᜐ᜔ vulnerable ᜐ ᜋᜅ ᜊᜈ᜔ᜆ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔ ᜀᜅ᜔ ᜋᜅ ᜉᜋ᜔ᜉᜓᜊ᜔ᜎᜒᜃᜓᜅ᜔ Wi-Fi network. ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ VPN ᜂᜉᜅ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔ ᜈ ᜋᜃᜉᜄ᜔-browse.</value>
   </data>
   <data name="Notifications_UnsecureWifi_Title">
-    <value>Osäkrad Wi-Fi-anslutning upptäckt</value>
+    <value>ᜋᜌ᜔ ᜈ-detect ᜈ ᜑᜒᜈ᜔ᜇᜒ ᜎᜒᜄ᜔ᜆᜐ᜔ ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ Wi-Fi</value>
   </data>
   <data name="NpsSurvey_Title">
-    <value>Proton VPN - Undersökning</value>
+    <value>Proton VPN - Survey</value>
     <comment>The window title displayed at the top of the NPS (Net Promoter Score) survey</comment>
   </data>
   <data name="Overlay_Ipv6Disabled_Description">
-    <value>För att inkludera IPv6-adresser måste du tillåta IPv6-anslutningar genom VPN-tunneln.</value>
+    <value>ᜂᜉᜅ᜔ ᜁᜐᜋ ᜀᜅ᜔ address ᜈ ᜁᜆᜓ, ᜃᜁᜎᜅᜈ᜔ ᜋᜓᜅ᜔ ᜉᜌᜄᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ IPv6 ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ VPN tunnel.</value>
   </data>
   <data name="Overlay_Ipv6Disabled_PrimaryButton">
-    <value>Aktivera IPv6</value>
+    <value>ᜁ-enable ᜀᜅ᜔ IPv6</value>
   </data>
   <data name="Overlay_Ipv6Disabled_SecondaryButton">
-    <value>Inte nu</value>
+    <value>ᜑᜓᜏᜄ᜔ ᜋᜓᜈ</value>
   </data>
   <data name="Overlay_Ipv6Disabled_Title">
-    <value>IPv6 är inaktiverat</value>
+    <value>ᜈᜃ-disable ᜀᜅ᜔ IPv6</value>
   </data>
   <data name="Overlay_OutdatedClient_Action">
-    <value>Uppdatera nu</value>
+    <value>ᜁ-update ᜅᜌᜓᜈ᜔</value>
   </data>
   <data name="Overlay_OutdatedClient_Message">
-    <value>Denna appversion är föråldrad. Du måste uppdatera appen för att fortsätta använda Proton VPN.</value>
+    <value>ᜎᜓᜋ ᜈ ᜀᜅ᜔ ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ app ᜈ ᜁᜆᜓ. ᜇᜉᜆ᜔ ᜋᜓᜅ᜔ ᜁ-update ᜀᜅ᜔ app ᜂᜉᜅ᜔ ᜉᜆᜓᜎᜓᜌ᜔ ᜈ ᜋᜄᜋᜒᜆ᜔ ᜀᜅ᜔ Proton VPN.</value>
   </data>
   <data name="Overlay_OutdatedClient_Title">
-    <value>Uppdatera Proton VPN för att fortsätta</value>
+    <value>ᜁ-update ᜀᜅ᜔ Proton VPN ᜂᜉᜅ᜔ ᜋᜄ᜔ᜉᜆᜓᜎᜓᜌ᜔</value>
   </data>
   <data name="Overlay_P2P_Bullet1_Description">
-    <value>Våra P2P-servrar (peer-to-peer) låter dig få åtkomst till P2P-nätverk samtidigt som de skyddar din IP-adress och aktivitet online.</value>
+    <value>ᜊᜒᜈᜒᜊᜒᜄ᜔ᜌᜅ᜔-ᜇᜀᜈ᜔ ᜈᜅ᜔ ᜀᜋᜒᜅ᜔ ᜋᜅ P2P (peer-to-peer) server ᜈ ᜋ-access ᜋᜓ ᜀᜅ᜔ ᜋᜅ P2P network ᜑᜊᜅ᜔ ᜉᜒᜈᜓᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜉ ᜇᜒᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ IP address ᜀᜆ᜔ online ᜈ ᜀᜃ᜔ᜆᜒᜊᜒᜇᜇ᜔.</value>
   </data>
   <data name="Overlay_P2P_Bullet1_Header">
-    <value>Vad är P2P-VPN?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ P2P VPN?</value>
   </data>
   <data name="Overlay_P2P_Bullet2_Description">
-    <value>P2P-nätverk tillåter två enheter att ansluta och överföra data utan att passera genom en central server. </value>
+    <value>ᜉᜒᜈᜉᜌᜄᜈ᜔ ᜈᜅ᜔ ᜋᜅ P2P network ᜀᜅ᜔ ᜇᜎᜏᜅ᜔ device ᜈ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜀᜆ᜔ ᜋᜄ᜔ᜎᜒᜉᜆ᜔ ᜈᜅ᜔ data ᜈᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜇᜓᜋᜇᜀᜈ᜔ ᜐ ᜁᜐᜅ᜔ central server. </value>
   </data>
   <data name="Overlay_P2P_Bullet2_Header">
-    <value>Vad är ett P2P-nätverk?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ P2P network?</value>
   </data>
   <data name="Overlay_P2P_Bullet3_Description">
-    <value>  •  Nedladdning av torrentfiler
-  •  Förbättrar prestanda för onlinegaming och videosamtal
-  •  Anslutning till enheter på lokalt nätverk (LAN)</value>
+    <value>  •  ᜉᜄ᜔-download ᜈᜅ᜔ ᜋᜅ torrent file
+  •  ᜉᜄ᜔ᜉᜉᜑᜓᜐᜌ᜔ ᜈᜅ᜔ performance ᜐ online gaming ᜀᜆ᜔ video call
+  •  ᜉᜄ᜔ᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜋᜅ local area network (LAN) device</value>
   </data>
   <data name="Overlay_P2P_Bullet3_Header">
-    <value>Vad används P2P-nätverk till?</value>
+    <value>ᜉᜇ ᜐᜀᜈ᜔ ᜄᜒᜈᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ P2P network?</value>
   </data>
   <data name="Overlay_P2P_LearnMore">
-    <value>Vad är P2P?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ P2P?</value>
   </data>
   <data name="Overlay_P2P_Title">
     <value>P2P</value>
   </data>
   <data name="Overlay_Profile_Description1">
-    <value>Profiler är anpassade VPN-anslutningar som du kan skräddarsy efter dina behov och spara för snabb åtkomst.</value>
+    <value>ᜀᜅ᜔ ᜋᜅ profile ᜀᜌ᜔ ᜋᜅ custom ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN ᜈ ᜋᜀᜀᜇᜒ ᜋᜓᜅ᜔ ᜁᜀᜃ᜔ᜋ ᜐ ᜁᜌᜓᜅ᜔ ᜋᜅ ᜉᜅᜅᜁᜎᜅᜈ᜔ ᜀᜆ᜔ ᜁ-save ᜉᜇ ᜐ ᜋᜊᜒᜎᜒᜐ᜔ ᜈ access.</value>
   </data>
   <data name="Overlay_Profile_Description2">
-    <value>Ställ in din föredragna plats och optimera dina inställningar för säkerhet, prestanda, spel eller något annat scenario.</value>
+    <value>ᜁᜆᜃ᜔ᜇ ᜀᜅ᜔ ᜄᜓᜐ᜔ᜆᜓ ᜋᜓᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ ᜁ-optimize ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜋᜅ setting ᜉᜇ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔, performance, gaming ᜂ ᜀᜈᜓᜋᜅ᜔ ᜁᜊ ᜉᜅ᜔ ᜐᜒᜆ᜔ᜏᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Overlay_Profile_LearnMore">
-    <value>Vad är en VPN-profil?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ VPN profile?</value>
   </data>
   <data name="Overlay_Profile_Title">
-    <value>Profiler</value>
+    <value>ᜋᜅ Profile</value>
   </data>
   <data name="Overlay_SecureCore_Description1">
-    <value>Secure Core ansluter dig till din destinationsserver via en andra VPN-server med maximal säkerhet.</value>
+    <value>ᜁᜃᜒᜈᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜃ ᜈᜅ᜔ Secure Core ᜐ ᜁᜌᜓᜅ᜔ ᜇᜒᜐ᜔ᜆᜒᜈᜐ᜔ᜌᜓᜅ᜔ server ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜅᜎᜏᜅ᜔ server ᜈᜅ᜔ VPN ᜈ ᜋᜌ᜔ maximum ᜈ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔.</value>
   </data>
   <data name="Overlay_SecureCore_Description2">
-    <value>Denna högre skyddsnivå kan orsaka högre latens och lägre hastigheter.</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜋᜄ᜔ᜇᜓᜎᜓᜆ᜔ ᜈᜅ᜔ ᜋᜐ᜔ ᜋᜆᜀᜐ᜔ ᜈ latency ᜀᜆ᜔ ᜋᜐ᜔ ᜋᜊᜄᜎ᜔ ᜈ speed ᜀᜅ᜔ ᜋᜐ᜔ ᜋᜆᜀᜐ᜔ ᜈ ᜀᜈ᜔ᜆᜐ᜔ ᜈᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈ ᜁᜆᜓ.</value>
   </data>
   <data name="Overlay_SecureCore_LearnMore">
-    <value>Vad är Secure Core?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ Secure Core?</value>
   </data>
   <data name="Overlay_SecureCore_SecureCoreConnection">
     <value>Secure Core
-VPN-anslutning</value>
+VPN connection</value>
   </data>
   <data name="Overlay_SecureCore_SecureCoreConnection_Latency">
-    <value>Högre latens</value>
+    <value>ᜋᜐ᜔ ᜋᜆᜀᜐ᜔ ᜈ latency</value>
   </data>
   <data name="Overlay_SecureCore_SecureCoreConnection_Privacy">
-    <value>Avancerad integritet</value>
+    <value>Advanced ᜈ privacy</value>
   </data>
   <data name="Overlay_SecureCore_StandardConnection">
     <value>Standard
-VPN-anslutning</value>
+VPN connection</value>
   </data>
   <data name="Overlay_SecureCore_StandardConnection_Latency">
-    <value>Lägre latens</value>
+    <value>ᜋᜐ᜔ ᜋᜊᜊᜅ᜔ latency</value>
   </data>
   <data name="Overlay_SecureCore_StandardConnection_Privacy">
-    <value>Hög integritet</value>
+    <value>ᜋᜆᜀᜐ᜔ ᜈ privacy</value>
   </data>
   <data name="Overlay_SecureCore_Title">
     <value>Secure Core</value>
   </data>
   <data name="Overlay_ServerLoad_Description">
-    <value>Serverbelastning visar hur nära en server är sin maximala kapacitet. 
+    <value>ᜁᜉᜒᜈᜉᜃᜒᜆ ᜈᜅ᜔ load ᜈᜅ᜔ server ᜃᜓᜅ᜔ ᜄᜀᜈᜓ ᜃᜎᜉᜒᜆ᜔ ᜀᜅ᜔ ᜁᜐᜅ᜔ server ᜐ maximum ᜈ ᜃᜉᜐᜒᜇᜇ᜔ ᜈᜒᜆᜓ.
 
-En hög serverbelastning kan sakta ner din anslutning.</value>
+ᜋᜀᜀᜇᜒᜅ᜔ ᜉᜊᜄᜎᜒᜈ᜔ ᜈᜅ᜔ ᜋᜆᜀᜐ᜔ ᜈ load ᜈᜅ᜔ server ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ.</value>
   </data>
   <data name="Overlay_ServerLoad_HighRange_Description">
-    <value>VPN kan gå långsammare än normalt</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜆᜓᜋᜃ᜔ᜊᜓ ᜀᜅ᜔ VPN ᜈᜅ᜔ ᜋᜐ᜔ ᜋᜊᜄᜎ᜔ ᜃᜌ᜔ᜐ ᜈᜓᜇ᜔ᜋᜎ᜔</value>
   </data>
   <data name="Overlay_ServerLoad_HighRange_Title">
-    <value>Hög (91-100 %)</value>
+    <value>ᜋᜆᜀᜐ᜔ (91-100%)</value>
   </data>
   <data name="Overlay_ServerLoad_LearnMore">
-    <value>Vad är serverbelastning?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ load ᜈᜅ᜔ server?</value>
   </data>
   <data name="Overlay_ServerLoad_LowRange_Description">
-    <value>Blixtsnabba hastigheter</value>
+    <value>ᜈᜉᜃᜊᜒᜎᜒᜐ᜔ ᜈ speed</value>
   </data>
   <data name="Overlay_ServerLoad_LowRange_Title">
-    <value>Låg (1-75 %)</value>
+    <value>ᜋᜊᜊ (1-75%)</value>
   </data>
   <data name="Overlay_ServerLoad_MediumRange_Description">
-    <value>Osannolikt att det påverkar VPN-hastighet</value>
+    <value>ᜋᜎᜋᜅ᜔ ᜈ ᜑᜒᜈ᜔ᜇᜒ ᜋᜃᜀᜀᜉᜒᜃ᜔ᜆᜓ ᜐ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="Overlay_ServerLoad_MediumRange_Title">
-    <value>Medium (76-90 %)</value>
+    <value>ᜃᜆᜋ᜔ᜆᜋᜈ᜔ (76-90%)</value>
   </data>
   <data name="Overlay_ServerLoad_Title">
-    <value>Serverbelastning</value>
+    <value>Load ᜈᜅ᜔ Server</value>
   </data>
   <data name="Overlay_SmartRouting_Description1">
-    <value>Smart routing gör det möjligt för oss att tillhandahålla VPN-täckning i svåråtkomliga länder.</value>
+    <value>ᜀᜅ᜔ Smart Routing ᜀᜌ᜔ ᜈᜄ᜔ᜊᜒᜊᜒᜄᜌ᜔-ᜇᜀᜈ᜔ ᜐ ᜀᜋᜒᜈ᜔ ᜈ ᜋᜄ᜔ᜊᜒᜄᜌ᜔ ᜈᜅ᜔ VPN coverage ᜐ ᜋᜅ ᜊᜈ᜔ᜐᜅ᜔ ᜋᜑᜒᜇᜉ᜔ ᜋᜀᜊᜓᜆ᜔.</value>
   </data>
   <data name="Overlay_SmartRouting_Description2">
-    <value>När du ansluter till en Smart Routing-server ser det ut som om du surfar i ditt destinationsland, även om den fysiska servern finns någon annanstans.</value>
+    <value>ᜃᜉᜄ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜃ ᜐ ᜁᜐᜅ᜔ Smart Routing server, ᜎᜎᜊᜐ᜔ ᜈ ᜈᜄ᜔ᜊ-browse ᜃ ᜐ ᜁᜌᜓᜅ᜔ ᜇᜒᜐ᜔ᜆᜒᜈᜐ᜔ᜌᜓᜅ᜔ ᜊᜈ᜔ᜐ, ᜃᜑᜒᜆ᜔ ᜈ ᜀᜅ᜔ ᜉᜒᜐᜒᜃᜎ᜔ ᜈ server ᜀᜌ᜔ ᜋᜆᜆᜄ᜔ᜉᜓᜀᜈ᜔ ᜐ ᜁᜊᜅ᜔ ᜎᜓᜄᜇ᜔.</value>
   </data>
   <data name="Overlay_SmartRouting_Description3">
-    <value>Smart Routing används typiskt för att kringgå lagar som begränsar integriteten och andra former av censur.</value>
+    <value>ᜃᜇᜈᜒᜏᜅ᜔ ᜄᜒᜈᜄᜋᜒᜆ᜔ ᜀᜅ᜔ Smart Routing ᜂᜉᜅ᜔ ᜋᜎᜋ᜔ᜉᜐᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜊᜆᜐ᜔ ᜐ anti-privacy ᜀᜆ᜔ ᜁᜊ ᜉᜅ᜔ ᜀᜈ᜔ᜌᜓ ᜈᜅ᜔ censorship.</value>
   </data>
   <data name="Overlay_SmartRouting_Header">
-    <value>Servrar är fysiskt placerade i {0}, men du ser ut att surfa från {1}</value>
+    <value>ᜉᜒᜐᜒᜃᜎ᜔ ᜈ ᜋᜆᜆᜄ᜔ᜉᜓᜀᜈ᜔ ᜀᜅ᜔ ᜋᜅ server ᜐ {0}, ᜅᜓᜈᜒᜆ᜔ ᜎᜎᜊᜐ᜔ ᜈ ᜈᜄ᜔ᜊ-browse ᜃ ᜋᜓᜎ ᜐ {1}</value>
     <comment>{0} is a placeholder for the physical server location country. {1} is a placeholder for the destination country
     Warning: country names are inserted in the nominative case. For INFLECTED languages, use alternative wording as follows:
     Connects you to your destination country ({1}) through servers that are physically located somewhere else ({0})</comment>
   </data>
   <data name="Overlay_SmartRouting_LearnMore">
-    <value>Vad är Smart Routing?</value>
+    <value>ᜀᜈᜓ ᜀᜅ᜔ Smart Routing?</value>
   </data>
   <data name="Overlay_SmartRouting_Title">
     <value>Smart Routing</value>
   </data>
   <data name="Overlay_Tor_Description">
-    <value>Anslut till en Tor-server för att komma åt dolda tjänster och onion-webbplatser med vilken webbläsare som helst.</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ Tor server ᜂᜉᜅ᜔ ᜋ-access ᜀᜅ᜔ ᜋᜅ ᜈᜃᜆᜄᜓᜅ᜔ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓ ᜀᜆ᜔ onion site ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜀᜈᜓᜋᜅ᜔ browser.</value>
   </data>
   <data name="Overlay_Tor_LearnMore">
-    <value>Hur man kommer åt Tor-nätverket</value>
+    <value>ᜉᜀᜈᜓ ᜁ-access ᜀᜅ᜔ Tor network</value>
   </data>
   <data name="Overlay_Tor_Title">
     <value>Tor</value>
   </data>
   <data name="Profile_CustomSettings_Description">
-    <value>Profilinställningar kommer åsidosätta dina VPN-inställningar när du är ansluten.</value>
+    <value>ᜋᜂ-override ᜈᜅ᜔ ᜋᜅ setting ᜈᜅ᜔profile ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜋᜅ setting ᜈᜅ᜔ VPN ᜃᜉᜄ᜔ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ.</value>
   </data>
   <data name="Profile_CustomSettings_Header">
-    <value>Lägg till anpassade inställningar</value>
+    <value>ᜋᜄ᜔ᜇᜄ᜔ᜇᜄ᜔ ᜈᜅ᜔ ᜋᜅ custom ᜈ ᜐᜒᜆ᜔ᜆᜒᜅ᜔</value>
   </data>
   <data name="Profile_CustomSettings_Hide">
-    <value>Dölj inställningar</value>
+    <value>ᜁᜆᜄᜓ ᜀᜅ᜔ ᜋᜅ ᜐᜒᜆ᜔ᜆᜒᜅ᜔</value>
   </data>
   <data name="Profile_CustomSettings_Show">
-    <value>Visa inställningar</value>
+    <value>ᜁᜉᜃᜒᜆ ᜀᜅ᜔ ᜋᜅ ᜐᜒᜆ᜔ᜆᜒᜅ᜔</value>
   </data>
   <data name="Profile_NatType_Conflict_Description">
-    <value>Detta kommer inaktivera vidarebefordran av port för denna profil.</value>
+    <value>ᜁᜇᜒ-disable ᜈᜒᜆᜓ ᜀᜅ᜔ port forwarding ᜉᜇ ᜐ profile ᜈ ᜁᜆᜓ.</value>
   </data>
   <data name="Profile_NetShield_Conflict_Description">
-    <value>Detta kommer inaktivera anpassad DNS för denna profil.</value>
+    <value>ᜁᜇᜒ-disable ᜈᜒᜆᜓ ᜀᜅ᜔ custom DNS ᜉᜇ ᜐ profile ᜈ ᜁᜆᜓ.</value>
   </data>
   <data name="Profile_Options_Application">
     <value>App</value>
   </data>
   <data name="Profile_Options_Application_Select">
-    <value>Välj en app</value>
+    <value>ᜉᜓᜋᜒᜎᜒ ᜈᜅ᜔ app</value>
   </data>
   <data name="Profile_Options_ConnectAndGo_Application">
-    <value>Öppna en app</value>
+    <value>ᜋᜄ᜔ᜊᜓᜃᜐ᜔ ᜈᜅ᜔ app</value>
   </data>
   <data name="Profile_Options_ConnectAndGo_PrivateBrowsingMode">
-    <value>Använd privat surfläge</value>
+    <value>ᜈᜅ᜔-private browsing mode</value>
   </data>
   <data name="Profile_Options_ConnectAndGo_Website">
-    <value>Öppna en webbplats</value>
+    <value>ᜋᜄ᜔ᜊᜓᜃᜐ᜔ ᜈᜅ᜔ website</value>
   </data>
   <data name="Profile_Options_Description">
-    <value>Öppna automatiskt en webbplats eller app du väljer när du ansluter till denna profil.</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜊᜓᜃ᜔ᜐᜈ᜔ ᜀᜅ᜔ ᜈᜉᜒᜎᜒ ᜋᜓᜅ᜔ website ᜂ app ᜃᜉᜄ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜃ ᜐ profile ᜈ ᜁᜆᜓ.</value>
   </data>
   <data name="Profile_Options_Header">
-    <value>Anslut och kör</value>
+    <value>Connect and Go</value>
   </data>
   <data name="Profile_Options_Url">
-    <value>Webbplats-URL</value>
+    <value>Website URL</value>
   </data>
   <data name="Profile_Options_Url_Error">
-    <value>Ange en giltig URL</value>
+    <value>ᜋᜄ᜔ᜎᜄᜌ᜔ ᜈᜅ᜔ valid ᜈ URL</value>
   </data>
   <data name="Profile_PortForwarding_Conflict_Description">
-    <value>Detta kommer ändra NAT-typen för denna profil till Strikt (typ 3).</value>
+    <value>ᜊᜊᜄᜓᜑᜒᜈ᜔ ᜈᜒᜆᜓ ᜀᜅ᜔ ᜂᜇᜒ ᜈᜅ᜔ NAT ᜉᜇ ᜐ profile ᜈ ᜁᜆᜓ ᜐ Strict (type 3).</value>
   </data>
   <data name="Profiles_Default_Gaming">
-    <value>Spel</value>
+    <value>Gaming</value>
   </data>
   <data name="Profiles_Default_MaxSecurity">
-    <value>Maximal säkerhet</value>
+    <value>Max ᜈ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔</value>
   </data>
   <data name="Profiles_Default_P2P">
     <value>P2P</value>
   </data>
   <data name="Profiles_Default_RandomConnection">
-    <value>Slumpmässig anslutning</value>
+    <value>Random ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Profiles_Default_Streaming">
     <value>Streaming US</value>
   </data>
   <data name="Profiles_Default_WorkSchool">
-    <value>Arbete/skola</value>
+    <value>ᜆ᜔ᜇᜊᜑᜓ/ᜉᜀᜇᜎᜈ᜔</value>
   </data>
   <data name="Profiles_Page_Description">
-    <value>Konfigurera dina egna VPN-inställningar och anslut med ett klick</value>
+    <value>ᜁ-configure ᜀᜅ᜔ ᜐᜇᜒᜎᜒ ᜋᜓᜅ᜔ ᜋᜅ setting ᜈᜅ᜔ VPN ᜀᜆ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜐᜅ᜔ click</value>
   </data>
   <data name="Profiles_Page_Title">
-    <value>Profiler</value>
+    <value>ᜋᜅ Profile</value>
   </data>
   <data name="Search_InputBox_Placeholder">
-    <value>Surfa från...</value>
+    <value>ᜋᜄ᜔-browse ᜋᜓᜎ ᜐ...</value>
   </data>
   <data name="Search_NoInput_CityOrState">
-    <value>Ort eller US-delstat</value>
+    <value>ᜎᜓᜅ᜔ᜐᜓᜇ᜔ ᜂ ᜁᜐ᜔ᜆᜇᜓ ᜈᜅ᜔ US</value>
     <comment>The word used for one single city and one single United States state</comment>
   </data>
   <data name="Search_NoInput_Country">
-    <value>Land</value>
+    <value>ᜊᜈ᜔ᜐ</value>
     <comment>The word used for one single country</comment>
   </data>
   <data name="Search_NoInput_Server">
@@ -2848,28 +2842,28 @@ En hög serverbelastning kan sakta ner din anslutning.</value>
     <comment>The word used for one single server</comment>
   </data>
   <data name="Search_NoInput_TrySearchingFor">
-    <value>Prova söka efter …</value>
+    <value>ᜐᜓᜊᜓᜃᜅ᜔ ᜋᜄ᜔ᜑᜈᜉ᜔ ᜈᜅ᜔...</value>
   </data>
   <data name="Search_NoResults_Description">
-    <value>Prova ett annat nyckelord.</value>
+    <value>ᜐᜓᜊᜓᜃᜈ᜔ ᜀᜅ᜔ ᜁᜊᜅ᜔ keyword᜶</value>
   </data>
   <data name="Search_NoResults_Title">
-    <value>Inga resultat hittades</value>
+    <value>ᜏᜎᜅ᜔ ᜈᜃᜒᜆᜅ᜔ ᜇᜒᜐᜓᜎ᜔ᜆ</value>
   </data>
   <data name="Server">
     <value>Server</value>
   </data>
   <data name="Server_Fastest">
-    <value>Snabbaste server</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ server</value>
   </data>
   <data name="Server_Fastest_Free">
-    <value>Snabbaste gratisserver</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server</value>
   </data>
   <data name="Server_Feature_B2B">
     <value>Gateway</value>
   </data>
   <data name="Server_Feature_B2B_Description">
-    <value>Kom åt din organisations servrar</value>
+    <value>ᜁ-access ᜀᜅ᜔ ᜋᜅ server ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜂᜇ᜔ᜄᜈᜒᜐᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Server_Feature_None">
     <value>Standard</value>
@@ -2878,588 +2872,588 @@ En hög serverbelastning kan sakta ner din anslutning.</value>
     <value>P2P</value>
   </data>
   <data name="Server_Feature_P2P_Description">
-    <value>Optimerat för torrent</value>
+    <value>Torrent-optimized</value>
   </data>
   <data name="Server_Feature_SecureCore">
     <value>Secure Core</value>
   </data>
   <data name="Server_Feature_SecureCore_Description">
-    <value>Dubbelt skydd</value>
+    <value>ᜇᜓᜊ᜔ᜎᜒᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Server_Feature_Tor">
     <value>Tor</value>
   </data>
   <data name="Server_Free">
-    <value>Gratisserver</value>
+    <value>ᜎᜒᜊ᜔ᜇᜒᜅ᜔ server</value>
   </data>
   <data name="Server_Random">
-    <value>Slumpmässig server</value>
+    <value>Random ᜈ server</value>
   </data>
   <data name="Servers">
-    <value>Servrar</value>
+    <value>ᜋᜅ server</value>
   </data>
   <data name="Settings_About_Changelog">
-    <value>Ändringslogg</value>
+    <value>Changelog</value>
   </data>
   <data name="Settings_About_CurrentVersion">
-    <value>Nuvarande version</value>
+    <value>ᜃᜐᜎᜓᜃᜓᜌᜅ᜔ ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_About_FailedToFetch">
-    <value>Misslyckades att ladda information om ändringslogg.</value>
+    <value>ᜈᜊᜒᜄᜓᜅ᜔ ᜁ-load ᜀᜅ᜔ ᜁᜋ᜔ᜉᜓᜇ᜔ᜋᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ changelog.</value>
   </data>
   <data name="Settings_About_LearnMore">
-    <value>Lär dig mer</value>
+    <value>ᜋᜆᜓᜆᜓ ᜉ</value>
   </data>
   <data name="Settings_About_Licensing">
-    <value>Licensiering</value>
+    <value>Licensing</value>
   </data>
   <data name="Settings_About_Loading">
-    <value>Laddar in</value>
+    <value>Loading</value>
   </data>
   <data name="Settings_About_Title">
-    <value>Om</value>
+    <value>ᜆᜓᜅ᜔ᜃᜓᜎ᜔ ᜇᜒᜆᜓ</value>
   </data>
   <data name="Settings_Account_Account">
-    <value>Konto</value>
+    <value>Account</value>
   </data>
   <data name="Settings_Account_Exit">
-    <value>Avsluta appen</value>
+    <value>ᜎᜓᜋᜊᜐ᜔ ᜐ app</value>
   </data>
   <data name="Settings_Account_SignOut">
-    <value>Logga ut</value>
+    <value>ᜋᜄ᜔-sign out</value>
   </data>
   <data name="Settings_AppVersion">
-    <value>Appversion</value>
+    <value>ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ app</value>
   </data>
   <data name="Settings_Censorship_Footer">
-    <value>Denna statistik innehåller inte din IP-adress och den kan inte användas för att identifiera dig. Vi kommer aldrig att dela den med tredje part.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜈᜄ᜔ᜎᜎᜋᜈ᜔ ᜀᜅ᜔ statistics ᜈ ᜁᜆᜓ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ IP address, ᜀᜆ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜋᜄᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ ᜁᜆᜓ ᜂᜉᜅ᜔ ᜋᜆᜓᜃᜓᜌ᜔ ᜃ. ᜑᜒᜈ᜔ᜇᜒᜅ᜔-ᜑᜒᜈ᜔ᜇᜒ ᜈᜋᜒᜈ᜔ ᜁᜐᜒ-share ᜀᜅ᜔ ᜋᜅ ᜁᜆᜓ ᜐ ᜋᜅ third party.</value>
   </data>
   <data name="Settings_Censorship_ShareCrashReports">
-    <value>Dela anonyma kraschrapporter</value>
+    <value>ᜁ-share ᜀᜅ᜔ ᜋᜅ anonymous ᜈ ᜂᜎᜆ᜔ ᜈᜅ᜔ ᜉᜄ᜔-crash</value>
   </data>
   <data name="Settings_Censorship_ShareCrashReports_Description">
-    <value>Kraschrapporter hjälper oss att åtgärda fel, upptäcka brandväggar och undvika VPN-blockeringar.</value>
+    <value>ᜈᜃᜃᜆᜓᜎᜓᜅ᜔ ᜀᜅ᜔ ᜋᜅ ᜂᜎᜆ᜔ ᜅ᜔ ᜉᜄ᜔-crash ᜂᜉᜅ᜔ ᜋᜀᜌᜓᜐ᜔ ᜈᜋᜒᜈ᜔ ᜀᜅ᜔ ᜋᜅ bug, ᜋ-detect ᜀᜅ᜔ ᜋᜅ firewall ᜀᜆ᜔ ᜋᜁᜏᜐᜈ᜔ ᜀᜅ᜔ ᜋᜅ block ᜐ VPN.</value>
   </data>
   <data name="Settings_Censorship_ShareStatistics">
-    <value>Dela anonym användningsstatistik</value>
+    <value>ᜁ-share ᜀᜅ᜔ anonymous ᜈ usage statistics</value>
   </data>
   <data name="Settings_Censorship_ShareStatistics_Description">
-    <value>Användningsdata hjälper oss att övervinna VPN-blockeringar och förbättra appens prestanda.</value>
+    <value>ᜆᜓᜋᜓᜆᜓᜎᜓᜅ᜔ ᜀᜅ᜔ usage data ᜈ ᜋᜎᜋ᜔ᜉᜐᜈ᜔ ᜀᜅ᜔ ᜋᜅ VPN block ᜀᜆ᜔ ᜋᜉᜑᜓᜐᜌ᜔ ᜀᜅ᜔ performance ᜈᜅ᜔ app.</value>
   </data>
   <data name="Settings_Common_Apply">
-    <value>Tillämpa</value>
+    <value>ᜁ-apply</value>
     <comment>Apply action. Used to apply changes made on a settings page</comment>
   </data>
   <data name="Settings_Common_IpAddresses_AlreadyExists">
-    <value>Adress redan tillagd</value>
+    <value>ᜈᜁᜇᜄ᜔ᜇᜄ᜔ ᜈ ᜀᜅ᜔ address</value>
   </data>
   <data name="Settings_Common_IpAddresses_Invalid">
-    <value>Ange en giltig IPv4- eller IPv6-adress</value>
+    <value>ᜋᜄ᜔ᜎᜄᜌ᜔ ᜈᜅ᜔ valid ᜈ IPv4 ᜂ IPv6 address</value>
   </data>
   <data name="Settings_Common_IpAddresses_Watermark">
     <value>192.0.2.0</value>
     <comment>Watermark for the IP Address field in the Custom DNS servers settings page</comment>
   </data>
   <data name="Settings_Connection">
-    <value>Anslutning</value>
+    <value>ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_AdvancedSettings">
-    <value>Avancerade inställningar</value>
+    <value>ᜋᜅ advanced ᜈ setting</value>
   </data>
   <data name="Settings_Connection_Advanced_AlternativeRouting">
-    <value>Alternativ routing</value>
+    <value>ᜀᜎ᜔ᜆᜒᜇ᜔ᜈᜆᜒᜊᜓᜅ᜔ routing</value>
   </data>
   <data name="Settings_Connection_Advanced_AlternativeRouting_Description">
-    <value>Om Proton-tjänster blockeras på grund av nätverksbegränsningar kommer vi att försöka använda alternativ nätverksdirigering för att ansluta dig till våra webbplatser.</value>
+    <value>ᜃᜓᜅ᜔ ᜈᜃ-block ᜀᜅ᜔ ᜋᜅ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓ ᜈᜅ᜔ Proton ᜇᜑᜒᜎ᜔ ᜐ ᜋᜅ ᜉᜄ᜔ᜑᜒᜑᜒᜄ᜔ᜉᜒᜆ᜔ ᜐ network, ᜐᜓᜐᜓᜊᜓᜃᜈ᜔ ᜈᜋᜒᜅ᜔ ᜄᜓᜋᜋᜒᜆ᜔ ᜈᜅ᜔ ᜀᜎ᜔ᜆᜒᜇ᜔ᜈᜆᜒᜊᜓᜅ᜔ network routing ᜂᜉᜅ᜔ ᜁᜃᜓᜈᜒᜃ᜔ᜆ ᜃ ᜐ ᜀᜋᜒᜅ᜔ ᜋᜅ site.</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers">
-    <value>Anpassade DNS-servrar</value>
+    <value>ᜋᜅ custom ᜈ DNS server</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_AddNew">
-    <value>Lägg till ny DNS-server</value>
+    <value>ᜋᜄ᜔ᜇᜄ᜔ᜇᜄ᜔ ᜈᜅ᜔ ᜊᜄᜓᜅ᜔ DNS server</value>
     <comment>Label above an input field where users can enter a new DNS server IP address.</comment>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_Conflict_Description">
-    <value>Du kommer inte att kunna använda NetShield när du är ansluten till en anpassad DNS-server.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜓ ᜋᜄᜄᜋᜒᜆ᜔ ᜀᜅ᜔ NetShield ᜃᜉᜄ᜔ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜐᜅ᜔ custom ᜈ DNS server.</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_Conflict_Title">
-    <value>Aktivera anpassade DNS-servrar?</value>
+    <value>ᜁ-enable ᜀᜅ᜔ ᜋᜅ custom ᜈ DNS server?</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_Description">
-    <value>Anslut till Proton VPN med ditt eget domännamnssystem (DNS). Använd endast DNS-servrar som du litar på.</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ Proton VPN ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜐᜇᜒᜎᜒ ᜋᜓᜅ᜔ Domain Name System (DNS). ᜄᜓᜋᜋᜒᜆ᜔ ᜎᜅ᜔ ᜈᜅ᜔ ᜋᜅ DNS server ᜈ ᜉᜒᜈᜄ᜔ᜃᜃᜆᜒᜏᜎᜀᜈ᜔ ᜋᜓ.</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_Footer">
-    <value>Vi kommer försöka ansluta till dessa servrar i ordning. Om ingen av dem fungerar kommer standard-DNS för Proton VPN att användas.</value>
+    <value>ᜐᜓᜐᜓᜊᜓᜃᜈ᜔ ᜈᜋᜒᜈᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ ᜋᜅ server ᜈ ᜁᜆᜓ ᜈᜅ᜔ ᜐᜓᜈᜓᜇ᜔-ᜐᜓᜈᜓᜇ᜔. ᜃᜓᜅ᜔ ᜏᜎᜅ᜔ ᜄᜓᜋᜈ ᜐ ᜋᜅ ᜁᜆᜓ, ᜄᜄᜋᜒᜆᜒᜈ᜔ ᜀᜅ᜔ default ᜈ Proton VPN DNS.</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_FormattedHeader">
-    <value>DNS-servrar ({0})</value>
+    <value>ᜋᜅ DNS server ({0})</value>
     <comment>Header for the list of Custom DNS servers defined. {0} is a placeholder for the number of DNS servers in the list. (eg. "DNS servers (4)")</comment>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_Header">
-    <value>DNS-servrar</value>
+    <value>ᜋᜅ DNS server</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_Select">
-    <value>Välj DNS-servrar</value>
+    <value>ᜉᜒᜎᜒᜁᜈ᜔ ᜀᜅ᜔ Server</value>
   </data>
   <data name="Settings_Connection_Advanced_Ipv6">
-    <value>Stöd för IPv6</value>
+    <value>IPv6 support</value>
   </data>
   <data name="Settings_Connection_Advanced_Ipv6LeakProtection">
-    <value>Skydd mot IPv6-läckage</value>
+    <value>IPv6 leak protection</value>
   </data>
   <data name="Settings_Connection_Advanced_Ipv6LeakProtection_Description">
-    <value>Förhindrar dataläckage genom att blockera IPv6-trafik som inte passerar genom VPN-tunneln.</value>
+    <value>ᜉᜒᜈᜒᜉᜒᜄᜒᜎᜈ᜔ ᜀᜅ᜔ ᜉᜄ᜔-leak ᜈᜅ᜔ data ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔-block ᜐ IPv6 traffic ᜈ ᜑᜒᜈ᜔ᜇᜒ ᜇᜓᜋᜇᜀᜈ᜔ ᜐ VPN tunnel</value>
   </data>
   <data name="Settings_Connection_Advanced_Ipv6_Description">
-    <value>Tillåter IPv6-trafik att passera genom VPN-tunneln. Detta förbättrar kompatibiliteten med IPv6-webbplatser och tjänster.</value>
+    <value>ᜉᜒᜈᜉᜌᜄᜈ᜔ ᜀᜅ᜔ IPv6 traffic ᜈ ᜇᜓᜋᜀᜈ᜔ ᜐ VPN tunnel. ᜉᜒᜈᜉᜑᜓᜐᜌ᜔ ᜈᜒᜆᜓ ᜀᜅ᜔ compatibility ᜐ ᜋᜅ website ᜀᜆ᜔ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓ ᜈᜅ᜔ IPv6.</value>
   </data>
   <data name="Settings_Connection_Advanced_LanConnections">
-    <value>Tillåt LAN-anslutningar</value>
+    <value>ᜉᜌᜄᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ LAN</value>
   </data>
   <data name="Settings_Connection_Advanced_LanConnections_Description">
-    <value>Tillåter anslutningar till skrivare, högtalare och andra enheter i ditt lokala nätverk.</value>
+    <value>ᜉᜒᜈᜉᜌᜄᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜋᜅ printer, speaker ᜀᜆ᜔ ᜁᜊ ᜉᜅ᜔ device ᜐ ᜁᜌᜓᜅ᜔ ᜎᜓᜃᜎ᜔ ᜈ network</value>
   </data>
   <data name="Settings_Connection_Advanced_LanConnections_LocalDns_Description">
-    <value>Uses mDNS to connect to devices using names like 'My-Printer' or 'router.local' instead of IP addresses. Standard DNS continues to be routed through the VPN tunnel. Disabled by default for faster VPN speeds.</value>
+    <value>ᜄᜓᜋᜄᜋᜒᜆ᜔ ᜈᜅ᜔ mDNS ᜂᜉᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ ᜋᜅ device ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ ᜉᜅᜎᜈ᜔ ᜆᜓᜎᜇ᜔ ᜈᜅ᜔ 'My-Printer' ᜂ 'router.local' ᜐ ᜑᜎᜒᜉ᜔ ᜈ ᜋᜅ IP address. ᜉᜆᜓᜎᜓᜌ᜔ ᜈ ᜁᜇ-route ᜀᜅ᜔ standard DNS ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ VPN tunnel. ᜈᜃ-disable ᜊᜒᜎᜅ᜔ default ᜉᜇ ᜐ ᜋᜐ᜔ ᜋᜊᜒᜊᜒᜎᜒᜐ᜔ ᜈ speed ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Settings_Connection_Advanced_LanConnections_LocalDns_Title">
-    <value>Åtkomst till enheter efter namn</value>
+    <value>ᜁ-access ᜀᜅ᜔ ᜋᜅ device ᜀᜌᜓᜈ᜔ ᜐ ᜉᜅᜎᜈ᜔</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType">
-    <value>NAT-typ</value>
+    <value>ᜂᜇᜒ ᜈᜅ᜔ NAT</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType_Conflict_Description">
-    <value>Du kommer inte att kunna använda vidarebefordran av portar med måttlig NAT.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜓ ᜋᜄᜄᜋᜒᜆ᜔ ᜀᜅ᜔ port forwarding ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ Moderate NAT.</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType_Conflict_Title">
-    <value>Aktivera måttlig NAT?</value>
+    <value>ᜁ-enable ᜀᜅ᜔ Moderate NAT?</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType_Description">
-    <value>Välj en nätverksadressöversättningstyp för din anslutning.</value>
+    <value>ᜉᜓᜋᜒᜎᜒ ᜈᜅ᜔ ᜂᜇᜒ ᜈᜅ᜔ network address translation ᜉᜇ ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔.</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType_Moderate">
-    <value>Måttlig (typ 2)</value>
+    <value>Moderate (ᜓtype 2)</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType_Moderate_Description">
-    <value>Vissa begränsningar för data som kommer in i ditt nätverk. Detta alternativ är bäst för videospel online.</value>
+    <value>ᜋᜌ᜔ ᜁᜎᜅ᜔ ᜎᜒᜋᜒᜆᜐ᜔ᜌᜓᜈ᜔ ᜐ data ᜈ ᜉᜓᜋᜉᜐᜓᜃ᜔ ᜐ ᜁᜌᜓᜅ᜔ network. ᜀᜅ᜔ ᜂᜉ᜔ᜐ᜔ᜌᜓᜅ᜔ ᜁᜆᜓ ᜀᜌ᜔ ᜉᜒᜈᜃᜋᜑᜓᜐᜌ᜔ ᜉᜇ ᜐ online video gaming.</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType_Strict">
-    <value>Strikt (typ 3)</value>
+    <value>Strict (ᜓtype 3)</value>
   </data>
   <data name="Settings_Connection_Advanced_NatType_Strict_Description">
-    <value>Begränsar den data som ankommer till ditt nätverk. Detta alternativ är säkrare, men kan göra peer-to-peer spel-anslutningar svårare.</value>
+    <value>ᜈᜒᜎᜒᜎᜒᜋᜒᜆᜑᜈ᜔ ᜀᜅ᜔ data ᜈ ᜉᜓᜋᜉᜐᜓᜃ᜔ ᜐ ᜁᜌᜓᜅ᜔ network. ᜋᜐ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔ ᜀᜅ᜔ ᜂᜉ᜔ᜐ᜔ᜌᜓᜅ᜔ ᜁᜆᜓ ᜅᜓᜈᜒᜆ᜔ ᜋᜀᜀᜇᜒᜅ᜔ ᜋᜄ᜔ᜉᜑᜒᜇᜉ᜔ ᜐ ᜋᜅ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ peer-to-peer gaming.</value>
   </data>
   <data name="Settings_Connection_Advanced_OpenVpnDriver_Tap">
-    <value>Överbryggar nätverkstrafik. Långsammare än TUN, men behövs för vissa äldre eller speciella nätverksinställningar.</value>
+    <value>ᜊᜒᜈᜒ-bridge ᜈᜒᜆᜓ ᜀᜅ᜔ network traffic. ᜋᜐ᜔ ᜋᜊᜄᜎ᜔ ᜃᜌ᜔ᜐ ᜐ TUN, ᜅᜓᜈᜒᜆ᜔ ᜃᜒᜈᜃᜁᜎᜅᜈ᜔ ᜉᜇ ᜐ ᜁᜎᜅ᜔ legacy ᜂ ᜁᜐ᜔ᜉᜒᜐ᜔ᜌᜎ᜔ ᜈ network setup</value>
   </data>
   <data name="Settings_Connection_Advanced_OpenVpnDriver_Tun_Description">
-    <value>Dirigerar trafik mellan olika nätverk. TUN kan vara snabbare och stabilare än TAP.</value>
+    <value>ᜈᜒᜇ-route ᜈᜒᜆᜓ ᜀᜅ᜔ traffic ᜐ ᜉᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜁᜊ’ᜆ᜔ ᜁᜊᜅ᜔ network. ᜋᜀᜀᜇᜒᜅ᜔ ᜋᜐ᜔ ᜋᜊᜒᜎᜒᜐ᜔ ᜀᜆ᜔ ᜋᜐ᜔ stable ᜀᜅ᜔ TUN ᜃᜌ᜔ᜐ ᜐ TAP.</value>
   </data>
   <data name="Settings_Connection_ConnectionPreferences">
-    <value>Anslutningspreferenser</value>
+    <value>ᜋᜅ ᜃᜄᜓᜐ᜔ᜆᜓᜑᜈ᜔ ᜐ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_ConnectionPreferences_Description">
-    <value>Standardanslutning och exkluderade platser</value>
+    <value>Default ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ ᜋᜅ ᜈ-exclude ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_CustomDns_Conflict_Information_WhenDisabled">
-    <value>Anpassad DNS kan inte slås på eftersom du är ansluten till en profil med NetShield aktiverat.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋ-on ᜀᜅ᜔ custom DNS ᜇᜑᜒᜎ᜔ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜃ ᜐ ᜁᜐᜅ᜔ profile ᜈ ᜈᜃ-enable ᜀᜅ᜔ NetShield.</value>
   </data>
   <data name="Settings_Connection_CustomDns_Conflict_Information_WhenEnabled">
-    <value>Anpassad DNS är inaktiverad eftersom du för närvarande är ansluten till en profil med NetShield aktiverat.</value>
+    <value>ᜈᜃ-disable ᜀᜅ᜔ custom DNS ᜇᜑᜒᜎ᜔ ᜃᜐᜎᜓᜃᜓᜌᜈ᜔ ᜃᜅ᜔ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜐᜅ᜔ profile ᜈ ᜈᜃ-enable ᜀᜅ᜔ NetShield.</value>
   </data>
   <data name="Settings_Connection_Default">
-    <value>Standardanslutning</value>
+    <value>Default ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_Default_Fastest">
-    <value>Snabbaste land</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Settings_Connection_Default_Fastest_Description">
-    <value>Den bästa servern baserat på din plats</value>
+    <value>ᜀᜅ᜔ ᜉᜒᜈᜃᜋᜑᜓᜐᜌ᜔ ᜈ server ᜊᜆᜌ᜔ ᜐ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜋᜓ</value>
   </data>
   <data name="Settings_Connection_Default_Last">
-    <value>Senaste anslutning</value>
+    <value>ᜑᜓᜎᜒᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_Default_Last_Description">
-    <value>Din senast använda anslutning</value>
+    <value>ᜀᜅ᜔ ᜉᜒᜈᜃᜑᜓᜎᜒ ᜋᜓᜅ᜔ ᜄᜒᜈᜋᜒᜆ᜔ ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_Default_Random">
-    <value>Slumpmässigt land</value>
+    <value>Random ᜈ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Settings_Connection_Default_Random_Description">
-    <value>Annan server varje gång du ansluter</value>
+    <value>ᜁᜊᜅ᜔ server ᜐ ᜆᜓᜏᜒᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜃ</value>
   </data>
   <data name="Settings_Connection_Default_Recents">
-    <value>Senaste</value>
+    <value>ᜋᜅ Recent</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations">
-    <value>Exkluderade platser</value>
+    <value>ᜋᜅ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Cities">
-    <value>Orter</value>
+    <value>ᜋᜅ ᜎᜓᜅ᜔ᜐᜓᜇ᜔</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Countries">
-    <value>Länder</value>
+    <value>ᜋᜅ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Description">
-    <value>De valda platserna kommer aldrig att användas när du ansluter till ”Snabbast” eller ”Slumpmässigt”</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜃᜁᜎᜈ᜔ᜋᜈ᜔ ᜄᜄᜋᜒᜆᜒᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜉᜒᜈᜒᜎᜒᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜃᜉᜄ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜃ ᜐ Fastest.</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_NoLocations">
-    <value>Inga platser tillgängliga</value>
+    <value>ᜏᜎᜅ᜔ available ᜈ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Search">
-    <value>Välj …</value>
+    <value>ᜉᜓᜋᜒᜎᜒ…...</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_States">
-    <value>Delstater</value>
+    <value>ᜋᜅ ᜁᜐ᜔ᜆᜇᜓ</value>
   </data>
   <data name="Settings_Connection_KillSwitch">
     <value>Kill switch</value>
   </data>
   <data name="Settings_Connection_KillSwitch_Advanced">
-    <value>Avancerat</value>
+    <value>Advanced</value>
   </data>
   <data name="Settings_Connection_KillSwitch_Advanced_Description">
-    <value>Tillåt endast internetåtkomst när du är ansluten till Proton VPN. Avancerad kill switch förblir aktiv även när du startar om din enhet.</value>
+    <value>ᜉᜌᜄᜈ᜔ ᜎᜋᜅ᜔ ᜀᜅ᜔ internet access ᜃᜉᜄ᜔ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜐ Proton VPN. ᜋᜈᜈᜆᜒᜎᜒᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜓ ᜀᜅ᜔ advanced kill switch ᜃᜑᜒᜆ᜔ ᜈ ᜁ-restart ᜋᜓ ᜀᜅ᜔ device ᜋᜓ.</value>
   </data>
   <data name="Settings_Connection_KillSwitch_Description">
-    <value>Skyddar din IP-adress genom att koppla från dig från internet om du tappar din VPN-anslutning.</value>
+    <value>ᜉᜒᜈᜓᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑ᜔ᜀᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ IP address ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔-disconnect ᜋᜓᜎ ᜐ internet ᜃᜓᜅ᜔ ᜋᜏᜎ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Settings_Connection_KillSwitch_Standard">
     <value>Standard</value>
   </data>
   <data name="Settings_Connection_KillSwitch_Standard_Description">
-    <value>Koppla automatiskt från internet om VPN-anslutning är tappad.</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜋᜄ᜔-disconnect ᜋᜓᜎ ᜐ internet ᜃᜓᜅ᜔ ᜋᜏᜎ ᜀᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ VPN.</value>
   </data>
   <data name="Settings_Connection_NetShield">
     <value>NetShield</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockAdsMalwareTrackers">
-    <value>Blockera annonser, spårare och skadlig kod</value>
+    <value>ᜁ-block ᜀᜅ᜔ ᜋᜅ advertisement, tracker ᜀᜆ᜔ malware</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockAdsMalwareTrackersAdultContent">
-    <value>Blockera annonser, spårare, skadlig kod och vuxet innehåll</value>
+    <value>ᜁ-block ᜀᜅ᜔ ᜋᜅ ads, tracker, malware, ᜀᜆ᜔ adult content</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockMalwareOnly">
-    <value>Blockera endast skadlig kod</value>
+    <value>ᜁ-block ᜀᜅ᜔ malware ᜎᜅ᜔</value>
   </data>
   <data name="Settings_Connection_NetShield_Conflict_Description">
-    <value>Du kommer inte att kunna ansluta till en anpassad DNS-server när NetShield är aktiverat.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜃ ᜋᜃᜃᜃᜓᜈᜒᜃ᜔ᜆ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ custom DNS server ᜃᜉᜄ᜔ ᜈᜃ-enable ᜀᜅ᜔ NetShield.</value>
   </data>
   <data name="Settings_Connection_NetShield_Conflict_Information">
-    <value>NetShield är inte kompatibelt med anpassad DNS.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜆᜓᜄ᜔ᜋ ᜀᜅ᜔ NetShield ᜐ Custom DNS.</value>
   </data>
   <data name="Settings_Connection_NetShield_Conflict_Title">
-    <value>Aktivera NetShield?</value>
+    <value>ᜁ-enable ᜀᜅ᜔ NetShield?</value>
   </data>
   <data name="Settings_Connection_NetShield_Description">
-    <value>Skydda din surfning på webbplatser och appar.</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜉᜄ᜔-brose ᜐ ᜋᜅ website ᜀᜆ᜔ ᜋᜅ app.</value>
   </data>
   <data name="Settings_Connection_NetShield_Footer">
-    <value>Vissa webbplatser kanske inte laddas korrekt när annonser och spårare är blockerade.</value>
+    <value>ᜋᜀᜀᜇᜒᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜋᜄ᜔-load ᜈᜅ᜔ ᜋᜀᜌᜓᜐ᜔ ᜀᜅ᜔ ᜁᜎᜅ᜔ website ᜃᜉᜄ᜔ ᜈᜃ-block ᜀᜅ᜔ ᜋᜅ ad ᜀᜆ᜔ tracker.</value>
   </data>
   <data name="Settings_Connection_NetShield_PrivacyPanel">
-    <value>NetShield integritetspanel</value>
+    <value>NetShield Privacy Panel</value>
   </data>
   <data name="Settings_Connection_PortForwarding">
-    <value>Vidarebefordring av port</value>
+    <value>Port forwarding</value>
   </data>
   <data name="Settings_Connection_PortForwarding_ActivePort">
-    <value>Aktivt portnummer:</value>
+    <value>ᜀᜃ᜔ᜆᜒᜊᜓᜅ᜔ port number:</value>
   </data>
   <data name="Settings_Connection_PortForwarding_ActivePort_Copy">
-    <value>Kopiera portnummer</value>
+    <value>ᜃᜓᜉ᜔ᜌᜑᜒᜈ᜔ ᜀᜅ᜔ port number</value>
   </data>
   <data name="Settings_Connection_PortForwarding_Conflict_Description">
-    <value>Du kommer inte att kunna använda måttlig NAT när vidarebefordran av portar är aktiverat.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜓ ᜋᜄᜄᜋᜒᜆ᜔ ᜀᜅ᜔ Moderate NAT ᜃᜉᜄ᜔ ᜈᜃ-enable ᜀᜅ᜔ port forwarding.</value>
   </data>
   <data name="Settings_Connection_PortForwarding_Conflict_Title">
-    <value>Aktivera vidarebefordran av port?</value>
+    <value>ᜁ-enable ᜀᜅ᜔ port forwarding?</value>
   </data>
   <data name="Settings_Connection_PortForwarding_Description">
-    <value>Improves torrenting and gaming speeds by allowing direct P2P connections through a designated port.</value>
+    <value>ᜉᜒᜈᜉᜑᜓᜐᜌ᜔ ᜀᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ torrenting ᜀᜆ᜔ gaming ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔ᜉᜌᜄ᜔ ᜐ ᜋᜅ ᜇᜒᜇᜒᜃ᜔ᜆᜅ᜔ P2P ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜁᜐᜅ᜔ ᜁᜆᜒᜈᜎᜄᜅ᜔ port</value>
   </data>
   <data name="Settings_Connection_PortForwarding_Footer">
-    <value>För att använda vidarebefordran av port, anslut till en server som stöder P2P.</value>
+    <value>ᜂᜉᜅ᜔ ᜋᜄᜋᜒᜆ᜔ ᜀᜅ᜔ port forwarding, ᜋᜅ᜔ᜌᜇᜒᜅ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜐᜅ᜔ server ᜈ ᜐᜓᜋᜓᜐᜓᜉᜓᜇ᜔ᜆ ᜐ P2P.</value>
   </data>
   <data name="Settings_Connection_PortForwarding_LastChanged">
-    <value>Senast ändrad: {0}</value>
+    <value>ᜑᜓᜎᜒᜅ᜔ ᜊᜒᜈᜄᜓ: {0}</value>
     <comment>Indicates when the active port was changed for the last time. {0} is a placeholder for the time. (eg. "Last changed: 5 minutes ago" or "Last changed: May 20, at 14:32")</comment>
   </data>
   <data name="Settings_Connection_PortForwarding_Loading">
-    <value>Laddar in …</value>
+    <value>ᜈᜄ᜔ᜎᜓ-load...</value>
   </data>
   <data name="Settings_Connection_PortForwarding_Notifications">
-    <value>Aviseringar</value>
+    <value>ᜋᜅ ᜀᜊᜒᜐᜓ</value>
   </data>
   <data name="Settings_Connection_PortForwarding_Notifications_Description">
-    <value>Bli aviserad när ditt aktiva portnummer ändras.</value>
+    <value>ᜋᜀᜊᜒᜐᜓᜑᜈ᜔ ᜃᜉᜄ᜔ ᜈᜄ᜔ᜊᜄᜓ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ active port number</value>
   </data>
   <data name="Settings_Connection_PortForwarding_Unavailable">
-    <value>Otillgänglig</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ available</value>
   </data>
   <data name="Settings_Connection_Protocol">
-    <value>Protokoll</value>
+    <value>Protocol</value>
   </data>
   <data name="Settings_Connection_SplitTunneling">
     <value>Split tunneling</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Excluded_Description">
-    <value>Välj appar som ska exkluderas från VPN-anslutningen</value>
+    <value>ᜉᜒᜎᜒᜁᜈ᜔ ᜀᜅ᜔ ᜋᜅᜐ app ᜈ ᜁᜁ-exclude ᜐ VPN connection</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Excluded_FormattedHeader">
-    <value>Exkluderade appar ({0})</value>
+    <value>ᜋᜅ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ app ({0})</value>
     <comment>Header for the list of apps to exclude for Split Tunneling. {0} is a placeholder for the number of selected apps in the list. (eg. "Excluded apps (2)")</comment>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Excluded_Header">
-    <value>Exkluderade appar</value>
+    <value>ᜋᜅ ᜈ-exclude ᜈ app</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_FilesFilterName">
-    <value>Appfiler</value>
+    <value>ᜋᜅ app file</value>
     <comment>Describe the name of the filter used to select executable files in the Open file dialog</comment>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Included_Description">
-    <value>Välj appar som ska inkluderas i VPN-anslutningen</value>
+    <value>ᜉᜒᜎᜒᜁᜈ᜔ ᜀᜅ᜔ ᜋᜅ app ᜈ ᜁᜐᜐᜋ ᜐ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Included_FormattedHeader">
-    <value>Inkluderade appar ({0})</value>
+    <value>ᜋᜅ included ᜈ app ({0})</value>
     <comment>Header for the list of apps to include for Split Tunneling. {0} is a placeholder for the number of selected apps in the list. (eg. "Included apps (2)")</comment>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Included_Header">
-    <value>Inkluderade appar</value>
+    <value>ᜋᜅ included ᜈ app</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Select">
-    <value>Valda appar</value>
+    <value>ᜋᜅ ᜈᜉᜒᜎᜒᜅ᜔ app</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Description">
-    <value>Anpassa din anslutning genom att bestämma vilka appar och IP-adresser som är skyddade av VPN.</value>
+    <value>ᜁ-customize ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔ᜉᜉᜐ᜔ᜌ ᜃᜓᜅ᜔ ᜀᜎᜒᜅ᜔ ᜋᜅ app ᜀᜆ᜔ IP address ᜀᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Inverse">
-    <value>Inkluderingsläge</value>
+    <value>Include mode</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Inverse_Description">
-    <value>Endast valda appar och IP-adresser ansluter via VPN, all annan trafik är oskyddad.</value>
+    <value>ᜀᜅ᜔ ᜋᜅ ᜉᜒᜈᜒᜎᜒᜅ᜔ app ᜀᜆ᜔ IP address ᜎᜅ᜔ ᜀᜅ᜔ ᜃᜓᜋᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ VPN. ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ ᜁᜊ ᜉᜅ᜔ traffic ᜀᜌ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ.</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Inverse_Short">
-    <value>Inkludera</value>
+    <value>ᜁᜐᜋ</value>
     <comment>Shorter version (if possible) of "Include mode". To be used when available space is limited.</comment>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_AddNew">
-    <value>Lägg till ny IPv4- eller IPv6-adress</value>
+    <value>ᜋᜄ᜔ᜇᜄ᜔ᜇᜄ᜔ ᜈᜅ᜔ ᜊᜄᜓᜅ᜔ IPv4 ᜂ IPv6 address</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_Excluded_Description">
-    <value>Välj IP-adresser som ska exkluderas från VPN-anslutningen</value>
+    <value>ᜀᜅ᜔ ᜋᜅ ᜉᜒᜈᜒᜎᜒᜅ᜔ app ᜀᜆ᜔ IP address ᜀᜌ᜔ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_Excluded_FormattedHeader">
-    <value>Exkluderade IP-adresser ({0})</value>
+    <value>ᜋᜅ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ IP address ({0})</value>
     <comment>Header for the list of IP addresses to exclude for Split Tunneling. {0} is a placeholder for the number of selected IP addresses in the list. (eg. "Excluded IP addresses (2)")</comment>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_Excluded_Header">
-    <value>Exkluderade IP-adresser</value>
+    <value>ᜋᜅ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜈ IP address</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_Included_Description">
-    <value>Välj IP-adresser som ska inkluderas i VPN-anslutningen</value>
+    <value>ᜉᜒᜎᜒᜁᜈ᜔ ᜀᜅ᜔ ᜋᜅ IP address ᜈ ᜁᜐᜐᜋ ᜐ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_Included_FormattedHeader">
-    <value>Inkluderade IP-adresser ({0})</value>
+    <value>ᜋᜅ ᜁᜐᜒᜈᜋᜅ᜔ IP address ({0})</value>
     <comment>Header for the list of IP addresses to include for Split Tunneling. {0} is a placeholder for the number of selected IP addresses in the list. (eg. "Included IP addresses (2)")</comment>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_Included_Header">
-    <value>Inkluderade IP-adresser</value>
+    <value>ᜋᜅ ᜁᜐᜒᜈᜋᜅ᜔ IP address</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_IpAddresses_Select">
-    <value>Välj IP-adresser</value>
+    <value>ᜋᜅ ᜈᜉᜒᜎᜒᜅ᜔ IP address</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Standard">
-    <value>Exkluderingsläge</value>
+    <value>Exclude mode</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Standard_Description">
-    <value>Valda appar och IP-adresser är exkluderade från din VPN-anslutning.</value>
+    <value>ᜀᜅ᜔ ᜋᜅ ᜉᜒᜈᜒᜎᜒᜅ᜔ app ᜀᜆ᜔ IP address ᜀᜌ᜔ ᜁᜊᜒᜈᜓᜃᜓᜇ᜔ ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Standard_Short">
-    <value>Exkludera</value>
+    <value>ᜁᜊᜓᜃᜓᜇ᜔</value>
     <comment>Shorter version (if possible) of "Exclude mode". To be used when available space is limited.</comment>
   </data>
   <data name="Settings_Connection_VpnAccelerator">
     <value>VPN Accelerator</value>
   </data>
   <data name="Settings_DiscardChanges_Confirmation_Action">
-    <value>Kasta ändringar</value>
+    <value>ᜁ-discard ᜀᜅ᜔ ᜋᜅ ᜉᜄ᜔ᜊᜊᜄᜓ</value>
   </data>
   <data name="Settings_DiscardChanges_Confirmation_Cancel">
-    <value>Fortsätt redigera</value>
+    <value>ᜁᜉᜄ᜔ᜉᜆᜓᜎᜓᜌ᜔ ᜀᜅ᜔ ᜉᜄ᜔-ᜁᜇᜒᜆ᜔</value>
   </data>
   <data name="Settings_DiscardChanges_Confirmation_Title">
-    <value>Kasta osparade ändringar?</value>
+    <value>ᜁ-discard ᜀᜅ᜔ ᜋᜅ ᜉᜄ᜔ᜊᜊᜄᜓᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜈ-save?</value>
   </data>
   <data name="Settings_General">
-    <value>Allmänt</value>
+    <value>ᜉᜅ᜔ᜃᜎᜑᜆᜈ᜔</value>
   </data>
   <data name="Settings_General_AutoStartup">
-    <value>Starta automatiskt</value>
+    <value>Auto startup</value>
   </data>
   <data name="Settings_General_AutoStartup_AutoConnect">
-    <value>Anslut automatiskt</value>
+    <value>Auto-connect</value>
   </data>
   <data name="Settings_General_AutoStartup_AutoConnect_Description">
-    <value>Ansluter automatiskt till din standardanslutning när Proton VPN öppnas.</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜃᜓᜋᜓᜃᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜌᜓᜅ᜔ default ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜃᜉᜄ᜔ ᜈᜄ᜔ᜊᜓᜃᜐ᜔ ᜀᜅ᜔ Proton VPN</value>
   </data>
   <data name="Settings_General_AutoStartup_AutoLaunch">
-    <value>Starta automatiskt</value>
+    <value>Auto-launch</value>
   </data>
   <data name="Settings_General_AutoStartup_AutoLaunch_Description">
-    <value>Proton VPN kommer öppnas automatiskt när du loggar in på din enhet</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜋᜄ᜔ᜊᜓᜊᜓᜃᜐ᜔ ᜀᜅ᜔ Proton VPN ᜃᜉᜄ᜔ ᜈᜄ᜔-sign in ᜃ ᜐ device ᜋᜓ</value>
   </data>
   <data name="Settings_General_AutoStartup_AutoLaunch_Desktop">
-    <value>Öppna på stationär dator</value>
+    <value>ᜊᜓᜃ᜔ᜐᜈ᜔ ᜐ desktop</value>
   </data>
   <data name="Settings_General_AutoStartup_AutoLaunch_SystemTray">
-    <value>Minimera till systemfältet</value>
+    <value>ᜁ-minimize ᜐ System Tray</value>
   </data>
   <data name="Settings_General_AutoStartup_AutoLaunch_Taskbar">
-    <value>Minimera till aktivitetsfältet</value>
+    <value>ᜁ-minimize ᜐ Taskbar</value>
   </data>
   <data name="Settings_General_AutoStartup_Description">
-    <value>Ställ in appen att starta eller ansluta automatiskt.</value>
+    <value>ᜁᜆᜃ᜔ᜇ ᜀᜅ᜔ app ᜈ ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜋᜄ᜔-launch ᜂ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ.</value>
   </data>
   <data name="Settings_General_AutomaticUpdates">
-    <value>Automatiska uppdateringar</value>
+    <value>ᜋᜅ ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜉᜄ᜔-update</value>
   </data>
   <data name="Settings_General_AutomaticUpdates_Description">
-    <value>Kontrollera och installera Proton VPN-uppdateringar automatiskt.</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜐᜓᜇᜒᜁᜈ᜔ ᜀᜆ᜔ ᜁ-install ᜀᜅ᜔ ᜋᜅ update ᜈᜅ᜔ Proton VPN.</value>
   </data>
   <data name="Settings_General_BetaAccess">
-    <value>Betaåtkomst</value>
+    <value>Beta access</value>
   </data>
   <data name="Settings_General_BetaAccess_Description">
-    <value>Få förhandstillgång och hjälp oss testa nya versioner av Proton VPN.</value>
+    <value>ᜋᜄ᜔ᜃᜇᜓᜂᜈ᜔ ᜈᜅ᜔ ᜋᜀᜄᜅ᜔ ᜉᜄ᜔-access ᜀᜆ᜔ ᜆᜓᜎᜓᜅᜈ᜔ ᜃᜋᜒᜅ᜔ ᜐᜓᜊᜓᜃᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜊᜄᜓᜅ᜔ ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ Proton VPN.</value>
   </data>
   <data name="Settings_General_Language">
-    <value>Språk</value>
+    <value>ᜏᜒᜃ</value>
   </data>
   <data name="Settings_General_Notifications">
-    <value>Aviseringar</value>
+    <value>ᜋᜅ ᜀᜊᜒᜐᜓ</value>
   </data>
   <data name="Settings_General_Notifications_Description">
-    <value>Bli aviserad om ändringar i din anslutningsstatus.</value>
+    <value>ᜋᜀᜊᜒᜐᜓᜑᜈ᜔ ᜆᜓᜅ᜔ᜃᜓᜎ᜔ ᜐ ᜋᜅ ᜉᜄ᜔ᜊᜊᜄᜓ ᜐ ᜁᜌᜓᜅ᜔ status ᜈᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_General_OpenVpnNetworkDriver">
-    <value>OpenVPN nätverksdrivrutin</value>
+    <value>OpenVPN network driver</value>
   </data>
   <data name="Settings_General_Theme">
-    <value>Tema</value>
+    <value>ᜆᜒᜋ</value>
   </data>
   <data name="Settings_Improve">
-    <value>Förbättra Proton</value>
+    <value>ᜉᜑᜓᜐᜌᜒᜈ᜔ ᜀᜅ᜔ Proton</value>
   </data>
   <data name="Settings_Improve_Censorship">
-    <value>Hjälp oss att bekämpa censur</value>
+    <value>ᜆᜓᜎᜓᜅᜈ᜔ ᜃᜋᜒᜅ᜔ ᜎᜊᜈᜈ᜔ ᜀᜅ᜔ censorship</value>
   </data>
   <data name="Settings_OperatingSystemVersion">
-    <value>Operativsystemets version</value>
+    <value>ᜊᜒᜇ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ Operating System</value>
   </data>
   <data name="Settings_OverriddenByProfile_Description1">
-    <value>Denna inställning är ansluten till din aktiva profil.</value>
+    <value>ᜃᜓᜈᜒᜃ᜔ᜆᜇᜓ ᜀᜅ᜔ setting ᜈ ᜁᜆᜓ ᜐ ᜁᜌᜓᜅ᜔ ᜀᜃ᜔ᜆᜒᜊᜓᜅ᜔ profile.</value>
   </data>
   <data name="Settings_OverriddenByProfile_Description2">
-    <value>Redigera din profil för att göra ändringar, eller koppla från för att redigera dina allmänna VPN-inställningar.</value>
+    <value>ᜁ-edit ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ profile ᜂᜉᜅ᜔ ᜄᜓᜋᜏ ᜈᜅ᜔ ᜋᜅ ᜉᜄ᜔ᜊᜊᜄᜓ, ᜂ ᜋᜄ᜔-disconnect ᜂᜉᜅ᜔ ᜁ-edit ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜋᜅ ᜉᜅ᜔ᜃᜎᜑᜆᜅ᜔ setting ᜈᜅ᜔ VPN.</value>
   </data>
   <data name="Settings_OverriddenByProfile_Tagline">
-    <value>Dessa inställningar är anslutna till profilen ”{0}” och kan endast hanteras i profiler.</value>
+    <value>ᜃᜓᜈᜒᜃ᜔ᜆᜇᜓ ᜀᜅ᜔ ᜋᜅ setting ᜈ ᜁᜆᜓ ᜐ profile ᜈ '{0}' ᜀᜆ᜔ ᜋᜉᜉᜋᜑᜎᜀᜈ᜔ ᜋᜓ ᜎᜅ᜔ ᜐ ᜋᜅ Profile.</value>
     <comment>{0} is a placeholder for the profile name</comment>
   </data>
   <data name="Settings_OverriddenByProfile_Title">
-    <value>Hantera {0} i profiler</value>
+    <value>ᜉᜋᜑᜎᜀᜈ᜔ ᜀᜅ᜔ {0} ᜐ ᜋᜅ Profile</value>
     <comment>{0} is a placeholder for the name of the settings being overridden by the profile. (eg. Manage NetShield in Profiles)</comment>
   </data>
   <data name="Settings_Page_Title">
-    <value>Inställningar</value>
+    <value>ᜋᜅ Setting</value>
   </data>
   <data name="Settings_Protocols_Explanation">
-    <value>Ett VPN-protokoll avgör hur data flyttas mellan en VPN-server och din enhet.</value>
+    <value>ᜆᜒᜈᜓᜆᜓᜃᜓᜌ᜔ ᜈᜅ᜔ VPN protocol ᜃᜓᜅ᜔ ᜉᜀᜈᜓ ᜄᜓᜋᜄᜎᜏ᜔ ᜀᜅ᜔ data ᜐ ᜉᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜁᜐᜅ᜔ server ᜈᜅ᜔ VPN ᜀᜆ᜔ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ device.</value>
   </data>
   <data name="Settings_Protocols_OpenVpnTcp_Description">
-    <value>Etablerad, väl beprövad och säker. OpenVPN är pålitligt i dåliga nätverksförhållanden, men kanske inte är lika snabba som andra protokoll.</value>
+    <value>ᜋᜆᜆᜄ᜔, ᜐᜓᜊᜓᜃ᜔ ᜈ, ᜀᜆ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔. ᜋᜀᜀᜐᜑᜈ᜔ ᜀᜅ᜔ OpenVPN ᜐ ᜋᜑᜒᜑᜒᜈᜅ᜔ ᜃᜓᜈ᜔ᜇᜒᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ network, ᜅᜓᜈᜒᜆ᜔ ᜋᜀᜀᜇᜒᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜃᜐᜒᜅ᜔ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ ᜁᜊᜅ᜔ ᜋᜅ protocol.</value>
   </data>
   <data name="Settings_Protocols_OpenVpnTcp_Title">
     <value>OpenVPN</value>
   </data>
   <data name="Settings_Protocols_OpenVpnUdp_Description">
-    <value>Etablerad, väl beprövad och säker. OpenVPN är mindre batterieffektivt än vissa andra protokoll.</value>
+    <value>ᜋᜆᜆᜄ᜔, ᜐᜓᜊᜓᜃ᜔ ᜈ, ᜀᜆ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔. ᜑᜒᜈ᜔ᜇᜒ ᜄᜀᜈᜓᜅ᜔ ᜋᜆᜒᜉᜒᜇ᜔ ᜐ ᜊᜆᜒᜇ᜔ᜌ ᜀᜅ᜔ OpenVPN ᜃᜌ᜔ᜐ ᜐ ᜁᜎᜅ᜔ ᜁᜊᜅ᜔ protocol.</value>
   </data>
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
   <data name="Settings_Protocols_ProTunTcp_Description">
-    <value>Our new WireGuard-based framework for increased stability, functionality, and censorship resistance.</value>
+    <value>ᜀᜅ᜔ ᜀᜋᜒᜅ᜔ ᜊᜄᜓᜅ᜔ framework ᜈ ᜈᜃᜊᜆᜌ᜔ ᜐ WireGuard ᜉᜇ ᜐ ᜋᜐ᜔ ᜋᜆᜀᜐ᜔ ᜈ ᜃᜆᜆᜄᜈ᜔, functionality, ᜀᜆ᜔ ᜉᜄ᜔ᜎᜊᜈ᜔ ᜐ censorship.</value>
   </data>
   <data name="Settings_Protocols_ProTunTcp_Title">
     <value>Proton WireGuard</value>
   </data>
   <data name="Settings_Protocols_ProTunTls_Description">
-    <value>Our new WireGuard-based framework for increased stability, functionality, and censorship resistance.</value>
+    <value>ᜀᜅ᜔ ᜀᜋᜒᜅ᜔ ᜊᜄᜓᜅ᜔ framework ᜈ ᜈᜃᜊᜆᜌ᜔ ᜐ WireGuard ᜉᜇ ᜐ ᜋᜐ᜔ ᜋᜆᜀᜐ᜔ ᜈ ᜃᜆᜆᜄᜈ᜔, functionality, ᜀᜆ᜔ ᜉᜄ᜔ᜎᜊᜈ᜔ ᜐ censorship.</value>
   </data>
   <data name="Settings_Protocols_ProTunTls_Title">
     <value>Proton Stealth</value>
   </data>
   <data name="Settings_Protocols_ProTunUdp_Description">
-    <value>Our new WireGuard-based framework for increased stability, functionality, and censorship resistance.</value>
+    <value>ᜀᜅ᜔ ᜀᜋᜒᜅ᜔ ᜊᜄᜓᜅ᜔ framework ᜈ ᜈᜃᜊᜆᜌ᜔ ᜐ WireGuard ᜉᜇ ᜐ ᜋᜐ᜔ ᜋᜆᜀᜐ᜔ ᜈ ᜃᜆᜆᜄᜈ᜔, functionality, ᜀᜆ᜔ ᜉᜄ᜔ᜎᜊᜈ᜔ ᜐ censorship.</value>
   </data>
   <data name="Settings_Protocols_ProTunUdp_Title">
     <value>Proton WireGuard</value>
   </data>
   <data name="Settings_Protocols_ProtonProtocols_Description">
-    <value>Use Proton VPN's own implementation of WireGuard. This is an experimental feature, so you may experience some instability.</value>
+    <value>ᜄᜋᜒᜆᜒᜈ᜔ ᜀᜅ᜔ ᜐᜇᜒᜎᜒᜅ᜔ ᜁᜋ᜔ᜉ᜔ᜎᜒᜋᜒᜈ᜔ᜆᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ Proton VPN ᜈᜅ᜔ WireGuard. ᜁᜐ ᜁᜆᜓᜅ᜔ experimental ᜈ feature, ᜃᜌ ᜋᜀᜀᜇᜒ ᜃᜅ᜔ ᜋᜃᜇᜈᜐ᜔ ᜈᜅ᜔ ᜁᜎᜅ᜔ instability.</value>
   </data>
   <data name="Settings_Protocols_ProtonProtocols_Title">
-    <value>Proton-protokoll</value>
+    <value>ᜋᜅ ᜉ᜔ᜇᜓᜆᜓᜃᜓᜎ᜔ ᜈᜅ᜔ Proton</value>
   </data>
   <data name="Settings_Protocols_Smart_Description">
-    <value>Väljer automatiskt det bästa protokollet för din anslutning.</value>
+    <value>ᜀᜏ᜔ᜆᜓᜋᜆᜒᜃᜓᜅ᜔ ᜉᜒᜈᜒᜉᜒᜎᜒ ᜀᜅ᜔ ᜉᜒᜈᜃᜋᜑᜓᜐᜌ᜔ ᜈ protocol ᜉᜇ ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Settings_Protocols_Smart_Title">
     <value>Smart</value>
   </data>
   <data name="Settings_Protocols_TcpCategory">
-    <value>Tillförlitlighet (TCP)</value>
+    <value>Reliability (TCP)</value>
   </data>
   <data name="Settings_Protocols_UdpCategory">
-    <value>Hastighet (UDP)</value>
+    <value>ᜊᜒᜎᜒᜐ᜔ (UDP)</value>
   </data>
   <data name="Settings_Protocols_WireGuardTcp_Description">
-    <value>Toppmodernt protokoll för säkerhet och prestanda.</value>
+    <value>State-of-the-art protocol ᜉᜇ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔ ᜀᜆ᜔ performance</value>
   </data>
   <data name="Settings_Protocols_WireGuardTcp_Title">
     <value>WireGuard</value>
   </data>
   <data name="Settings_Protocols_WireGuardTls_Description">
-    <value>Övervinner VPN-blockeringar genom att dölja din VPN-anslutning från censureringar. Stealth är DPI-beständigt (deep packet inspection) men kanske inte är lika snabbt som andra protokoll.</value>
+    <value>ᜈᜒᜎᜎᜋ᜔ᜉᜐᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜉᜄ᜔-block ᜐ VPN ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔ᜆᜆᜄᜓ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ VPN ᜋᜓᜎ ᜐ ᜋᜅ censor. ᜀᜅ᜔ Stealth ᜀᜌ᜔ DPI (deep packet inspection) resistant, ᜅᜓᜈᜒᜆ᜔ ᜋᜀᜀᜇᜒᜅ᜔ ᜑᜒᜈ᜔ᜇᜒ ᜃᜐᜒᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ ᜁᜊᜅ᜔ ᜋᜅ protocol.</value>
   </data>
   <data name="Settings_Protocols_WireGuardTls_Title">
     <value>Stealth</value>
   </data>
   <data name="Settings_Protocols_WireGuardUdp_Description">
-    <value>Toppmodernt protokoll för säkerhet och prestanda.</value>
+    <value>State-of-the-art protocol ᜉᜇ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔ ᜀᜆ᜔ performance</value>
   </data>
   <data name="Settings_Protocols_WireGuardUdp_Title">
     <value>WireGuard</value>
   </data>
   <data name="Settings_Reconnection_Title">
-    <value>Återanslut för att tillämpa ändringar</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆᜅ᜔ ᜋᜓᜎᜒ ᜂᜉᜅ᜔ ᜁ-apply ᜀᜅ᜔ ᜋᜅ ᜉᜄ᜔ᜊᜊᜄᜓ</value>
   </data>
   <data name="Settings_RestoreDefault">
-    <value>Återställ standardinställningar</value>
+    <value>ᜁᜊᜎᜒᜃ᜔ ᜀᜅ᜔ ᜋᜅ default ᜈ setting</value>
   </data>
   <data name="Settings_RestoreDefaultAndReconnect_Confirmation_Action">
-    <value>Återställ och anslut igen</value>
+    <value>ᜁ-restore ᜀᜆ᜔ ᜁ-reconnect</value>
   </data>
   <data name="Settings_RestoreDefault_Confirmation_Action">
-    <value>Återställ standardinställningar</value>
+    <value>ᜁ-restore ᜀᜅ᜔ ᜋᜅ default ᜈ setting</value>
   </data>
   <data name="Settings_RestoreDefault_Confirmation_Message">
-    <value>Detta kommer återställa dina Proton VPN-inställningar till deras ursprungliga tillstånd.</value>
+    <value>ᜁᜇᜒ-reset ᜈᜒᜆᜓ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜋᜅ setting ᜈᜅ᜔ Proton VPN ᜐ ᜂᜇᜒᜑᜒᜈᜎ᜔ ᜈ ᜁᜐ᜔ᜆᜇᜓ.</value>
   </data>
   <data name="Settings_RestoreDefault_Confirmation_Title">
-    <value>Återställ standardinställningar?</value>
+    <value>ᜁᜊᜎᜒᜃ᜔ ᜀᜅ᜔ ᜋᜅ default ᜈ setting?</value>
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnTcp">
     <value>OpenVPN (TCP)</value>
@@ -3489,159 +3483,165 @@ En hög serverbelastning kan sakta ner din anslutning.</value>
     <value>WireGuard (UDP)</value>
   </data>
   <data name="Settings_Support">
-    <value>Support</value>
+    <value>ᜐᜓᜉᜓᜇ᜔ᜆ</value>
   </data>
   <data name="Settings_Support_DebugLogs">
-    <value>Felsökningsloggar</value>
+    <value>ᜋᜅ log ᜈᜅ᜔ debug</value>
   </data>
   <data name="Settings_Support_DebugLogs_Application">
-    <value>Applikationsloggar</value>
+    <value>ᜋᜅ log ᜈᜅ᜔ application</value>
   </data>
   <data name="Settings_Support_DebugLogs_ErrorMessage">
-    <value>Loggmappen kunde inte hittas.</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜋᜑᜈᜉ᜔ ᜀᜅ᜔ folder ᜈᜅ᜔ ᜋᜅ log.</value>
   </data>
   <data name="Settings_Support_DebugLogs_Service">
-    <value>Tjänstloggar</value>
+    <value>ᜋᜅ log ᜈᜅ᜔ ᜐᜒᜇ᜔ᜊᜒᜐ᜔ᜌᜓ</value>
   </data>
   <data name="Settings_Support_ReportIssue">
-    <value>Rapportera ett problem</value>
+    <value>ᜋᜄ᜔-ᜂᜎᜆ᜔ ᜈᜅ᜔ ᜁᜐ᜔ᜌᜓ</value>
   </data>
   <data name="Settings_Support_SupportCenter">
-    <value>Supportcenter</value>
+    <value>Support center</value>
   </data>
   <data name="Settings_Theme_Dark">
-    <value>Mörk</value>
+    <value>Dark</value>
   </data>
   <data name="Settings_Theme_Default">
-    <value>Standard</value>
+    <value>Default</value>
   </data>
   <data name="Settings_Theme_Light">
-    <value>Ljus</value>
+    <value>Light</value>
   </data>
   <data name="Settings_VpnAccelerator_Description">
-    <value>Öka din anslutningshastighet med upp till 400 % med prestandaförbättrade teknologier.</value>
+    <value>ᜉᜆᜀᜐᜒᜈ᜔ ᜀᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ ᜑᜅ᜔ᜄᜅ᜔ 400% ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ ᜆᜒᜃ᜔ᜈᜓᜎᜓᜑᜒᜌᜅ᜔ ᜈᜄ᜔ᜉᜉᜑᜓᜐᜌ᜔ ᜈᜅ᜔ performance.</value>
   </data>
   <data name="SignIn_Form_AdvancedKillSwitchDescription">
-    <value>Avancerad kill switch blockerar din internetanslutning.</value>
+    <value>ᜊᜒᜈ-block ᜈᜅ᜔ advanced kill switch ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ internet.</value>
   </data>
   <data name="SignIn_Form_BestSecureVpnForSpeed">
-    <value>Den bästa säkra VPN för hastighet</value>
+    <value>ᜀᜅ᜔ ᜉᜒᜈᜃᜋᜑᜓᜐᜌ᜔ ᜈ ᜎᜒᜄ᜔ᜆᜐ᜔ ᜈ VPN ᜉᜇ ᜐ ᜊᜒᜎᜒᜐ᜔</value>
   </data>
   <data name="SignIn_Form_CreateAccount">
-    <value>Skapa konto</value>
+    <value>ᜄᜓᜋᜏ ᜈᜅ᜔ account</value>
     <comment>A button inside sign in form</comment>
   </data>
   <data name="SignIn_Form_Description">
-    <value>Ange dina kontodetaljer för Proton.</value>
+    <value>ᜁᜎᜄᜌ᜔ ᜀᜅ᜔ ᜋᜅ ᜇᜒᜆᜎ᜔ᜌᜒ ᜈᜅ᜔ Proton Account ᜋᜓ.</value>
   </data>
   <data name="SignIn_Form_DisableKillSwitch">
-    <value>Inaktivera kill switch</value>
+    <value>ᜁ-disable ᜀᜅ᜔ kill switch</value>
   </data>
   <data name="SignIn_Form_Email">
-    <value>E-post</value>
+    <value>Email</value>
   </data>
   <data name="SignIn_Form_ForgotUsername">
-    <value>Glömt användarnamn</value>
+    <value>ᜈᜃᜎᜒᜋᜓᜆᜈ᜔ ᜀᜅ᜔ username</value>
     <comment>Help button at the bottom of the login window</comment>
   </data>
   <data name="SignIn_Form_Help">
-    <value>Hjälp</value>
+    <value>ᜆᜓᜎᜓᜅ᜔</value>
     <comment>Help button at the bottom of the login window</comment>
   </data>
   <data name="SignIn_Form_NoLogsPolicy">
-    <value>Inga loggar-policy</value>
+    <value>ᜉᜆᜃᜇᜈ᜔ ᜈᜅ᜔ ᜏᜎᜅ᜔ ᜉᜄ᜔ᜆᜆᜎ</value>
   </data>
   <data name="SignIn_Form_OpenSource">
-    <value>Öppen källkod</value>
+    <value>Open-source</value>
   </data>
   <data name="SignIn_Form_Password">
-    <value>Lösenord</value>
+    <value>Password</value>
   </data>
   <data name="SignIn_Form_PasswordError">
-    <value>Ange ditt lösenord</value>
+    <value>ᜁᜎᜄᜌ᜔ ᜀᜅ᜔ password ᜋᜓ</value>
     <comment>An error message is displayed when the user attempts to sign in without entering a password</comment>
   </data>
   <data name="SignIn_Form_ReportAnIssue">
-    <value>Rapportera ett problem</value>
+    <value>ᜋᜄ᜔-ᜂᜎᜆ᜔ ᜈᜅ᜔ ᜁᜐ᜔ᜌᜓ</value>
     <comment>Help button at the bottom of the login window</comment>
   </data>
   <data name="SignIn_Form_ResetPassword">
-    <value>Glömt lösenord</value>
+    <value>ᜈᜃᜎᜒᜋᜓᜆᜈ᜔ ᜀᜅ᜔ password</value>
     <comment>Help button at the bottom of the login window</comment>
   </data>
   <data name="SignIn_Form_SignIn">
-    <value>Logga in</value>
+    <value>ᜋᜄ᜔-sign in</value>
     <comment>A button inside sign in form</comment>
   </data>
   <data name="SignIn_Form_SignInWithSso">
-    <value>Logga in med SSO</value>
+    <value>ᜋᜄ᜔-sign in ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ SSO</value>
   </data>
   <data name="SignIn_Form_SwissBased">
-    <value>Schweizbaserat</value>
+    <value>Swiss-based</value>
   </data>
   <data name="SignIn_Form_Title">
-    <value>Logga in</value>
+    <value>ᜋᜄ᜔-sign in</value>
   </data>
   <data name="SignIn_Form_TroubleSigningIn">
-    <value>Supportcenter</value>
+    <value>Support Center</value>
     <comment>A button at the bottom of the login window inside Get help popup</comment>
   </data>
   <data name="SignIn_Form_Username">
-    <value>E-post eller användarnamn</value>
+    <value>Email ᜂ username</value>
   </data>
   <data name="SignIn_Form_UsernameError">
-    <value>Ange din e-post eller användarnamn</value>
+    <value>ᜁᜎᜄᜌ᜔ ᜀᜅ᜔ email ᜂ username ᜋᜓ</value>
     <comment>An error message is displayed when the user attempts to sign in without entering a username</comment>
   </data>
   <data name="SignIn_KillSwitch_Disabled">
-    <value>Kill switch är inaktiverat</value>
+    <value>ᜈᜃ-disable ᜀᜅ᜔ kill switch</value>
   </data>
   <data name="State_Fastest">
-    <value>Snabbaste delstat</value>
+    <value>ᜉᜒᜈᜃᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜁᜐ᜔ᜆᜇᜓ</value>
     <comment>State describes a country state such as California or Arizona in the US</comment>
   </data>
   <data name="State_Random">
-    <value>Slumpmässig delstat</value>
+    <value>Random ᜈ ᜁᜐ᜔ᜆᜇᜓ</value>
     <comment>State describes a country state such as California or Arizona in the US</comment>
   </data>
   <data name="SystemNotification_Connected">
-    <value>Du är nu skyddad</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜇᜓ ᜃ ᜈ ᜅᜌᜓᜈ᜔</value>
   </data>
   <data name="SystemNotification_ConnectedTo">
-    <value>Ansluten till {0}.</value>
+    <value>ᜃᜓᜈᜒᜃ᜔ᜆᜇᜓ ᜐ {0}.</value>
     <comment>{0} is a placeholder for a country and server name (eg. Connected to Netherlands #342342).</comment>
   </data>
   <data name="SystemNotification_Disconnected">
-    <value>Frånkopplad</value>
+    <value>ᜈ-disconnect</value>
   </data>
   <data name="SystemNotification_P2PWarning_Description">
-    <value>Lås upp torrenting och onlinespel via P2P-protokoll (peer-to-peer) med betalda VPN-servrar.</value>
+    <value>ᜁ-unlock ᜀᜅ᜔ torrenting ᜀᜆ᜔ online gaming ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜋᜅ P2P (peer-to-peer) protocol ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ ᜊᜌᜇ᜔ ᜈ VPN server.</value>
   </data>
   <data name="SystemNotification_P2PWarning_Title">
-    <value>P2P är inte tillgängligt med VPN Free</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ available ᜀᜅ᜔ P2P ᜐ VPN Free</value>
   </data>
   <data name="SystemNotification_StreamingWarning_Description">
-    <value>Vissa webbplatser och streamingtjänster blockerar gratis VPN-användare. Uppgradera till Proton VPN Plus för att kringgå dessa blockeringar.</value>
+    <value>ᜊᜒᜈ-block ᜈᜅ᜔ ᜁᜎᜅ᜔ website ᜀᜆ᜔ streaming service ᜀᜅ᜔ ᜋᜅ user ᜈᜅ᜔ ᜎᜒᜊ᜔ᜇᜒᜅ᜔ VPN. ᜋᜄ᜔-upgrade ᜐ Proton VPN Plus ᜂᜉᜅ᜔ ᜁ-bypass ᜀᜅ᜔ ᜋᜅ ᜉᜄ᜔-block ᜈ ᜁᜆᜓ.</value>
   </data>
   <data name="SystemNotification_StreamingWarning_Title">
-    <value>Blockerad webbplats?</value>
+    <value>ᜈᜃ-block ᜈ website?</value>
   </data>
   <data name="Tray_Actions_ExitApplication">
-    <value>Avsluta</value>
-  </data>
-  <data name="System_Tray_Actions_ExitApplication">
-    <value>Avsluta</value>
+    <value>ᜎᜓᜋᜊᜐ᜔</value>
   </data>
   <data name="Tray_Actions_OpenApplication">
-    <value>Öppna {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
-  </data>
-  <data name="System_Tray_Actions_OpenApplication">
-    <value>Öppna {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+    <value>ᜊᜓᜃ᜔ᜐᜈ᜔ ᜀᜅ᜔ {0}</value>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
-    <value>Öppna app för att logga in</value>
+    <value>ᜊᜓᜃ᜔ᜐᜈ᜔ ᜀᜅ᜔ app ᜂᜉᜅ᜔ ᜋᜄ᜔-sign in</value>
+  </data>
+  <data name="System_Tray_Actions_OpenApplication" xml:space="preserve">
+    <value>Open {0}</value>
+    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="System_Tray_Actions_ExitApplication" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="System_Tray_Actions_Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect" xml:space="preserve">
+    <value>Disconnect</value>
   </data>
   <data name="Unit_BytesPerSecond">
     <value>B/s</value>
@@ -3672,40 +3672,40 @@ En hög serverbelastning kan sakta ner din anslutning.</value>
     <comment>Unit for Terabytes per second</comment>
   </data>
   <data name="UpsellBanner_P2P_Description">
-    <value>Ladda ner filer via BitTorrent och andra fildelningsprotokoll.</value>
+    <value>ᜋᜄ᜔-download ᜈᜅ᜔ ᜋᜅ file ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ BitTorrent ᜀᜆ᜔ ᜁᜊ ᜉᜅ᜔ protocol ᜐ ᜉᜄ᜔ᜊᜊᜑᜄᜒ ᜈᜅ᜔ file.</value>
   </data>
   <data name="UpsellBanner_P2P_Title">
-    <value>P2P-stöd</value>
+    <value>ᜐᜓᜉᜓᜇ᜔ᜆ ᜐ P2P</value>
   </data>
   <data name="UpsellBanner_WrongCountry_Description">
-    <value>Uppgradera för att välja vilken server som helst.</value>
+    <value>ᜋᜄ᜔-upgrade ᜂᜉᜅ᜔ ᜉᜓᜋᜒᜎᜒ ᜈᜅ᜔ ᜀᜈᜓᜋᜅ᜔ server.</value>
   </data>
   <data name="UpsellBanner_WrongCountry_Title">
-    <value>Inte det land du ville ha?</value>
+    <value>ᜑᜒᜈ᜔ᜇᜒ ᜀᜅ᜔ ᜊᜈ᜔ᜐᜅ᜔ ᜄᜓᜐ᜔ᜆᜓ ᜋᜓ?</value>
   </data>
   <data name="Upsell_Carousel_AdvancedSettings">
-    <value>Lås upp avancerad VPN-anpassning</value>
+    <value>ᜁ-unlock ᜀᜅ᜔ advanced ᜈ customization ᜈᜅ᜔ VPN</value>
   </data>
   <data name="Upsell_Carousel_AdvancedSettings_DNS">
-    <value>Anslut till VPN med ditt anpassade domännamnssystem (DNS)</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ VPN ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ custom ᜈ Domain Name System (DNS)</value>
   </data>
   <data name="Upsell_Carousel_AdvancedSettings_LAN">
-    <value>Kom åt enheter på ditt lokala nätverk (LAN) medan du är ansluten</value>
+    <value>ᜁ-access ᜀᜅ᜔ ᜋᜅ device ᜐ ᜁᜌᜓᜅ᜔ local area network (LAN) ᜑᜊᜅ᜔ ᜈᜃᜃᜓᜈᜒᜃ᜔ᜆ</value>
   </data>
   <data name="Upsell_Carousel_AdvancedSettings_ModerateNAT">
-    <value>Levla upp din gamingupplevelse genom att byta till NAT typ 2 (måttlig)</value>
+    <value>ᜁ-level up ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ gaming experience ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔ᜎᜒᜉᜆ᜔ ᜐ NAT type 2 (moderate)</value>
   </data>
   <data name="Upsell_Carousel_MultipleDevices">
-    <value>Anslut upp till 10 enheter samtidigt</value>
+    <value>ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜈᜅ᜔ ᜑᜅ᜔ᜄᜅ᜔ 10 devices ᜈᜅ᜔ ᜐᜊᜌ᜔-ᜐᜊᜌ᜔</value>
   </data>
   <data name="Upsell_Carousel_MultipleDevices_Platforms">
-    <value>Använd Proton VPN på olika plattformar</value>
+    <value>ᜄᜋᜒᜆᜒᜈ᜔ ᜀᜅ᜔ Proton VPN ᜐ ᜋᜄ᜔ᜃᜃᜁᜊᜅ᜔ platform</value>
   </data>
   <data name="Upsell_Carousel_MultipleDevices_Platforms_Android">
-    <value>Android och Android TV</value>
+    <value>Android ᜀᜆ᜔ Android TV</value>
   </data>
   <data name="Upsell_Carousel_MultipleDevices_Platforms_Browser">
-    <value>Webbläsare</value>
+    <value>Browser</value>
   </data>
   <data name="Upsell_Carousel_MultipleDevices_Platforms_Linux">
     <value>Linux</value>
@@ -3720,83 +3720,83 @@ En hög serverbelastning kan sakta ner din anslutning.</value>
     <value>iOS</value>
   </data>
   <data name="Upsell_Carousel_MultipleDevices_Privacy">
-    <value>Säkerhet och integritet på alla dina enheter</value>
+    <value>Seguridad ᜀᜆ᜔ privacy ᜐ ᜎᜑᜆ᜔ ᜈᜅ᜔ device ᜋᜓ</value>
   </data>
   <data name="Upsell_Carousel_NetShield">
-    <value>Njut av annonsfri surfning</value>
+    <value>ᜁ-enjoy ᜀᜅ᜔ ᜉᜄ᜔-browse ᜈᜅ᜔ ᜏᜎᜅ᜔ ad</value>
   </data>
   <data name="Upsell_Carousel_NetShield_Block">
-    <value>Blockera annonser och spårare med NetShield</value>
+    <value>ᜁ-block ᜀᜅ᜔ ᜋᜅ ad ᜀᜆ᜔ tracker ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ NetShield</value>
   </data>
   <data name="Upsell_Carousel_NetShield_Protection">
-    <value>Skydda din enhet från skadlig programvara</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜈ᜔ device ᜋᜓᜎ ᜐ malware</value>
   </data>
   <data name="Upsell_Carousel_P2P">
-    <value>Lås upp peer-to-peer-nedladdningar och fildelning (P2P)</value>
+    <value>ᜁ-unlock ᜀᜅ᜔ ᜋᜅ peer-to-peer download ᜀᜆ᜔ file sharing (P2P)</value>
   </data>
   <data name="Upsell_Carousel_P2P_Discretion">
-    <value>Dölj din IP-adress från din internetleverantör och andra användare</value>
+    <value>ᜁᜆᜄᜓ ᜀᜅ᜔ IP ᜋᜓ ᜐ provider ᜀᜆ᜔ ᜋᜅ peer</value>
   </data>
   <data name="Upsell_Carousel_P2P_PortForwarding">
-    <value>Öka P2P-hastigheter med vidarebefordring av port</value>
+    <value>ᜉᜊᜒᜎᜒᜐᜒᜈ᜔ ᜀᜅ᜔ P2P speeds ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ port forwarding.</value>
   </data>
   <data name="Upsell_Carousel_P2P_Speed">
-    <value>Ökad upp- och nedladdningshastighet</value>
+    <value>ᜋᜐ᜔ ᜋᜊᜒᜎᜒᜐ᜔ ᜈ ᜉᜄ᜔-upload ᜀᜆ᜔ ᜉᜄ᜔-download</value>
   </data>
   <data name="Upsell_Carousel_Platforms_More">
-    <value>+ fler</value>
+    <value>+ ᜋᜇᜋᜒ ᜉ</value>
     <comment>This label indicates that there are more platforms available than the ones listed. The plus sign is important.</comment>
   </data>
   <data name="Upsell_Carousel_Profiles">
-    <value>Skaffa snabb åtkomst till frekventa anslutningar</value>
+    <value>ᜋᜄ᜔ᜃᜇᜓᜂᜈ᜔ ᜈᜅ᜔ ᜋᜊᜒᜎᜒᜐ᜔ ᜈ access ᜐ ᜋᜅ ᜋᜇᜎᜐ᜔ ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Upsell_Carousel_Profiles_Convenience">
-    <value>Ställ in en profil som din standardanslutning och anslut med 1 klick</value>
+    <value>ᜋᜄ᜔ᜆᜃ᜔ᜇ ᜈᜅ᜔ profile ᜊᜒᜎᜅ᜔ ᜁᜌᜓᜅ᜔ default ᜈ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜀᜆ᜔ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜐ ᜁᜐᜅ᜔ click</value>
   </data>
   <data name="Upsell_Carousel_Profiles_Creation">
-    <value>Skapa och spara dina egna VPN-konfigurationer med profiler</value>
+    <value>ᜄᜓᜋᜏ ᜀᜆ᜔ ᜁ-save ᜀᜅ᜔ ᜐᜇᜒᜎᜒ ᜋᜓᜅ᜔ ᜋᜅ configuration ᜈᜅ᜔ VPN ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ Profile</value>
   </data>
   <data name="Upsell_Carousel_Profiles_Customization">
-    <value>Anpassa din plats, protokoll och inställningar</value>
+    <value>ᜁ-customize ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔, protocol, ᜀᜆ᜔ ᜋᜅ setting</value>
   </data>
   <data name="Upsell_Carousel_SecureCore">
-    <value>Lägg till ytterligare ett lager av skydd till din anslutning</value>
+    <value>ᜋᜄ᜔ᜇᜄ᜔ᜇᜄ᜔ ᜈᜅ᜔ ᜁᜐ ᜉᜅ᜔ layer ᜈᜅ᜔ ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜐ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔</value>
   </data>
   <data name="Upsell_Carousel_SecureCore_Encryption">
-    <value>Dubbla din kryptering med Secure Core</value>
+    <value>ᜇᜓᜊ᜔ᜎᜒᜑᜒᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ encryption ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ Secure Core</value>
   </data>
   <data name="Upsell_Carousel_SecureCore_Protection">
-    <value>Skydda dig själv från nätverksattacker</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜐᜇᜒᜎᜒ ᜋᜓᜎ ᜐ ᜋᜅ ᜀᜆᜃᜒ ᜐ network</value>
   </data>
   <data name="Upsell_Carousel_SecureCore_Routing">
-    <value>Dirigera genom ultrasäkra servrar i Schweiz, Sverige och Island</value>
+    <value>ᜋᜄ᜔-route ᜐ ᜋᜅ ᜐᜓᜊ᜔ᜇᜅ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔ ᜈ server ᜐ Switzerland, Sweden ᜀᜆ᜔ Iceland</value>
   </data>
   <data name="Upsell_Carousel_Speed">
-    <value>Surfa med ännu högre hastigheter</value>
+    <value>ᜋᜄ᜔-browse ᜐ ᜋᜐ᜔ ᜋᜆᜆᜀᜐ᜔ ᜈ speed</value>
   </data>
   <data name="Upsell_Carousel_Speed_Acceleration">
-    <value>Surfa upp till 400 % snabbare med VPN Accelerator</value>
+    <value>ᜋᜄ᜔-browse ᜈᜅ᜔ ᜑᜅ᜔ᜄᜅ᜔ 400% ᜋᜐ᜔ ᜋᜊᜒᜎᜒᜐ᜔ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN Accelerator</value>
   </data>
   <data name="Upsell_Carousel_Speed_Access">
-    <value>Åtkomst till snabbare, mindre belastade servrar</value>
+    <value>ᜁ-access ᜀᜅ᜔ ᜋᜐ᜔ ᜋᜊᜒᜎᜒᜐ᜔, ᜑᜒᜈ᜔ᜇᜒ ᜐᜒᜃ᜔ᜐᜒᜃᜅ᜔ ᜋᜅ server</value>
   </data>
   <data name="Upsell_Carousel_Speed_Traffic">
-    <value>Få anslutningshastigheter på upp till 10 Gbps</value>
+    <value>ᜋᜄ᜔ᜃᜇᜓᜂᜈ᜔ ᜈᜅ᜔ ᜊᜒᜎᜒᜐ᜔ ᜈᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜈ ᜑᜅ᜔ᜄᜅ᜔ 10 Gbps</value>
   </data>
   <data name="Upsell_Carousel_SplitTunneling">
-    <value>Få det bästa av två världar</value>
+    <value>ᜃᜓᜈᜒᜈ᜔ ᜀᜅ᜔ ᜉᜒᜈᜃᜋᜑᜓᜐᜌ᜔ ᜋᜓᜎ ᜐ ᜇᜎᜏᜅ᜔ ᜋᜓᜈ᜔ᜇᜓ</value>
   </data>
   <data name="Upsell_Carousel_SplitTunneling_Browsing">
-    <value>Surfa från två platser samtidigt med split tunneling</value>
+    <value>ᜋᜄ᜔-browse ᜋᜓᜎ ᜐ ᜇᜎᜏᜅ᜔ ᜎᜓᜃᜐ᜔ᜌᜓᜈ᜔ ᜈᜅ᜔ ᜐᜊᜌ᜔ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ split tunneling</value>
   </data>
   <data name="Upsell_Carousel_SplitTunneling_Configuration">
-    <value>Tillåt betrodda appar och IP-adresser att ansluta direkt till internet, samtidigt som du skyddar allt annat med ditt VPN</value>
+    <value>ᜉᜌᜄᜈ᜔ ᜀᜅ᜔ ᜋᜅ ᜉᜒᜈᜄ᜔ᜃᜃᜆᜒᜏᜎᜀᜅ᜔ app ᜀᜆ᜔ IP address ᜈ ᜃᜓᜋᜓᜈᜒᜃ᜔ᜆ ᜈᜅ᜔ direkta ᜐ internet, ᜑᜊᜅ᜔ ᜉᜒᜈᜓᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜎᜑᜆ᜔ ᜈᜅ᜔ ᜁᜊ ᜉ ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ VPN</value>
   </data>
   <data name="Upsell_Carousel_Streaming">
-    <value>Streama dina favoritfilmer och TV-program</value>
+    <value>ᜁ-stream ᜀᜅ᜔ ᜋᜅ ᜉᜊᜓᜇᜒᜆᜓ ᜋᜓᜅ᜔ ᜉᜒᜎᜒᜃᜓᜎ ᜀᜆ᜔ ᜉᜎᜊᜐ᜔ ᜐ TV</value>
   </data>
   <data name="Upsell_Carousel_Streaming_Access">
-    <value>Få åtkomst till geoblockerad TV och filmer från var som helst i världen</value>
+    <value>ᜁ-access ᜀᜅ᜔ ᜋᜅ ᜈᜃ-geoblock ᜈ TV ᜀᜆ᜔ ᜉᜒᜎᜒᜃᜓᜎ ᜋᜓᜎ ᜐᜀᜈ᜔ᜋᜈ᜔ ᜐ ᜋᜓᜈ᜔ᜇᜓ</value>
   </data>
   <data name="Upsell_Carousel_Streaming_Platforms_BBC">
     <value>BBC iPlayer</value>
@@ -3814,77 +3814,77 @@ En hög serverbelastning kan sakta ner din anslutning.</value>
     <value>Amazon Prime Video</value>
   </data>
   <data name="Upsell_Carousel_Streaming_Speed">
-    <value>Titta i 4K utan buffring, nedgångar eller strypning</value>
+    <value>ᜋᜈᜓᜂᜇ᜔ ᜐ 4K ᜈᜅ᜔ ᜏᜎᜅ᜔ buffering, ᜋᜅ ᜉᜄ᜔ᜊᜊᜄᜎ᜔, ᜂ throttling</value>
   </data>
   <data name="Upsell_Carousel_Title">
-    <value>Upptäck VPN Plus</value>
+    <value>ᜆᜓᜃ᜔ᜎᜐᜒᜈ᜔ ᜀᜅ᜔ VPN Plus</value>
   </data>
   <data name="Upsell_Carousel_Tor">
-    <value>Kom åt Tor-nätverket för extra integritet</value>
+    <value>ᜁ-access ᜀᜅ᜔ Tor network ᜉᜇ ᜐ ᜃᜇᜄ᜔ᜇᜄᜅ᜔ privacy</value>
   </data>
   <data name="Upsell_Carousel_Tor_Access">
-    <value>Kom åt dolda webbplatser och onion-webbplatser</value>
+    <value>ᜁ-access ᜀᜅ᜔ ᜋᜅ ᜈᜃᜆᜄᜓᜅ᜔ site ᜀᜆ᜔ onion site</value>
   </data>
   <data name="Upsell_Carousel_Tor_Browsing">
-    <value>Surfa i Tor-nätverket med din vanliga webbläsare</value>
+    <value>ᜋᜄ᜔-browse ᜐ Tor network ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜇᜒᜄᜓᜎᜇ᜔ ᜈ browser</value>
   </data>
   <data name="Upsell_Carousel_Tor_Protection">
-    <value>Skydda dina personuppgifter när du surfar</value>
+    <value>ᜉ᜔ᜇᜓᜆᜒᜃ᜔ᜆᜑᜈ᜔ ᜀᜅ᜔ ᜁᜌᜓᜅ᜔ ᜉᜒᜇ᜔ᜐᜓᜈᜎ᜔ ᜈ data ᜑᜊᜅ᜔ ᜈᜄ᜔ᜊ-browse</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage">
-    <value>Åtkomst till över {0} i {1}</value>
+    <value>ᜁ-access ᜀᜅ᜔ ᜋᜑᜒᜄᜒᜆ᜔ {0} ᜐ {1}</value>
     <comment>Title for the worldwide coverage upsell feature page. {0} is a placeholder for the number of servers (eg. 100 secure servers) and {1} for the number of countries available (eg. 60 countries).</comment>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Censorship">
-    <value>Kringgå censur med avancerade säkerhetsfunktioner</value>
+    <value>ᜁ-bypass ᜀᜅ᜔ censorship ᜄᜋᜒᜆ᜔ ᜀᜅ᜔ ᜋᜅ advanced security features</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Countries_One">
-    <value>{0} land</value>
+    <value>{0} ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Countries_Other">
-    <value>{0} länder</value>
+    <value>{0} ᜋᜅ ᜊᜈ᜔ᜐ</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Features">
-    <value>Säker streaming, torrenting och mer</value>
+    <value>ᜎᜒᜄ᜔ᜆᜐ᜔ ᜈ streaming, torrenting, ᜀᜆ᜔ ᜋᜇᜋᜒ ᜉ</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Selection">
-    <value>Välj vilket land som helst från vårt världsomspännande nätverk</value>
+    <value>ᜉᜓᜋᜒᜎᜒ ᜈᜅ᜔ ᜀᜈᜓᜋᜅ᜔ ᜊᜈ᜔ᜐ ᜋᜓᜎ ᜐ ᜀᜋᜒᜅ᜔ ᜉᜈ᜔ᜇᜁᜄ᜔ᜇᜒᜄᜅ᜔ network</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Servers_One">
-    <value>{0} säker server</value>
+    <value>{0} secure server</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Servers_Other">
-    <value>{0} säkra servrar</value>
+    <value>{0} ᜋᜅ secure server</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Tcp">
     <value>OpenVPN (TCP)</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Tcp_Description">
-    <value>Etablerad, väl beprövad och säker</value>
+    <value>ᜋᜆᜆᜄ᜔, ᜐᜓᜊᜓᜃ᜔ ᜈ, ᜀᜆ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp">
     <value>OpenVPN (UDP)</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
-    <value>Etablerad, väl beprövad och säker</value>
+    <value>ᜋᜆᜆᜄ᜔, ᜐᜓᜊᜓᜃ᜔ ᜈ, ᜀᜆ᜔ ᜎᜒᜄ᜔ᜆᜐ᜔</value>
   </data>
   <data name="VpnProtocol_ProTun_Tcp">
     <value>Proton WireGuard (TCP)</value>
   </data>
   <data name="VpnProtocol_ProTun_Tcp_Description">
-    <value>Toppmodernt protokoll för säkerhet och prestanda</value>
+    <value>State-of-the-art ᜈ protocol ᜉᜇ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔ ᜀᜆ᜔ performance</value>
   </data>
   <data name="VpnProtocol_ProTun_Tls">
     <value>Proton Stealth</value>
   </data>
   <data name="VpnProtocol_ProTun_Tls_Description">
-    <value>Övervinner VPN-blockeringar genom att dölja din anslutning från censurering</value>
+    <value>ᜈᜒᜎᜎᜋ᜔ᜉᜐᜈ᜔ ᜀᜅ᜔ ᜋ᜔ᜄ ᜉᜄ᜔-block ᜐ VPN ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔ᜆᜆᜄᜓ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓᜎ ᜐ ᜋᜅ censor</value>
   </data>
   <data name="VpnProtocol_ProTun_Udp">
     <value>Proton WireGuard (UDP)</value>
   </data>
   <data name="VpnProtocol_ProTun_Udp_Description">
-    <value>Toppmodernt protokoll för säkerhet och prestanda</value>
+    <value>State-of-the-art ᜈ protocol ᜉᜇ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔ ᜀᜆ᜔ performance</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>
@@ -3893,18 +3893,18 @@ En hög serverbelastning kan sakta ner din anslutning.</value>
     <value>WireGuard (TCP)</value>
   </data>
   <data name="VpnProtocol_WireGuard_Tcp_Description">
-    <value>Toppmodernt protokoll för säkerhet och prestanda</value>
+    <value>State-of-the-art protocol ᜉᜇ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔ ᜀᜆ᜔ performance</value>
   </data>
   <data name="VpnProtocol_WireGuard_Tls">
     <value>Stealth</value>
   </data>
   <data name="VpnProtocol_WireGuard_Tls_Description">
-    <value>Övervinner VPN-blockeringar genom att dölja din anslutning från censurering</value>
+    <value>ᜈᜒᜎᜎᜋ᜔ᜉᜐᜈ᜔ ᜀᜅ᜔ ᜋ᜔ᜄ ᜉᜄ᜔-block ᜐ VPN ᜐ ᜉᜋᜋᜄᜒᜆᜈ᜔ ᜈᜅ᜔ ᜉᜄ᜔ᜆᜆᜄᜓ ᜈᜅ᜔ ᜁᜌᜓᜅ᜔ ᜃᜓᜈᜒᜃ᜔ᜐ᜔ᜌᜓᜈ᜔ ᜋᜓᜎ ᜐ ᜋᜅ censor</value>
   </data>
   <data name="VpnProtocol_WireGuard_Udp">
     <value>WireGuard (UDP)</value>
   </data>
   <data name="VpnProtocol_WireGuard_Udp_Description">
-    <value>Toppmodernt protokoll för säkerhet och prestanda</value>
+    <value>State-of-the-art protocol ᜉᜇ ᜐ ᜐᜒᜄᜓᜇᜒᜇᜇ᜔ ᜀᜆ᜔ performance</value>
   </data>
 </root>
