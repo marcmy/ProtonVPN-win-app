@@ -27,7 +27,6 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
 			 xmlns:featureicons="using:ProtonVPN.Client.UI.Main.FeatureIcons"
 			 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 			 xmlns:models="using:ProtonVPN.Client.Core.Models"
-			 xmlns:networking="using:ProtonVPN.Common.Core.Networking"
 			 xmlns:pathicons="using:ProtonVPN.Client.Common.UI.Assets.Icons.PathIcons"
 			 xmlns:splittunneling="using:ProtonVPN.Client.Models.Features.SplitTunneling"
 			 x:DefaultBindMode="OneWay"
@@ -36,25 +35,25 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
 	<UserControl.Resources>
 
 		<DataTemplate x:Key="Ipv6EnabledNetworkAddressTemplate"
-					  x:DataType="networking:NetworkAddress">
+					  x:DataType="models:SelectableSplitTunnelingAddress">
 			<Border Padding="8,2"
 					Background="{ThemeResource InteractionDefaultColorBrush}"
 					CornerRadius="4">
 				<TextBlock Style="{StaticResource BodyTextBlockStyle}"
-						   Text="{x:Bind}"
+						   Text="{x:Bind FormattedAddress}"
 						   TextTrimming="CharacterEllipsis"
 						   TextWrapping="NoWrap" />
 			</Border>
 		</DataTemplate>
 
 		<DataTemplate x:Key="Ipv6DisabledNetworkAddressTemplate"
-					  x:DataType="networking:NetworkAddress">
+					  x:DataType="models:SelectableSplitTunnelingAddress">
 			<Border Padding="8,2"
 					Background="{ThemeResource InteractionDefaultColorBrush}"
 					CornerRadius="4">
 				<TextBlock Opacity="{x:Bind IsIpV6, Converter={StaticResource BooleanToReducedOpacityConverter}}"
 						   Style="{StaticResource BodyTextBlockStyle}"
-						   Text="{x:Bind}"
+						   Text="{x:Bind FormattedAddress}"
 						   TextTrimming="CharacterEllipsis"
 						   TextWrapping="NoWrap" />
 			</Border>
@@ -80,10 +79,10 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
 							   Text="{x:Bind ViewModel.Header}" />
 
 					<custom:GhostButton Grid.Column="1"
-										Margin="0,-8,0,-6"
-										Content="{x:Bind ViewModel.Status}"
-										FontSize="{StaticResource BodyTextBlockFontSize}"
-										Visibility="{x:Bind ViewModel.IsRestricted, Converter={StaticResource NotBooleanToVisibilityConverter}}">
+									Margin="0,-8,0,-6"
+									Content="{x:Bind ViewModel.Status}"
+									FontSize="{StaticResource BodyTextBlockFontSize}"
+									Visibility="{x:Bind ViewModel.IsRestricted, Converter={StaticResource NotBooleanToVisibilityConverter}}">
 						<custom:GhostButton.RightIcon>
 							<pathicons:ChevronDownFilled Size="Pixels16" />
 						</custom:GhostButton.RightIcon>
@@ -91,23 +90,23 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
 							<MenuFlyout Placement="BottomEdgeAlignedRight"
 										ShouldConstrainToRootBounds="True">
 								<custom:ActivatableMenuFlyoutItem Command="{x:Bind ViewModel.DisableSplitTunnelingCommand, Mode=OneTime}"
-																  IsActive="{x:Bind ViewModel.IsSplitTunnelingEnabled, Converter={StaticResource NotBooleanToBooleanConverter}}"
-																  Text="{x:Bind ViewModel.Localizer.Get('Common_States_Off')}">
+														  IsActive="{x:Bind ViewModel.IsSplitTunnelingEnabled, Converter={StaticResource NotBooleanToBooleanConverter}}"
+														  Text="{x:Bind ViewModel.Localizer.Get('Common_States_Off')}">
 									<custom:ActivatableMenuFlyoutItem.Icon>
 										<ImageIcon Source="{ThemeResource SplitTunnelingOffIllustrationSource}" />
 									</custom:ActivatableMenuFlyoutItem.Icon>
 								</custom:ActivatableMenuFlyoutItem>
 								<MenuFlyoutSeparator />
 								<custom:ActivatableMenuFlyoutItem Command="{x:Bind ViewModel.EnableStandardSplitTunnelingCommand, Mode=OneTime}"
-																  IsActive="{x:Bind ViewModel.IsStandardSplitTunnelingEnabled}"
-																  Text="{x:Bind ViewModel.Localizer.Get('Settings_Connection_SplitTunneling_Standard_Short')}">
+														  IsActive="{x:Bind ViewModel.IsStandardSplitTunnelingEnabled}"
+														  Text="{x:Bind ViewModel.Localizer.Get('Settings_Connection_SplitTunneling_Standard_Short')}">
 									<custom:ActivatableMenuFlyoutItem.Icon>
 										<ImageIcon Source="{ThemeResource SplitTunnelingStandardIllustrationSource}" />
 									</custom:ActivatableMenuFlyoutItem.Icon>
 								</custom:ActivatableMenuFlyoutItem>
 								<custom:ActivatableMenuFlyoutItem Command="{x:Bind ViewModel.EnableInverseSplitTunnelingCommand, Mode=OneTime}"
-																  IsActive="{x:Bind ViewModel.IsInverseSplitTunnelingEnabled}"
-																  Text="{x:Bind ViewModel.Localizer.Get('Settings_Connection_SplitTunneling_Inverse_Short')}">
+														  IsActive="{x:Bind ViewModel.IsInverseSplitTunnelingEnabled}"
+														  Text="{x:Bind ViewModel.Localizer.Get('Settings_Connection_SplitTunneling_Inverse_Short')}">
 									<custom:ActivatableMenuFlyoutItem.Icon>
 										<ImageIcon Source="{ThemeResource SplitTunnelingInverseIllustrationSource}" />
 									</custom:ActivatableMenuFlyoutItem.Icon>
@@ -220,7 +219,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
 												Visibility="{x:Bind ViewModel.HasIpv6AddressesWhileIpv6Disabled, Converter={StaticResource BooleanToVisibilityConverter}}">
 								<custom:GhostButton.LeftIcon>
 									<pathicons:ExclamationTriangleFilled Foreground="{ThemeResource SignalWarningColorBrush}"
-																		 Size="Pixels16" />
+															 Size="Pixels16" />
 								</custom:GhostButton.LeftIcon>
 							</custom:GhostButton>
 						</Grid>
@@ -277,20 +276,20 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
 							Visibility="{x:Bind ViewModel.IsRestricted, Converter={StaticResource NotBooleanToVisibilityConverter}}">
 
 					<custom:BulletContentControl Content="{x:Bind ViewModel.InfoMessage}"
-												 Visibility="{x:Bind ViewModel.IsInfoMessageVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+										 Visibility="{x:Bind ViewModel.IsInfoMessageVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
 						<custom:BulletContentControl.BulletContent>
 							<pathicons:InfoCircleFilled Foreground="{ThemeResource TextWeakColorBrush}"
-														Size="Pixels16" />
+												Size="Pixels16" />
 						</custom:BulletContentControl.BulletContent>
 					</custom:BulletContentControl>
 
 				</StackPanel>
 
 				<custom:UpsellFeatureContentControl Content="{x:Bind ViewModel.Localizer.Get('Flyouts_SplitTunneling_Upsell_Description')}"
-													Header="{x:Bind ViewModel.Localizer.Get('Flyouts_SplitTunneling_Upsell_Title')}"
-													IllustrationSource="{StaticResource SplitTunnelingUpsellLargeIllustrationSource}"
-													Style="{StaticResource FlyoutUpsellFeatureContentControlStyle}"
-													Visibility="{x:Bind ViewModel.IsRestricted, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											Header="{x:Bind ViewModel.Localizer.Get('Flyouts_SplitTunneling_Upsell_Title')}"
+											IllustrationSource="{StaticResource SplitTunnelingUpsellLargeIllustrationSource}"
+											Style="{StaticResource FlyoutUpsellFeatureContentControlStyle}"
+											Visibility="{x:Bind ViewModel.IsRestricted, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
 			</StackPanel>
 		</Flyout>
