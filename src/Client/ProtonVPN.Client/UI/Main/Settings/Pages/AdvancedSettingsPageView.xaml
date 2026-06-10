@@ -254,8 +254,8 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
             </Grid>
 
             <toolkit:SettingsCard AutomationProperties.AutomationId="PortForwardingForAppsSettingsCard"
-                                  Description="Expose Proton's active forwarded port to local apps that support UPnP IGD v2 or NAT-PMP. This only works while connected to a server with an active forwarded port."
-                                  Header="Use VPN port forwarding for UPnP/NAT-PMP apps"
+                                  Description="Allow NAT-PMP-compatible apps to request their own Proton VPN port mapping. UPnP-only apps may not work. This only works while connected to a server with an active forwarded port."
+                                  Header="Use VPN port forwarding for NAT-PMP-compatible apps"
                                   IsTabStop="False"
                                   Style="{StaticResource DefaultSettingsCardStyle}"
                                   Visibility="{x:Bind ViewModel.IsPaidUser, Converter={StaticResource BooleanToVisibilityConverter}}">
