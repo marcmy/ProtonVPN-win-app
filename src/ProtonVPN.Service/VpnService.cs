@@ -54,6 +54,7 @@ internal partial class VpnService : ServiceBase
     private readonly IServiceFactory _serviceFactory;
     private readonly INrptInvoker _nrptInvoker;
     private readonly PortForwardingForAppsRouter _portForwardingForAppsRouter;
+    private readonly PortForwardingForAppsNatPmpResponder _portForwardingForAppsNatPmpResponder;
     private bool _isConnected;
 
     public VpnService(
@@ -78,6 +79,7 @@ internal partial class VpnService : ServiceBase
         _serviceFactory = serviceFactory;
         _nrptInvoker = nrptInvoker;
         _portForwardingForAppsRouter = new PortForwardingForAppsRouter(logger, serviceSettings, portMappingProtocolClient);
+        _portForwardingForAppsNatPmpResponder = new PortForwardingForAppsNatPmpResponder(logger, serviceSettings, portMappingProtocolClient);
 
         powerEventNotifier.OnResume += OnPowerEventResume;
         _vpnConnection.StateChanged += OnVpnStateChanged;
@@ -144,6 +146,7 @@ internal partial class VpnService : ServiceBase
             LogEvent("Service is stopping");
 
             await _portForwardingForAppsRouter.StopAsync();
+            await _portForwardingForAppsNatPmpResponder.StopAsync();
             _vpnConnection.Disconnect();
             StopWireGuardService();
 
@@ -214,6 +217,7 @@ internal partial class VpnService : ServiceBase
     {
         _isConnected = e.Data.Status == VpnStatus.Connected;
         _portForwardingForAppsRouter.SetVpnState(e.Data);
+        _portForwardingForAppsNatPmpResponder.SetVpnState(e.Data);
     }
 
     private bool IsBfeServiceRunningAndEnabled()
