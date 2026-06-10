@@ -147,6 +147,7 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         }
 
         RemoveRouteIfNeeded();
+        DeleteRoute(interfaceIndex);
 
         try
         {
@@ -178,14 +179,19 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
             return;
         }
 
+        DeleteRoute(interfaceIndex.Value);
+    }
+
+    private void DeleteRoute(int interfaceIndex)
+    {
         try
         {
-            RunNetsh($"interface ipv4 delete route prefix={DefaultRoutePrefix} interface={interfaceIndex.Value} nexthop={ProtonNatPmpGatewayIp} store=active");
-            _logger.Info<ConnectionLog>($"Removed app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex.Value}, NextHop={ProtonNatPmpGatewayIp}.");
+            RunNetsh($"interface ipv4 delete route prefix={DefaultRoutePrefix} interface={interfaceIndex} nexthop={ProtonNatPmpGatewayIp} store=active");
+            _logger.Info<ConnectionLog>($"Removed app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}.");
         }
         catch (Exception e)
         {
-            _logger.Error<ConnectionLog>($"Failed to remove app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex.Value}, NextHop={ProtonNatPmpGatewayIp}.", e);
+            _logger.Warn<ConnectionLog>($"App port forwarding NAT-PMP route shim was not present or could not be removed. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}. {e.Message}");
         }
     }
 
