@@ -55,6 +55,7 @@ internal partial class VpnService : ServiceBase
     private readonly INrptInvoker _nrptInvoker;
     private readonly PortForwardingForAppsRouter _portForwardingForAppsRouter;
     private readonly PortForwardingForAppsNatPmpResponder _portForwardingForAppsNatPmpResponder;
+    private readonly PortForwardingForAppsRouteShim _portForwardingForAppsRouteShim;
     private bool _isConnected;
 
     public VpnService(
@@ -80,6 +81,7 @@ internal partial class VpnService : ServiceBase
         _nrptInvoker = nrptInvoker;
         _portForwardingForAppsRouter = new PortForwardingForAppsRouter(logger, serviceSettings, portMappingProtocolClient);
         _portForwardingForAppsNatPmpResponder = new PortForwardingForAppsNatPmpResponder(logger, serviceSettings, portMappingProtocolClient);
+        _portForwardingForAppsRouteShim = new PortForwardingForAppsRouteShim(logger, serviceSettings, portMappingProtocolClient);
 
         powerEventNotifier.OnResume += OnPowerEventResume;
         _vpnConnection.StateChanged += OnVpnStateChanged;
@@ -147,6 +149,7 @@ internal partial class VpnService : ServiceBase
 
             await _portForwardingForAppsRouter.StopAsync();
             await _portForwardingForAppsNatPmpResponder.StopAsync();
+            await _portForwardingForAppsRouteShim.StopAsync();
             _vpnConnection.Disconnect();
             StopWireGuardService();
 
@@ -216,11 +219,12 @@ internal partial class VpnService : ServiceBase
     private void OnVpnStateChanged(object sender, Common.Legacy.EventArgs<VpnState> e)
     {
         _isConnected = e.Data.Status == VpnStatus.Connected;
-        // Keep UPnP disabled for now so apps that support NAT-PMP do not choose
-        // the IGD v1 AddPortMapping path, which cannot report Proton's random
-        // assigned external port back to the app.
+
+        // Keep the experimental fake UPnP/NAT-PMP responders disabled for now.
+        // Apps like qBit/libtorrent work once Windows can discover Proton's real NAT-PMP gateway.
         // _portForwardingForAppsRouter.SetVpnState(e.Data);
-        _portForwardingForAppsNatPmpResponder.SetVpnState(e.Data);
+        // _portForwardingForAppsNatPmpResponder.SetVpnState(e.Data);
+        _portForwardingForAppsRouteShim.SetVpnState(e.Data);
     }
 
     private bool IsBfeServiceRunningAndEnabled()
