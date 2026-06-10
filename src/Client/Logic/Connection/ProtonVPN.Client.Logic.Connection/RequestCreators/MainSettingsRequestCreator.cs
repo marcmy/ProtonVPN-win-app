@@ -156,7 +156,7 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
     {
         try
         {
-            return Dns.GetHostAddresses(hostname)
+            return System.Net.Dns.GetHostAddresses(hostname)
                 .Where(ip => ip.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
                 .Select(ip => ip.ToString())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
