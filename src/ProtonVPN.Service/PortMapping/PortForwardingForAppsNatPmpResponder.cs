@@ -263,7 +263,7 @@ internal sealed class PortForwardingForAppsNatPmpResponder : IDisposable
             using UdpClient gatewayClient = new(AddressFamily.InterNetwork);
             IPEndPoint gatewayEndPoint = new(IPAddress.Parse(ProtonGatewayIp), NatPmpPort);
 
-            await gatewayClient.SendAsync(request, request.Length, gatewayEndPoint, timeoutSource.Token);
+            await gatewayClient.SendAsync(request, request.Length, ProtonGatewayIp, NatPmpPort);
             UdpReceiveResult response = await gatewayClient.ReceiveAsync(timeoutSource.Token);
 
             return response.Buffer;
