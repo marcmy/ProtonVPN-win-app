@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,15 +17,30 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Client.Logic.Auth.Contracts.Models;
-using ProtonVPN.StatisticalEvents.Contracts;
+namespace ProtonVPN.StatisticalEvents.Contracts;
 
-namespace ProtonVPN.Client.Logic.Auth.Contracts;
-
-public interface IWebAuthenticator
+/// <summary>
+/// Defines the source or context where an upsell modal was triggered.
+/// 
+/// This enum is defined in accordance with the upsell 'modal_trigger' dimension,
+/// which specifies a shared set of allowed values across all ProtonVPN platforms.
+/// </summary>
+public enum ModalTrigger
 {
-    Task<string> GetMyAccountUrlAsync();
-    Task<string> GetUpgradeAccountUrlAsync(ModalSource? modalSource, string? notificationReference = null);
-    Task<string> GetAuthUrlAsync(AuthUrlParameters parameters);
-    Task<string> GetAuthUrlAsync(string url, ModalSource? modalSource, string notificationReference);
+    CountriesBanner,
+    CountrySelection,
+    ErrorDialog,
+    Home,
+    HomeBanner,
+    Carousel,
+    NetworkRestriction,
+    Map,
+    Onboarding,
+    Profiles,
+    PromoOfferBanner,
+    PromoOfferPopup,
+    Search,
+    SearchSelection,
+    Settings,
+    Tray
 }

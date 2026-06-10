@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,15 +17,20 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Client.Logic.Auth.Contracts.Models;
-using ProtonVPN.StatisticalEvents.Contracts;
+namespace ProtonVPN.StatisticalEvents.Contracts;
 
-namespace ProtonVPN.Client.Logic.Auth.Contracts;
-
-public interface IWebAuthenticator
+public readonly struct UpsellModalContext
 {
-    Task<string> GetMyAccountUrlAsync();
-    Task<string> GetUpgradeAccountUrlAsync(ModalSource? modalSource, string? notificationReference = null);
-    Task<string> GetAuthUrlAsync(AuthUrlParameters parameters);
-    Task<string> GetAuthUrlAsync(string url, ModalSource? modalSource, string notificationReference);
+    public static UpsellModalContext Undefined => new();
+
+    public ModalSource? Source { get; init; }
+    public ModalTrigger? Trigger { get; init; }
+    public string? CountryCode { get; init; }
+
+    public UpsellModalContext(ModalSource source, ModalTrigger trigger, string? countryCode = null)
+    {
+        Source = source;
+        Trigger = trigger;
+        CountryCode = countryCode;
+    }
 }
