@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
 using ProtonVPN.Common.Core.Networking;
 
 namespace ProtonVPN.Client.Core.Models;
