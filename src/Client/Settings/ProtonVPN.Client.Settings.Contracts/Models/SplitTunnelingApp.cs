@@ -27,6 +27,12 @@ public struct SplitTunnelingApp : IEquatable<SplitTunnelingApp>
 
     public List<string> AlternateAppFilePaths { get; set; }
 
+    public List<string> AlternateAppPaths
+    {
+        get => AlternateAppFilePaths;
+        set => AlternateAppFilePaths = value;
+    }
+
     public bool IsActive { get; set; }
 
     public SplitTunnelingApp(string appFilePath, bool isActive)
