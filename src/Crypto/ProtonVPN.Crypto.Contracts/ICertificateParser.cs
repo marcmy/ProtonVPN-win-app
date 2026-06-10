@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -17,14 +17,9 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace ProtonVPN.Client.Logic.Auth.Contracts;
+namespace ProtonVPN.Crypto.Contracts;
 
-public interface IConnectionCertificateManager
+public interface ICertificateParser
 {
-    bool IsCertificateOutOfSyncWithPlan();
-    void DeleteKeyPairAndCertificate();
-    void DeleteKeyPairAndCertificateIfMatches(string expiredCertificatePem);
-    Task RequestNewCertificateAsync(CancellationToken cancellationToken = default, string? expiredCertificatePem = null);
-    Task ForceRequestNewCertificateAsync(CancellationToken cancellationToken = default);
-    Task ForceRequestNewKeyPairAndCertificateAsync();
+    List<string> GetExtensionStrings(string certificatePem, string oid);
 }
