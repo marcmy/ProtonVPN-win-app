@@ -30,7 +30,6 @@ using ProtonVPN.Client.Core.Models;
 using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Services.Bootstrapping.Helpers;
 using ProtonVPN.Client.UI.Overlays.Selection.Contracts;
-using ProtonVPN.Common.Core.Networking;
 using Windows.System;
 
 namespace ProtonVPN.Client.UI.Overlays.Selection;
@@ -39,7 +38,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
 {
     private bool _isRunningAsAdmin;
 
-    private List<SelectableNetworkAddress> _originalAddresses = [];
+    private List<SelectableSplitTunnelingAddress> _originalAddresses = [];
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -64,7 +63,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
     [ObservableProperty]
     private string? _currentAddressError;
 
-    public SmartNotifyObservableCollection<SelectableNetworkAddress> Addresses { get; } = [];
+    public SmartNotifyObservableCollection<SelectableSplitTunnelingAddress> Addresses { get; } = [];
 
     public bool HasAddresses => Addresses.Count > 0;
 
@@ -89,7 +88,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
         Addresses.ItemPropertyChanged += OnAddressesItemPropertyChanged;
     }
 
-    public async Task<List<SelectableNetworkAddress>?> SelectAsync(List<SelectableNetworkAddress> addresses)
+    public async Task<List<SelectableSplitTunnelingAddress>?> SelectAsync(List<SelectableSplitTunnelingAddress> addresses)
     {
         ResetCurrentAddress();
         ResetCurrentAddressError();
@@ -140,8 +139,8 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
     [RelayCommand(CanExecute = nameof(CanAddAddress))]
     private void AddAddress()
     {
-        NetworkAddress? address = GetValidatedCurrentIpAddress();
-        string? error = GetIpAddressError(address);
+        SelectableSplitTunnelingAddress? address = GetValidatedCurrentAddress();
+        string? error = GetAddressError(address);
 
         if (error != null || address == null)
         {
@@ -149,7 +148,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
             return;
         }
 
-        Addresses.Add(new SelectableNetworkAddress(address.Value));
+        Addresses.Add(address);
 
         ResetCurrentAddress();
     }
@@ -160,13 +159,13 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
     }
 
     [RelayCommand]
-    private void RemoveAddress(SelectableNetworkAddress address)
+    private void RemoveAddress(SelectableSplitTunnelingAddress address)
     {
         Addresses.Remove(address);
     }
 
     [RelayCommand(CanExecute = nameof(CanMoveAddressUp))]
-    private void MoveAddressUp(SelectableNetworkAddress address)
+    private void MoveAddressUp(SelectableSplitTunnelingAddress address)
     {
         int currentIndex = Addresses.IndexOf(address);
         if (currentIndex > 0)
@@ -175,7 +174,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
         }
     }
 
-    private bool CanMoveAddressUp(SelectableNetworkAddress address)
+    private bool CanMoveAddressUp(SelectableSplitTunnelingAddress address)
     {
         int currentIndex = Addresses.IndexOf(address);
         return CanReorder
@@ -183,7 +182,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
     }
 
     [RelayCommand(CanExecute = nameof(CanMoveAddressDown))]
-    private void MoveAddressDown(SelectableNetworkAddress address)
+    private void MoveAddressDown(SelectableSplitTunnelingAddress address)
     {
         int currentIndex = Addresses.IndexOf(address);
         if (currentIndex >= 0 && currentIndex < Addresses.Count - 1)
@@ -192,7 +191,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
         }
     }
 
-    private bool CanMoveAddressDown(SelectableNetworkAddress address)
+    private bool CanMoveAddressDown(SelectableSplitTunnelingAddress address)
     {
         int currentIndex = Addresses.IndexOf(address);
         return CanReorder
@@ -200,24 +199,26 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
             && currentIndex < Addresses.Count - 1;
     }
 
-    private NetworkAddress? GetValidatedCurrentIpAddress()
+    private SelectableSplitTunnelingAddress? GetValidatedCurrentAddress()
     {
-        return NetworkAddress.TryParse(CurrentAddress, out NetworkAddress address) ? address : null;
+        return SelectableSplitTunnelingAddress.TryCreate(CurrentAddress, true, out SelectableSplitTunnelingAddress? address)
+            ? address
+            : null;
     }
 
-    private string? GetIpAddressError(NetworkAddress? address)
+    private string? GetAddressError(SelectableSplitTunnelingAddress? address)
     {
         if (address == null)
         {
             return Localizer.Get("Settings_Common_IpAddresses_Invalid");
         }
 
-        if (!IsAddressRangeAuthorized && !address.Value.IsSingleIp)
+        if (!IsAddressRangeAuthorized && address.ParsedNetworkAddress is { IsSingleIp: false })
         {
             return Localizer.Get("Settings_Common_IpAddresses_Invalid");
         }
 
-        if (Addresses.FirstOrDefault(ip => ip.Value.FormattedAddress == address.Value.FormattedAddress) != null)
+        if (Addresses.Any(existingAddress => string.Equals(existingAddress.FormattedAddress, address.FormattedAddress, StringComparison.OrdinalIgnoreCase)))
         {
             return Localizer.Get("Settings_Common_IpAddresses_AlreadyExists");
         }
@@ -240,7 +241,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
         ResetCurrentAddressError();
     }
 
-    private bool AreAddressesEqual(List<SelectableNetworkAddress> original, IList<SelectableNetworkAddress> current)
+    private bool AreAddressesEqual(List<SelectableSplitTunnelingAddress> original, IList<SelectableSplitTunnelingAddress> current)
     {
         if (original.Count != current.Count)
         {
@@ -249,7 +250,7 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
 
         for (int i = 0; i < original.Count; i++)
         {
-            if (original[i].Value.FormattedAddress != current[i].Value.FormattedAddress ||
+            if (!string.Equals(original[i].FormattedAddress, current[i].FormattedAddress, StringComparison.OrdinalIgnoreCase) ||
                 original[i].IsSelected != current[i].IsSelected)
             {
                 return false;
