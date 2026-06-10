@@ -21,11 +21,15 @@ using ProtonVPN.Client.Core.Models;
 
 namespace ProtonVPN.Client.UI.Overlays.Selection.Contracts;
 
-public interface IIpSelector : ISelector<SelectableSplitTunnelingAddress>
+public interface IIpSelector : ISelector<SelectableNetworkAddress>
 {
     string Caption { get; set; }
 
     bool CanReorder { get; set; }
 
     bool IsAddressRangeAuthorized { get; set; }
+
+    bool IsHostnameAuthorized { get; set; }
+
+    Task<List<SelectableSplitTunnelingAddress>?> SelectSplitTunnelingAddressesAsync(List<SelectableSplitTunnelingAddress> addresses);
 }
