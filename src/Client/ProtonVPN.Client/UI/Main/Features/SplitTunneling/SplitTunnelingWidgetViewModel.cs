@@ -421,7 +421,7 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         _ipSelector.CanReorder = false;
         _ipSelector.IsAddressRangeAuthorized = true;
 
-        List<SelectableSplitTunnelingAddress>? result = await _ipSelector.SelectAsync(IpAddresses.Select(ip => ip.Clone()).ToList());
+        List<SelectableSplitTunnelingAddress>? result = await _ipSelector.SelectSplitTunnelingAddressesAsync(IpAddresses.Select(ip => ip.Clone()).ToList());
         if (result == null)
         {
             return;
