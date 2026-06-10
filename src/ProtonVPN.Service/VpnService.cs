@@ -216,7 +216,10 @@ internal partial class VpnService : ServiceBase
     private void OnVpnStateChanged(object sender, Common.Legacy.EventArgs<VpnState> e)
     {
         _isConnected = e.Data.Status == VpnStatus.Connected;
-        _portForwardingForAppsRouter.SetVpnState(e.Data);
+        // Keep UPnP disabled for now so apps that support NAT-PMP do not choose
+        // the IGD v1 AddPortMapping path, which cannot report Proton's random
+        // assigned external port back to the app.
+        // _portForwardingForAppsRouter.SetVpnState(e.Data);
         _portForwardingForAppsNatPmpResponder.SetVpnState(e.Data);
     }
 
