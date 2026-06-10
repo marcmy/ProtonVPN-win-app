@@ -21,7 +21,7 @@ using ProtonVPN.Client.Core.Models;
 
 namespace ProtonVPN.Client.UI.Overlays.Selection.Contracts;
 
-public interface IIpSelector : ISelector<SelectableNetworkAddress>
+public interface IIpSelector : ISelector<SelectableSplitTunnelingAddress>
 {
     string Caption { get; set; }
 
