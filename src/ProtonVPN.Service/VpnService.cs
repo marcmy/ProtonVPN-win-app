@@ -53,8 +53,6 @@ internal partial class VpnService : ServiceBase
     private readonly IGrpcServer _grpcServer;
     private readonly IServiceFactory _serviceFactory;
     private readonly INrptInvoker _nrptInvoker;
-    private readonly PortForwardingForAppsRouter _portForwardingForAppsRouter;
-    private readonly PortForwardingForAppsNatPmpResponder _portForwardingForAppsNatPmpResponder;
     private readonly PortForwardingForAppsRouteShim _portForwardingForAppsRouteShim;
     private bool _isConnected;
 
@@ -79,8 +77,6 @@ internal partial class VpnService : ServiceBase
         _grpcServer = grpcServer;
         _serviceFactory = serviceFactory;
         _nrptInvoker = nrptInvoker;
-        _portForwardingForAppsRouter = new PortForwardingForAppsRouter(logger, serviceSettings, portMappingProtocolClient);
-        _portForwardingForAppsNatPmpResponder = new PortForwardingForAppsNatPmpResponder(logger, serviceSettings, portMappingProtocolClient);
         _portForwardingForAppsRouteShim = new PortForwardingForAppsRouteShim(logger, serviceSettings, portMappingProtocolClient);
 
         powerEventNotifier.OnResume += OnPowerEventResume;
@@ -147,8 +143,6 @@ internal partial class VpnService : ServiceBase
             _logger.Info<AppServiceStopLog>("Service is stopping");
             LogEvent("Service is stopping");
 
-            await _portForwardingForAppsRouter.StopAsync();
-            await _portForwardingForAppsNatPmpResponder.StopAsync();
             await _portForwardingForAppsRouteShim.StopAsync();
             _vpnConnection.Disconnect();
             StopWireGuardService();
@@ -220,10 +214,7 @@ internal partial class VpnService : ServiceBase
     {
         _isConnected = e.Data.Status == VpnStatus.Connected;
 
-        // Keep the experimental fake UPnP/NAT-PMP responders disabled for now.
-        // Apps like qBit/libtorrent work once Windows can discover Proton's real NAT-PMP gateway.
-        // _portForwardingForAppsRouter.SetVpnState(e.Data);
-        // _portForwardingForAppsNatPmpResponder.SetVpnState(e.Data);
+        // Let NAT-PMP-compatible apps discover Proton's real NAT-PMP gateway.
         _portForwardingForAppsRouteShim.SetVpnState(e.Data);
     }
 
