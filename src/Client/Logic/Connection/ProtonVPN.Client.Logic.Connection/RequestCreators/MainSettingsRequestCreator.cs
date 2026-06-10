@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Net;
+using System.Net.Sockets;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Features;
 using ProtonVPN.Client.Logic.Connection.Contracts.RequestCreators;
@@ -122,6 +124,47 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
 
     private string[] GetSplitTunnelingIpAddresses(List<SplitTunnelingIpAddress> settingsIpAddresses)
     {
-        return settingsIpAddresses.Where(ip => ip.IsActive).Select(ip => ip.IpAddress).ToArray();
+        return settingsIpAddresses
+            .Where(ip => ip.IsActive)
+            .SelectMany(ip => GetSplitTunnelingIpAddresses(ip.IpAddress))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private IEnumerable<string> GetSplitTunnelingIpAddresses(string rawAddress)
+    {
+        string address = rawAddress.Trim();
+        if (NetworkAddress.TryParse(address, out _))
+        {
+            return [address];
+        }
+
+        return IsValidSplitTunnelingHostname(address)
+            ? ResolveSplitTunnelingHostname(address)
+            : [];
+    }
+
+    private bool IsValidSplitTunnelingHostname(string hostname)
+    {
+        return !string.IsNullOrWhiteSpace(hostname)
+            && !hostname.Contains('/')
+            && !hostname.Contains('*')
+            && Uri.CheckHostName(hostname) == UriHostNameType.Dns;
+    }
+
+    private string[] ResolveSplitTunnelingHostname(string hostname)
+    {
+        try
+        {
+            return Dns.GetHostAddresses(hostname)
+                .Where(ip => ip.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
+                .Select(ip => ip.ToString())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
     }
 }
