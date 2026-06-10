@@ -57,6 +57,9 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
     private bool _isAddressRangeAuthorized;
 
     [ObservableProperty]
+    private bool _isHostnameAuthorized;
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddAddressCommand))]
     private string _currentAddress = string.Empty;
 
@@ -88,7 +91,25 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
         Addresses.ItemPropertyChanged += OnAddressesItemPropertyChanged;
     }
 
-    public async Task<List<SelectableSplitTunnelingAddress>?> SelectAsync(List<SelectableSplitTunnelingAddress> addresses)
+    public async Task<List<SelectableNetworkAddress>?> SelectAsync(List<SelectableNetworkAddress> addresses)
+    {
+        IsHostnameAuthorized = false;
+
+        List<SelectableSplitTunnelingAddress> convertedAddresses = addresses
+            .Select(address => new SelectableSplitTunnelingAddress(address.Value.ToString(), address.IsSelected))
+            .ToList();
+
+        List<SelectableSplitTunnelingAddress>? result = await SelectAddressesAsync(convertedAddresses);
+        return result?.Select(address => new SelectableNetworkAddress(address.ParsedNetworkAddress!.Value, address.IsSelected)).ToList();
+    }
+
+    public async Task<List<SelectableSplitTunnelingAddress>?> SelectSplitTunnelingAddressesAsync(List<SelectableSplitTunnelingAddress> addresses)
+    {
+        IsHostnameAuthorized = true;
+        return await SelectAddressesAsync(addresses);
+    }
+
+    private async Task<List<SelectableSplitTunnelingAddress>?> SelectAddressesAsync(List<SelectableSplitTunnelingAddress> addresses)
     {
         ResetCurrentAddress();
         ResetCurrentAddressError();
@@ -209,6 +230,11 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
     private string? GetAddressError(SelectableSplitTunnelingAddress? address)
     {
         if (address == null)
+        {
+            return Localizer.Get("Settings_Common_IpAddresses_Invalid");
+        }
+
+        if (!IsHostnameAuthorized && address.IsHostname)
         {
             return Localizer.Get("Settings_Common_IpAddresses_Invalid");
         }
