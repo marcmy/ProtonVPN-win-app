@@ -166,7 +166,7 @@ function Get-TestStatus {
         }
     }
     else {
-        if ($testCaseIdRaw -eq "602439") { # Case ID of the flaky Port Forwarding test
+        if ($testCaseIdRaw -eq "602439" -or $testCaseIdRaw -eq "602438") { # Case ID of the flaky Port Forwarding tests
             $systemOut = $testcase."system-out"
             if ($systemOut -match "SUCCESS") {
                 $status = "passed"
