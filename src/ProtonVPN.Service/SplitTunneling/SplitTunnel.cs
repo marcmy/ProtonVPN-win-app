@@ -22,7 +22,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using ProtonVPN.Common.Core.Extensions;
-using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.NetworkFilter;
@@ -34,6 +33,7 @@ using ProtonVPN.Service.Settings;
 using ProtonVPN.Service.Vpn;
 using ProtonVPN.Vpn.Common;
 using Action = ProtonVPN.NetworkFilter.Action;
+using CoreNetworkAddress = ProtonVPN.Common.Core.Networking.NetworkAddress;
 
 namespace ProtonVPN.Service.SplitTunneling;
 
@@ -202,7 +202,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
     private string[] GetPermittedRemoteAddresses(bool allowIpv6)
     {
         return (_serviceSettings.SplitTunnelSettings.Ips ?? [])
-            .Where(ip => NetworkAddress.TryParse(ip, out NetworkAddress networkAddress) && (!networkAddress.IsIpV6 || allowIpv6))
+            .Where(ip => CoreNetworkAddress.TryParse(ip, out CoreNetworkAddress networkAddress) && (!networkAddress.IsIpV6 || allowIpv6))
             .ToArray();
     }
 
