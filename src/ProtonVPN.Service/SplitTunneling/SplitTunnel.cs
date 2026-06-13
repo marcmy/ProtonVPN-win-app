@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Configurations.Contracts;
@@ -211,8 +212,54 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
     private string[] GetPermittedRemoteAddresses(bool allowIpv6)
     {
         return (_serviceSettings.SplitTunnelSettings.Ips ?? [])
-            .Where(ip => CoreNetworkAddress.TryParse(ip, out CoreNetworkAddress networkAddress) && (!networkAddress.IsIpV6 || allowIpv6))
+            .SelectMany(rawAddress => GetPermittedRemoteAddresses(rawAddress, allowIpv6))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private IEnumerable<string> GetPermittedRemoteAddresses(string rawAddress, bool allowIpv6)
+    {
+        string address = rawAddress.Trim();
+        if (CoreNetworkAddress.TryParse(address, out CoreNetworkAddress networkAddress))
+        {
+            if (!networkAddress.IsIpV6 || allowIpv6)
+            {
+                yield return networkAddress.ToString();
+            }
+
+            yield break;
+        }
+
+        foreach (IPAddress ipAddress in ResolveHostname(address, allowIpv6))
+        {
+            yield return ipAddress.ToString();
+        }
+    }
+
+    private static IEnumerable<IPAddress> ResolveHostname(string hostname, bool allowIpv6)
+    {
+        if (!IsValidHostname(hostname))
+        {
+            return [];
+        }
+
+        try
+        {
+            return Dns.GetHostAddresses(hostname)
+                .Where(ip => ip.AddressFamily == AddressFamily.InterNetwork || (allowIpv6 && ip.AddressFamily == AddressFamily.InterNetworkV6));
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static bool IsValidHostname(string hostname)
+    {
+        return !string.IsNullOrWhiteSpace(hostname)
+            && !hostname.Contains('/')
+            && !hostname.Contains('*')
+            && Uri.CheckHostName(hostname) == UriHostNameType.Dns;
     }
 
     private void Disable(bool removePermittedRemoteAddresses = true)
