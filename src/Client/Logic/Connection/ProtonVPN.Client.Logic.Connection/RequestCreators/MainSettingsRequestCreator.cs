@@ -134,9 +134,11 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
     private IEnumerable<string> GetSplitTunnelingIpAddresses(string rawAddress)
     {
         string address = rawAddress.Trim();
-        if (NetworkAddress.TryParse(address, out _))
+        if (NetworkAddress.TryParse(address, out NetworkAddress networkAddress))
         {
-            return [address];
+            return networkAddress.IsIpV6 && !_settings.IsIpv6Enabled
+                ? []
+                : [address];
         }
 
         return IsValidSplitTunnelingHostname(address)
@@ -157,7 +159,7 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
         try
         {
             return System.Net.Dns.GetHostAddresses(hostname)
-                .Where(ip => ip.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
+                .Where(ip => ip.AddressFamily == AddressFamily.InterNetwork || (_settings.IsIpv6Enabled && ip.AddressFamily == AddressFamily.InterNetworkV6))
                 .Select(ip => ip.ToString())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
