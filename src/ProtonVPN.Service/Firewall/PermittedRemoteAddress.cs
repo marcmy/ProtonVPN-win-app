@@ -20,11 +20,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.SplitTunnelLogs;
 using ProtonVPN.NetworkFilter;
 using Action = ProtonVPN.NetworkFilter.Action;
+using CoreNetworkAddress = ProtonVPN.Common.Core.Networking.NetworkAddress;
+using FilterNetworkAddress = ProtonVPN.NetworkFilter.NetworkAddress;
 
 namespace ProtonVPN.Service.Firewall;
 
@@ -69,7 +70,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
 
     private bool TryCreateAddressFilters(string address, Action action, HashSet<string> desiredAddresses)
     {
-        if (!NetworkAddress.TryParse(address, out NetworkAddress networkAddress))
+        if (!CoreNetworkAddress.TryParse(address, out CoreNetworkAddress networkAddress))
         {
             return false;
         }
@@ -91,7 +92,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
         return true;
     }
 
-    private bool TryCreateFilters(NetworkAddress networkAddress, Action action, out List<Guid> guids)
+    private bool TryCreateFilters(CoreNetworkAddress networkAddress, Action action, out List<Guid> guids)
     {
         guids = [];
 
@@ -106,7 +107,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
                         action,
                         layer,
                         14,
-                        NetworkAddress.FromIpv6(networkAddress.Ip.ToString(), networkAddress.Subnet));
+                        FilterNetworkAddress.FromIpv6(networkAddress.Ip.ToString(), networkAddress.Subnet));
 
                     guids.Add(guid);
                 });
@@ -120,7 +121,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
                         action,
                         layer,
                         14,
-                        NetworkAddress.FromIpv4(networkAddress.Ip.ToString(), networkAddress.GetSubnetMaskString()));
+                        FilterNetworkAddress.FromIpv4(networkAddress.Ip.ToString(), networkAddress.GetSubnetMaskString()));
 
                     guids.Add(guid);
                 });
