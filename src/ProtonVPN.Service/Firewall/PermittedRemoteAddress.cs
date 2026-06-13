@@ -20,6 +20,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.SplitTunnelLogs;
 using ProtonVPN.NetworkFilter;
@@ -33,7 +34,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
     private readonly IpLayer _ipLayer;
     private readonly IpFilter _ipFilter;
 
-    private readonly Dictionary<string, List<Guid>> _list = new();
+    private readonly Dictionary<string, List<Guid>> _list = new(StringComparer.OrdinalIgnoreCase);
 
     public PermittedRemoteAddress(ILogger logger, IpFilter ipFilter, IpLayer ipLayer)
     {
@@ -44,25 +45,55 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
 
     public void Add(string[] addresses, Action action)
     {
-        foreach (string address in addresses)
+        HashSet<string> desiredAddresses = new(StringComparer.OrdinalIgnoreCase);
+        bool hasFailures = false;
+
+        foreach (string address in addresses ?? [])
         {
-            Add(address, action);
+            if (!TryCreateAddressFilters(address, action, desiredAddresses))
+            {
+                hasFailures = true;
+            }
+        }
+
+        if (hasFailures)
+        {
+            return;
+        }
+
+        foreach (string staleAddress in _list.Keys.Where(address => !desiredAddresses.Contains(address)).ToList())
+        {
+            Remove(staleAddress);
         }
     }
 
-    private void Add(string address, Action action)
+    private bool TryCreateAddressFilters(string address, Action action, HashSet<string> desiredAddresses)
     {
-        if (_list.ContainsKey(address))
+        if (!NetworkAddress.TryParse(address, out NetworkAddress networkAddress))
         {
-            return;
+            return false;
         }
 
-        if (!Common.Core.Networking.NetworkAddress.TryParse(address, out Common.Core.Networking.NetworkAddress networkAddress))
+        string normalizedAddress = networkAddress.ToString();
+        desiredAddresses.Add(normalizedAddress);
+
+        if (_list.ContainsKey(normalizedAddress))
         {
-            return;
+            return true;
         }
 
-        _list[address] = [];
+        if (!TryCreateFilters(networkAddress, action, out List<Guid> guids))
+        {
+            return false;
+        }
+
+        _list[normalizedAddress] = guids;
+        return true;
+    }
+
+    private bool TryCreateFilters(NetworkAddress networkAddress, Action action, out List<Guid> guids)
+    {
+        guids = [];
 
         try
         {
@@ -77,7 +108,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
                         14,
                         NetworkAddress.FromIpv6(networkAddress.Ip.ToString(), networkAddress.Subnet));
 
-                    _list[address].Add(guid);
+                    guids.Add(guid);
                 });
             }
             else
@@ -91,13 +122,18 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
                         14,
                         NetworkAddress.FromIpv4(networkAddress.Ip.ToString(), networkAddress.GetSubnetMaskString()));
 
-                    _list[address].Add(guid);
+                    guids.Add(guid);
                 });
             }
+
+            return guids.Count > 0;
         }
         catch (InvalidArgumentException)
         {
-            _logger.Error<SplitTunnelLog>($"Failed to create permitted remote address filter for address {address} due to invalid argument.");
+            _logger.Error<SplitTunnelLog>($"Failed to create permitted remote address filter for address {networkAddress} due to invalid argument.");
+            RemoveGuids(guids);
+            guids = [];
+            return false;
         }
     }
 
@@ -108,12 +144,16 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
             return;
         }
 
-        foreach (Guid guid in _list[address])
+        RemoveGuids(_list[address]);
+        _list.Remove(address);
+    }
+
+    private void RemoveGuids(List<Guid> guids)
+    {
+        foreach (Guid guid in guids)
         {
             _ipFilter.DynamicSublayer.DestroyFilter(guid);
         }
-
-        _list.Remove(address);
     }
 
     public void RemoveAll()
@@ -123,9 +163,9 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
             return;
         }
 
-        foreach (KeyValuePair<string, List<Guid>> element in _list.ToList())
+        foreach (string address in _list.Keys.ToList())
         {
-            Remove(element.Key);
+            Remove(address);
         }
     }
 }
