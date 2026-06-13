@@ -150,6 +150,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
                 break;
             case SplitTunnelModeIpcEntity.Block:
                 DisableReversed();
+                _appFilter.RemoveAll();
                 Disable(removePermittedRemoteAddresses: false);
                 Enable();
                 break;
