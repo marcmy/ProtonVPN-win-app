@@ -206,11 +206,6 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
             .ToArray();
     }
 
-    private List<SplitTunnelingApp> GetSettingsApps(IEnumerable<SelectableTunnelingApp> apps)
-    {
-        return apps.Select(ip => new SplitTunnelingApp(ip.Value.AppPath, ip.Value.AlternateAppPaths, ip.IsSelected)).ToList();
-    }
-
     private void Disable(bool removePermittedRemoteAddresses = true)
     {
         if (_enabled)
