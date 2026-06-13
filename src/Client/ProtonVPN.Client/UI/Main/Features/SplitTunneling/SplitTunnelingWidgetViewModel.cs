@@ -31,8 +31,6 @@ using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Core.Services.Navigation;
 using ProtonVPN.Client.Core.Services.Selection;
 using ProtonVPN.Client.Logic.Connection.Contracts;
-using ProtonVPN.Client.Logic.Connection.Contracts.RequestCreators;
-using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.Settings.Contracts.Enums;
 using ProtonVPN.Client.Settings.Contracts.Models;
@@ -58,8 +56,6 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
 
     private readonly IAppSelector _appSelector;
     private readonly IIpSelector _ipSelector;
-    private readonly IMainSettingsRequestCreator _mainSettingsRequestCreator;
-    private readonly IVpnServiceCaller _vpnServiceCaller;
 
     private bool _wasIpv6WarningDisplayed;
 
@@ -149,9 +145,7 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         ISettingsConflictResolver settingsConflictResolver,
         IProfileEditor profileEditor,
         IAppSelector appSelector,
-        IIpSelector ipSelector,
-        IMainSettingsRequestCreator mainSettingsRequestCreator,
-        IVpnServiceCaller vpnServiceCaller)
+        IIpSelector ipSelector)
         : base(viewModelHelper,
                mainViewNavigator,
                settingsViewNavigator,
@@ -166,8 +160,6 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
     {
         _appSelector = appSelector;
         _ipSelector = ipSelector;
-        _mainSettingsRequestCreator = mainSettingsRequestCreator;
-        _vpnServiceCaller = vpnServiceCaller;
 
         ExcludedIpAddresses.CollectionChanged += OnIpAddressesCollectionChanged;
         IncludedIpAddresses.CollectionChanged += OnIpAddressesCollectionChanged;
@@ -345,7 +337,7 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
 
         foreach (SplitTunnelingApp app in settingsApps)
         {
-            TunnelingApp tunnelingApp = await TunnelingApp.TryCreateAsync(app.AppFilePath, app.AlternateAppPaths)
+            TunnelingApp tunnelingApp = await TunnelingApp.TryCreateAsync(app.AppFilePath, app.AlternateAppFilePaths)
                 ?? TunnelingApp.NotFound(app.AppFilePath, Localizer.Get("Common_Message_AppNotFound"), app.AlternateAppFilePaths);
 
             apps.Add(new SelectableTunnelingApp(tunnelingApp, app.IsActive));
@@ -445,11 +437,7 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         bool haveFeatureSettingsChanged = await TryChangeFeatureSettingsAsync(IsStandardSplitTunneling
             ? _modifySplitTunnelingStandardIpAddressesList.Value
             : _modifySplitTunnelingInverseIpAddressesList.Value);
-        if (haveFeatureSettingsChanged)
-        {
-            await ApplyMainSettingsIfConnectedAsync();
-        }
-        else
+        if (!haveFeatureSettingsChanged)
         {
             await OnRetrieveSettingsAsync();
         }
@@ -461,22 +449,10 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         if (await ShowIpv6DisabledWarningAsync())
         {
             bool hasFeatureSettingsChanged = await TryChangeFeatureSettingsAsync(_enableIpv6Settings.Value);
-            if (hasFeatureSettingsChanged)
-            {
-                await ApplyMainSettingsIfConnectedAsync();
-            }
-            else
+            if (!hasFeatureSettingsChanged)
             {
                 await OnRetrieveSettingsAsync();
             }
-        }
-    }
-
-    private async Task ApplyMainSettingsIfConnectedAsync()
-    {
-        if (ConnectionManager.IsConnected)
-        {
-            await _vpnServiceCaller.ApplySettingsAsync(_mainSettingsRequestCreator.Create(ConnectionManager.CurrentConnectionIntent));
         }
     }
 
