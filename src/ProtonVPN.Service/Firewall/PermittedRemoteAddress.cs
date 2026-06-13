@@ -94,7 +94,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
 
     private bool TryCreateFilters(CoreNetworkAddress networkAddress, Action action, out List<Guid> guids)
     {
-        guids = [];
+        List<Guid> createdGuids = [];
 
         try
         {
@@ -109,7 +109,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
                         14,
                         FilterNetworkAddress.FromIpv6(networkAddress.Ip.ToString(), networkAddress.Subnet));
 
-                    guids.Add(guid);
+                    createdGuids.Add(guid);
                 });
             }
             else
@@ -123,16 +123,17 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
                         14,
                         FilterNetworkAddress.FromIpv4(networkAddress.Ip.ToString(), networkAddress.GetSubnetMaskString()));
 
-                    guids.Add(guid);
+                    createdGuids.Add(guid);
                 });
             }
 
+            guids = createdGuids;
             return guids.Count > 0;
         }
         catch (InvalidArgumentException)
         {
             _logger.Error<SplitTunnelLog>($"Failed to create permitted remote address filter for address {networkAddress} due to invalid argument.");
-            RemoveGuids(guids);
+            RemoveGuids(createdGuids);
             guids = [];
             return false;
         }
