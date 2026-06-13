@@ -207,6 +207,9 @@
   <data name="Common_Actions_Connect">
     <value>Подключить</value>
   </data>
+  <data name="System_Tray_Actions_Connect">
+    <value>Подключить</value>
+  </data>
   <data name="Common_Actions_ContactUs">
     <value>Свяжитесь с нами</value>
   </data>
@@ -214,6 +217,9 @@
     <value>Удалить</value>
   </data>
   <data name="Common_Actions_Disconnect">
+    <value>Отключить</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
     <value>Отключить</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -3770,7 +3776,14 @@ Error code: {0}</value>
   <data name="Tray_Actions_ExitApplication">
     <value>Выйти</value>
   </data>
+  <data name="System_Tray_Actions_ExitApplication">
+    <value>Выйти</value>
+  </data>
   <data name="Tray_Actions_OpenApplication">
+    <value>Открыть {0}</value>
+    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="System_Tray_Actions_OpenApplication">
     <value>Открыть {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
