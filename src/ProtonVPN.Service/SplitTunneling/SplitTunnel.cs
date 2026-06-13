@@ -245,7 +245,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
 
         try
         {
-            return Dns.GetHostAddresses(hostname)
+            return System.Net.Dns.GetHostAddresses(hostname)
                 .Where(ip => ip.AddressFamily == AddressFamily.InterNetwork || (allowIpv6 && ip.AddressFamily == AddressFamily.InterNetworkV6));
         }
         catch
