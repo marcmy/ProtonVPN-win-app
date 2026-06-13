@@ -19,6 +19,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using ProtonVPN.Common.Core.Extensions;
@@ -50,6 +51,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
     private readonly ISplitTunnelClient _splitTunnelClient;
     private readonly IAppFilter _appFilter;
     private readonly IPermittedRemoteAddress _permittedRemoteAddress;
+    private readonly ExcludedIpRouteManager _excludedIpRouteManager = new();
 
     public SplitTunnel(
         INetworkUtilities networkUtilities,
@@ -99,6 +101,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
 
         _appFilter.RemoveAll();
         _permittedRemoteAddress.RemoveAll();
+        _excludedIpRouteManager.RemoveAll();
 
         if (_serviceSettings.SplitTunnelSettings.Mode == SplitTunnelModeIpcEntity.Permit)
         {
@@ -123,6 +126,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
             DisableSplitTunnel();
             _appFilter.RemoveAll();
             _permittedRemoteAddress.RemoveAll();
+            _excludedIpRouteManager.RemoveAll();
         }
     }
 
@@ -147,6 +151,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
                 DisableSplitTunnel();
                 _appFilter.RemoveAll();
                 _permittedRemoteAddress.RemoveAll();
+                _excludedIpRouteManager.RemoveAll();
                 break;
             case SplitTunnelModeIpcEntity.Block:
                 DisableReversed();
@@ -157,6 +162,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
             case SplitTunnelModeIpcEntity.Permit:
                 _appFilter.RemoveAll();
                 _permittedRemoteAddress.RemoveAll();
+                _excludedIpRouteManager.RemoveAll();
                 Disable(removePermittedRemoteAddresses: false);
                 EnableReversed(state);
                 break;
@@ -195,7 +201,9 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
             _appFilter.Add(appPaths, [.. appFilters]);
         }
 
-        _permittedRemoteAddress.Add(GetPermittedRemoteAddresses(localIpv6Address is not null), Action.HardPermit);
+        string[] permittedRemoteAddresses = GetPermittedRemoteAddresses(localIpv6Address is not null);
+        _permittedRemoteAddress.Add(permittedRemoteAddresses, Action.HardPermit);
+        _excludedIpRouteManager.Replace(permittedRemoteAddresses, bestInterface);
 
         _enabled = true;
     }
@@ -216,6 +224,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
             if (removePermittedRemoteAddresses)
             {
                 _permittedRemoteAddress.RemoveAll();
+                _excludedIpRouteManager.RemoveAll();
             }
             _enabled = false;
         }
@@ -247,6 +256,151 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
         {
             _splitTunnelClient.Disable();
             _reverseEnabled = false;
+        }
+    }
+
+    private sealed class ExcludedIpRouteManager
+    {
+        private readonly HashSet<ExcludedIpRoute> _routes = [];
+
+        public void Replace(string[] addresses, INetworkInterface networkInterface)
+        {
+            if (!HasUsableGateway(networkInterface))
+            {
+                RemoveAll();
+                return;
+            }
+
+            HashSet<ExcludedIpRoute> desiredRoutes = GetDesiredRoutes(addresses, networkInterface).ToHashSet();
+            bool hasFailures = false;
+
+            foreach (ExcludedIpRoute route in desiredRoutes.Where(route => !_routes.Contains(route)).ToList())
+            {
+                DeleteRoute(route);
+                if (TryAddRoute(route))
+                {
+                    _routes.Add(route);
+                }
+                else
+                {
+                    hasFailures = true;
+                }
+            }
+
+            if (hasFailures)
+            {
+                return;
+            }
+
+            foreach (ExcludedIpRoute staleRoute in _routes.Where(route => !desiredRoutes.Contains(route)).ToList())
+            {
+                DeleteRoute(staleRoute);
+                _routes.Remove(staleRoute);
+            }
+        }
+
+        public void RemoveAll()
+        {
+            foreach (ExcludedIpRoute route in _routes.ToList())
+            {
+                DeleteRoute(route);
+                _routes.Remove(route);
+            }
+        }
+
+        private static IEnumerable<ExcludedIpRoute> GetDesiredRoutes(string[] addresses, INetworkInterface networkInterface)
+        {
+            foreach (string address in addresses ?? [])
+            {
+                if (CoreNetworkAddress.TryParse(address, out CoreNetworkAddress networkAddress) && networkAddress.IsIpV4)
+                {
+                    yield return ExcludedIpRoute.From(networkAddress, networkInterface.Index, networkInterface.DefaultGateway.ToString());
+                }
+            }
+        }
+
+        private static bool HasUsableGateway(INetworkInterface networkInterface)
+        {
+            return networkInterface is not null &&
+                   networkInterface.Index > 0 &&
+                   networkInterface.DefaultGateway is not null &&
+                   !networkInterface.DefaultGateway.Equals(IPAddress.Any) &&
+                   !networkInterface.DefaultGateway.Equals(IPAddress.None);
+        }
+
+        private static bool TryAddRoute(ExcludedIpRoute route)
+        {
+            try
+            {
+                RunNetsh($"interface ipv4 add route prefix={route.Prefix} interface={route.InterfaceIndex} nexthop={route.NextHop} metric=1 store=active");
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void DeleteRoute(ExcludedIpRoute route)
+        {
+            try
+            {
+                RunNetsh($"interface ipv4 delete route prefix={route.Prefix} interface={route.InterfaceIndex} nexthop={route.NextHop} store=active");
+            }
+            catch
+            {
+            }
+        }
+
+        private static void RunNetsh(string arguments)
+        {
+            using Process process = new()
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "netsh.exe",
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                }
+            };
+
+            process.Start();
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+
+            if (!process.WaitForExit(5000))
+            {
+                try
+                {
+                    process.Kill();
+                }
+                catch
+                {
+                }
+
+                throw new InvalidOperationException($"netsh timed out. Arguments: {arguments}");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"netsh failed with exit code {process.ExitCode}. Arguments: {arguments}. Output: {output}. Error: {error}");
+            }
+        }
+
+        private readonly record struct ExcludedIpRoute(string Prefix, uint InterfaceIndex, string NextHop)
+        {
+            public static ExcludedIpRoute From(CoreNetworkAddress networkAddress, uint interfaceIndex, string nextHop)
+            {
+                string prefix = networkAddress.IsSingleIp
+                    ? $"{networkAddress.Ip}/32"
+                    : networkAddress.ToString();
+
+                return new ExcludedIpRoute(prefix, interfaceIndex, nextHop);
+            }
         }
     }
 }
