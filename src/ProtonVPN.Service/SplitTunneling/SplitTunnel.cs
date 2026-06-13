@@ -19,8 +19,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.NetworkFilter;
@@ -148,13 +150,13 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
                 break;
             case SplitTunnelModeIpcEntity.Block:
                 DisableReversed();
-                Disable();
+                Disable(removePermittedRemoteAddresses: false);
                 Enable();
                 break;
             case SplitTunnelModeIpcEntity.Permit:
                 _appFilter.RemoveAll();
                 _permittedRemoteAddress.RemoveAll();
-                Disable();
+                Disable(removePermittedRemoteAddresses: false);
                 EnableReversed(state);
                 break;
         }
@@ -173,7 +175,7 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
         INetworkInterface bestInterface = _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId);
 
         IPAddress localIpv6Address = null;
-        if (!string.IsNullOrEmpty(bestInterface.Id))
+        if (_serviceSettings.IsIpv6Enabled && !string.IsNullOrEmpty(bestInterface.Id))
         {
             localIpv6Address = bestInterface.GetPreferredIpv6UnicastAddress();
         }
@@ -192,21 +194,33 @@ public class SplitTunnel : IVpnStateAware, IServiceSettingsAware
             _appFilter.Add(appPaths, [.. appFilters]);
         }
 
-        if (_serviceSettings.SplitTunnelSettings.Ips.Length > 0)
-        {
-            _permittedRemoteAddress.Add(_serviceSettings.SplitTunnelSettings.Ips, Action.HardPermit);
-        }
+        _permittedRemoteAddress.Add(GetPermittedRemoteAddresses(localIpv6Address is not null), Action.HardPermit);
 
         _enabled = true;
     }
 
-    private void Disable()
+    private string[] GetPermittedRemoteAddresses(bool allowIpv6)
+    {
+        return (_serviceSettings.SplitTunnelSettings.Ips ?? [])
+            .Where(ip => NetworkAddress.TryParse(ip, out NetworkAddress networkAddress) && (!networkAddress.IsIpV6 || allowIpv6))
+            .ToArray();
+    }
+
+    private List<SplitTunnelingApp> GetSettingsApps(IEnumerable<SelectableTunnelingApp> apps)
+    {
+        return apps.Select(ip => new SplitTunnelingApp(ip.Value.AppPath, ip.Value.AlternateAppPaths, ip.IsSelected)).ToList();
+    }
+
+    private void Disable(bool removePermittedRemoteAddresses = true)
     {
         if (_enabled)
         {
             _splitTunnelClient.Disable();
             _appFilter.RemoveAll();
-            _permittedRemoteAddress.RemoveAll();
+            if (removePermittedRemoteAddresses)
+            {
+                _permittedRemoteAddress.RemoveAll();
+            }
             _enabled = false;
         }
     }
