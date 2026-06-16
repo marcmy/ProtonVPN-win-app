@@ -27,7 +27,6 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
       xmlns:custom="using:ProtonVPN.Client.Common.UI.Controls.Custom"
       xmlns:models="using:ProtonVPN.Client.Core.Models"
       xmlns:featureicons="using:ProtonVPN.Client.UI.Main.FeatureIcons"
-      xmlns:networking="using:ProtonVPN.Common.Core.Networking"
       x:DefaultBindMode="OneWay"
       AutomationProperties.AutomationId="SplitTunnelingPage"
       AutomationProperties.Name="{x:Bind ViewModel.Localizer.Get('Automation_Properties_SplitTunneling_Page')}"
@@ -42,25 +41,25 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
         <Thickness x:Key="PageContentControlPadding">16</Thickness>
 
         <DataTemplate x:Key="Ipv6EnabledNetworkAddressTemplate"
-                      x:DataType="networking:NetworkAddress">
+                      x:DataType="models:SelectableSplitTunnelingAddress">
             <Border Padding="8,2"
                     Background="{ThemeResource InteractionDefaultColorBrush}"
                     CornerRadius="4">
                 <TextBlock Style="{StaticResource BodyTextBlockStyle}"
-                           Text="{x:Bind}"
+                           Text="{x:Bind FormattedAddress}"
                            TextTrimming="CharacterEllipsis"
                            TextWrapping="NoWrap" />
             </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="Ipv6DisabledNetworkAddressTemplate"
-                      x:DataType="networking:NetworkAddress">
+                      x:DataType="models:SelectableSplitTunnelingAddress">
             <Border Padding="8,2"
                     Background="{ThemeResource InteractionDefaultColorBrush}"
                     CornerRadius="4">
                 <TextBlock Opacity="{x:Bind IsIpV6, Converter={StaticResource BooleanToReducedOpacityConverter}}"
                            Style="{StaticResource BodyTextBlockStyle}"
-                           Text="{x:Bind}"
+                           Text="{x:Bind FormattedAddress}"
                            TextTrimming="CharacterEllipsis"
                            TextWrapping="NoWrap" />
             </Border>
@@ -141,7 +140,8 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
                 <StackPanel Spacing="8"
                             Visibility="{x:Bind ViewModel.IsLoading, Converter={StaticResource NotBooleanToVisibilityConverter}}">
 
-                    <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
+                    <TextBlock Style="{StaticResource BodyTextBlockStyle}" 
+                               Foreground="{ThemeResource TextWeakColorBrush}"
                                Text="{x:Bind ViewModel.AppsHeader}"
                                TextTrimming="CharacterEllipsis" />
 
@@ -209,6 +209,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0"
+                                   Style="{StaticResource BodyTextBlockStyle}"
                                    Foreground="{ThemeResource TextWeakColorBrush}"
                                    Text="{x:Bind ViewModel.IpAddressesHeader}"
                                    TextTrimming="CharacterEllipsis" />

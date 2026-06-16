@@ -15,7 +15,7 @@ using System.Runtime.Versioning;
 [assembly: AssemblyCulture("")]
 
 [assembly: AssemblyVersion("4.4.1.0")]
-[assembly: AssemblyFileVersion("4.4.1.1")]
+[assembly: AssemblyFileVersion("4.4.1.0")]
 [assembly: ComVisible(false)]
 [assembly: AssemblyInformationalVersion("4.4.1.1-marcmy-split-tunnel")]
 [assembly: SupportedOSPlatform("windows")]

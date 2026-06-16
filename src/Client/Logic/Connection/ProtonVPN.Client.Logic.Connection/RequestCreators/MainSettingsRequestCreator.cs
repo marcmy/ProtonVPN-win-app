@@ -122,6 +122,11 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
 
     private string[] GetSplitTunnelingIpAddresses(List<SplitTunnelingIpAddress> settingsIpAddresses)
     {
-        return settingsIpAddresses.Where(ip => ip.IsActive).Select(ip => ip.IpAddress).ToArray();
+        return settingsIpAddresses
+            .Where(ip => ip.IsActive)
+            .Select(ip => ip.IpAddress.Trim())
+            .Where(ip => !string.IsNullOrWhiteSpace(ip))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }
