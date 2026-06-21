@@ -56,12 +56,16 @@ namespace ProtonVPN.Vpn.Management
 
         public ManagementMessage Username(string username)
         {
-            return ManagementMessage($"username 'Auth' {EscapedString(username)}");
+            return SensitiveManagementMessage(
+                $"username 'Auth' {EscapedString(username)}",
+                "username 'Auth' [...]");
         }
 
         public ManagementMessage Password(string password)
         {
-            return ManagementMessage($"password 'Auth' {EscapedString(password)}");
+            return SensitiveManagementMessage(
+                $"password 'Auth' {EscapedString(password)}",
+                "password 'Auth' [...]");
         }
 
         public ManagementMessage Disconnect()
@@ -74,10 +78,14 @@ namespace ProtonVPN.Vpn.Management
             return ManagementMessage("exit");
         }
 
-
-        private ManagementMessage ManagementMessage(string messageText)
+        private static ManagementMessage ManagementMessage(string messageText)
         {
-            return new ManagementMessage(messageText);
+            return new ManagementMessage(messageText, messageText);
+        }
+
+        private static ManagementMessage SensitiveManagementMessage(string messageText, string logText)
+        {
+            return new ManagementMessage(messageText, logText);
         }
 
         private static string EscapedString(string value)
