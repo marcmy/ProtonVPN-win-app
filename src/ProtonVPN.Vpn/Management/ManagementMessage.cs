@@ -17,8 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Common.Core.Extensions;
-
 namespace ProtonVPN.Vpn.Management
 {
     /// <summary>
@@ -28,15 +26,14 @@ namespace ProtonVPN.Vpn.Management
     {
         private readonly string _messageText;
 
-        public ManagementMessage(string messageText)
+        public ManagementMessage(string messageText, string logText)
         {
             _messageText = messageText;
+            LogText = logText;
         }
 
+        public string LogText { get; }
+
         public override string ToString() => _messageText;
-
-        public string LogText => IsPasswordMessage? "password [...]" : ToString();
-
-        private bool IsPasswordMessage => _messageText.StartsWithIgnoringCase("password");
     }
 }

@@ -72,13 +72,20 @@ namespace ProtonVPN.Vpn.Management
         {
             if (!message.IsByteCount)
             {
-                _logger.Info<ProtocolLog>($"Management -> {message}");
+                _logger.Info<ProtocolLog>($"Management -> {SanitizeForLog(message.ToString())}");
             }
         }
 
         private void Log(ManagementMessage message)
         {
             _logger.Info<ProtocolLog>($"Management <- {message.LogText}");
+        }
+
+        private static string SanitizeForLog(string value)
+        {
+            return value
+                .Replace("\r", "\\r")
+                .Replace("\n", "\\n");
         }
     }
 }

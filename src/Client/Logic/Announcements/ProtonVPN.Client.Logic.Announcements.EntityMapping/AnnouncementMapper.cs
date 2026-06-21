@@ -53,7 +53,7 @@ public class AnnouncementMapper : IMapper<AnnouncementResponse, Announcement>
             }
             else if (announcement is not null)
             {
-                _logger.Error<AppLog>($"Failed to fetch full screen image of announcement with ID '{leftEntity.Id}'.");
+                _logger.Error<AppLog>($"Failed to fetch full screen image of announcement with ID '{SanitizeForLog(leftEntity.Id)}'.");
             }
         }
         catch (Exception ex)
@@ -95,6 +95,13 @@ public class AnnouncementMapper : IMapper<AnnouncementResponse, Announcement>
     private DateTime MapTimestampToDateTimeUtc(long timestamp)
     {
         return DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
+    }
+
+    private static string SanitizeForLog(string? value)
+    {
+        return (value ?? string.Empty)
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
     }
 
     public AnnouncementResponse Map(Announcement rightEntity)
