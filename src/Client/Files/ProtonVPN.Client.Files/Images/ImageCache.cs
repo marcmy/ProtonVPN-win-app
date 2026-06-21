@@ -139,7 +139,7 @@ public class ImageCache : IImageCache
         }
         catch (Exception ex)
         {
-            _logger.Error<AppLog>($"Failed to download image using URL {downloadUrl}", ex);
+            _logger.Error<AppLog>("Failed to download image.", ex);
         }
 
         return null;
