@@ -1,0 +1,17 @@
+root = false
+
+# These RPC controller methods intentionally complete synchronously while satisfying Task-returning contracts.
+[ProtonVPN.Service/VpnController.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# ServiceBase requires a void override; startup currently performs no asynchronous work.
+[ProtonVPN.Service/VpnService.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# StopAsync intentionally performs only immediate cancellation and registry cleanup.
+[ProcessCommunication/Server/ProtonVPN.ProcessCommunication.Server/GrpcServer.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# Preserve the legacy exception serialization constructor without emitting the .NET 8 formatter warning.
+[ProtonVPN.Service/Firewall/FirewallException.cs]
+dotnet_diagnostic.SYSLIB0051.severity = none
