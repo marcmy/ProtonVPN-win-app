@@ -37,26 +37,27 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
       - name: Setup Go
         if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.23.x'
+          cache: false
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
@@ -404,7 +405,7 @@ jobs:
           Write-Host "Patch artifact file count: $($patchFiles.Count)"
 
       - name: Upload patch artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: protonvpn-client-patch-${{ inputs.build_mode }}
           path: artifacts/ProtonVPN.Client.Patch
@@ -412,7 +413,7 @@ jobs:
 
       - name: Upload full bin artifact
         if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: protonvpn-client-bin-${{ inputs.build_mode }}
           path: src/bin
@@ -420,7 +421,7 @@ jobs:
 
       - name: Upload build logs
         if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: protonvpn-client-patch-logs-${{ inputs.build_mode }}
           path: artifacts/logs
