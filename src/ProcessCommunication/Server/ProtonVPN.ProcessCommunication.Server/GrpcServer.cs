@@ -136,7 +136,7 @@ public class GrpcServer : IGrpcServer
         WebApplication app = builder.Build();
 
         app.UseMiddleware<NamedPipeAuthorizationMiddleware>(_logger, _issueReporter, _config, _pipeStreamProcessIdentifier,
-            _registryEditor, InvokingServiceStop, RecreateAndStartAsync);
+            _registryEditor, InvokingServiceStop, (Func<Task>)RecreateAndStartAsync);
         app.MapGrpcService<IClientController>();
         app.MapGrpcService<IUpdateController>();
         app.MapGrpcService<IVpnController>();
