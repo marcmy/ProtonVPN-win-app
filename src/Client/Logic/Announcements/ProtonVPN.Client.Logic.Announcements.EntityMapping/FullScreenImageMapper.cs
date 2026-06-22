@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using ProtonVPN.Api.Contracts.Announcements;
 using ProtonVPN.Client.Files.Contracts.Images;
 using ProtonVPN.Client.Logic.Announcements.Contracts;
