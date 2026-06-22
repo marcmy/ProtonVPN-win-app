@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using ProtonVPN.Api.Contracts.Common;
