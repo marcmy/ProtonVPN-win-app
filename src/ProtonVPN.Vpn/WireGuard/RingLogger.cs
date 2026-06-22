@@ -161,7 +161,7 @@ namespace ProtonVPN.Vpn.WireGuard
                 {
                     File.Delete(_filename);
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     // ignored
                 }
