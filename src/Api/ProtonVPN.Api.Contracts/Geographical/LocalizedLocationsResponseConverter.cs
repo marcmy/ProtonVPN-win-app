@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
@@ -33,7 +35,7 @@ public class LocalizedLocationsResponseConverter : JsonConverter<Dictionary<stri
         bool hasExistingValue,
         JsonSerializer serializer)
     {
-        Dictionary<string, Dictionary<string, string>> result = [];
+        Dictionary<string, Dictionary<string, string?>> result = [];
 
         if (reader.TokenType == JsonToken.Null)
         {
@@ -52,7 +54,7 @@ public class LocalizedLocationsResponseConverter : JsonConverter<Dictionary<stri
             }
             else if (property.Value.Type == JTokenType.Object)
             {
-                Dictionary<string, string> translations = [];
+                Dictionary<string, string?> translations = [];
                 foreach (JProperty innerProperty in ((JObject)property.Value).Properties())
                 {
                     translations[innerProperty.Name] = innerProperty.Value.Type == JTokenType.Null
