@@ -28,7 +28,6 @@ namespace ProtonVPN.Vpn.OpenVpn
     internal class OpenVpnHandshake
     {
         private readonly byte[] _key;
-        private readonly RNGCryptoServiceProvider _rngCsp = new();
 
         public OpenVpnHandshake(byte[] key)
         {
@@ -80,9 +79,7 @@ namespace ProtonVPN.Vpn.OpenVpn
 
         private byte[] GetRandomBytes(int length)
         {
-            byte[] bytes = new byte[length];
-            _rngCsp.GetBytes(bytes);
-            return bytes;
+            return RandomNumberGenerator.GetBytes(length);
         }
     }
 }
