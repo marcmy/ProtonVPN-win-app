@@ -32,3 +32,15 @@ dotnet_diagnostic.CS0067.severity = none
 # IAdapterSingleVpnConnection requires this event, but the WireGuard adapter does not publish connection details.
 [ProtonVPN.Vpn/WireGuard/WireGuardConnection.cs]
 dotnet_diagnostic.CS0067.severity = none
+
+# This setting getter intentionally reads the obsolete DNS mode once to migrate older cached settings.
+[Client/Settings/ProtonVPN.Client.Settings/UserSettings.cs]
+dotnet_diagnostic.CS0618.severity = none
+
+# The debug restart command intentionally blocks while a dedicated thread performs the thread-affine restart.
+[Client/ProtonVPN.Client/UI/Dialogs/DebugTools/DebugToolsShellViewModel.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# WinUI-generated type metadata touches an obsolete compatibility Icon member.
+[Client/ProtonVPN.Client/obj/**/XamlTypeInfo.g.cs]
+dotnet_diagnostic.CS0612.severity = none
