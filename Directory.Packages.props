@@ -28,7 +28,7 @@
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
     <PackageVersion Include="Grpc.Net.Client" Version="2.76.0" />
     <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.0.124" />
-    <PackageVersion Include="log4net" Version="3.3.0" />
+    <PackageVersion Include="log4net" Version="3.2.0" />
     <PackageVersion Include="JunitXml.TestLogger" Version="8.0.0" />
     <PackageVersion Include="Mapsui.WinUI" Version="4.1.9" />
     <PackageVersion Include="MarkdownTextBlock" Version="0.0.1" />
