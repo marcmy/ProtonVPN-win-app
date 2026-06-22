@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ProtonVPN.Client' Or
+                            '$(MSBuildProjectName)' == 'ProtonVPN.Client.Localization' Or
+                            '$(MSBuildProjectName)' == 'ProtonVPN.Client.Localization.Installers'">
+    <!-- ReswPlusLib 2.0.0 requests unavailable NETStandard.Library 1.5.0;
+         NuGet deterministically resolves the compatible 1.6.0 package. -->
+    <NoWarn>$(NoWarn);NU1603</NoWarn>
+  </PropertyGroup>
+</Project>
