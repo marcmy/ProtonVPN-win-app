@@ -25,52 +25,58 @@ namespace ProtonVPN.Client.Logic.Connection.EntityMapping.Extensions;
 
 public static class SerializableLocationIntentExtensions
 {
-    // This method is made to ensure backward compatibility
+    // The obsolete properties below are intentionally read to migrate location intents
+    // saved by older client versions into the current serializable model.
+#pragma warning disable CS0618
+
     public static ServerInfo GetServer(this SerializableLocationIntent intent)
     {
         return intent.Server
             ?? ServerInfo.From(intent.Id, intent.Name);
     }
 
-    // This method is made to ensure backward compatibility
     public static GatewayServerInfo GetGatewayServer(this SerializableLocationIntent intent)
     {
         return intent.GatewayServer
             ?? GatewayServerInfo.From(intent.Id, intent.Name, intent.CountryCode);
     }
 
-    // This method is made to ensure backward compatibility
     public static ServerInfo GetServerToExclude(this SerializableLocationIntent intent)
     {
         return intent.ServerToExclude
             ?? ServerInfo.From(intent.FreeServerExcludedLogicalId, string.Empty);
     }
 
-    // This method is made to ensure backward compatibility
     public static SelectionStrategy GetSelectionStrategy(this SerializableLocationIntent intent)
     {
-        // Prefer the new strategy if present
         if (intent.Strategy.HasValue && Enum.IsDefined(typeof(SelectionStrategy), intent.Strategy.Value))
         {
             return intent.Strategy.Value;
         }
 
-        // Fallback to old 'FreeServerType' value if available
         if (intent.FreeServerType.HasValue && Enum.IsDefined(typeof(SelectionStrategy), intent.FreeServerType.Value))
         {
             return (SelectionStrategy)intent.FreeServerType.Value;
         }
 
-        // Fallback to old 'Kind' value if available
-        if (!string.IsNullOrEmpty(intent.Kind))
+        if (!string.IsNullOrEmpty(intent.Kind) &&
+            Enum.TryParse(intent.Kind, ignoreCase: true, out SelectionStrategy parsedStrategy))
         {
-            if (Enum.TryParse(intent.Kind, ignoreCase: true, out SelectionStrategy parsedStrategy))
-            {
-                return parsedStrategy;
-            }
+            return parsedStrategy;
         }
 
-        // Default to fastest
         return SelectionStrategy.Fastest;
     }
+
+    public static bool HasSingleServerData(this SerializableLocationIntent intent)
+    {
+        return intent.Server.HasValue || !string.IsNullOrEmpty(intent.Id);
+    }
+
+    public static bool HasSingleGatewayServerData(this SerializableLocationIntent intent)
+    {
+        return intent.GatewayServer.HasValue || !string.IsNullOrEmpty(intent.Id);
+    }
+
+#pragma warning restore CS0618
 }
