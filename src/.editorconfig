@@ -33,6 +33,10 @@ dotnet_diagnostic.CS0067.severity = none
 [ProtonVPN.Vpn/WireGuard/WireGuardConnection.cs]
 dotnet_diagnostic.CS0067.severity = none
 
+# The login receiver contracts are part of event-bus registration; the cached flag is retained for compatibility.
+[Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/ServersUpdater.cs]
+dotnet_diagnostic.CS0414.severity = none
+
 # This setting getter intentionally reads the obsolete DNS mode once to migrate older cached settings.
 [Client/Settings/ProtonVPN.Client.Settings/UserSettings.cs]
 dotnet_diagnostic.CS0618.severity = none
