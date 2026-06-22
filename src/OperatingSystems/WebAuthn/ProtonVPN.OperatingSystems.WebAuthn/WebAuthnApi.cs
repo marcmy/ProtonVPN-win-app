@@ -16,7 +16,6 @@ namespace ProtonVPN.OperatingSystems.WebAuthn;
 /// </remarks>
 public partial class WebAuthnApi
 {
-    private static ApiVersion? _apiVersionCache;
     private Guid? _cancellationId;
 
     /// <summary>
