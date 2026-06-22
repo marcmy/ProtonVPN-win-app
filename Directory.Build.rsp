@@ -1,0 +1,4 @@
+# Locale-specific plural and newly translated resource candidates do not all have
+# neutral en-US counterparts yet. Keep MakePri output visible without reporting
+# hundreds of duplicate build warnings across architectures.
+-warnAsMessage:PRI263
