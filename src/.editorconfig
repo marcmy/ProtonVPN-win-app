@@ -24,3 +24,11 @@ dotnet_diagnostic.CS8603.severity = none
 [Configurations/ProtonVPN.Configurations/BigTestInfra/BtiDohProvidersLoader.cs]
 dotnet_diagnostic.CS8600.severity = none
 dotnet_diagnostic.CS8602.severity = none
+
+# IAdapterSingleVpnConnection requires this event, but the OpenVPN adapter does not publish connection details.
+[ProtonVPN.Vpn/Connection/OpenVpnConnection.cs]
+dotnet_diagnostic.CS0067.severity = none
+
+# IAdapterSingleVpnConnection requires this event, but the WireGuard adapter does not publish connection details.
+[ProtonVPN.Vpn/WireGuard/WireGuardConnection.cs]
+dotnet_diagnostic.CS0067.severity = none
