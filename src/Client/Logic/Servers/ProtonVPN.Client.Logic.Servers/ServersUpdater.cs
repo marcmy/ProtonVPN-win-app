@@ -17,8 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Client.EventMessaging.Contracts;
-using ProtonVPN.Client.Logic.Auth.Contracts.Messages;
 using ProtonVPN.Client.Logic.Servers.Cache;
 using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
@@ -28,9 +26,7 @@ using ProtonVPN.Logging.Contracts.Events.AppLogs;
 
 namespace ProtonVPN.Client.Logic.Servers;
 
-public class ServersUpdater : IServersUpdater,
-    IEventMessageReceiver<LoggedInMessage>,
-    IEventMessageReceiver<LoggedOutMessage>
+public class ServersUpdater : IServersUpdater
 {
     private readonly ILogger _logger;
     private readonly IServersCache _serversCache;
@@ -38,8 +34,6 @@ public class ServersUpdater : IServersUpdater,
     private readonly ISettings _settings;
 
     private readonly SemaphoreSlim _semaphore = new(1, 1);
-
-    private bool _isLoggedIn = false;
 
     public ServersUpdater(
         ILogger logger,
@@ -124,16 +118,6 @@ public class ServersUpdater : IServersUpdater,
         {
             _semaphore.Release();
         }
-    }
-
-    public void Receive(LoggedInMessage message)
-    {
-        _isLoggedIn = true;
-    }
-
-    public void Receive(LoggedOutMessage message)
-    {
-        _isLoggedIn = false;
     }
 
     private Task ForceUpdateServersAsync(CancellationToken cancellationToken)
