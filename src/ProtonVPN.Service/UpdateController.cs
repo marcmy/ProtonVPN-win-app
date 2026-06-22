@@ -73,11 +73,13 @@ public class UpdateController : IUpdateController
         _notifyingAppUpdate.StateChanged += OnUpdateStateChanged;
     }
 
-    public async Task CheckForUpdate(UpdateSettingsIpcEntity updateSettingsIpcEntity, CancellationToken cancelToken)
+    public Task CheckForUpdate(UpdateSettingsIpcEntity updateSettingsIpcEntity, CancellationToken cancelToken)
     {
         CacheUpdateSettings(updateSettingsIpcEntity);
         _appUpdates.Cleanup();
         _notifyingAppUpdate.StartCheckingForUpdate(updateSettingsIpcEntity.IsEarlyAccess);
+
+        return Task.CompletedTask;
     }
 
     public async Task StartAutoUpdate(StartAutoUpdateIpcEntity startAutoUpdateIpcEntity, CancellationToken cancelToken)
