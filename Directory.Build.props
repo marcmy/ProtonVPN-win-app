@@ -1,4 +1,10 @@
 <Project>
+  <PropertyGroup>
+    <!-- Parallel patch builds occasionally retry copies into the shared output directory.
+         Keep the retry visible without treating the transient contention as a warning. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3026</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ProtonVPN.Client' Or
                             '$(MSBuildProjectName)' == 'ProtonVPN.Client.Localization' Or
                             '$(MSBuildProjectName)' == 'ProtonVPN.Client.Localization.Installers'">
