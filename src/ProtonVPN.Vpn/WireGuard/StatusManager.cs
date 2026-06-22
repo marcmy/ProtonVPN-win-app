@@ -132,16 +132,7 @@ public class StatusManager
                 }
             }
 
-            try
-            {
-                Thread.Sleep(300);
-            }
-            catch
-            {
-                break;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(300, cancellationToken);
         }
     }
 
