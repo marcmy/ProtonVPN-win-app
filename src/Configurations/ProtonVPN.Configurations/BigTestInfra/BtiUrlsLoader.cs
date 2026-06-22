@@ -46,7 +46,12 @@ public static class BtiUrlsLoader
     public static Uri? GetApiUri()
     {
         string? apiUrl = GetApiUrl();
-        return apiUrl is not null && apiUrl.IsHttpUri(out Uri uri) ? uri : null;
+        if (apiUrl is not null && apiUrl.IsHttpUri(out Uri? uri) && uri is not null)
+        {
+            return uri;
+        }
+
+        return null;
     }
 
     private static string? GetApiUrl()
