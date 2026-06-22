@@ -26,6 +26,7 @@ using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations.Gatew
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations.Servers;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations.States;
 using ProtonVPN.Client.Logic.Connection.Contracts.SerializableEntities.Intents;
+using ProtonVPN.Client.Logic.Connection.EntityMapping.Extensions;
 using ProtonVPN.EntityMapping.Contracts;
 
 namespace ProtonVPN.Client.Logic.Connection.EntityMapping;
@@ -78,9 +79,9 @@ public class LocationIntentMapper : IMapper<ILocationIntent, SerializableLocatio
             : rightEntity.TypeName switch
             {
                 // Legacy types mapping
-                LEGACY_SERVER_LOCATION_INTENT => string.IsNullOrEmpty(rightEntity.Id)
-                    ? _entityMapper.Map<SerializableLocationIntent, MultiServerLocationIntent>(rightEntity)
-                    : _entityMapper.Map<SerializableLocationIntent, SingleServerLocationIntent>(rightEntity),
+                LEGACY_SERVER_LOCATION_INTENT => rightEntity.HasSingleServerData()
+                    ? _entityMapper.Map<SerializableLocationIntent, SingleServerLocationIntent>(rightEntity)
+                    : _entityMapper.Map<SerializableLocationIntent, MultiServerLocationIntent>(rightEntity),
                 LEGACY_CITY_LOCATION_INTENT => string.IsNullOrEmpty(rightEntity.City)
                     ? _entityMapper.Map<SerializableLocationIntent, MultiCityLocationIntent>(rightEntity)
                     : _entityMapper.Map<SerializableLocationIntent, SingleCityLocationIntent>(rightEntity),
@@ -90,9 +91,9 @@ public class LocationIntentMapper : IMapper<ILocationIntent, SerializableLocatio
                 LEGACY_COUNTRY_LOCATION_INTENT => string.IsNullOrEmpty(rightEntity.CountryCode)
                     ? _entityMapper.Map<SerializableLocationIntent, MultiCountryLocationIntent>(rightEntity)
                     : _entityMapper.Map<SerializableLocationIntent, SingleCountryLocationIntent>(rightEntity),
-                LEGACY_GATEWAY_SERVER_LOCATION_INTENT => string.IsNullOrEmpty(rightEntity.Id)
-                    ? _entityMapper.Map<SerializableLocationIntent, MultiGatewayServerLocationIntent>(rightEntity)
-                    : _entityMapper.Map<SerializableLocationIntent, SingleGatewayServerLocationIntent>(rightEntity),
+                LEGACY_GATEWAY_SERVER_LOCATION_INTENT => rightEntity.HasSingleGatewayServerData()
+                    ? _entityMapper.Map<SerializableLocationIntent, SingleGatewayServerLocationIntent>(rightEntity)
+                    : _entityMapper.Map<SerializableLocationIntent, MultiGatewayServerLocationIntent>(rightEntity),
                 LEGACY_GATEWAY_LOCATION_INTENT => string.IsNullOrEmpty(rightEntity.GatewayName)
                     ? _entityMapper.Map<SerializableLocationIntent, MultiGatewayLocationIntent>(rightEntity)
                     : _entityMapper.Map<SerializableLocationIntent, SingleGatewayLocationIntent>(rightEntity),
