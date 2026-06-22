@@ -68,14 +68,9 @@ public static class SerializableLocationIntentExtensions
         return SelectionStrategy.Fastest;
     }
 
-    public static bool HasSingleServerData(this SerializableLocationIntent intent)
+    public static bool HasLegacyId(this SerializableLocationIntent intent)
     {
-        return intent.Server.HasValue || !string.IsNullOrEmpty(intent.Id);
-    }
-
-    public static bool HasSingleGatewayServerData(this SerializableLocationIntent intent)
-    {
-        return intent.GatewayServer.HasValue || !string.IsNullOrEmpty(intent.Id);
+        return !string.IsNullOrEmpty(intent.Id);
     }
 
 #pragma warning restore CS0618
