@@ -18,6 +18,7 @@
  */
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Enums;
 using ProtonVPN.Client.Core.Services.Navigation;
@@ -42,7 +43,7 @@ using ProtonVPN.Client.UI.Main.Sidebar.Search.Contracts;
 namespace ProtonVPN.Client.UI.Main.Sidebar.Search;
 
 public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<ISidebarViewNavigator>,
-    ISearchInputReceiver, 
+    ISearchInputReceiver,
     IEventMessageReceiver<ConnectionStatusChangedMessage>,
     IEventMessageReceiver<ServerListChangedMessage>,
     IEventMessageReceiver<NewServerFoundMessage>,
@@ -56,6 +57,9 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     [ObservableProperty]
     private bool _hasSearchInput;
+
+    [ObservableProperty]
+    private bool _isBrowsingAllServers;
 
     [ObservableProperty]
     private ICountriesComponent _selectedCountriesComponent;
@@ -96,16 +100,17 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         base.OnLanguageChanged();
         OnPropertyChanged(nameof(ExampleCountries));
-        SearchAsync().Wait();
+        ReloadResultsAsync().Wait();
     }
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
-        SearchAsync().Wait();
+        ReloadResultsAsync().Wait();
     }
 
     public async Task SearchAsync(string input)
     {
+        IsBrowsingAllServers = false;
         _input = input;
         await SearchAsync();
     }
@@ -127,6 +132,36 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         }
     }
 
+    [RelayCommand]
+    private Task BrowseAllServersAsync()
+    {
+        _input = string.Empty;
+        IsBrowsingAllServers = true;
+        HasSearchInput = true;
+
+        ServerFeatures? serverFeatures = GetServerFeatures();
+        IEnumerable<Server> servers = serverFeatures is null
+            ? ServersLoader.GetServers()
+            : ServersLoader.GetServersByFeatures(serverFeatures.Value);
+
+        IEnumerable<ConnectionItemBase> result = servers
+            .Select(GetConnectionItemCreationFunction())
+            .Where(ci => ci is not null)
+            .Cast<ConnectionItemBase>();
+
+        SetSearchResult(result);
+        _serverFinder.Cancel();
+
+        return Task.CompletedTask;
+    }
+
+    private Task ReloadResultsAsync()
+    {
+        return IsBrowsingAllServers
+            ? BrowseAllServersAsync()
+            : SearchAsync();
+    }
+
     private async Task<IEnumerable<ConnectionItemBase>> SetSearchResultsAsync(string input)
     {
         IEnumerable<ConnectionItemBase> result = (await _globalSearch.SearchAsync(input, GetServerFeatures()))
@@ -140,7 +175,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void TriggerServerSearchTimerIfNecessary(string input, IEnumerable<ConnectionItemBase> result)
     {
-        if (!result.Where(r => r is ServerLocationItemBase slib && DoesInputMatchServerName(input, slib.Server.Name)).Any())
+        if (!result.OfType<ServerLocationItemBase>().Any())
         {
             _serverFinder.Search(input);
         }
@@ -148,16 +183,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         {
             _serverFinder.Cancel();
         }
-    }
-
-    private bool DoesInputMatchServerName(string input, string serverName)
-    {
-        return string.Equals(TrimServerName(input), TrimServerName(serverName), StringComparison.InvariantCultureIgnoreCase);
-    }
-
-    private string TrimServerName(string input)
-    {
-        return input.Replace("#", "").Replace("-", "").Replace(" ", "");
     }
 
     private ServerFeatures? GetServerFeatures()
@@ -282,9 +307,16 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         ExecuteOnUIThread(() =>
         {
-            InvalidateActiveConnection();
-            InvalidateMaintenanceStates();
-            InvalidateRestrictions();
+            if (IsBrowsingAllServers)
+            {
+                BrowseAllServersAsync().Wait();
+            }
+            else
+            {
+                InvalidateActiveConnection();
+                InvalidateMaintenanceStates();
+                InvalidateRestrictions();
+            }
         });
     }
 
@@ -304,6 +336,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     public void Receive(LocationNamesChangedMessage message)
     {
-        ExecuteOnUIThread(() => SearchAsync().Wait());
+        ExecuteOnUIThread(() => ReloadResultsAsync().Wait());
     }
 }
