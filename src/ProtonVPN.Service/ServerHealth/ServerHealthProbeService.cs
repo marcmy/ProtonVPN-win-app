@@ -77,24 +77,29 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
         }
 
         await _probeSlots.WaitAsync(cancellationToken);
-        SemaphoreSlim addressLock = _addressLocks.GetOrAdd(ipAddress.ToString(), _ => new SemaphoreSlim(1, 1));
-        await addressLock.WaitAsync(cancellationToken);
-
         try
         {
-            return await ProbeThroughPhysicalAdapterAsync(ipAddress, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            return CreateUnavailableResult("The direct server health check could not be completed.");
+            SemaphoreSlim addressLock = _addressLocks.GetOrAdd(ipAddress.ToString(), _ => new SemaphoreSlim(1, 1));
+            await addressLock.WaitAsync(cancellationToken);
+            try
+            {
+                return await ProbeThroughPhysicalAdapterAsync(ipAddress, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return CreateUnavailableResult("The direct server health check could not be completed.");
+            }
+            finally
+            {
+                addressLock.Release();
+            }
         }
         finally
         {
-            addressLock.Release();
             _probeSlots.Release();
         }
     }
