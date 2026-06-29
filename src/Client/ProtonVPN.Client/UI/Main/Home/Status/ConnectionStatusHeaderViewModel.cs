@@ -43,7 +43,7 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
     IEventMessageReceiver<SettingChangedMessage>
 {
     private const int REFRESH_TIMER_INTERVAL_IN_MS = 1000;
-    private const int HEALTH_REFRESH_TIMER_INTERVAL_IN_MS = 15000;
+    private const int HEALTH_REFRESH_TIMER_INTERVAL_IN_MS = 30000;
     private const int HEALTH_PROBE_SAMPLE_COUNT = 4;
 
     private readonly IDispatcherTimer _refreshTimer;
