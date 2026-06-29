@@ -18,6 +18,7 @@
  */
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Enums;
 using ProtonVPN.Client.Core.Services.Navigation;
@@ -26,6 +27,7 @@ using ProtonVPN.Client.Factories;
 using ProtonVPN.Client.Localization.Extensions;
 using ProtonVPN.Client.Logic.Connection.Contracts;
 using ProtonVPN.Client.Logic.Connection.Contracts.Messages;
+using ProtonVPN.Client.Logic.Connection.Contracts.Preferences;
 using ProtonVPN.Client.Logic.Searches.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts.Enums;
@@ -42,7 +44,7 @@ using ProtonVPN.Client.UI.Main.Sidebar.Search.Contracts;
 namespace ProtonVPN.Client.UI.Main.Sidebar.Search;
 
 public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<ISidebarViewNavigator>,
-    ISearchInputReceiver, 
+    ISearchInputReceiver,
     IEventMessageReceiver<ConnectionStatusChangedMessage>,
     IEventMessageReceiver<ServerListChangedMessage>,
     IEventMessageReceiver<NewServerFoundMessage>,
@@ -51,11 +53,15 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private readonly IGlobalSearch _globalSearch;
     private readonly ILocationItemFactory _locationItemFactory;
     private readonly IServerFinder _serverFinder;
+    private readonly IExclusionChecker _exclusionChecker;
 
     private string _input = string.Empty;
 
     [ObservableProperty]
     private bool _hasSearchInput;
+
+    [ObservableProperty]
+    private bool _isBrowsingAllServers;
 
     [ObservableProperty]
     private ICountriesComponent _selectedCountriesComponent;
@@ -76,7 +82,8 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         IConnectionGroupFactory connectionGroupFactory,
         IEnumerable<ICountriesComponent> countriesComponents,
         IViewModelHelper viewModelHelper,
-        IServerFinder serverFinder)
+        IServerFinder serverFinder,
+        IExclusionChecker exclusionChecker)
         : base(parentViewNavigator,
                settings,
                serversLoader,
@@ -87,6 +94,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         _globalSearch = globalSearch;
         _locationItemFactory = locationItemFactory;
         _serverFinder = serverFinder;
+        _exclusionChecker = exclusionChecker;
 
         CountriesComponents = new(countriesComponents.OrderBy(p => p.SortIndex));
         _selectedCountriesComponent = CountriesComponents.First();
@@ -96,16 +104,17 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         base.OnLanguageChanged();
         OnPropertyChanged(nameof(ExampleCountries));
-        SearchAsync().Wait();
+        ReloadResultsAsync().Wait();
     }
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
-        SearchAsync().Wait();
+        ReloadResultsAsync().Wait();
     }
 
     public async Task SearchAsync(string input)
     {
+        IsBrowsingAllServers = false;
         _input = input;
         await SearchAsync();
     }
@@ -127,9 +136,41 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         }
     }
 
+    [RelayCommand]
+    private Task BrowseAllServersAsync()
+    {
+        _input = string.Empty;
+        IsBrowsingAllServers = true;
+        HasSearchInput = true;
+
+        ServerFeatures? serverFeatures = GetServerFeatures();
+        IEnumerable<Server> servers = serverFeatures is null
+            ? ServersLoader.GetServers()
+            : ServersLoader.GetServersByFeatures(serverFeatures.Value);
+
+        IEnumerable<ConnectionItemBase> result = servers
+            .Where(server => !_exclusionChecker.IsServerExcluded(server))
+            .Select(GetConnectionItemCreationFunction())
+            .Where(ci => ci is not null)
+            .Cast<ConnectionItemBase>();
+
+        SetSearchResult(result);
+        _serverFinder.Cancel();
+
+        return Task.CompletedTask;
+    }
+
+    private Task ReloadResultsAsync()
+    {
+        return IsBrowsingAllServers
+            ? BrowseAllServersAsync()
+            : SearchAsync();
+    }
+
     private async Task<IEnumerable<ConnectionItemBase>> SetSearchResultsAsync(string input)
     {
         IEnumerable<ConnectionItemBase> result = (await _globalSearch.SearchAsync(input, GetServerFeatures()))
+            .Where(location => !IsLocationExcluded(location))
             .Select(GetConnectionItemCreationFunction())
             .Where(ci => ci is not null)
             .Cast<ConnectionItemBase>();
@@ -138,9 +179,21 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         return result;
     }
 
+    private bool IsLocationExcluded(ILocation location)
+    {
+        return location switch
+        {
+            Country country => _exclusionChecker.IsCountryExcluded(country),
+            State state => _exclusionChecker.IsStateExcluded(state),
+            City city => _exclusionChecker.IsCityExcluded(city),
+            Server server => _exclusionChecker.IsServerExcluded(server),
+            _ => false,
+        };
+    }
+
     private void TriggerServerSearchTimerIfNecessary(string input, IEnumerable<ConnectionItemBase> result)
     {
-        if (!result.Where(r => r is ServerLocationItemBase slib && DoesInputMatchServerName(input, slib.Server.Name)).Any())
+        if (!result.OfType<ServerLocationItemBase>().Any())
         {
             _serverFinder.Search(input);
         }
@@ -148,16 +201,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         {
             _serverFinder.Cancel();
         }
-    }
-
-    private bool DoesInputMatchServerName(string input, string serverName)
-    {
-        return string.Equals(TrimServerName(input), TrimServerName(serverName), StringComparison.InvariantCultureIgnoreCase);
-    }
-
-    private string TrimServerName(string input)
-    {
-        return input.Replace("#", "").Replace("-", "").Replace(" ", "");
     }
 
     private ServerFeatures? GetServerFeatures()
@@ -282,9 +325,16 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         ExecuteOnUIThread(() =>
         {
-            InvalidateActiveConnection();
-            InvalidateMaintenanceStates();
-            InvalidateRestrictions();
+            if (IsBrowsingAllServers)
+            {
+                BrowseAllServersAsync().Wait();
+            }
+            else
+            {
+                InvalidateActiveConnection();
+                InvalidateMaintenanceStates();
+                InvalidateRestrictions();
+            }
         });
     }
 
@@ -304,6 +354,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     public void Receive(LocationNamesChangedMessage message)
     {
-        ExecuteOnUIThread(() => SearchAsync().Wait());
+        ExecuteOnUIThread(() => ReloadResultsAsync().Wait());
     }
 }

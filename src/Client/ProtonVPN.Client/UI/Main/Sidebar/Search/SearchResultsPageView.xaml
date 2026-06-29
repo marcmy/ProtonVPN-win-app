@@ -90,6 +90,12 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                        Style="{ThemeResource BodyTextBlockStyle}"
                        Text="{x:Bind ViewModel.Localizer.Get('Search_NoInput_TrySearchingFor')}" />
 
+            <HyperlinkButton HorizontalAlignment="Left"
+                             AllowFocusOnInteraction="False"
+                             Command="{x:Bind ViewModel.BrowseAllServersCommand}"
+                             Content="Browse all servers"
+                             IsTabStop="False" />
+
             <StackPanel Orientation="Horizontal"
                         Spacing="12">
 
