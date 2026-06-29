@@ -123,10 +123,10 @@ public class ServerConnectionRowButton : ConnectionRowButtonBase
         _serverHealthControl.ServerLoad = ServerLoad;
         _serverHealthControl.Opacity = IsRestricted ? 0.6 : 1;
 
-        string? probeAddress = (DataContext as IServerHealthSource)?.HealthProbeAddress;
-        bool canProbe = !IsUnderMaintenance && !string.IsNullOrWhiteSpace(probeAddress);
+        IServerHealthSource? probeSource = DataContext as IServerHealthSource;
+        bool canProbe = !IsUnderMaintenance && !string.IsNullOrWhiteSpace(probeSource?.HealthProbeAddress);
 
         _serverHealthControl.Visibility = canProbe ? Visibility.Visible : Visibility.Collapsed;
-        _serverHealthControl.ProbeAddress = canProbe ? probeAddress : null;
+        _serverHealthControl.ProbeSource = canProbe ? probeSource : null;
     }
 }

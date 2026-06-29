@@ -27,10 +27,13 @@ using ProtonVPN.Client.Logic.Connection.Contracts.Models;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations.GatewayServers;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations.Servers;
+using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts.Enums;
 using ProtonVPN.Client.Logic.Servers.Contracts.Extensions;
 using ProtonVPN.Client.Logic.Servers.Contracts.Models;
+using ProtonVPN.Common.Legacy.Abstract;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
 
 namespace ProtonVPN.Client.Models.Connections;
@@ -106,6 +109,58 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>, IServer
         LocationIntent = string.IsNullOrEmpty(Server.GatewayName)
             ? SingleServerLocationIntent.From(Server.ExitCountry, Server.State, Server.City, ServerInfo.From(Server.Id, Server.Name))
             : SingleGatewayServerLocationIntent.From(Server.GatewayName, GatewayServerInfo.From(Server.Id, Server.Name, Server.ExitCountry));
+    }
+
+    public async Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken)
+    {
+        string? address = HealthProbeAddress;
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            return CreateUnavailableMeasurement("No probe address is available for this server.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        Result<ServerHealthProbeResultIpcEntity> result = await ProtonVPN.Client.App
+            .GetService<IVpnServiceCaller>()
+            .ProbeServerHealthAsync(new ServerHealthProbeRequestIpcEntity
+            {
+                Address = address,
+            });
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!result.Success)
+        {
+            return CreateUnavailableMeasurement(
+                string.IsNullOrWhiteSpace(result.Error)
+                    ? "The VPN service did not complete the direct health check."
+                    : result.Error);
+        }
+
+        ServerHealthProbeResultIpcEntity response = result.Value;
+        DateTime checkedAtUtc = DateTime.SpecifyKind(response.CheckedAtUtc, DateTimeKind.Utc);
+
+        return new ServerHealthProbeMeasurement(
+            response.AverageLatencyMilliseconds,
+            response.PacketLossPercent,
+            response.SuccessfulSamples,
+            response.TotalSamples,
+            new DateTimeOffset(checkedAtUtc),
+            response.UsedPhysicalRoute,
+            response.Error);
+    }
+
+    private static ServerHealthProbeMeasurement CreateUnavailableMeasurement(string error)
+    {
+        return new(
+            null,
+            100,
+            0,
+            4,
+            DateTimeOffset.UtcNow,
+            false,
+            error);
     }
 
     protected override bool MatchesActiveConnection(ConnectionDetails? currentConnectionDetails)

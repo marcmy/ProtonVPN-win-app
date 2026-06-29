@@ -43,6 +43,7 @@ using ProtonVPN.Service.ControllerRetries;
 using ProtonVPN.Service.Driver;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.ProcessCommunication;
+using ProtonVPN.Service.ServerHealth;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Service.SplitTunneling;
 using ProtonVPN.Service.Update;
@@ -85,6 +86,7 @@ internal class ServiceModule : Module
 
         builder.RegisterType<IpFilter>().AsImplementedInterfaces().AsSelf().SingleInstance();
         builder.RegisterType<IpLayer>().AsSelf().SingleInstance();
+        builder.RegisterType<ServerHealthProbeService>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SplitTunnel>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SystemProcesses>().As<IOsProcesses>().SingleInstance();
         builder.RegisterType<PermittedRemoteAddress>().AsImplementedInterfaces().SingleInstance();
@@ -129,15 +131,15 @@ internal class ServiceModule : Module
                 new QueuingRequestsWrapper(
                     c.Resolve<ITaskQueue>(),
                     new Ipv6HandlingWrapper(
-                        c.Resolve<IIpv6>(),
-                        c.Resolve<ILogger>(),
-                        c.Resolve<IFirewall>(),
-                        c.Resolve<IServiceSettings>(),
-                        c.Resolve<IFakeIPv6AddressGenerator>(),
-                        c.Resolve<ICommandLineCaller>(),
-                        c.Resolve<INetworkInterfaceLoader>(),
-                        c.Resolve<ISystemNetworkInterfaces>(),
-                        c.Resolve<IObservableNetworkInterfaces>(),
-                        connection)))); 
+                    c.Resolve<IIpv6>(),
+                    c.Resolve<ILogger>(),
+                    c.Resolve<IFirewall>(),
+                    c.Resolve<IServiceSettings>(),
+                    c.Resolve<IFakeIPv6AddressGenerator>(),
+                    c.Resolve<ICommandLineCaller>(),
+                    c.Resolve<INetworkInterfaceLoader>(),
+                    c.Resolve<ISystemNetworkInterfaces>(),
+                    c.Resolve<IObservableNetworkInterfaces>(),
+                    connection)))); 
     }
 }

@@ -28,59 +28,219 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
              x:DefaultBindMode="OneWay"
              mc:Ignorable="d">
 
-    <Grid ColumnSpacing="8">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+    <StackPanel Spacing="10">
 
-        <Grid Grid.Column="0"
-              Margin="0,-2,0,2">
+        <Grid Visibility="{x:Bind UseSimplifiedVersion, Converter={StaticResource NotBooleanToVisibilityConverter}}">
 
-            <ProgressRing x:Name="LoadingSpinner"
-                          Width="20"
-                          Height="20"
-                          IsActive="False" />
+            <Border x:Name="CurrentServerHealthPanel"
+                    Padding="14,12"
+                    Background="{ThemeResource BackgroundNormColorBrush}"
+                    BorderBrush="{ThemeResource BorderWeakColorBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Visibility="{x:Bind ViewModel.IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}">
 
-            <pathIcons:LockOpenFilled2 x:Name="UnprotectedIcon"
-                                       Foreground="{ThemeResource SignalDangerColorBrush}"
-                                       Visibility="Collapsed" />
+                <Grid RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-            <pathIcons:LockFilled x:Name="ProtectedIcon"
-                                  Foreground="{ThemeResource VpnGreenColorBrush}"
-                                  Visibility="Collapsed" />
+                    <Grid Grid.Row="0"
+                          ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-            <Image x:Name="NoWiFiIcon"
-                   Width="22"
-                   Height="20"
-                   Source="{StaticResource NoWiFiIconSource}"
-                   Visibility="Collapsed" />
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                   Text="Current server health" />
 
+                        <TextBlock Grid.Column="1"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextWeakColorBrush}"
+                                   Style="{ThemeResource BodyTextBlockStyle}"
+                                   Text="{x:Bind ViewModel.CurrentServerName}"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <Border x:Name="HealthGradePill"
+                                Grid.Column="2"
+                                Padding="8,3"
+                                Background="{ThemeResource BackgroundWeakColorBrush}"
+                                CornerRadius="8">
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="5">
+                                <ProgressRing x:Name="HealthRefreshSpinner"
+                                              Width="12"
+                                              Height="12"
+                                              IsActive="False"
+                                              Visibility="Collapsed" />
+                                <TextBlock x:Name="HealthGradeText"
+                                           VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextWeakColorBrush}"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                           Text="{x:Bind ViewModel.HealthGrade}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="1"
+                          ColumnSpacing="18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0"
+                                    Height="30"
+                                    VerticalAlignment="Center"
+                                    Orientation="Horizontal"
+                                    Spacing="3">
+                            <Border x:Name="HealthBar1"
+                                    Width="7"
+                                    Height="8"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource TextWeakColorBrush}"
+                                    CornerRadius="2"
+                                    Opacity="0.2" />
+                            <Border x:Name="HealthBar2"
+                                    Width="7"
+                                    Height="14"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource TextWeakColorBrush}"
+                                    CornerRadius="2"
+                                    Opacity="0.2" />
+                            <Border x:Name="HealthBar3"
+                                    Width="7"
+                                    Height="21"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource TextWeakColorBrush}"
+                                    CornerRadius="2"
+                                    Opacity="0.2" />
+                            <Border x:Name="HealthBar4"
+                                    Width="7"
+                                    Height="28"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource TextWeakColorBrush}"
+                                    CornerRadius="2"
+                                    Opacity="0.2" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="1">
+                            <TextBlock Style="{ThemeResource BodyLargeStrongTextBlockStyle}"
+                                       Text="{x:Bind ViewModel.HealthLatency}" />
+                            <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
+                                       Style="{ThemeResource BodyTextBlockStyle}"
+                                       Text="Latency" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2"
+                                    MinWidth="72"
+                                    VerticalAlignment="Center"
+                                    Spacing="1">
+                            <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                       Text="{x:Bind ViewModel.HealthPacketLoss}" />
+                            <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
+                                       Style="{ThemeResource BodyTextBlockStyle}"
+                                       Text="Packet loss" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="3"
+                                    MinWidth="54"
+                                    VerticalAlignment="Center"
+                                    Spacing="1">
+                            <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                       Text="{x:Bind ViewModel.HealthLoad}" />
+                            <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
+                                       Style="{ThemeResource BodyTextBlockStyle}"
+                                       Text="Load" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="2"
+                          ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Foreground="{ThemeResource TextWeakColorBrush}"
+                                   Style="{ThemeResource BodyTextBlockStyle}"
+                                   Text="{x:Bind ViewModel.HealthRoute}"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <TextBlock Grid.Column="1"
+                                   Foreground="{ThemeResource TextWeakColorBrush}"
+                                   Style="{ThemeResource BodyTextBlockStyle}"
+                                   Text="{x:Bind ViewModel.HealthLastChecked}" />
+                    </Grid>
+                </Grid>
+            </Border>
         </Grid>
 
-        <TextBlock x:Name="ProtectionTitle"
-                   Grid.Row="0"
-                   Grid.Column="1"
-                   AutomationProperties.AutomationId="ProtectionTitle"
-                   AutomationProperties.Name="{x:Bind ViewModel.ProtectionTitle}"
-                   Foreground="{ThemeResource TextNormColorBrush}"
-                   Style="{ThemeResource BodyStrongTextBlockStyle}"
-                   Text="{x:Bind ViewModel.ProtectionTitle}" />
+        <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-        <TextBlock x:Name="ProtectionDescription"
-                   Grid.Row="0"
-                   Grid.Column="2"
-                   AutomationProperties.AutomationId="ProtectionDescription"
-                   AutomationProperties.Name="{x:Bind ViewModel.ProtectionDescription}"
-                   Foreground="{ThemeResource TextWeakColorBrush}"
-                   Style="{ThemeResource BodyTextBlockStyle}"
-                   TextTrimming="CharacterEllipsis"
-                   TextWrapping="NoWrap"
-                   Visibility="{x:Bind UseSimplifiedVersion, Converter={StaticResource NotBooleanToVisibilityConverter}}">
-            <Run Text="• " />
-            <Run Text="{x:Bind ViewModel.ProtectionDescription}" />
-        </TextBlock>
+            <Grid Grid.Column="0"
+                  Margin="0,-2,0,2">
+
+                <ProgressRing x:Name="LoadingSpinner"
+                              Width="20"
+                              Height="20"
+                              IsActive="False" />
+
+                <pathIcons:LockOpenFilled2 x:Name="UnprotectedIcon"
+                                           Foreground="{ThemeResource SignalDangerColorBrush}"
+                                           Visibility="Collapsed" />
+
+                <pathIcons:LockFilled x:Name="ProtectedIcon"
+                                      Foreground="{ThemeResource VpnGreenColorBrush}"
+                                      Visibility="Collapsed" />
+
+                <Image x:Name="NoWiFiIcon"
+                       Width="22"
+                       Height="20"
+                       Source="{StaticResource NoWiFiIconSource}"
+                       Visibility="Collapsed" />
+
+            </Grid>
+
+            <TextBlock x:Name="ProtectionTitle"
+                       Grid.Row="0"
+                       Grid.Column="1"
+                       AutomationProperties.AutomationId="ProtectionTitle"
+                       AutomationProperties.Name="{x:Bind ViewModel.ProtectionTitle}"
+                       Foreground="{ThemeResource TextNormColorBrush}"
+                       Style="{ThemeResource BodyStrongTextBlockStyle}"
+                       Text="{x:Bind ViewModel.ProtectionTitle}" />
+
+            <TextBlock x:Name="ProtectionDescription"
+                       Grid.Row="0"
+                       Grid.Column="2"
+                       AutomationProperties.AutomationId="ProtectionDescription"
+                       AutomationProperties.Name="{x:Bind ViewModel.ProtectionDescription}"
+                       Foreground="{ThemeResource TextWeakColorBrush}"
+                       Style="{ThemeResource BodyTextBlockStyle}"
+                       TextTrimming="CharacterEllipsis"
+                       TextWrapping="NoWrap"
+                       Visibility="{x:Bind UseSimplifiedVersion, Converter={StaticResource NotBooleanToVisibilityConverter}}">
+                <Run Text="• " />
+                <Run Text="{x:Bind ViewModel.ProtectionDescription}" />
+            </TextBlock>
+        </Grid>
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="ConnectionStates">
@@ -95,7 +255,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                         <Setter Target="NoWiFiIcon.Visibility" Value="Visible" />
                     </VisualState.Setters>
                 </VisualState>
-                
+
                 <VisualState x:Name="Connecting">
                     <VisualState.StateTriggers>
                         <StateTrigger IsActive="{x:Bind ViewModel.IsConnecting}" />
@@ -129,7 +289,84 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                 <VisualState x:Name="Default" />
 
             </VisualStateGroup>
+
+            <VisualStateGroup x:Name="HealthStates">
+                <VisualState x:Name="HealthChecking">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsHealthChecking}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HealthRefreshSpinner.IsActive" Value="True" />
+                        <Setter Target="HealthRefreshSpinner.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="HealthUnavailable">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsHealthUnavailable}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HealthGradeText.Foreground" Value="{ThemeResource TextWeakColorBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="HealthPoor">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsHealthPoor}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HealthGradeText.Foreground" Value="{ThemeResource SignalDangerColorBrush}" />
+                        <Setter Target="HealthBar1.Background" Value="{ThemeResource SignalDangerColorBrush}" />
+                        <Setter Target="HealthBar1.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="HealthFair">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsHealthFair}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HealthGradeText.Foreground" Value="{ThemeResource SignalWarningColorBrush}" />
+                        <Setter Target="HealthBar1.Background" Value="{ThemeResource SignalWarningColorBrush}" />
+                        <Setter Target="HealthBar2.Background" Value="{ThemeResource SignalWarningColorBrush}" />
+                        <Setter Target="HealthBar1.Opacity" Value="1" />
+                        <Setter Target="HealthBar2.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="HealthGood">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsHealthGood}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HealthGradeText.Foreground" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar1.Background" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar2.Background" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar3.Background" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar1.Opacity" Value="1" />
+                        <Setter Target="HealthBar2.Opacity" Value="1" />
+                        <Setter Target="HealthBar3.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="HealthExcellent">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsHealthExcellent}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HealthGradeText.Foreground" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar1.Background" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar2.Background" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar3.Background" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar4.Background" Value="{ThemeResource SignalSuccessColorBrush}" />
+                        <Setter Target="HealthBar1.Opacity" Value="1" />
+                        <Setter Target="HealthBar2.Opacity" Value="1" />
+                        <Setter Target="HealthBar3.Opacity" Value="1" />
+                        <Setter Target="HealthBar4.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
-    </Grid>
+    </StackPanel>
 
 </UserControl>
