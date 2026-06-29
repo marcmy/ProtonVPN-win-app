@@ -36,19 +36,24 @@ function ConvertTo-QuotedProcessArgument {
 }
 
 function Restart-Elevated {
+    $elevatedPatchPath = $PatchPath
+    if (-not [string]::IsNullOrWhiteSpace($elevatedPatchPath)) {
+        $elevatedPatchPath = [System.IO.Path]::GetFullPath($elevatedPatchPath)
+    }
+
     $argumentList = @(
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
         '-File', (ConvertTo-QuotedProcessArgument -Value $PSCommandPath)
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($PatchPath)) {
+    if (-not [string]::IsNullOrWhiteSpace($elevatedPatchPath)) {
         $argumentList += '-PatchPath'
-        $argumentList += ConvertTo-QuotedProcessArgument -Value $PatchPath
+        $argumentList += ConvertTo-QuotedProcessArgument -Value $elevatedPatchPath
     }
 
     $argumentList += '-InstallRoot'
-    $argumentList += ConvertTo-QuotedProcessArgument -Value $InstallRoot
+    $argumentList += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($InstallRoot))
 
     if (-not [string]::IsNullOrWhiteSpace($TargetVersion)) {
         $argumentList += '-TargetVersion'
@@ -56,7 +61,7 @@ function Restart-Elevated {
     }
 
     $argumentList += '-BackupRoot'
-    $argumentList += ConvertTo-QuotedProcessArgument -Value $BackupRoot
+    $argumentList += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($BackupRoot))
 
     if ($NoRestart) {
         $argumentList += '-NoRestart'
@@ -81,13 +86,13 @@ function Get-VersionSortValue {
         [System.IO.DirectoryInfo] $Directory
     )
 
-    $versionText = $Directory.Name.TrimStart('v', 'V')
-    $parsedVersion = New-Object Version(0, 0)
+    $versionText = $Directory.Name.TrimStart([char[]] @('v', 'V'))
+    $parsedVersion = [Version]::new(0, 0)
     if ([Version]::TryParse($versionText, [ref] $parsedVersion)) {
         return $parsedVersion
     }
 
-    return New-Object Version(0, 0)
+    return [Version]::new(0, 0)
 }
 
 function Resolve-TargetDirectory {
@@ -189,7 +194,7 @@ function Resolve-PayloadRoot {
     )
 
     if ($recursiveMarkers.Count -eq 0) {
-        throw "The patch does not contain any expected Proton VPN payload files."
+        throw 'The patch does not contain any expected Proton VPN payload files.'
     }
 
     $candidateRoots = @(
@@ -219,10 +224,11 @@ function Invoke-Robocopy {
         [string[]] $ExcludedFiles = @()
     )
 
+    $copyMode = if ($Mirror) { '/MIR' } else { '/E' }
     $arguments = @(
         $Source,
         $Destination,
-        $(if ($Mirror) { '/MIR' } else { '/E' }),
+        $copyMode,
         '/COPY:DAT',
         '/DCOPY:DAT',
         '/R:2',
@@ -371,7 +377,7 @@ try {
         Write-Host 'Patch installed successfully.' -ForegroundColor Green
     }
 } catch {
-    Write-Error $_
+    Write-Error -Message $_.Exception.Message -ErrorAction Continue
 
     if ($backupCompleted -and -not $installCompleted -and $targetDirectory -and $backupDirectory) {
         Write-Warning 'Patch installation failed. Restoring the backup automatically...'
@@ -379,7 +385,9 @@ try {
             Invoke-Robocopy -Source $backupDirectory -Destination $targetDirectory -Mirror
             Write-Host 'Backup restored successfully.' -ForegroundColor Yellow
         } catch {
-            Write-Error "Automatic rollback failed. The backup remains at '$backupDirectory'. $($_.Exception.Message)"
+            Write-Error `
+                -Message "Automatic rollback failed. The backup remains at '$backupDirectory'. $($_.Exception.Message)" `
+                -ErrorAction Continue
         }
     }
 
