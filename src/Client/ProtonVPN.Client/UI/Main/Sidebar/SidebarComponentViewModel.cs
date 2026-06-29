@@ -87,7 +87,13 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
 
     public void ClearSearch()
     {
+        bool wasAlreadyEmpty = string.IsNullOrEmpty(SearchText);
         SearchText = string.Empty;
+
+        if (wasAlreadyEmpty)
+        {
+            _searchInputReceiver.SearchAsync(string.Empty).Wait();
+        }
     }
 
     public void OnSearchTextBoxGotFocus(object sender, RoutedEventArgs _)
@@ -100,7 +106,9 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
 
     public void OnSearchTextBoxLostFocus(object sender, RoutedEventArgs _)
     {
-        if (sender is TextBox && string.IsNullOrWhiteSpace(SearchText))
+        if (sender is TextBox
+            && string.IsNullOrWhiteSpace(SearchText)
+            && !_searchInputReceiver.IsBrowsingAllServers)
         {
             _serverFinder.ClearSearchBlock();
             ChildViewNavigator.NavigateToConnectionsViewAsync();
