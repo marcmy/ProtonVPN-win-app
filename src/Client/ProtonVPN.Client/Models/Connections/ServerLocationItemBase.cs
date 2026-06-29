@@ -18,6 +18,7 @@
  */
 
 using ProtonVPN.Client.Common.Extensions;
+using ProtonVPN.Client.Common.UI.Controls;
 using ProtonVPN.Client.Contracts.Enums;
 using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Localization.Contracts;
@@ -34,7 +35,7 @@ using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
 
 namespace ProtonVPN.Client.Models.Connections;
 
-public abstract class ServerLocationItemBase : LocationItemBase<Server>
+public abstract class ServerLocationItemBase : LocationItemBase<Server>, IServerHealthSource
 {
     public Server Server { get; }
 
@@ -52,6 +53,11 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>
                 : null;
 
     public double Load => Server.Load / 100d;
+
+    public string? HealthProbeAddress => Server.Servers
+        .Select(physicalServer => physicalServer.EntryIp)
+        .Concat(Server.Servers.SelectMany(physicalServer => physicalServer.RelayIpByProtocol.Values))
+        .FirstOrDefault(ipAddress => !string.IsNullOrWhiteSpace(ipAddress));
 
     public override object FirstSortProperty => IsUnderMaintenance;
 
