@@ -17,7 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Text.RegularExpressions;
 using ProtonVPN.Client.Localization.Contracts;
 using ProtonVPN.Client.Localization.Extensions;
 using ProtonVPN.Client.Logic.Searches.Contracts;
@@ -27,12 +26,8 @@ using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 
 namespace ProtonVPN.Client.Logic.Searches;
 
-public partial class GlobalSearch : IGlobalSearch
+public class GlobalSearch : IGlobalSearch
 {
-    [GeneratedRegex(@"^.{2,}(#\d*|\d+)$")]
-    private static partial Regex GenerateCompileTimeRegex();
-    private readonly Regex _serverSearchTriggerRegex = GenerateCompileTimeRegex();
-
     private readonly IServersLoader _serversLoader;
     //private readonly IProfilesManager _profilesManager;
     private readonly ILocalizationProvider _localizer;
@@ -47,7 +42,7 @@ public partial class GlobalSearch : IGlobalSearch
     }
 
     public async Task<List<ILocation>> SearchAsync(
-        string? input, 
+        string? input,
         ServerFeatures? serverFeatures = null,
         SearchCategory categories = SearchCategory.All)
     {
@@ -58,7 +53,7 @@ public partial class GlobalSearch : IGlobalSearch
             return [];
         }
 
-        Task<IEnumerable<ILocation>> serversTask = categories.HasFlag(SearchCategory.Servers) && _serverSearchTriggerRegex.IsMatch(input)
+        Task<IEnumerable<ILocation>> serversTask = categories.HasFlag(SearchCategory.Servers)
             ? Task.Run(() => SearchServers(input, serverFeatures))
             : Task.FromResult<IEnumerable<ILocation>>([]);
 
@@ -99,7 +94,45 @@ public partial class GlobalSearch : IGlobalSearch
         IEnumerable<Server> servers = serverFeatures is null
             ? _serversLoader.GetServers()
             : _serversLoader.GetServersByFeatures(serverFeatures.Value);
-        return servers.Where(s => SearchMatcher.MatchesServer(s, input));
+
+        bool isServerNameSearch = IsServerNameSearch(input);
+        string? serverNumberInput = GetServerNumberInput(input);
+
+        return servers.Where(server =>
+            (isServerNameSearch && SearchMatcher.MatchesServer(server, input))
+            || (serverNumberInput is not null && MatchesServerNumber(server.Name, serverNumberInput))
+            || MatchesServerLocation(server, input));
+    }
+
+    private bool MatchesServerLocation(Server server, string input)
+    {
+        return SearchMatcher.Equals(_localizer.GetCountryName(server.ExitCountry), input)
+            || SearchMatcher.Equals(_localizer.GetCityName(server.City, server.ExitCountry), input)
+            || (!string.IsNullOrWhiteSpace(server.State)
+                && SearchMatcher.Equals(_localizer.GetStateName(server.State, server.ExitCountry), input));
+    }
+
+    private static bool IsServerNameSearch(string input)
+    {
+        return input.Contains('#')
+            || input.Contains('-')
+            || input.Any(char.IsDigit);
+    }
+
+    private static string? GetServerNumberInput(string input)
+    {
+        string serverNumberInput = input.TrimStart('#');
+        return serverNumberInput.Length > 0 && serverNumberInput.All(char.IsDigit)
+            ? serverNumberInput
+            : null;
+    }
+
+    private static bool MatchesServerNumber(string serverName, string serverNumberInput)
+    {
+        int separatorIndex = serverName.LastIndexOf('#');
+        return separatorIndex >= 0
+            && separatorIndex < serverName.Length - 1
+            && serverName[(separatorIndex + 1)..].StartsWith(serverNumberInput, StringComparison.InvariantCultureIgnoreCase);
     }
 
     private IEnumerable<ILocation> SearchCities(string input, ServerFeatures? serverFeatures)
