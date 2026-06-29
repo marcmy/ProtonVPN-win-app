@@ -26,7 +26,6 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.NetworkFilter;
 using ProtonVPN.OperatingSystems.Network.Contracts;
@@ -36,6 +35,7 @@ using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.Settings;
 using FilterAction = ProtonVPN.NetworkFilter.Action;
 using FilterNetworkAddress = ProtonVPN.NetworkFilter.NetworkAddress;
+using NetworkAddress = ProtonVPN.Common.Core.Networking.NetworkAddress;
 using ServiceIpFilter = ProtonVPN.Service.Firewall.IpFilter;
 
 namespace ProtonVPN.Service.ServerHealth;
