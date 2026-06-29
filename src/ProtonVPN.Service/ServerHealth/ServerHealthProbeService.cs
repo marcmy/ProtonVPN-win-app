@@ -76,7 +76,7 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
         string address,
         CancellationToken cancellationToken)
     {
-        if (!IPAddress.TryParse(address, out IPAddress? ipAddress) ||
+        if (!IPAddress.TryParse(address, out IPAddress ipAddress) ||
             ipAddress.AddressFamily != AddressFamily.InterNetwork)
         {
             return CreateUnavailableResult("Only IPv4 server endpoints can currently be probed directly.");
