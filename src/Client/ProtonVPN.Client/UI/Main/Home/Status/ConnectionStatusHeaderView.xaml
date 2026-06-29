@@ -28,19 +28,21 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
              x:DefaultBindMode="OneWay"
              mc:Ignorable="d">
 
-    <StackPanel Spacing="10">
+    <StackPanel Spacing="6">
 
         <Grid Visibility="{x:Bind UseSimplifiedVersion, Converter={StaticResource NotBooleanToVisibilityConverter}}">
 
             <Border x:Name="CurrentServerHealthPanel"
-                    Padding="14,12"
+                    MaxWidth="660"
+                    Padding="12,8"
+                    HorizontalAlignment="Center"
                     Background="{ThemeResource BackgroundNormColorBrush}"
                     BorderBrush="{ThemeResource BorderWeakColorBrush}"
                     BorderThickness="1"
-                    CornerRadius="10"
+                    CornerRadius="8"
                     Visibility="{x:Bind ViewModel.IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}">
 
-                <Grid RowSpacing="12">
+                <Grid RowSpacing="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -48,7 +50,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0"
-                          ColumnSpacing="8">
+                          ColumnSpacing="6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -69,14 +71,14 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
 
                         <Border x:Name="HealthGradePill"
                                 Grid.Column="2"
-                                Padding="8,3"
+                                Padding="7,2"
                                 Background="{ThemeResource BackgroundWeakColorBrush}"
-                                CornerRadius="8">
+                                CornerRadius="7">
                             <StackPanel Orientation="Horizontal"
-                                        Spacing="5">
+                                        Spacing="4">
                                 <ProgressRing x:Name="HealthRefreshSpinner"
-                                              Width="12"
-                                              Height="12"
+                                              Width="10"
+                                              Height="10"
                                               IsActive="False"
                                               Visibility="Collapsed" />
                                 <TextBlock x:Name="HealthGradeText"
@@ -89,7 +91,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                     </Grid>
 
                     <Grid Grid.Row="1"
-                          ColumnSpacing="18">
+                          ColumnSpacing="14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -98,89 +100,90 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0"
-                                    Height="30"
+                                    Height="25"
                                     VerticalAlignment="Center"
                                     Orientation="Horizontal"
-                                    Spacing="3">
+                                    Spacing="2">
                             <Border x:Name="HealthBar1"
-                                    Width="7"
-                                    Height="8"
+                                    Width="5"
+                                    Height="7"
                                     VerticalAlignment="Bottom"
                                     Background="{ThemeResource TextWeakColorBrush}"
-                                    CornerRadius="2"
+                                    CornerRadius="1"
                                     Opacity="0.2" />
                             <Border x:Name="HealthBar2"
-                                    Width="7"
-                                    Height="14"
+                                    Width="5"
+                                    Height="12"
                                     VerticalAlignment="Bottom"
                                     Background="{ThemeResource TextWeakColorBrush}"
-                                    CornerRadius="2"
+                                    CornerRadius="1"
                                     Opacity="0.2" />
                             <Border x:Name="HealthBar3"
-                                    Width="7"
-                                    Height="21"
+                                    Width="5"
+                                    Height="18"
                                     VerticalAlignment="Bottom"
                                     Background="{ThemeResource TextWeakColorBrush}"
-                                    CornerRadius="2"
+                                    CornerRadius="1"
                                     Opacity="0.2" />
                             <Border x:Name="HealthBar4"
-                                    Width="7"
-                                    Height="28"
+                                    Width="5"
+                                    Height="24"
                                     VerticalAlignment="Bottom"
                                     Background="{ThemeResource TextWeakColorBrush}"
-                                    CornerRadius="2"
+                                    CornerRadius="1"
                                     Opacity="0.2" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1"
                                     VerticalAlignment="Center"
-                                    Spacing="1">
-                            <TextBlock Style="{ThemeResource BodyLargeStrongTextBlockStyle}"
+                                    Spacing="0">
+                            <TextBlock FontSize="16"
+                                       FontWeight="SemiBold"
                                        Text="{x:Bind ViewModel.HealthLatency}" />
-                            <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
-                                       Style="{ThemeResource BodyTextBlockStyle}"
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextWeakColorBrush}"
                                        Text="Latency" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="2"
-                                    MinWidth="72"
+                                    MinWidth="66"
                                     VerticalAlignment="Center"
-                                    Spacing="1">
+                                    Spacing="0">
                             <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}"
                                        Text="{x:Bind ViewModel.HealthPacketLoss}" />
-                            <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
-                                       Style="{ThemeResource BodyTextBlockStyle}"
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextWeakColorBrush}"
                                        Text="Packet loss" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="3"
-                                    MinWidth="54"
+                                    MinWidth="44"
                                     VerticalAlignment="Center"
-                                    Spacing="1">
+                                    Spacing="0">
                             <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}"
                                        Text="{x:Bind ViewModel.HealthLoad}" />
-                            <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
-                                       Style="{ThemeResource BodyTextBlockStyle}"
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextWeakColorBrush}"
                                        Text="Load" />
                         </StackPanel>
                     </Grid>
 
                     <Grid Grid.Row="2"
-                          ColumnSpacing="12">
+                          ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0"
+                                   FontSize="12"
                                    Foreground="{ThemeResource TextWeakColorBrush}"
-                                   Style="{ThemeResource BodyTextBlockStyle}"
                                    Text="{x:Bind ViewModel.HealthRoute}"
                                    TextTrimming="CharacterEllipsis" />
 
                         <TextBlock Grid.Column="1"
+                                   FontSize="12"
                                    Foreground="{ThemeResource TextWeakColorBrush}"
-                                   Style="{ThemeResource BodyTextBlockStyle}"
                                    Text="{x:Bind ViewModel.HealthLastChecked}" />
                     </Grid>
                 </Grid>
