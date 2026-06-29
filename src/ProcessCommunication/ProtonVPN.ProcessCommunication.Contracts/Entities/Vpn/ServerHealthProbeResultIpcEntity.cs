@@ -43,5 +43,5 @@ public class ServerHealthProbeResultIpcEntity
     public bool UsedPhysicalRoute { get; set; }
 
     [DataMember(Order = 7, IsRequired = false)]
-    public string? Error { get; set; }
+    public string Error { get; set; }
 }
