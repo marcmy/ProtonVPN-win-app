@@ -17,10 +17,15 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.NetworkFilter;
@@ -31,6 +36,7 @@ using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.Settings;
 using FilterAction = ProtonVPN.NetworkFilter.Action;
 using FilterNetworkAddress = ProtonVPN.NetworkFilter.NetworkAddress;
+using ServiceIpFilter = ProtonVPN.Service.Firewall.IpFilter;
 
 namespace ProtonVPN.Service.ServerHealth;
 
@@ -45,7 +51,7 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
     private readonly IServiceSettings _serviceSettings;
     private readonly ISystemNetworkInterfaces _networkInterfaces;
     private readonly IRoutingTableHelper _routingTableHelper;
-    private readonly IpFilter _ipFilter;
+    private readonly ServiceIpFilter _ipFilter;
     private readonly IpLayer _ipLayer;
     private readonly SemaphoreSlim _probeSlots = new(8, 8);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _addressLocks = new(StringComparer.OrdinalIgnoreCase);
@@ -55,7 +61,7 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
         IServiceSettings serviceSettings,
         ISystemNetworkInterfaces networkInterfaces,
         IRoutingTableHelper routingTableHelper,
-        IpFilter ipFilter,
+        ServiceIpFilter ipFilter,
         IpLayer ipLayer)
     {
         _configuration = configuration;
