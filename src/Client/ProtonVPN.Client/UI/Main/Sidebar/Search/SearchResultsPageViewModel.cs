@@ -27,6 +27,7 @@ using ProtonVPN.Client.Factories;
 using ProtonVPN.Client.Localization.Extensions;
 using ProtonVPN.Client.Logic.Connection.Contracts;
 using ProtonVPN.Client.Logic.Connection.Contracts.Messages;
+using ProtonVPN.Client.Logic.Connection.Contracts.Preferences;
 using ProtonVPN.Client.Logic.Searches.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts.Enums;
@@ -52,6 +53,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private readonly IGlobalSearch _globalSearch;
     private readonly ILocationItemFactory _locationItemFactory;
     private readonly IServerFinder _serverFinder;
+    private readonly IExclusionChecker _exclusionChecker;
 
     private string _input = string.Empty;
 
@@ -80,7 +82,8 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         IConnectionGroupFactory connectionGroupFactory,
         IEnumerable<ICountriesComponent> countriesComponents,
         IViewModelHelper viewModelHelper,
-        IServerFinder serverFinder)
+        IServerFinder serverFinder,
+        IExclusionChecker exclusionChecker)
         : base(parentViewNavigator,
                settings,
                serversLoader,
@@ -91,6 +94,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         _globalSearch = globalSearch;
         _locationItemFactory = locationItemFactory;
         _serverFinder = serverFinder;
+        _exclusionChecker = exclusionChecker;
 
         CountriesComponents = new(countriesComponents.OrderBy(p => p.SortIndex));
         _selectedCountriesComponent = CountriesComponents.First();
@@ -145,6 +149,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
             : ServersLoader.GetServersByFeatures(serverFeatures.Value);
 
         IEnumerable<ConnectionItemBase> result = servers
+            .Where(server => !_exclusionChecker.IsServerExcluded(server))
             .Select(GetConnectionItemCreationFunction())
             .Where(ci => ci is not null)
             .Cast<ConnectionItemBase>();
@@ -165,12 +170,25 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private async Task<IEnumerable<ConnectionItemBase>> SetSearchResultsAsync(string input)
     {
         IEnumerable<ConnectionItemBase> result = (await _globalSearch.SearchAsync(input, GetServerFeatures()))
+            .Where(location => !IsLocationExcluded(location))
             .Select(GetConnectionItemCreationFunction())
             .Where(ci => ci is not null)
             .Cast<ConnectionItemBase>();
         SetSearchResult(result);
 
         return result;
+    }
+
+    private bool IsLocationExcluded(ILocation location)
+    {
+        return location switch
+        {
+            Country country => _exclusionChecker.IsCountryExcluded(country),
+            State state => _exclusionChecker.IsStateExcluded(state),
+            City city => _exclusionChecker.IsCityExcluded(city),
+            Server server => _exclusionChecker.IsServerExcluded(server),
+            _ => false,
+        };
     }
 
     private void TriggerServerSearchTimerIfNecessary(string input, IEnumerable<ConnectionItemBase> result)
