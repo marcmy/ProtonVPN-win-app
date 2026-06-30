@@ -53,11 +53,17 @@ if ($isPatchDirectory) {
 
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
+if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
+    Remove-Item -LiteralPath $resolvedOutputPath -Force
+}
+
 $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNSfx-{0}" -f [Guid]::NewGuid().ToString('N'))
 $payloadPath = Join-Path $workingDirectory 'payload.zip'
 $installerFileName = 'Install-ProtonVPNPatch.ps1'
 $launcherFileName = 'Install-ProtonVPNPatch.cmd'
 $iexpressConfigPath = Join-Path $workingDirectory 'ProtonVPNPatch.sed'
+$diagnosticConfigPath = [System.IO.Path]::ChangeExtension($resolvedOutputPath, '.sed')
+$buildSucceeded = $false
 
 try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
@@ -95,7 +101,7 @@ RebootMode=N
 InstallPrompt=
 DisplayLicense=
 FinishMessage=
-TargetName=$resolvedOutputPath
+TargetName="$resolvedOutputPath"
 FriendlyName=$escapedFriendlyName
 AppLaunched=$launcherFileName
 PostInstallCmd=<None>
@@ -104,7 +110,7 @@ UserQuietInstCmd=$launcherFileName
 SourceFiles=SourceFiles
 
 [SourceFiles]
-SourceFiles0=$sourceDirectoryForSed
+SourceFiles0="$sourceDirectoryForSed"
 
 [SourceFiles0]
 %FILE0%=
@@ -124,18 +130,34 @@ FILE2="$launcherFileName"
         throw "IExpress was not found: $iexpressPath"
     }
 
-    & $iexpressPath /N /Q $iexpressConfigPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "IExpress failed with exit code $LASTEXITCODE."
+    & $iexpressPath /N $iexpressConfigPath
+    $iexpressExitCode = $LASTEXITCODE
+    if ($iexpressExitCode -ne 0) {
+        throw "IExpress failed with exit code $iexpressExitCode."
+    }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    while (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Milliseconds 250
     }
 
     if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf)) {
-        throw "IExpress completed without creating the expected output: $resolvedOutputPath"
+        Copy-Item -LiteralPath $iexpressConfigPath -Destination $diagnosticConfigPath -Force
+        throw "IExpress completed without creating the expected output: $resolvedOutputPath. Diagnostic SED saved to: $diagnosticConfigPath"
+    }
+
+    $buildSucceeded = $true
+    if (Test-Path -LiteralPath $diagnosticConfigPath -PathType Leaf) {
+        Remove-Item -LiteralPath $diagnosticConfigPath -Force -ErrorAction SilentlyContinue
     }
 
     Write-Host "Created self-extracting patch installer: $resolvedOutputPath" -ForegroundColor Green
 } finally {
     if (Test-Path -LiteralPath $workingDirectory -PathType Container) {
         Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    if (-not $buildSucceeded -and (Test-Path -LiteralPath $iexpressConfigPath -PathType Leaf)) {
+        Copy-Item -LiteralPath $iexpressConfigPath -Destination $diagnosticConfigPath -Force -ErrorAction SilentlyContinue
     }
 }
