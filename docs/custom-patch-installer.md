@@ -9,17 +9,18 @@ This tooling replaces the manual copy-over step for patch artifacts built from t
 1. Requests elevation when it is not already running as administrator.
 2. Detects the newest installed Proton VPN version folder under `C:\Program Files\Proton\VPN` unless a version is specified explicitly.
 3. Stops Proton VPN processes and services that could lock files.
-4. Copies the complete official version folder to a timestamped backup under:
+4. Copies the complete official version folder to a timestamped sibling folder beside it, for example:
 
    ```text
-   C:\ProgramData\ProtonVPN Custom Patch\Backups
+   C:\Program Files\Proton\VPN\v4.4.1
+   C:\Program Files\Proton\VPN\v4.4.1-backup-20260629-204416
    ```
 
 5. Overlays the custom patch files without deleting untouched official files.
 6. Automatically restores the backup if the overlay operation fails.
 7. Restarts services and the client when they were running before installation.
 
-Backups are intentionally retained after a successful installation.
+Backups are intentionally retained after a successful installation. A different parent folder can still be supplied with `-BackupRoot`.
 
 ## Install from an existing patch ZIP
 
