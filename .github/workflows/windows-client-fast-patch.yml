@@ -404,6 +404,28 @@ jobs:
 
           Write-Host "Patch artifact file count: $($patchFiles.Count)"
 
+      - name: Build self-extracting patch installer
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $patchDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ProtonVPN.Client.Patch'
+          $installerPath = Join-Path $patchDir 'ProtonVPN-Custom-Patch.exe'
+
+          .\scripts\New-ProtonVPNPatchSfx.ps1 `
+            -PatchPath $patchDir `
+            -OutputPath $installerPath
+
+          if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
+            throw "Patch installer was not created: $installerPath"
+          }
+
+          $installer = Get-Item -LiteralPath $installerPath
+          if ($installer.Length -le 0) {
+            throw "Patch installer is empty: $installerPath"
+          }
+
+          Write-Host "Patch installer size: $($installer.Length) bytes"
+
       - name: Upload patch artifact
         uses: actions/upload-artifact@v7
         with:
