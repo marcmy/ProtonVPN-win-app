@@ -61,6 +61,7 @@ $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNSfx-{
 $payloadPath = Join-Path $workingDirectory 'payload.zip'
 $installerFileName = 'Install-ProtonVPNPatch.ps1'
 $launcherFileName = 'Install-ProtonVPNPatch.cmd'
+$packagedInstallerScriptPath = Join-Path $workingDirectory $installerFileName
 $packagedLauncherPath = Join-Path $workingDirectory $launcherFileName
 $iexpressConfigPath = Join-Path $workingDirectory 'ProtonVPNPatch.sed'
 $diagnosticConfigPath = [System.IO.Path]::ChangeExtension($resolvedOutputPath, '.sed')
@@ -70,8 +71,32 @@ $existingIExpressIds = @()
 try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
 
-    Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination (Join-Path $workingDirectory $installerFileName) -Force
+    Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination $packagedInstallerScriptPath -Force
     Copy-Item -LiteralPath $resolvedLauncherPath -Destination $packagedLauncherPath -Force
+
+    $removedElevationTreeWait = $false
+    $insertedSingleProcessWait = $false
+    $installerLines = @(
+        foreach ($line in Get-Content -LiteralPath $packagedInstallerScriptPath) {
+            if (-not $removedElevationTreeWait -and $line.Trim() -eq '-Wait `') {
+                $removedElevationTreeWait = $true
+                continue
+            }
+
+            if ($removedElevationTreeWait -and -not $insertedSingleProcessWait -and $line.Trim() -eq 'exit $process.ExitCode') {
+                '    $process.WaitForExit()'
+                $insertedSingleProcessWait = $true
+            }
+
+            $line
+        }
+    )
+
+    if (-not $removedElevationTreeWait -or -not $insertedSingleProcessWait) {
+        throw 'Could not update the packaged installer elevation wait behavior.'
+    }
+
+    Set-Content -LiteralPath $packagedInstallerScriptPath -Value $installerLines -Encoding UTF8
 
     $launcherLines = @(
         foreach ($line in Get-Content -LiteralPath $packagedLauncherPath) {
