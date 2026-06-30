@@ -9,6 +9,9 @@ param(
 
     [string] $BackupRoot,
 
+    [ValidateRange(0, 100)]
+    [int] $BackupRetentionCount = 3,
+
     [switch] $NoRestart
 )
 
@@ -63,6 +66,9 @@ function Restart-Elevated {
         $argumentList += '-BackupRoot'
         $argumentList += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($BackupRoot))
     }
+
+    $argumentList += '-BackupRetentionCount'
+    $argumentList += [string] $BackupRetentionCount
 
     if ($NoRestart) {
         $argumentList += '-NoRestart'
@@ -314,6 +320,55 @@ function Stop-ProtonProcessesForTarget {
     return $clientWasRunning
 }
 
+function Remove-OldBackups {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Root,
+
+        [Parameter(Mandatory = $true)]
+        [string] $TargetFolderName,
+
+        [Parameter(Mandatory = $true)]
+        [string] $CurrentBackupDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [int] $RetentionCount
+    )
+
+    if ($RetentionCount -eq 0 -or -not (Test-Path -LiteralPath $Root -PathType Container)) {
+        return
+    }
+
+    $backupNamePattern = '^' + [Regex]::Escape($TargetFolderName) + '-backup-\d{8}-\d{6}$'
+    $backups = @(
+        Get-ChildItem -LiteralPath $Root -Directory |
+            Where-Object { $_.Name -match $backupNamePattern } |
+            Sort-Object Name -Descending
+    )
+
+    $keepPaths = @([System.IO.Path]::GetFullPath($CurrentBackupDirectory))
+    foreach ($backup in $backups) {
+        if ($keepPaths.Count -ge $RetentionCount) {
+            break
+        }
+
+        $fullPath = [System.IO.Path]::GetFullPath($backup.FullName)
+        if ($keepPaths -notcontains $fullPath) {
+            $keepPaths += $fullPath
+        }
+    }
+
+    foreach ($backup in $backups) {
+        $fullPath = [System.IO.Path]::GetFullPath($backup.FullName)
+        if ($keepPaths -contains $fullPath) {
+            continue
+        }
+
+        Write-Host "Removing old backup: $fullPath"
+        Remove-Item -LiteralPath $fullPath -Recurse -Force -ErrorAction Stop
+    }
+}
+
 if (-not (Test-IsAdministrator)) {
     Restart-Elevated
 }
@@ -322,7 +377,9 @@ $mutex = New-Object Threading.Mutex($false, 'Global\ProtonVPNCustomPatchInstalle
 $hasMutex = $false
 $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNPatch-{0}" -f [Guid]::NewGuid().ToString('N'))
 $backupDirectory = $null
+$resolvedBackupRoot = $null
 $targetDirectory = $null
+$targetFolderName = $null
 $services = @()
 $runningServiceNames = @()
 $clientWasRunning = $false
@@ -445,6 +502,16 @@ try {
 }
 
 if ($installCompleted) {
+    try {
+        Remove-OldBackups `
+            -Root $resolvedBackupRoot `
+            -TargetFolderName $targetFolderName `
+            -CurrentBackupDirectory $backupDirectory `
+            -RetentionCount $BackupRetentionCount
+    } catch {
+        Write-Warning "Patch installed, but old backup cleanup failed: $($_.Exception.Message)"
+    }
+
     Write-Host "Backup retained at: $backupDirectory"
     exit 0
 }
