@@ -65,7 +65,7 @@ $packagedLauncherPath = Join-Path $workingDirectory $launcherFileName
 $iexpressConfigPath = Join-Path $workingDirectory 'ProtonVPNPatch.sed'
 $diagnosticConfigPath = [System.IO.Path]::ChangeExtension($resolvedOutputPath, '.sed')
 $buildSucceeded = $false
-$iexpressProcess = $null
+$existingIExpressIds = @()
 
 try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
@@ -149,30 +149,20 @@ FILE2="$launcherFileName"
         throw "IExpress was not found: $iexpressPath"
     }
 
+    $existingIExpressIds = @(
+        Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.Id }
+    )
+
     Write-Host 'Starting IExpress package build...'
-    $iexpressProcess = Start-Process `
-        -FilePath $iexpressPath `
-        -ArgumentList @('/N', ('"{0}"' -f $iexpressConfigPath)) `
-        -PassThru
+    & $iexpressPath /N /Q $iexpressConfigPath
+    Write-Host 'IExpress invocation returned; waiting for the installer file...'
 
     $deadline = [DateTime]::UtcNow.AddSeconds(120)
     $lastObservedLength = -1L
     $stableLengthChecks = 0
-    $processExitCode = $null
 
     while ([DateTime]::UtcNow -lt $deadline) {
-        try {
-            $iexpressProcess.Refresh()
-            if ($iexpressProcess.HasExited) {
-                $processExitCode = $iexpressProcess.ExitCode
-            }
-        } catch {
-        }
-
-        if ($null -ne $processExitCode -and $processExitCode -ne 0) {
-            throw "IExpress failed with exit code $processExitCode."
-        }
-
         if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
             $currentLength = (Get-Item -LiteralPath $resolvedOutputPath).Length
             if ($currentLength -gt 0 -and $currentLength -eq $lastObservedLength) {
@@ -198,10 +188,14 @@ FILE2="$launcherFileName"
     }
 
     if (-not $outputExists -or $outputLength -le 0 -or $stableLengthChecks -lt 3) {
-        $processStatus = if ($null -ne $processExitCode) {
-            "IExpress exit code: $processExitCode"
+        $newIExpressProcesses = @(
+            Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
+                Where-Object { $existingIExpressIds -notcontains $_.Id }
+        )
+        $processStatus = if ($newIExpressProcesses.Count -gt 0) {
+            "$($newIExpressProcesses.Count) newly started IExpress process(es) are still running"
         } else {
-            'IExpress did not exit'
+            'No newly started IExpress process is still running'
         }
 
         throw "IExpress did not create a stable installer within 120 seconds. $processStatus. Expected output: $resolvedOutputPath"
@@ -214,16 +208,12 @@ FILE2="$launcherFileName"
 
     Write-Host "Created self-extracting patch installer: $resolvedOutputPath" -ForegroundColor Green
 } finally {
-    if ($null -ne $iexpressProcess) {
-        try {
-            $iexpressProcess.Refresh()
-            if (-not $iexpressProcess.HasExited) {
-                Stop-Process -Id $iexpressProcess.Id -Force -ErrorAction SilentlyContinue
-            }
-        } catch {
-        }
-
-        $iexpressProcess.Dispose()
+    $newIExpressProcesses = @(
+        Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
+            Where-Object { $existingIExpressIds -notcontains $_.Id }
+    )
+    foreach ($process in $newIExpressProcesses) {
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
     }
 
     if (-not $buildSucceeded -and (Test-Path -LiteralPath $iexpressConfigPath -PathType Leaf)) {
