@@ -18,8 +18,11 @@ This tooling replaces the manual copy-over step for patch artifacts built from t
 
 5. Overlays the custom patch files without deleting untouched official files.
 6. Automatically restores the backup if the overlay operation fails.
-7. Restarts services and the client when they were running before installation.
-8. After a successful install, keeps the newest three backups for that Proton VPN version and removes older matching backup folders.
+7. Restarts services that were running before installation.
+8. Leaves the Proton VPN client closed by default so reopening it cannot unexpectedly change the prior connection state.
+9. After a successful install, keeps the newest three backups for that Proton VPN version and removes older matching backup folders.
+
+Pass `-RestartClient` to relaunch the client when it was running before installation. This can trigger the client's normal startup auto-connect behavior, so the packaged installer does not use it.
 
 Backups are intentionally retained after a successful installation. A different parent folder can still be supplied with `-BackupRoot`.
 
