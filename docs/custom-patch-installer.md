@@ -19,8 +19,19 @@ This tooling replaces the manual copy-over step for patch artifacts built from t
 5. Overlays the custom patch files without deleting untouched official files.
 6. Automatically restores the backup if the overlay operation fails.
 7. Restarts services and the client when they were running before installation.
+8. After a successful install, keeps the newest three backups for that Proton VPN version and removes older matching backup folders.
 
 Backups are intentionally retained after a successful installation. A different parent folder can still be supplied with `-BackupRoot`.
+
+Backup retention can be changed per run:
+
+```powershell
+.\scripts\Install-ProtonVPNPatch.ps1 `
+    -PatchPath .\protonvpn-client-patch-both.zip `
+    -BackupRetentionCount 5
+```
+
+Set `-BackupRetentionCount 0` to disable automatic cleanup and keep every backup.
 
 ## Install from an existing patch ZIP
 
