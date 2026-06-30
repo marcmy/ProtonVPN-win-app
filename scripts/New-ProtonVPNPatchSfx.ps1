@@ -65,6 +65,7 @@ $packagedLauncherPath = Join-Path $workingDirectory $launcherFileName
 $iexpressConfigPath = Join-Path $workingDirectory 'ProtonVPNPatch.sed'
 $diagnosticConfigPath = [System.IO.Path]::ChangeExtension($resolvedOutputPath, '.sed')
 $buildSucceeded = $false
+$iexpressProcess = $null
 
 try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
@@ -148,24 +149,62 @@ FILE2="$launcherFileName"
         throw "IExpress was not found: $iexpressPath"
     }
 
+    Write-Host 'Starting IExpress package build...'
     $iexpressProcess = Start-Process `
         -FilePath $iexpressPath `
         -ArgumentList @('/N', ('"{0}"' -f $iexpressConfigPath)) `
-        -Wait `
         -PassThru
 
-    if ($iexpressProcess.ExitCode -ne 0) {
-        throw "IExpress failed with exit code $($iexpressProcess.ExitCode)."
-    }
+    $deadline = [DateTime]::UtcNow.AddSeconds(120)
+    $lastObservedLength = -1L
+    $stableLengthChecks = 0
+    $processExitCode = $null
 
-    $deadline = [DateTime]::UtcNow.AddSeconds(15)
-    while (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) -and [DateTime]::UtcNow -lt $deadline) {
+    while ([DateTime]::UtcNow -lt $deadline) {
+        try {
+            $iexpressProcess.Refresh()
+            if ($iexpressProcess.HasExited) {
+                $processExitCode = $iexpressProcess.ExitCode
+            }
+        } catch {
+        }
+
+        if ($null -ne $processExitCode -and $processExitCode -ne 0) {
+            throw "IExpress failed with exit code $processExitCode."
+        }
+
+        if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
+            $currentLength = (Get-Item -LiteralPath $resolvedOutputPath).Length
+            if ($currentLength -gt 0 -and $currentLength -eq $lastObservedLength) {
+                $stableLengthChecks++
+            } else {
+                $lastObservedLength = $currentLength
+                $stableLengthChecks = 0
+            }
+
+            if ($stableLengthChecks -ge 3) {
+                break
+            }
+        }
+
         Start-Sleep -Milliseconds 250
     }
 
-    if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf)) {
-        Copy-Item -LiteralPath $iexpressConfigPath -Destination $diagnosticConfigPath -Force
-        throw "IExpress completed without creating the expected output: $resolvedOutputPath. Diagnostic SED saved to: $diagnosticConfigPath"
+    $outputExists = Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf
+    $outputLength = if ($outputExists) {
+        (Get-Item -LiteralPath $resolvedOutputPath).Length
+    } else {
+        0L
+    }
+
+    if (-not $outputExists -or $outputLength -le 0 -or $stableLengthChecks -lt 3) {
+        $processStatus = if ($null -ne $processExitCode) {
+            "IExpress exit code: $processExitCode"
+        } else {
+            'IExpress did not exit'
+        }
+
+        throw "IExpress did not create a stable installer within 120 seconds. $processStatus. Expected output: $resolvedOutputPath"
     }
 
     $buildSucceeded = $true
@@ -175,11 +214,23 @@ FILE2="$launcherFileName"
 
     Write-Host "Created self-extracting patch installer: $resolvedOutputPath" -ForegroundColor Green
 } finally {
-    if (Test-Path -LiteralPath $workingDirectory -PathType Container) {
-        Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    if ($null -ne $iexpressProcess) {
+        try {
+            $iexpressProcess.Refresh()
+            if (-not $iexpressProcess.HasExited) {
+                Stop-Process -Id $iexpressProcess.Id -Force -ErrorAction SilentlyContinue
+            }
+        } catch {
+        }
+
+        $iexpressProcess.Dispose()
     }
 
     if (-not $buildSucceeded -and (Test-Path -LiteralPath $iexpressConfigPath -PathType Leaf)) {
         Copy-Item -LiteralPath $iexpressConfigPath -Destination $diagnosticConfigPath -Force -ErrorAction SilentlyContinue
+    }
+
+    if (Test-Path -LiteralPath $workingDirectory -PathType Container) {
+        Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
