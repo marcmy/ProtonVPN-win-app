@@ -148,10 +148,14 @@ FILE2="$launcherFileName"
         throw "IExpress was not found: $iexpressPath"
     }
 
-    & $iexpressPath /N $iexpressConfigPath
-    $iexpressExitCode = $LASTEXITCODE
-    if ($iexpressExitCode -ne 0) {
-        throw "IExpress failed with exit code $iexpressExitCode."
+    $iexpressProcess = Start-Process `
+        -FilePath $iexpressPath `
+        -ArgumentList @('/N', ('"{0}"' -f $iexpressConfigPath)) `
+        -Wait `
+        -PassThru
+
+    if ($iexpressProcess.ExitCode -ne 0) {
+        throw "IExpress failed with exit code $($iexpressProcess.ExitCode)."
     }
 
     $deadline = [DateTime]::UtcNow.AddSeconds(15)
