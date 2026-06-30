@@ -72,20 +72,22 @@ try {
     Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination (Join-Path $workingDirectory $installerFileName) -Force
     Copy-Item -LiteralPath $resolvedLauncherPath -Destination $packagedLauncherPath -Force
 
-    $launcherContent = Get-Content -LiteralPath $packagedLauncherPath -Raw
-    $launcherContent = $launcherContent.Replace(
-        '-PatchPath "%PAYLOAD%"',
-        '-PatchPath "%PAYLOAD%" -PauseBeforeExit'
+    $launcherLines = @(
+        foreach ($line in Get-Content -LiteralPath $packagedLauncherPath) {
+            if ($line.Trim() -ieq 'pause') {
+                continue
+            }
+
+            if ($line -match '-PatchPath\s+"%PAYLOAD%"' -and $line -notmatch '-PauseBeforeExit') {
+                $line = $line -replace '-PatchPath\s+"%PAYLOAD%"', '-PatchPath "%PAYLOAD%" -PauseBeforeExit'
+            } elseif ($line -match '-File\s+"%SCRIPT%"\s*$' -and $line -notmatch '-PauseBeforeExit') {
+                $line = $line -replace '-File\s+"%SCRIPT%"\s*$', '-File "%SCRIPT%" -PauseBeforeExit'
+            }
+
+            $line
+        }
     )
-    $launcherContent = $launcherContent.Replace(
-        '-File "%SCRIPT%"' + [Environment]::NewLine,
-        '-File "%SCRIPT%" -PauseBeforeExit' + [Environment]::NewLine
-    )
-    $launcherContent = $launcherContent.Replace(
-        'echo.' + [Environment]::NewLine + 'pause' + [Environment]::NewLine + [Environment]::NewLine + 'exit /b %EXITCODE%',
-        'exit /b %EXITCODE%'
-    )
-    Set-Content -LiteralPath $packagedLauncherPath -Value $launcherContent -Encoding Ascii
+    Set-Content -LiteralPath $packagedLauncherPath -Value $launcherLines -Encoding Ascii
 
     if ($isPatchZip) {
         Copy-Item -LiteralPath $resolvedPatchPath -Destination $payloadPath -Force
