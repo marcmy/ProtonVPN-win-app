@@ -15,7 +15,7 @@ on:
         description: New branch to create for the patched version
         required: true
       target_version:
-        description: App version to stamp into the patched target branch, for example 4.4.2
+        description: Proton VPN release version to patch, for example 4.4.2
         required: true
       include_updater_skip:
         description: Also port updater/beta skip behavior from source_patch_branch
@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   patch-build:
-    name: Patch future branch and build install-safe artifact
+    name: Patch future branch and build versioned installer
     runs-on: windows-latest
 
     defaults:
@@ -47,68 +47,106 @@ jobs:
 
     steps:
       - name: Checkout automation branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.23.x'
+          cache: false
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      - name: Prepare automation scripts
+      - name: Preserve automation and installer tools
         run: |
           $ErrorActionPreference = 'Stop'
-          Copy-Item -LiteralPath .\.github\scripts\set-assembly-version.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'set-assembly-version.ps1') -Force
+
+          $tools = @(
+            @{ Source = '.github/scripts/set-assembly-version.ps1'; Name = 'set-assembly-version.ps1' },
+            @{ Source = '.github/scripts/stage-client-patch-output.ps1'; Name = 'stage-client-patch-output.ps1' },
+            @{ Source = '.github/scripts/package-patch-artifacts.ps1'; Name = 'package-patch-artifacts.ps1' },
+            @{ Source = 'scripts/New-ProtonVPNPatchSfx.ps1'; Name = 'New-ProtonVPNPatchSfx.ps1' },
+            @{ Source = 'scripts/Install-ProtonVPNPatch.ps1'; Name = 'Install-ProtonVPNPatch.ps1' },
+            @{ Source = 'scripts/Install-ProtonVPNPatch.cmd'; Name = 'Install-ProtonVPNPatch.cmd' }
+          )
+
+          foreach ($tool in $tools) {
+            if (-not (Test-Path -LiteralPath $tool.Source -PathType Leaf)) {
+              throw "Required automation tool was not found: $($tool.Source)"
+            }
+
+            Copy-Item -LiteralPath $tool.Source -Destination (Join-Path $env:RUNNER_TEMP $tool.Name) -Force
+          }
 
       - name: Apply requested patch hunks
         id: apply_patch
+        env:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          SOURCE_PATCH_BRANCH: ${{ inputs.source_patch_branch }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          INCLUDE_UPDATER_SKIP: ${{ inputs.include_updater_skip }}
+          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $includeUpdaterSkip = [System.Convert]::ToBoolean('${{ inputs.include_updater_skip }}')
-          $forceResetTarget = [System.Convert]::ToBoolean('${{ inputs.force_reset_target }}')
+          $includeUpdaterSkip = [System.Convert]::ToBoolean($env:INCLUDE_UPDATER_SKIP)
+          $forceResetTarget = [System.Convert]::ToBoolean($env:FORCE_RESET_TARGET)
 
           .\.github\scripts\apply-future-version-patch.ps1 `
-            -BaseBranch '${{ inputs.base_branch }}' `
-            -SourcePatchBranch '${{ inputs.source_patch_branch }}' `
-            -TargetBranch '${{ inputs.target_branch }}' `
+            -BaseBranch $env:BASE_BRANCH `
+            -SourcePatchBranch $env:SOURCE_PATCH_BRANCH `
+            -TargetBranch $env:TARGET_BRANCH `
             -IncludeUpdaterSkip:$includeUpdaterSkip `
             -ForceResetTarget:$forceResetTarget
 
       - name: Stamp target app version
+        id: target-version
+        env:
+          REQUESTED_TARGET_VERSION: ${{ inputs.target_version }}
         run: |
           $ErrorActionPreference = 'Stop'
-          & (Join-Path $env:RUNNER_TEMP 'set-assembly-version.ps1') -TargetVersion '${{ inputs.target_version }}'
+
+          $requestedVersion = $env:REQUESTED_TARGET_VERSION.Trim()
+          if ($requestedVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') {
+            throw "target_version must be a numeric three- or four-part version. Received '$requestedVersion'."
+          }
+
+          $parsedVersion = [Version]::Parse($requestedVersion)
+          $targetVersion = '{0}.{1}.{2}' -f $parsedVersion.Major, $parsedVersion.Minor, $parsedVersion.Build
+
+          & (Join-Path $env:RUNNER_TEMP 'set-assembly-version.ps1') -TargetVersion $targetVersion
 
           git add src/GlobalAssemblyInfo.cs
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
-            Write-Host "Target app version was already ${{ inputs.target_version }}."
+            Write-Host "Target app version was already $targetVersion."
           }
           elseif ($LASTEXITCODE -eq 1) {
             git diff --cached --check
-            git commit -m "Set app version to ${{ inputs.target_version }}"
+            git commit -m "Set app version to $targetVersion"
           }
           else {
-            throw "Unable to inspect staged app version changes."
+            throw 'Unable to inspect staged app version changes.'
           }
+
+          Write-Host "Exact installed target folder: v$targetVersion"
+          "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
 
       - name: Update submodules for patched branch
         run: |
@@ -120,10 +158,12 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
           New-Item -ItemType Directory -Force -Path artifacts/ProtonVPN.Client.Patch | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/Installer | Out-Null
 
       - name: Clean previous build output
         run: |
           Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/client-build-output -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Restore client project
         run: |
@@ -169,83 +209,7 @@ jobs:
 
       - name: Stage client patch build output
         run: |
-          $ErrorActionPreference = 'Stop'
-
-          $clientOutputDir = Join-Path $env:GITHUB_WORKSPACE 'src/bin'
-          $stageDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/client-build-output'
-
-          if (-not (Test-Path -LiteralPath (Join-Path $clientOutputDir 'ProtonVPN.Client.dll') -PathType Leaf)) {
-            throw "Client build output missing ProtonVPN.Client.dll in $clientOutputDir"
-          }
-
-          Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
-
-          function Copy-ToStageRoot {
-            param(
-              [Parameter(Mandatory)] [string] $SourcePath
-            )
-
-            $targetPath = Join-Path $stageDir ([System.IO.Path]::GetFileName($SourcePath))
-            Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
-            Write-Host "Staged $SourcePath -> $targetPath"
-          }
-
-          function Copy-RelativeClientFileToStage {
-            param(
-              [Parameter(Mandatory)] [string] $RelativePath
-            )
-
-            $sourcePath = Join-Path $clientOutputDir $RelativePath
-            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-              throw "Required client patch file missing: $RelativePath"
-            }
-
-            $targetPath = Join-Path $stageDir $RelativePath
-            $targetParent = Split-Path -Path $targetPath -Parent
-            New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
-            Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
-            Write-Host "Staged $RelativePath"
-          }
-
-          $clientDlls = @(
-            Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
-              Where-Object {
-                $_.Name -ne 'ProtonVPNService.dll' -and
-                  $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
-                  $_.Name -notlike 'ProtonVPN.Tests*.dll'
-              } |
-              Sort-Object Name
-          )
-
-          if ($clientDlls.Count -eq 0) {
-            throw "No first-party ProtonVPN*.dll files found in $clientOutputDir"
-          }
-
-          foreach ($dll in $clientDlls) {
-            Copy-ToStageRoot $dll.FullName
-          }
-
-          Copy-RelativeClientFileToStage 'ProtonVPN.Client.pri'
-          Copy-RelativeClientFileToStage 'App.xbf'
-          Copy-RelativeClientFileToStage 'MainWindow.xbf'
-
-          $uiDir = Join-Path $clientOutputDir 'UI'
-          if (-not (Test-Path -LiteralPath $uiDir -PathType Container)) {
-            throw "Client UI resource directory missing: $uiDir"
-          }
-
-          $uiXbfFiles = @(Get-ChildItem -LiteralPath $uiDir -Recurse -File -Filter '*.xbf' | Sort-Object FullName)
-          if ($uiXbfFiles.Count -eq 0) {
-            throw "No UI/**/*.xbf resources found in $uiDir"
-          }
-
-          foreach ($xbf in $uiXbfFiles) {
-            $relativePath = [System.IO.Path]::GetRelativePath($clientOutputDir, $xbf.FullName)
-            Copy-RelativeClientFileToStage $relativePath
-          }
-
-          Write-Host "Staged $($clientDlls.Count) client DLLs and $($uiXbfFiles.Count) UI XBF resources"
+          & (Join-Path $env:RUNNER_TEMP 'stage-client-patch-output.ps1')
 
       - name: Build service project
         run: |
@@ -261,165 +225,34 @@ jobs:
             throw "Service build failed with exit code $LASTEXITCODE"
           }
 
-      - name: Create patch artifact folder
+      - name: Package versioned patch artifacts
+        id: package
+        env:
+          TARGET_VERSION: ${{ steps.target-version.outputs.target_version }}
+          TARGET_BRANCH: ${{ steps.apply_patch.outputs.target_branch }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $sourceCommit = (git rev-parse HEAD).Trim()
 
-          $binDir = Join-Path $env:GITHUB_WORKSPACE 'src/bin'
-          $clientOutputDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/client-build-output'
-          $patchDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ProtonVPN.Client.Patch'
-
-          if (-not (Test-Path -LiteralPath $binDir -PathType Container)) {
-            throw "Build output directory missing: $binDir"
-          }
-
-          Remove-Item -LiteralPath $patchDir -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path $patchDir | Out-Null
-
-          function Copy-ToPatchRoot {
-            param(
-              [Parameter(Mandatory)] [string] $SourcePath
-            )
-
-            if (-not (Test-Path -LiteralPath $SourcePath -PathType Leaf)) {
-              throw "Required patch file missing: $SourcePath"
-            }
-
-            $targetPath = Join-Path $patchDir ([System.IO.Path]::GetFileName($SourcePath))
-            Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
-            Write-Host "Copied $SourcePath -> $targetPath"
-          }
-
-          function Copy-RelativeClientFile {
-            param(
-              [Parameter(Mandatory)] [string] $RelativePath
-            )
-
-            $sourcePath = Join-Path $clientOutputDir $RelativePath
-            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-              throw "Required client patch file missing: $RelativePath"
-            }
-
-            $targetPath = Join-Path $patchDir $RelativePath
-            $targetParent = Split-Path -Path $targetPath -Parent
-            New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
-            Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
-            Write-Host "Copied $RelativePath"
-          }
-
-          if (-not (Test-Path -LiteralPath (Join-Path $clientOutputDir 'ProtonVPN.Client.dll') -PathType Leaf)) {
-            throw "Staged client patch output missing ProtonVPN.Client.dll in $clientOutputDir"
-          }
-
-          $clientDlls = @(
-            Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
-              Where-Object {
-                $_.Name -ne 'ProtonVPNService.dll' -and
-                  $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
-                  $_.Name -notlike 'ProtonVPN.Tests*.dll'
-              } |
-              Sort-Object Name
-          )
-
-          if ($clientDlls.Count -eq 0) {
-            throw "No first-party ProtonVPN*.dll files found in $clientOutputDir"
-          }
-
-          foreach ($dll in $clientDlls) {
-            Copy-ToPatchRoot $dll.FullName
-          }
-
-          Copy-RelativeClientFile 'ProtonVPN.Client.pri'
-          Copy-RelativeClientFile 'App.xbf'
-          Copy-RelativeClientFile 'MainWindow.xbf'
-
-          $uiDir = Join-Path $clientOutputDir 'UI'
-          if (-not (Test-Path -LiteralPath $uiDir -PathType Container)) {
-            throw "Client UI resource directory missing: $uiDir"
-          }
-
-          $uiXbfFiles = @(Get-ChildItem -LiteralPath $uiDir -Recurse -File -Filter '*.xbf' | Sort-Object FullName)
-          if ($uiXbfFiles.Count -eq 0) {
-            throw "No UI/**/*.xbf resources found in $uiDir"
-          }
-
-          foreach ($xbf in $uiXbfFiles) {
-            $relativePath = [System.IO.Path]::GetRelativePath($clientOutputDir, $xbf.FullName)
-            Copy-RelativeClientFile $relativePath
-          }
-
-          $serviceCandidates = @(
-            (Join-Path $binDir 'win-x64/ProtonVPNService.dll'),
-            (Join-Path $binDir 'ProtonVPNService.dll')
-          )
-
-          $servicePath = $serviceCandidates |
-            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-            Select-Object -First 1
-
-          if ($null -eq $servicePath) {
-            throw "Service build output missing ProtonVPNService.dll"
-          }
-
-          Copy-ToPatchRoot $servicePath
-
-          $patchFiles = @(Get-ChildItem -LiteralPath $patchDir -Recurse -File)
-          if ($patchFiles.Count -eq 0) {
-            throw "Patch artifact is empty"
-          }
-
-          $forbiddenExactNames = @(
-            'ProtonVPN.Client.exe',
-            'ProtonVPN.Client.deps.json',
-            'ProtonVPN.Client.runtimeconfig.json',
-            'ProtonVPNService.exe',
-            'ProtonVPNService.deps.json',
-            'ProtonVPNService.runtimeconfig.json',
-            'hostfxr.dll',
-            'hostpolicy.dll',
-            'coreclr.dll'
-          )
-
-          $forbiddenFiles = @(
-            $patchFiles | Where-Object {
-              $forbiddenExactNames -contains $_.Name -or
-                $_.Name -like 'System*.dll' -or
-                $_.Name -like 'Microsoft*.dll' -or
-                $_.Name -like 'ProtonVPN.*Tests*.dll' -or
-                $_.Name -like 'ProtonVPN.Tests*.dll'
-            }
-          )
-
-          if ($forbiddenFiles.Count -gt 0) {
-            $names = ($forbiddenFiles | ForEach-Object { [System.IO.Path]::GetRelativePath($patchDir, $_.FullName) }) -join ', '
-            throw "Patch artifact contains forbidden install-unsafe files: $names"
-          }
-
-          $unexpectedFiles = @(
-            $patchFiles | Where-Object {
-              $relativePath = [System.IO.Path]::GetRelativePath($patchDir, $_.FullName)
-              $isFirstPartyDll = $_.Name -like 'ProtonVPN*.dll'
-              $isClientPri = $relativePath -eq 'ProtonVPN.Client.pri'
-              $isRootXbf = $relativePath -in @('App.xbf', 'MainWindow.xbf')
-              $isUiXbf = $relativePath -like 'UI/*.xbf' -or $relativePath -like 'UI\*.xbf'
-
-              -not ($isFirstPartyDll -or $isClientPri -or $isRootXbf -or $isUiXbf)
-            }
-          )
-
-          if ($unexpectedFiles.Count -gt 0) {
-            $names = ($unexpectedFiles | ForEach-Object { [System.IO.Path]::GetRelativePath($patchDir, $_.FullName) }) -join ', '
-            throw "Patch artifact contains unexpected files: $names"
-          }
-
-          Write-Host "Patch artifact file count: $($patchFiles.Count)"
+          & (Join-Path $env:RUNNER_TEMP 'package-patch-artifacts.ps1') `
+            -BuildMode both `
+            -TargetVersion $env:TARGET_VERSION `
+            -SourceCommit $sourceCommit `
+            -SourceRef $env:TARGET_BRANCH `
+            -WorkflowRunId $env:WORKFLOW_RUN_ID `
+            -BuilderPath (Join-Path $env:RUNNER_TEMP 'New-ProtonVPNPatchSfx.ps1') `
+            -InstallerScriptPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.ps1') `
+            -LauncherPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.cmd')
 
       - name: Push patched target branch
+        env:
+          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
         run: |
           $ErrorActionPreference = 'Stop'
           $targetBranch = '${{ steps.apply_patch.outputs.target_branch }}'
           $targetExists = [System.Convert]::ToBoolean('${{ steps.apply_patch.outputs.target_exists }}')
-          $forceResetTarget = [System.Convert]::ToBoolean('${{ inputs.force_reset_target }}')
+          $forceResetTarget = [System.Convert]::ToBoolean($env:FORCE_RESET_TARGET)
 
           if ($targetExists -and $forceResetTarget) {
             git push --force-with-lease origin "HEAD:refs/heads/$targetBranch"
@@ -428,25 +261,32 @@ jobs:
             git push origin "HEAD:refs/heads/$targetBranch"
           }
 
-      - name: Upload patch artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload raw patch artifact
+        uses: actions/upload-artifact@v7
         with:
-          name: protonvpn-client-patch-both-${{ steps.apply_patch.outputs.target_slug }}
+          name: protonvpn-client-patch-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/ProtonVPN.Client.Patch
+          if-no-files-found: error
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: protonvpn-custom-patch-installer-${{ steps.target-version.outputs.target_version }}-both
+          path: artifacts/Installer/*.exe
           if-no-files-found: error
 
       - name: Upload full bin artifact
         if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: protonvpn-client-bin-both-${{ steps.apply_patch.outputs.target_slug }}
+          name: protonvpn-client-bin-${{ steps.target-version.outputs.target_version }}-both
           path: src/bin
           if-no-files-found: error
 
       - name: Upload build logs
         if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: protonvpn-client-patch-logs-both-${{ steps.apply_patch.outputs.target_slug }}
+          name: protonvpn-client-patch-logs-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/logs
           if-no-files-found: ignore
