@@ -7,8 +7,7 @@ param(
 
     [string] $TargetVersion,
 
-    [ValidateNotNullOrEmpty()]
-    [string] $BackupRoot = "$env:ProgramData\ProtonVPN Custom Patch\Backups",
+    [string] $BackupRoot,
 
     [switch] $NoRestart
 )
@@ -60,8 +59,10 @@ function Restart-Elevated {
         $argumentList += ConvertTo-QuotedProcessArgument -Value $TargetVersion
     }
 
-    $argumentList += '-BackupRoot'
-    $argumentList += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($BackupRoot))
+    if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) {
+        $argumentList += '-BackupRoot'
+        $argumentList += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($BackupRoot))
+    }
 
     if ($NoRestart) {
         $argumentList += '-NoRestart'
@@ -116,7 +117,8 @@ function Resolve-TargetDirectory {
     }
 
     $versionDirectories = @(
-        Get-ChildItem -LiteralPath $InstallRoot -Directory -Filter 'v*' |
+        Get-ChildItem -LiteralPath $InstallRoot -Directory |
+            Where-Object { $_.Name -match '^v\d+(?:\.\d+){1,3}$' } |
             Sort-Object @{ Expression = { Get-VersionSortValue -Directory $_ }; Descending = $true },
                         @{ Expression = { $_.LastWriteTimeUtc }; Descending = $true }
     )
@@ -337,8 +339,25 @@ try {
     $targetDirectory = Resolve-TargetDirectory
     $payloadRoot = Resolve-PatchSource -WorkingDirectory $workingDirectory
 
+    $resolvedBackupRoot = if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+        Split-Path -Path $targetDirectory -Parent
+    } else {
+        [System.IO.Path]::GetFullPath($BackupRoot)
+    }
+
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $backupDirectory = Join-Path $BackupRoot ("{0}-{1}" -f (Split-Path -Leaf $targetDirectory), $timestamp)
+    $targetFolderName = Split-Path -Leaf $targetDirectory
+    $backupDirectory = Join-Path $resolvedBackupRoot ("{0}-backup-{1}" -f $targetFolderName, $timestamp)
+
+    $normalizedTargetDirectory = [System.IO.Path]::GetFullPath($targetDirectory).TrimEnd('\') + '\'
+    $normalizedBackupDirectory = [System.IO.Path]::GetFullPath($backupDirectory).TrimEnd('\') + '\'
+    if ($normalizedBackupDirectory.StartsWith($normalizedTargetDirectory, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Backup directory cannot be inside the Proton VPN version folder: $backupDirectory"
+    }
+
+    if (Test-Path -LiteralPath $backupDirectory) {
+        throw "Backup directory already exists: $backupDirectory"
+    }
 
     Write-Host "Target:  $targetDirectory"
     Write-Host "Payload: $payloadRoot"
