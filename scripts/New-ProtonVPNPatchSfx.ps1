@@ -61,6 +61,7 @@ $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNSfx-{
 $payloadPath = Join-Path $workingDirectory 'payload.zip'
 $installerFileName = 'Install-ProtonVPNPatch.ps1'
 $launcherFileName = 'Install-ProtonVPNPatch.cmd'
+$packagedLauncherPath = Join-Path $workingDirectory $launcherFileName
 $iexpressConfigPath = Join-Path $workingDirectory 'ProtonVPNPatch.sed'
 $diagnosticConfigPath = [System.IO.Path]::ChangeExtension($resolvedOutputPath, '.sed')
 $buildSucceeded = $false
@@ -69,7 +70,22 @@ try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
 
     Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination (Join-Path $workingDirectory $installerFileName) -Force
-    Copy-Item -LiteralPath $resolvedLauncherPath -Destination (Join-Path $workingDirectory $launcherFileName) -Force
+    Copy-Item -LiteralPath $resolvedLauncherPath -Destination $packagedLauncherPath -Force
+
+    $launcherContent = Get-Content -LiteralPath $packagedLauncherPath -Raw
+    $launcherContent = $launcherContent.Replace(
+        '-PatchPath "%PAYLOAD%"',
+        '-PatchPath "%PAYLOAD%" -PauseBeforeExit'
+    )
+    $launcherContent = $launcherContent.Replace(
+        '-File "%SCRIPT%"' + [Environment]::NewLine,
+        '-File "%SCRIPT%" -PauseBeforeExit' + [Environment]::NewLine
+    )
+    $launcherContent = $launcherContent.Replace(
+        'echo.' + [Environment]::NewLine + 'pause' + [Environment]::NewLine + [Environment]::NewLine + 'exit /b %EXITCODE%',
+        'exit /b %EXITCODE%'
+    )
+    Set-Content -LiteralPath $packagedLauncherPath -Value $launcherContent -Encoding Ascii
 
     if ($isPatchZip) {
         Copy-Item -LiteralPath $resolvedPatchPath -Destination $payloadPath -Force
