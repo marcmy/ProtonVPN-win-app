@@ -60,23 +60,25 @@ Use `-WhatIf` to resolve the target and payload without stopping services, creat
 - `Install-ProtonVPNPatch.ps1`
 - `Install-ProtonVPNPatch.cmd`
 
-Example:
+It accepts the downloaded Fast Patch Both ZIP directly:
 
 ```powershell
 .\scripts\New-ProtonVPNPatchSfx.ps1 `
-    -PatchDirectory .\artifacts\patch-both `
-    -OutputPath .\artifacts\ProtonVPN-Custom-Patch.exe
+    -PatchPath .\protonvpn-client-patch-both.zip `
+    -OutputPath .\ProtonVPN-Custom-Patch.exe
 ```
 
-Double-clicking the resulting EXE extracts the payload to a temporary directory, launches the installer, and triggers a normal UAC elevation prompt.
+An already-extracted patch directory is also accepted through `-PatchPath` (or the legacy `-PatchDirectory` alias).
+
+Double-clicking the resulting EXE extracts the payload to a temporary directory, launches the installer, triggers a normal UAC elevation prompt, and leaves the final success or failure result visible until a key is pressed.
 
 ## Intended GitHub Actions integration
 
-The final `Fast Patch Both` packaging step should pass its completed patch staging directory to:
+The final `Fast Patch Both` packaging step should pass either its completed patch ZIP or staging directory to:
 
 ```powershell
 .\scripts\New-ProtonVPNPatchSfx.ps1 `
-    -PatchDirectory $patchDirectory `
+    -PatchPath $patchZip `
     -OutputPath $installerPath
 ```
 
