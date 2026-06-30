@@ -79,9 +79,9 @@ try {
             }
 
             if ($line -match '-PatchPath\s+"%PAYLOAD%"' -and $line -notmatch '-PauseBeforeExit') {
-                $line = $line -replace '-PatchPath\s+"%PAYLOAD%"', '-PatchPath "%PAYLOAD%" -PauseBeforeExit'
+                $line = $line -replace '-PatchPath\s+"%PAYLOAD%"', '-PatchPath "%PAYLOAD%" -RestartClient -PauseBeforeExit'
             } elseif ($line -match '-File\s+"%SCRIPT%"\s*$' -and $line -notmatch '-PauseBeforeExit') {
-                $line = $line -replace '-File\s+"%SCRIPT%"\s*$', '-File "%SCRIPT%" -PauseBeforeExit'
+                $line = $line -replace '-File\s+"%SCRIPT%"\s*$', '-File "%SCRIPT%" -RestartClient -PauseBeforeExit'
             }
 
             $line
