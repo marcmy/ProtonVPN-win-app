@@ -20,6 +20,68 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Get-PatchManifestJson {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ResolvedPatchPath,
+
+        [Parameter(Mandatory = $true)]
+        [bool] $IsPatchZip
+    )
+
+    if (-not $IsPatchZip) {
+        $manifestFiles = @(
+            Get-ChildItem -LiteralPath $ResolvedPatchPath -Recurse -File -Filter 'patch-manifest.json'
+        )
+
+        if ($manifestFiles.Count -eq 0) {
+            throw "Patch manifest was not found below: $ResolvedPatchPath"
+        }
+
+        if ($manifestFiles.Count -ne 1) {
+            $paths = ($manifestFiles | ForEach-Object { $_.FullName }) -join [Environment]::NewLine
+            throw "Patch payload contains multiple patch-manifest.json files:$([Environment]::NewLine)$paths"
+        }
+
+        return Get-Content -LiteralPath $manifestFiles[0].FullName -Raw
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($ResolvedPatchPath)
+    try {
+        $manifestEntries = @(
+            $archive.Entries | Where-Object {
+                $normalizedName = $_.FullName.Replace('\', '/').Trim('/')
+                $normalizedName -eq 'patch-manifest.json' -or
+                    $normalizedName.EndsWith('/patch-manifest.json', [StringComparison]::OrdinalIgnoreCase)
+            }
+        )
+
+        if ($manifestEntries.Count -eq 0) {
+            throw "Patch ZIP does not contain patch-manifest.json: $ResolvedPatchPath"
+        }
+
+        if ($manifestEntries.Count -ne 1) {
+            $paths = ($manifestEntries | ForEach-Object { $_.FullName }) -join [Environment]::NewLine
+            throw "Patch ZIP contains multiple patch-manifest.json entries:$([Environment]::NewLine)$paths"
+        }
+
+        $stream = $manifestEntries[0].Open()
+        try {
+            $reader = New-Object System.IO.StreamReader($stream, [Text.Encoding]::UTF8, $true)
+            try {
+                return $reader.ReadToEnd()
+            } finally {
+                $reader.Dispose()
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
 if ($env:OS -ne 'Windows_NT') {
     throw 'The self-extractor builder requires Windows because it uses IExpress.'
 }
@@ -50,6 +112,30 @@ if ($isPatchDirectory) {
         throw "Patch directory does not contain any files: $resolvedPatchPath"
     }
 }
+
+$manifestJson = Get-PatchManifestJson -ResolvedPatchPath $resolvedPatchPath -IsPatchZip $isPatchZip
+try {
+    $manifest = $manifestJson | ConvertFrom-Json -ErrorAction Stop
+} catch {
+    throw "Patch manifest is not valid JSON: $($_.Exception.Message)"
+}
+
+foreach ($requiredProperty in @('schemaVersion', 'targetVersion', 'buildMode', 'sourceCommit', 'files')) {
+    if ($null -eq $manifest.PSObject.Properties[$requiredProperty]) {
+        throw "Patch manifest is missing required property '$requiredProperty'."
+    }
+}
+
+if ([int] $manifest.schemaVersion -ne 1) {
+    throw "Unsupported patch manifest schema version: $($manifest.schemaVersion)"
+}
+
+$manifestTargetVersion = ([string] $manifest.targetVersion).Trim()
+if ($manifestTargetVersion -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Patch manifest targetVersion must be a numeric three-part release version. Received '$manifestTargetVersion'."
+}
+
+Write-Host "Packaging patch for Proton VPN $manifestTargetVersion ($($manifest.buildMode))."
 
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
@@ -98,16 +184,18 @@ try {
 
     Set-Content -LiteralPath $packagedInstallerScriptPath -Value $installerLines -Encoding UTF8
 
+    $payloadInvocation = '-PatchPath "%PAYLOAD%" -TargetVersion "{0}" -RestartClient -PauseBeforeExit' -f $manifestTargetVersion
+    $fallbackInvocation = '-File "%SCRIPT%" -TargetVersion "{0}" -RestartClient -PauseBeforeExit' -f $manifestTargetVersion
     $launcherLines = @(
         foreach ($line in Get-Content -LiteralPath $packagedLauncherPath) {
             if ($line.Trim() -ieq 'pause') {
                 continue
             }
 
-            if ($line -match '-PatchPath\s+"%PAYLOAD%"' -and $line -notmatch '-PauseBeforeExit') {
-                $line = $line -replace '-PatchPath\s+"%PAYLOAD%"', '-PatchPath "%PAYLOAD%" -RestartClient -PauseBeforeExit'
-            } elseif ($line -match '-File\s+"%SCRIPT%"\s*$' -and $line -notmatch '-PauseBeforeExit') {
-                $line = $line -replace '-File\s+"%SCRIPT%"\s*$', '-File "%SCRIPT%" -RestartClient -PauseBeforeExit'
+            if ($line.Contains('-PatchPath "%PAYLOAD%"')) {
+                $line = $line.Replace('-PatchPath "%PAYLOAD%"', $payloadInvocation)
+            } elseif ($line.Contains('-File "%SCRIPT%"')) {
+                $line = $line.Replace('-File "%SCRIPT%"', $fallbackInvocation)
             }
 
             $line
@@ -126,7 +214,7 @@ try {
     }
 
     $sourceDirectoryForSed = $workingDirectory.TrimEnd('\') + '\'
-    $escapedFriendlyName = $FriendlyName.Replace('"', '')
+    $escapedFriendlyName = ("$FriendlyName $manifestTargetVersion").Replace('"', '')
 
     $sedContent = @"
 [Version]
