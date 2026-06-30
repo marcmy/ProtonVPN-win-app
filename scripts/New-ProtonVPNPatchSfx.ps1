@@ -1,8 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
+    [Alias('PatchDirectory')]
     [ValidateNotNullOrEmpty()]
-    [string] $PatchDirectory,
+    [string] $PatchPath,
 
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
@@ -23,7 +24,7 @@ if ($env:OS -ne 'Windows_NT') {
     throw 'The self-extractor builder requires Windows because it uses IExpress.'
 }
 
-$resolvedPatchDirectory = (Resolve-Path -LiteralPath $PatchDirectory -ErrorAction Stop).Path
+$resolvedPatchPath = (Resolve-Path -LiteralPath $PatchPath -ErrorAction Stop).Path
 $resolvedInstallerScriptPath = (Resolve-Path -LiteralPath $InstallerScriptPath -ErrorAction Stop).Path
 $resolvedLauncherPath = (Resolve-Path -LiteralPath $LauncherPath -ErrorAction Stop).Path
 $resolvedOutputPath = [System.IO.Path]::GetFullPath($OutputPath)
@@ -33,13 +34,21 @@ if ([System.IO.Path]::GetExtension($resolvedOutputPath) -ne '.exe') {
     throw "OutputPath must end in .exe: $resolvedOutputPath"
 }
 
-if (-not (Test-Path -LiteralPath $resolvedPatchDirectory -PathType Container)) {
-    throw "PatchDirectory is not a directory: $resolvedPatchDirectory"
+$isPatchZip = Test-Path -LiteralPath $resolvedPatchPath -PathType Leaf
+$isPatchDirectory = Test-Path -LiteralPath $resolvedPatchPath -PathType Container
+if (-not $isPatchZip -and -not $isPatchDirectory) {
+    throw "PatchPath must be a .zip archive or directory: $resolvedPatchPath"
 }
 
-$patchFiles = @(Get-ChildItem -LiteralPath $resolvedPatchDirectory -Recurse -File)
-if ($patchFiles.Count -eq 0) {
-    throw "PatchDirectory does not contain any files: $resolvedPatchDirectory"
+if ($isPatchZip -and [System.IO.Path]::GetExtension($resolvedPatchPath) -ne '.zip') {
+    throw "PatchPath must be a .zip archive or directory: $resolvedPatchPath"
+}
+
+if ($isPatchDirectory) {
+    $patchFiles = @(Get-ChildItem -LiteralPath $resolvedPatchPath -Recurse -File)
+    if ($patchFiles.Count -eq 0) {
+        throw "Patch directory does not contain any files: $resolvedPatchPath"
+    }
 }
 
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
@@ -56,11 +65,15 @@ try {
     Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination (Join-Path $workingDirectory $installerFileName) -Force
     Copy-Item -LiteralPath $resolvedLauncherPath -Destination (Join-Path $workingDirectory $launcherFileName) -Force
 
-    Compress-Archive `
-        -Path (Join-Path $resolvedPatchDirectory '*') `
-        -DestinationPath $payloadPath `
-        -CompressionLevel Optimal `
-        -Force
+    if ($isPatchZip) {
+        Copy-Item -LiteralPath $resolvedPatchPath -Destination $payloadPath -Force
+    } else {
+        Compress-Archive `
+            -Path (Join-Path $resolvedPatchPath '*') `
+            -DestinationPath $payloadPath `
+            -CompressionLevel Optimal `
+            -Force
+    }
 
     $sourceDirectoryForSed = $workingDirectory.TrimEnd('\') + '\'
     $escapedFriendlyName = $FriendlyName.Replace('"', '')
