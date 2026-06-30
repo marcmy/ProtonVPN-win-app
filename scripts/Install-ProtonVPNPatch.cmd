@@ -28,10 +28,13 @@ if exist "%PAYLOAD%" (
 )
 
 set "EXITCODE=%ERRORLEVEL%"
-if not "%EXITCODE%"=="0" (
-    echo.
+echo.
+if "%EXITCODE%"=="0" (
+    echo Proton VPN patch installation completed successfully.
+) else (
     echo Proton VPN patch installation failed with exit code %EXITCODE%.
-    pause
 )
+echo.
+pause
 
 exit /b %EXITCODE%
