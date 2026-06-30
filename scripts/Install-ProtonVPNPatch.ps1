@@ -12,7 +12,9 @@ param(
     [ValidateRange(0, 100)]
     [int] $BackupRetentionCount = 3,
 
-    [switch] $NoRestart
+    [switch] $NoRestart,
+
+    [switch] $RestartClient
 )
 
 Set-StrictMode -Version Latest
@@ -72,6 +74,10 @@ function Restart-Elevated {
 
     if ($NoRestart) {
         $argumentList += '-NoRestart'
+    }
+
+    if ($RestartClient) {
+        $argumentList += '-RestartClient'
     }
 
     if ($WhatIfPreference) {
@@ -314,6 +320,10 @@ function Stop-ProtonProcessesForTarget {
             }
 
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            try {
+                $process.WaitForExit(5000)
+            } catch {
+            }
         }
     }
 
@@ -478,7 +488,7 @@ try {
             }
         }
 
-        if ($clientWasRunning) {
+        if ($RestartClient -and $clientWasRunning) {
             $clientExecutable = Join-Path $targetDirectory 'ProtonVPN.Client.exe'
             if (Test-Path -LiteralPath $clientExecutable -PathType Leaf) {
                 try {
@@ -513,5 +523,8 @@ if ($installCompleted) {
     }
 
     Write-Host "Backup retained at: $backupDirectory"
+    if ($clientWasRunning -and -not $RestartClient) {
+        Write-Host 'Proton VPN Client was left closed to avoid changing the previous connection state.' -ForegroundColor Yellow
+    }
     exit 0
 }
