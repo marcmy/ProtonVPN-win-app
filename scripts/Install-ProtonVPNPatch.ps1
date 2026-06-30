@@ -14,7 +14,9 @@ param(
 
     [switch] $NoRestart,
 
-    [switch] $RestartClient
+    [switch] $RestartClient,
+
+    [switch] $PauseBeforeExit
 )
 
 Set-StrictMode -Version Latest
@@ -78,6 +80,10 @@ function Restart-Elevated {
 
     if ($RestartClient) {
         $argumentList += '-RestartClient'
+    }
+
+    if ($PauseBeforeExit) {
+        $argumentList += '-PauseBeforeExit'
     }
 
     if ($WhatIfPreference) {
@@ -319,7 +325,7 @@ function Stop-ProtonProcessesForTarget {
             } catch {
             }
 
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            Stop-Process -Id $process.Id -Force -ErrorAction Stop
             try {
                 $process.WaitForExit(5000)
             } catch {
@@ -328,6 +334,27 @@ function Stop-ProtonProcessesForTarget {
     }
 
     return $clientWasRunning
+}
+
+function Stop-ProtonServices {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]] $Services
+    )
+
+    foreach ($service in @($Services | Sort-Object Name -Descending)) {
+        $controller = Get-Service -Name $service.Name -ErrorAction Stop
+        if ($controller.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Stopped) {
+            continue
+        }
+
+        Stop-Service -Name $service.Name -Force -ErrorAction Stop
+        $controller = Get-Service -Name $service.Name -ErrorAction Stop
+        $controller.WaitForStatus(
+            [System.ServiceProcess.ServiceControllerStatus]::Stopped,
+            [TimeSpan]::FromSeconds(20)
+        )
+    }
 }
 
 function Remove-OldBackups {
@@ -395,6 +422,22 @@ $runningServiceNames = @()
 $clientWasRunning = $false
 $backupCompleted = $false
 $installCompleted = $false
+$exitCode = 1
+$transcriptStarted = $false
+$logPath = $null
+
+if (-not $WhatIfPreference) {
+    try {
+        $logRoot = Join-Path $env:ProgramData 'ProtonVPN Custom Patch\Logs'
+        New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+        $logPath = Join-Path $logRoot ("install-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+        Start-Transcript -LiteralPath $logPath -Force | Out-Null
+        $transcriptStarted = $true
+        Write-Host "Log:     $logPath"
+    } catch {
+        Write-Warning "Could not start installer logging: $($_.Exception.Message)"
+    }
+}
 
 try {
     $hasMutex = $mutex.WaitOne(0, $false)
@@ -440,14 +483,11 @@ try {
     if ($PSCmdlet.ShouldProcess($targetDirectory, 'Back up and install Proton VPN custom patch')) {
         New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
 
-        Write-Host 'Stopping Proton VPN services...'
-        foreach ($service in $services) {
-            if ($service.State -ne 'Stopped') {
-                Stop-Service -Name $service.Name -Force -ErrorAction Stop
-            }
-        }
-
+        Write-Host 'Closing Proton VPN client...'
         $clientWasRunning = Stop-ProtonProcessesForTarget -TargetDirectory $targetDirectory
+
+        Write-Host 'Stopping Proton VPN services...'
+        Stop-ProtonServices -Services $services
 
         Write-Host 'Backing up the complete official version folder...'
         Invoke-Robocopy -Source $targetDirectory -Destination $backupDirectory -Mirror
@@ -462,6 +502,8 @@ try {
         $installCompleted = $true
         Write-Host 'Patch installed successfully.' -ForegroundColor Green
     }
+
+    $exitCode = 0
 } catch {
     Write-Error -Message $_.Exception.Message -ErrorAction Continue
 
@@ -477,7 +519,7 @@ try {
         }
     }
 
-    exit 1
+    $exitCode = 1
 } finally {
     if (-not $NoRestart -and $targetDirectory) {
         foreach ($serviceName in $runningServiceNames) {
@@ -526,5 +568,18 @@ if ($installCompleted) {
     if ($clientWasRunning -and -not $RestartClient) {
         Write-Host 'Proton VPN Client was left closed to avoid changing the previous connection state.' -ForegroundColor Yellow
     }
-    exit 0
+} elseif ($exitCode -ne 0) {
+    Write-Host 'Patch installation failed.' -ForegroundColor Red
 }
+
+if ($transcriptStarted) {
+    Write-Host "Installer log retained at: $logPath"
+    Stop-Transcript | Out-Null
+}
+
+if ($PauseBeforeExit) {
+    Write-Host
+    $null = Read-Host 'Press Enter to close this window'
+}
+
+exit $exitCode
