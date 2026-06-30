@@ -30,7 +30,16 @@ param(
     [string] $PatchDirectory = 'artifacts/ProtonVPN.Client.Patch',
 
     [ValidateNotNullOrEmpty()]
-    [string] $InstallerDirectory = 'artifacts/Installer'
+    [string] $InstallerDirectory = 'artifacts/Installer',
+
+    [ValidateNotNullOrEmpty()]
+    [string] $BuilderPath = (Join-Path $PSScriptRoot '..\..\scripts\New-ProtonVPNPatchSfx.ps1'),
+
+    [ValidateNotNullOrEmpty()]
+    [string] $InstallerScriptPath = (Join-Path $PSScriptRoot '..\..\scripts\Install-ProtonVPNPatch.ps1'),
+
+    [ValidateNotNullOrEmpty()]
+    [string] $LauncherPath = (Join-Path $PSScriptRoot '..\..\scripts\Install-ProtonVPNPatch.cmd')
 )
 
 Set-StrictMode -Version Latest
@@ -40,12 +49,21 @@ $binDir = [System.IO.Path]::GetFullPath($BinDirectory)
 $clientOutputDir = [System.IO.Path]::GetFullPath($ClientOutputDirectory)
 $patchDir = [System.IO.Path]::GetFullPath($PatchDirectory)
 $installerDir = [System.IO.Path]::GetFullPath($InstallerDirectory)
+$resolvedBuilderPath = [System.IO.Path]::GetFullPath($BuilderPath)
+$resolvedInstallerScriptPath = [System.IO.Path]::GetFullPath($InstallerScriptPath)
+$resolvedLauncherPath = [System.IO.Path]::GetFullPath($LauncherPath)
 $manifestPath = Join-Path $patchDir 'patch-manifest.json'
 $installerName = "ProtonVPN-Custom-Patch-$TargetVersion.exe"
 $installerPath = Join-Path $installerDir $installerName
 
 if (-not (Test-Path -LiteralPath $binDir -PathType Container)) {
     throw "Build output directory missing: $binDir"
+}
+
+foreach ($requiredTool in @($resolvedBuilderPath, $resolvedInstallerScriptPath, $resolvedLauncherPath)) {
+    if (-not (Test-Path -LiteralPath $requiredTool -PathType Leaf)) {
+        throw "Required installer tool was not found: $requiredTool"
+    }
 }
 
 Remove-Item -LiteralPath $patchDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -220,12 +238,11 @@ $manifest = [ordered]@{
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath -Encoding utf8
 Write-Host "Created patch manifest for Proton VPN $TargetVersion with $($manifestFiles.Count) payload files."
 
-$builderPath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\scripts\New-ProtonVPNPatchSfx.ps1'))
-if (-not (Test-Path -LiteralPath $builderPath -PathType Leaf)) {
-    throw "Self-extracting installer builder was not found: $builderPath"
-}
-
-& $builderPath -PatchPath $patchDir -OutputPath $installerPath
+& $resolvedBuilderPath `
+    -PatchPath $patchDir `
+    -OutputPath $installerPath `
+    -InstallerScriptPath $resolvedInstallerScriptPath `
+    -LauncherPath $resolvedLauncherPath
 
 if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
     throw "Patch installer was not created: $installerPath"
