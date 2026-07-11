@@ -30,6 +30,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
     private readonly CancellationTokenSource _lifetimeCancellation = new();
 
     private bool _isDisposed;
+    private int _resourcesDisposed;
 
     public event EventHandler<ServerHealthSnapshotChangedEventArgs>? SnapshotChanged;
 
@@ -84,6 +85,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
         Task<ServerHealthSnapshot> pending;
         lock (_inFlightLock)
         {
+            ObjectDisposedException.ThrowIf(_isDisposed, this);
             if (!_inFlight.TryGetValue(key, out pending!))
             {
                 TaskCompletionSource<ServerHealthSnapshot> completion =
@@ -276,23 +278,44 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
     public void Dispose()
     {
-        if (_isDisposed)
+        Task[] pending;
+        lock (_inFlightLock)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            pending = _inFlight.Values.Cast<Task>().ToArray();
+        }
+
+        SnapshotChanged = null;
+        _entries.Clear();
+        _lifetimeCancellation.Cancel();
+
+        if (pending.Length == 0)
+        {
+            DisposeResources();
+            return;
+        }
+
+        _ = Task.WhenAll(pending).ContinueWith(
+            _ => DisposeResources(),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private void DisposeResources()
+    {
+        if (Interlocked.Exchange(ref _resourcesDisposed, 1) != 0)
         {
             return;
         }
 
-        _isDisposed = true;
-        _lifetimeCancellation.Cancel();
-        SnapshotChanged = null;
-        _entries.Clear();
-        lock (_inFlightLock)
-        {
-            _inFlight.Clear();
-        }
-
-        // In-flight operations may still unwind and release their slot after cancellation.
-        // The process-session store lives for the app lifetime, so leaving these lightweight
-        // synchronization objects undisposed avoids a shutdown race without retaining history.
+        _lifetimeCancellation.Dispose();
+        _probeSlots.Dispose();
     }
 
     private sealed class Entry
