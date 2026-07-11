@@ -6,7 +6,7 @@ namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
 public static class ServerHealthCalculator
 {
-    private const int SCORE_MEASUREMENT_COUNT = 3;
+    private const int SCORE_MEASUREMENT_COUNT = 6;
 
     public static ServerHealthAggregate Aggregate(
         IReadOnlyList<ServerHealthProbeMeasurement> retained)
