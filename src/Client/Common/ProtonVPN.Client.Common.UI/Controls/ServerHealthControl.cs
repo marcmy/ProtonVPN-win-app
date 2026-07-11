@@ -36,6 +36,7 @@ public sealed class ServerHealthControl : Grid
 
     private readonly Border[] _bars;
     private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
+    private readonly ServerHealthHistoryDetailsControl _detailsControl = new();
 
     private CancellationTokenSource? _probeCancellationTokenSource;
     private ServerHealthSnapshot? _snapshot;
@@ -73,6 +74,7 @@ public sealed class ServerHealthControl : Grid
         VerticalAlignment = VerticalAlignment.Center;
         ColumnSpacing = 2;
         Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+        ToolTipService.SetToolTip(this, _detailsControl);
 
         _bars =
         [
@@ -197,43 +199,31 @@ public sealed class ServerHealthControl : Grid
     private void ApplySnapshot(ServerHealthSnapshot snapshot)
     {
         _snapshot = snapshot;
+        _detailsControl.Snapshot = snapshot;
+        ToolTipService.SetToolTip(this, _detailsControl);
         ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
+
         if (snapshot.Aggregate is null)
         {
             SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
-            string detail = snapshot.IsRechecking && !string.IsNullOrWhiteSpace(snapshot.PendingError)
-                ? $"\n{snapshot.PendingError}"
-                : string.Empty;
-            SetToolTip($"Server health: {presentation.GradeText}{detail}");
-            return;
+        }
+        else
+        {
+            (string resourceKey, Color fallback) = snapshot.Aggregate.Grade switch
+            {
+                ServerHealthGrade.Fair => ("SignalWarningColorBrush", Color.FromArgb(255, 245, 166, 35)),
+                ServerHealthGrade.Poor => ("SignalDangerColorBrush", Color.FromArgb(255, 220, 65, 80)),
+                _ => ("SignalSuccessColorBrush", Color.FromArgb(255, 29, 171, 131)),
+            };
+            SetBars(presentation.ActiveBarCount, GetThemeBrush(resourceKey, fallback));
         }
 
-        (string resourceKey, Color fallback) = snapshot.Aggregate.Grade switch
-        {
-            ServerHealthGrade.Fair => ("SignalWarningColorBrush", Color.FromArgb(255, 245, 166, 35)),
-            ServerHealthGrade.Poor => ("SignalDangerColorBrush", Color.FromArgb(255, 220, 65, 80)),
-            _ => ("SignalSuccessColorBrush", Color.FromArgb(255, 29, 171, 131)),
-        };
-        SetBars(presentation.ActiveBarCount, GetThemeBrush(resourceKey, fallback));
-
-        ServerHealthProbeMeasurement? latest = snapshot.LatestMeasurement;
-        string latestDetails = latest is null
-            ? string.Empty
-            : $"\nLatest check: " +
-              $"{(latest.AverageLatencyMilliseconds is null ? "—" : $"{latest.AverageLatencyMilliseconds.Value:0} ms")}, " +
-              $"{latest.PacketLossPercent:0.#}% loss ({latest.SuccessfulSamples}/{latest.TotalSamples} replies)";
-        string rechecking = snapshot.IsRechecking && !string.IsNullOrWhiteSpace(snapshot.PendingError)
-            ? $"\nRechecking after failure: {snapshot.PendingError}"
-            : string.Empty;
-        SetToolTip(
-            $"Server health: {presentation.GradeText}\n" +
-            $"Latency: {presentation.LatencyText}\n" +
-            $"Packet loss: {presentation.PacketLossText}\n" +
-            $"Server load: {presentation.LoadText}\n" +
-            $"{presentation.ConfidenceText}\n" +
-            $"Route: {presentation.RouteText}" +
-            latestDetails +
-            rechecking);
+        AutomationProperties.SetName(
+            this,
+            $"Server health {presentation.GradeText}; " +
+            $"latency {presentation.LatencyText}; " +
+            $"packet loss {presentation.PacketLossText}; " +
+            presentation.ConfidenceText);
     }
 
     private void OnSnapshotChanged(object? sender, ServerHealthSnapshotChangedEventArgs e)
@@ -255,13 +245,17 @@ public sealed class ServerHealthControl : Grid
     private void SetCheckingState()
     {
         SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
-        SetToolTip("Server health: Checking…\nMeasuring latency and packet loss through the physical adapter.");
+        _detailsControl.Snapshot = null;
+        ToolTipService.SetToolTip(this, _detailsControl);
+        AutomationProperties.SetName(this, "Server health checking");
     }
 
     private void SetUnavailableState(string reason)
     {
         SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
-        SetToolTip($"Server health: Unavailable\n{reason}\nServer load: {ServerLoad:P0}");
+        string text = $"Server health: Unavailable\n{reason}\nServer load: {ServerLoad:P0}";
+        ToolTipService.SetToolTip(this, text);
+        AutomationProperties.SetName(this, text.Replace('\n', ' '));
     }
 
     private void SetBars(int activeBarCount, Brush activeBrush)
@@ -274,12 +268,6 @@ public sealed class ServerHealthControl : Grid
             _bars[i].Background = isActive ? activeBrush : inactiveBrush;
             _bars[i].Opacity = isActive ? 1 : 0.2;
         }
-    }
-
-    private void SetToolTip(string text)
-    {
-        ToolTipService.SetToolTip(this, text);
-        AutomationProperties.SetName(this, text.Replace('\n', ' '));
     }
 
     private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
