@@ -26,25 +26,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using Windows.UI;
 
 namespace ProtonVPN.Client.Common.UI.Controls;
-
-public interface IServerHealthSource
-{
-    string? HealthProbeAddress { get; }
-
-    Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken);
-}
-
-public sealed record ServerHealthProbeMeasurement(
-    double? AverageLatencyMilliseconds,
-    double PacketLossPercent,
-    int SuccessfulSamples,
-    int TotalSamples,
-    DateTimeOffset CheckedAt,
-    bool UsedPhysicalRoute,
-    string? Error);
 
 public sealed class ServerHealthControl : Grid
 {
