@@ -11,7 +11,7 @@ using Windows.UI;
 
 namespace ProtonVPN.Client.Common.UI.Controls;
 
-public sealed class ServerHealthHistoryDetailsControl : Border
+public sealed class ServerHealthHistoryDetailsControl : ContentControl
 {
     public static readonly DependencyProperty SnapshotProperty =
         DependencyProperty.Register(
@@ -35,7 +35,7 @@ public sealed class ServerHealthHistoryDetailsControl : Border
     {
         Width = 344;
         Padding = new Thickness(12);
-        Child = _layout;
+        Content = _layout;
         _layout.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _layout.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _layout.RowDefinitions.Add(new() { Height = GridLength.Auto });
