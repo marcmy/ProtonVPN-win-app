@@ -194,7 +194,7 @@ public class ServerHealthHistoryStoreTest
         Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, cancellation.Token);
         cancellation.Cancel();
 
-        await Assert.ThrowsExceptionAsync<OperationCanceledException>(() => pending);
+        await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => pending);
         TaskCompletionSource<ServerHealthSnapshot> recorded =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         store.SnapshotChanged += (_, args) =>
@@ -230,7 +230,7 @@ public class ServerHealthHistoryStoreTest
 
         store.Dispose();
 
-        await Assert.ThrowsExceptionAsync<OperationCanceledException>(() => pending);
+        await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => pending);
         Assert.IsFalse(observed.Any(snapshot => snapshot.Aggregate is not null));
     }
 
