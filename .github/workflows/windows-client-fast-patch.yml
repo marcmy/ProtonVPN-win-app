@@ -26,6 +26,7 @@ on:
     branches:
       - marc/proton
     types:
+      - opened
       - synchronize
       - reopened
       - ready_for_review
@@ -34,9 +35,8 @@ permissions:
   contents: read
 
 jobs:
-  patch:
-    if: github.event_name == 'workflow_dispatch'
-    name: Build ${{ inputs.build_mode }} patch artifact
+  pipeline:
+    name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Validate client and service changes' }}
     runs-on: windows-latest
 
     defaults:
@@ -55,7 +55,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Setup Go
-        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
         uses: actions/setup-go@v6
         with:
           go-version: '1.23.x'
@@ -79,11 +79,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts/Installer | Out-Null
 
       - name: Clean previous build output
+        if: github.event_name == 'workflow_dispatch'
         run: |
           Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath artifacts/client-build-output -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Resolve target app version
+        if: github.event_name == 'workflow_dispatch'
         id: app-version
         env:
           REQUESTED_TARGET_VERSION: ${{ inputs.target_version }}
@@ -127,8 +129,14 @@ jobs:
           Write-Host "Exact installed target folder: v$targetVersion"
           "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
 
+      - name: Run server health tests
+        if: github.event_name == 'pull_request'
+        run: |
+          dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
+            --configuration Release -p:Platform=x64
+
       - name: Run server health tests twice
-        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_mode == 'client' || inputs.build_mode == 'both') }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -147,7 +155,7 @@ jobs:
           }
 
       - name: Restore client project
-        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -162,7 +170,7 @@ jobs:
           }
 
       - name: Restore service project
-        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -177,7 +185,7 @@ jobs:
           }
 
       - name: Build client project
-        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -192,12 +200,12 @@ jobs:
           }
 
       - name: Stage client patch build output
-        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_mode == 'client' || inputs.build_mode == 'both') }}
         run: |
           .\.github\scripts\stage-client-patch-output.ps1
 
       - name: Build service project
-        if: ${{ inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
@@ -212,6 +220,7 @@ jobs:
           }
 
       - name: Package versioned patch artifacts
+        if: github.event_name == 'workflow_dispatch'
         id: package
         env:
           BUILD_MODE: ${{ inputs.build_mode }}
@@ -228,6 +237,7 @@ jobs:
             -WorkflowRunId $env:WORKFLOW_RUN_ID
 
       - name: Upload raw patch artifact
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: protonvpn-client-patch-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
@@ -235,6 +245,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload installer artifact
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: protonvpn-custom-patch-installer-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
@@ -242,7 +253,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload full bin artifact
-        if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: protonvpn-client-bin-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
@@ -250,50 +261,9 @@ jobs:
           if-no-files-found: error
 
       - name: Upload build logs
-        if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && always() && hashFiles('artifacts/logs/**') != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: protonvpn-client-patch-logs-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/logs
           if-no-files-found: ignore
-
-  server-health-validation:
-    if: github.event_name == 'pull_request'
-    name: Validate server health history
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.23.x'
-          cache: false
-
-      - name: Run server health tests
-        run: |
-          dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-            --configuration Release -p:Platform=x64
-
-      - name: Build client
-        run: |
-          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64
-          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj `
-            --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal
-
-      - name: Build service
-        run: |
-          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64
-          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj `
-            --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal

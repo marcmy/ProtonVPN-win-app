@@ -123,7 +123,7 @@ public class ServerHealthCalculatorTest
             ServerHealthCalculator.Aggregate([outage, first, second, third]).Grade);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(1, "Based on 1 of 3 checks")]
     [DataRow(2, "Based on 2 of 3 checks")]
     [DataRow(3, "Based on 3 checks")]
