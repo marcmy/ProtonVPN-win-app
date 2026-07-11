@@ -26,6 +26,7 @@ on:
     branches:
       - marc/proton
     types:
+      - opened
       - synchronize
       - reopened
       - ready_for_review
@@ -92,7 +93,6 @@ jobs:
 
           $requestedVersion = $env:REQUESTED_TARGET_VERSION.Trim()
           $assemblyInfoPath = 'src/GlobalAssemblyInfo.cs'
-
           if ($requestedVersion -eq '') {
             if (-not (Test-Path -LiteralPath $assemblyInfoPath -PathType Leaf)) {
               throw "Assembly info file was not found: $assemblyInfoPath"
@@ -259,7 +259,7 @@ jobs:
 
   server-health-validation:
     if: github.event_name == 'pull_request'
-    name: Validate server health history
+    name: Validate client and service changes
     runs-on: windows-latest
     defaults:
       run:
