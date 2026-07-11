@@ -4,61 +4,55 @@
 
 **Goal:** Replace latest-probe server health with a shared, session-wide three-check history, confirmed-outage retry behavior, and a reusable ten-minute hover graph for both candidate rows and the connected-server panel.
 
-**Architecture:** Put the scoring, retained measurements, retry/coalescing coordinator, and graph-series projection in the existing `ProtonVPN.Client.Common.UI` assembly so both current health surfaces consume exactly the same immutable snapshots. A session singleton owns one `ServerHealthHistoryStore`; UI controls subscribe by a composite server-ID/address key, while the privileged VPN service remains stateless and unchanged.
+**Architecture:** Put scoring, retained measurements, retry/coalescing, presentation, and graph projection in `ProtonVPN.Client.Common.UI` so both current health surfaces consume the same immutable snapshots. A session singleton owns one testable `ServerHealthHistoryStore` keyed by stable server ID plus normalized probe address; the privileged service remains stateless and unchanged.
 
 **Tech Stack:** C# 12, .NET 8, WinUI 3, CommunityToolkit.Mvvm, MSTest, NSubstitute, existing Proton VPN IPC/service probe.
 
 ## Global Constraints
 
-- Keep normal probes at exactly 4 ICMP samples.
+- Keep each normal probe at exactly 4 ICMP samples.
 - Keep connected-server refresh at 30 seconds and visible candidate-row refresh at 60 seconds.
-- Score from only the newest 3 recorded batches; pool attempted replies and successful replies across those batches.
-- Retain graph history for 10 minutes and expire a key after 10 minutes without a recorded measurement.
-- Show provisional results immediately as `Based on 1 of 3 checks` or `Based on 2 of 3 checks`.
-- On a complete failure, retry exactly once after 5 seconds; record one synthetic 4-attempt/0-reply batch only when the retry also fails completely.
-- Record partial loss immediately and do not retry it.
-- Preserve the existing latency buckets, 45% latency / 45% reliability / 10% load weights, packet-loss caps, and grade thresholds.
-- Use the newest known load value, but use reply-weighted pooled latency and pooled packet loss for the visible numbers.
-- Share history between search rows and the connected panel when both resolve to the same stable server ID and normalized probe address.
-- Preserve history across row unloading and navigation, but never persist it across application restarts.
-- Generate no extra periodic probes for history or graphing.
-- Do not change the privileged service’s direct physical-adapter route, WFP filters, IPC contract, timeout, or sample loop.
-- Cancellation from a disposed view or application shutdown must not create synthetic packet loss.
-- Confirmed outages have no invented latency; when no successful replies exist in the scoring window, display latency as `—` and grade the result Poor.
-- All UI updates raised from the shared store must be marshalled by the consuming view/control to the UI thread.
+- Score from only the newest 3 recorded batches by pooling successful and attempted replies.
+- Retain graph measurements for 10 minutes; expire a key after 10 minutes without a recorded measurement.
+- Show a grade immediately and identify provisional state as `Based on 1 of 3 checks` or `Based on 2 of 3 checks`.
+- On complete failure, retry exactly once after 5 seconds. Only a second complete failure records one synthetic 4-attempt, 0-reply, 100%-loss batch.
+- Record partial loss immediately and never trigger the fast retry for partial loss.
+- Preserve existing latency buckets, 45% latency / 45% reliability / 10% load weights, packet-loss caps, and grade thresholds.
+- Use reply-weighted pooled latency, pooled packet loss, and the newest known load for both grade and displayed numbers.
+- Share history between candidate rows and the connected panel for the same stable server ID and normalized probe address.
+- Preserve history across row unload, scrolling, and navigation during the app session; do not persist across process restarts.
+- Generate no additional periodic probes for aggregation or graphing.
+- Do not modify direct physical-adapter routing, WFP rules, IPC entities, service timeout, or service sample loop.
+- View cancellation and app shutdown must not create synthetic packet loss.
+- A confirmed outage has no fabricated latency. When the score window has no successful replies, display latency as `—` and grade Poor.
+- Consumers marshal store notifications to their UI thread.
 
 ---
 
 ## File Map
 
-### New shared health-domain files
+### Create
 
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/IServerHealthSource.cs` — source identity, load, address, and probe callback contract.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/IServerHealthClock.cs` — injectable UTC clock and delay abstraction.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGrade.cs` — grade enum.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistoryKey.cs` — normalized composite identity.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthProbeMeasurement.cs` — one recorded logical batch.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthAggregate.cs` — newest-three pooled result.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthSnapshot.cs` — immutable retained history and transient checking state.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs` — pooled aggregation and unchanged grade formula.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs` — shared labels, bar count, confidence, and formatted values.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistoryStore.cs` — retention, expiry, retry, concurrency, and notifications.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistorySession.cs` — one application-session store.
-- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGraphSeries.cs` — graph-ready points and newest-three markers.
-
-### New reusable UI file
-
-- `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthHistoryDetailsControl.cs` — tooltip content and ten-minute graph.
-
-### New tests
-
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/IServerHealthSource.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/IServerHealthClock.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGrade.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistoryKey.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthProbeMeasurement.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthAggregate.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthSnapshot.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistoryStore.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistorySession.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGraphSeries.cs`
+- `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthHistoryDetailsControl.cs`
 - `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj`
 - `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs`
 - `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthHistoryStoreTest.cs`
 - `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthGraphSeriesTest.cs`
 - `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthTestDoubles.cs`
 
-### Existing files to modify
+### Modify
 
 - `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthControl.cs`
 - `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/Custom/ServerConnectionRowButton.cs`
@@ -68,36 +62,18 @@
 
 ---
 
-### Task 1: Establish the shared health model, pooled calculator, and presentation contract
+### Task 1: Shared model, calculator, and presentation
 
 **Files:**
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/IServerHealthSource.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/IServerHealthClock.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGrade.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistoryKey.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthProbeMeasurement.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthAggregate.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthSnapshot.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs`
-- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthControl.cs:28-47` — remove the in-file interface and measurement record after moving them.
-- Modify: `src/Client/ProtonVPN.Client/Models/Connections/ServerLocationItemBase.cs:45-130` — implement stable health identity/load properties and update measurement construction.
+- Create all model/calculator/presentation files listed above.
+- Create the test project and `ServerHealthCalculatorTest.cs`.
+- Modify `ServerHealthControl.cs` to remove its in-file contract/measurement declarations.
+- Modify `ServerLocationItemBase.cs` to implement the expanded source contract.
 
 **Interfaces:**
-- Produces:
-  - `IServerHealthSource.HealthServerId`
-  - `IServerHealthSource.HealthProbeAddress`
-  - `IServerHealthSource.HealthServerLoad`
-  - `IServerHealthSource.ProbeHealthAsync(CancellationToken)`
-  - `ServerHealthHistoryKey.Create(string serverId, string probeAddress)`
-  - `ServerHealthCalculator.Aggregate(IReadOnlyList<ServerHealthProbeMeasurement>)`
-  - `ServerHealthPresentation.FromSnapshot(ServerHealthSnapshot)`
+- Produces `IServerHealthSource`, `ServerHealthHistoryKey`, `ServerHealthProbeMeasurement`, `ServerHealthAggregate`, `ServerHealthSnapshot`, `ServerHealthCalculator`, and `ServerHealthPresentation`.
 
-- [ ] **Step 1: Create the MSTest project**
-
-Create `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj`:
+- [ ] **Step 1: Create the test project**
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -114,8 +90,7 @@ Create `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Comm
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\GlobalAssemblyInfo.cs"
-             Link="Properties\GlobalAssemblyInfo.cs" />
+    <Compile Include="..\..\..\GlobalAssemblyInfo.cs" Link="Properties\GlobalAssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
@@ -129,9 +104,9 @@ Create `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Comm
 </Project>
 ```
 
-- [ ] **Step 2: Write failing pooled-calculation tests**
+- [ ] **Step 2: Write the failing calculator/presentation tests**
 
-Create `ServerHealthCalculatorTest.cs` with tests covering:
+Create `ServerHealthCalculatorTest.cs`:
 
 ```csharp
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -175,7 +150,7 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    public void Aggregate_UsesOnlyNewestThreeBatchesAndNewestLoad()
+    public void Aggregate_UsesNewestThreeBatchesAndNewestLoad()
     {
         ServerHealthProbeMeasurement[] measurements =
         [
@@ -194,7 +169,7 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    public void Aggregate_ConfirmedOutageWithoutReplies_IsPoorAndDoesNotInventLatency()
+    public void Aggregate_ConfirmedOutageWithoutReplies_IsPoorAndHasNoLatency()
     {
         ServerHealthProbeMeasurement outage =
             Measurement(null, 0, 4, 0.20, 0, true);
@@ -222,10 +197,9 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    public void Aggregate_ConfirmedOutage_RemainsUntilThreeLaterBatchesReplaceIt()
+    public void Aggregate_ConfirmedOutage_RemainsUntilThreeNewerBatchesReplaceIt()
     {
-        ServerHealthProbeMeasurement outage =
-            Measurement(null, 0, 4, 0.10, 0, true);
+        ServerHealthProbeMeasurement outage = Measurement(null, 0, 4, 0.10, 0, true);
         ServerHealthProbeMeasurement first = Measurement(20, 4, 4, 0.10, 30);
         ServerHealthProbeMeasurement second = Measurement(20, 4, 4, 0.10, 60);
         ServerHealthProbeMeasurement third = Measurement(20, 4, 4, 0.10, 90);
@@ -245,9 +219,7 @@ public class ServerHealthCalculatorTest
     [DataRow(1, "Based on 1 of 3 checks")]
     [DataRow(2, "Based on 2 of 3 checks")]
     [DataRow(3, "Based on 3 checks")]
-    public void FromSnapshot_FormatsConfidenceForAvailableBatchCount(
-        int count,
-        string expected)
+    public void FromSnapshot_FormatsConfidence(int count, string expected)
     {
         ServerHealthProbeMeasurement[] measurements = Enumerable.Range(0, count)
             .Select(i => Measurement(40, 4, 4, 0.25, i * 30))
@@ -263,7 +235,7 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    public void HistoryKey_NormalizesServerIdentityAndProbeAddress()
+    public void HistoryKey_NormalizesIdentityAndAddress()
     {
         ServerHealthHistoryKey left =
             ServerHealthHistoryKey.Create(" us-ny#79 ", " 10.0.0.1 ");
@@ -279,9 +251,8 @@ public class ServerHealthCalculatorTest
         int total,
         double load,
         int seconds,
-        bool outage = false)
-    {
-        return new(
+        bool outage = false) =>
+        new(
             latency,
             successful,
             total,
@@ -291,11 +262,10 @@ public class ServerHealthCalculatorTest
             load,
             WasRetried: outage,
             IsConfirmedOutage: outage);
-    }
 }
 ```
 
-- [ ] **Step 3: Run the tests and confirm the model does not exist yet**
+- [ ] **Step 3: Run the tests to verify failure**
 
 ```powershell
 dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
@@ -303,11 +273,11 @@ dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.
   --filter FullyQualifiedName~ServerHealthCalculatorTest
 ```
 
-Expected: build failure naming missing `ProtonVPN.Client.Common.UI.ServerHealth` types.
+Expected: compilation fails because the new server-health types do not exist.
 
 - [ ] **Step 4: Add the source contract and immutable models**
 
-Create `IServerHealthSource.cs`:
+`IServerHealthSource.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -321,7 +291,7 @@ public interface IServerHealthSource
 }
 ```
 
-Create `IServerHealthClock.cs`:
+`IServerHealthClock.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -335,13 +305,11 @@ public interface IServerHealthClock
 public sealed class SystemServerHealthClock : IServerHealthClock
 {
     public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
-
-    public Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken) =>
-        Task.Delay(delay, cancellationToken);
+    public Task DelayAsync(TimeSpan delay, CancellationToken token) => Task.Delay(delay, token);
 }
 ```
 
-Create `ServerHealthGrade.cs`:
+`ServerHealthGrade.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -355,7 +323,7 @@ public enum ServerHealthGrade
 }
 ```
 
-Create `ServerHealthHistoryKey.cs`:
+`ServerHealthHistoryKey.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -373,7 +341,7 @@ public readonly record struct ServerHealthHistoryKey(string ServerId, string Pro
 }
 ```
 
-Create `ServerHealthProbeMeasurement.cs`:
+`ServerHealthProbeMeasurement.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -398,7 +366,7 @@ public sealed record ServerHealthProbeMeasurement(
 }
 ```
 
-Create `ServerHealthAggregate.cs`:
+`ServerHealthAggregate.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -414,7 +382,7 @@ public sealed record ServerHealthAggregate(
     int MeasurementCount);
 ```
 
-Create `ServerHealthSnapshot.cs`:
+`ServerHealthSnapshot.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -438,7 +406,7 @@ public sealed record ServerHealthSnapshot(
         new(
             key,
             measurements,
-            measurements.Count == 0 ? null : aggregate,
+            aggregate,
             measurements.Count == 0 ? null : measurements[^1],
             false,
             false,
@@ -448,9 +416,9 @@ public sealed record ServerHealthSnapshot(
 }
 ```
 
-- [ ] **Step 5: Implement pooling and the unchanged score formula**
+- [ ] **Step 5: Implement aggregation and shared formatting**
 
-Create `ServerHealthCalculator.cs`:
+`ServerHealthCalculator.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -506,7 +474,6 @@ public static class ServerHealthCalculator
         double reliabilityScore = Math.Clamp(100 - loss * 2, 0, 100);
         double loadScore = 100 - Math.Clamp(load, 0, 1) * 100;
         double score = latencyScore * 0.45 + reliabilityScore * 0.45 + loadScore * 0.10;
-
         if (loss >= 50) return Math.Min(score, 39);
         if (loss >= 25) return Math.Min(score, 64);
         return score;
@@ -514,7 +481,7 @@ public static class ServerHealthCalculator
 }
 ```
 
-Create `ServerHealthPresentation.cs`:
+`ServerHealthPresentation.cs`:
 
 ```csharp
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
@@ -539,24 +506,22 @@ public sealed record ServerHealthPresentation(
                 snapshot.PendingError ?? "Physical adapter (direct)", state);
         }
 
-        ServerHealthAggregate aggregate = snapshot.Aggregate;
-        string confidence = aggregate.MeasurementCount >= 3
+        ServerHealthAggregate a = snapshot.Aggregate;
+        string confidence = a.MeasurementCount >= 3
             ? "Based on 3 checks"
-            : $"Based on {aggregate.MeasurementCount} of 3 checks";
+            : $"Based on {a.MeasurementCount} of 3 checks";
         return new(
-            aggregate.Grade.ToString(),
-            aggregate.Grade switch
+            a.Grade.ToString(),
+            a.Grade switch
             {
                 ServerHealthGrade.Excellent => 4,
                 ServerHealthGrade.Good => 3,
                 ServerHealthGrade.Fair => 2,
                 _ => 1,
             },
-            aggregate.AverageLatencyMilliseconds is null
-                ? "—"
-                : $"{aggregate.AverageLatencyMilliseconds.Value:0} ms",
-            $"{aggregate.PacketLossPercent:0.#}%",
-            $"{aggregate.ServerLoad:P0}",
+            a.AverageLatencyMilliseconds is null ? "—" : $"{a.AverageLatencyMilliseconds.Value:0} ms",
+            $"{a.PacketLossPercent:0.#}%",
+            $"{a.ServerLoad:P0}",
             confidence,
             snapshot.LatestMeasurement?.UsedPhysicalRoute == true
                 ? "Physical adapter (direct)"
@@ -568,16 +533,18 @@ public sealed record ServerHealthPresentation(
 }
 ```
 
-- [ ] **Step 6: Move the old contract out of `ServerHealthControl` and adapt `ServerLocationItemBase`**
+- [ ] **Step 6: Move the old contract and adapt the candidate model**
 
-Remove the old in-file `IServerHealthSource` and `ServerHealthProbeMeasurement`; import the new namespace. Add:
+Remove the old interface/record from `ServerHealthControl.cs`; import `ProtonVPN.Client.Common.UI.ServerHealth` there, in `ServerConnectionRowButton.cs`, and in `ServerLocationItemBase.cs`.
+
+Add to `ServerLocationItemBase`:
 
 ```csharp
 public string HealthServerId => Server.Id;
 public double HealthServerLoad => Load;
 ```
 
-Map successful IPC results with sample counts and the source load:
+Map success/failure exactly:
 
 ```csharp
 return new ServerHealthProbeMeasurement(
@@ -590,16 +557,14 @@ return new ServerHealthProbeMeasurement(
     HealthServerLoad);
 ```
 
-Map local/IPC failure to a complete but unconfirmed failed attempt:
-
 ```csharp
 private ServerHealthProbeMeasurement CreateUnavailableMeasurement(string error) =>
     new(null, 0, 4, DateTimeOffset.UtcNow, false, error, HealthServerLoad);
 ```
 
-- [ ] **Step 7: Run the focused tests**
+- [ ] **Step 7: Run tests**
 
-Run the Step 3 command. Expected: all calculator and presentation tests pass.
+Run Step 3. Expected: all calculator/presentation tests pass.
 
 - [ ] **Step 8: Commit**
 
@@ -613,21 +578,23 @@ git commit -m "feat: add pooled server health model"
 
 ---
 
-### Task 2: Implement retained history, expiry, retry, and per-key probe coalescing
+### Task 2: History, expiry, retry, and coalescing
 
 **Files:**
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistoryStore.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthHistorySession.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthTestDoubles.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthHistoryStoreTest.cs`
+- Create `ServerHealthHistoryStore.cs`, `ServerHealthHistorySession.cs`, `ServerHealthTestDoubles.cs`, and `ServerHealthHistoryStoreTest.cs`.
 
 **Interfaces:**
-- Consumes the Task 1 model/calculator.
 - Produces `GetSnapshot`, `ProbeAsync`, `SnapshotChanged`, and `ServerHealthHistorySession.Current`.
 
-- [ ] **Step 1: Add deterministic test doubles**
+- [ ] **Step 1: Add deterministic doubles**
+
+`ServerHealthTestDoubles.cs`:
 
 ```csharp
+using ProtonVPN.Client.Common.UI.ServerHealth;
+
+namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
+
 internal sealed class FakeServerHealthClock : IServerHealthClock
 {
     private TaskCompletionSource? _pendingDelay;
@@ -635,14 +602,14 @@ internal sealed class FakeServerHealthClock : IServerHealthClock
     public List<TimeSpan> Delays { get; } = [];
     public bool BlockDelays { get; set; }
 
-    public Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken)
+    public Task DelayAsync(TimeSpan delay, CancellationToken token)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        token.ThrowIfCancellationRequested();
         Delays.Add(delay);
         UtcNow += delay;
         if (!BlockDelays) return Task.CompletedTask;
         _pendingDelay = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        cancellationToken.Register(() => _pendingDelay.TrySetCanceled(cancellationToken));
+        token.Register(() => _pendingDelay.TrySetCanceled(token));
         return _pendingDelay.Task;
     }
 
@@ -660,8 +627,9 @@ internal sealed class QueueServerHealthSource : IServerHealthSource
 
     public void Enqueue(ServerHealthProbeMeasurement measurement) =>
         _results.Enqueue(_ => Task.FromResult(measurement));
-    public void Enqueue(Func<CancellationToken, Task<ServerHealthProbeMeasurement>> result) =>
-        _results.Enqueue(result);
+    public void Enqueue(Func<CancellationToken, Task<ServerHealthProbeMeasurement>> factory) =>
+        _results.Enqueue(factory);
+
     public Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken token)
     {
         ProbeCount++;
@@ -670,78 +638,234 @@ internal sealed class QueueServerHealthSource : IServerHealthSource
 }
 ```
 
-- [ ] **Step 2: Write failing store tests**
+- [ ] **Step 2: Write the complete failing store suite**
 
-Create tests with exact assertions for these cases:
+`ServerHealthHistoryStoreTest.cs`:
 
 ```csharp
-[TestMethod]
-public async Task FirstCompleteFailure_RetriesAfterFiveSecondsAndRecordsSuccessfulRetry()
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ProtonVPN.Client.Common.UI.ServerHealth;
+
+namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
+
+[TestClass]
+public class ServerHealthHistoryStoreTest
 {
-    FakeServerHealthClock clock = new();
-    QueueServerHealthSource source = Source();
-    source.Enqueue(Failure(clock, "first"));
-    source.Enqueue(Success(clock, 40, 4));
-    using ServerHealthHistoryStore store = new(clock);
+    [TestMethod]
+    public async Task FirstFailure_RetriesAfterFiveSecondsAndRecordsSuccessfulRetry()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Failure(clock, "first"));
+        source.Enqueue(Success(clock, 40, 4));
+        using ServerHealthHistoryStore store = new(clock);
 
-    ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
+        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
 
-    CollectionAssert.AreEqual(new[] { TimeSpan.FromSeconds(5) }, clock.Delays);
-    Assert.AreEqual(2, source.ProbeCount);
-    Assert.AreEqual(1, result.Measurements.Count);
-    Assert.IsTrue(result.Measurements[0].WasRetried);
-    Assert.IsFalse(result.Measurements[0].IsConfirmedOutage);
-}
+        CollectionAssert.AreEqual(new[] { TimeSpan.FromSeconds(5) }, clock.Delays);
+        Assert.AreEqual(2, source.ProbeCount);
+        Assert.AreEqual(1, result.Measurements.Count);
+        Assert.IsTrue(result.Measurements[0].WasRetried);
+        Assert.IsFalse(result.Measurements[0].IsConfirmedOutage);
+    }
 
-[TestMethod]
-public async Task TwoCompleteFailures_RecordOneConfirmedOutage()
-{
-    FakeServerHealthClock clock = new();
-    QueueServerHealthSource source = Source();
-    source.Enqueue(Failure(clock, "first"));
-    source.Enqueue(Failure(clock, "second"));
-    using ServerHealthHistoryStore store = new(clock);
+    [TestMethod]
+    public async Task TwoFailures_RecordOneConfirmedOutage()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Failure(clock, "first"));
+        source.Enqueue(Failure(clock, "second"));
+        using ServerHealthHistoryStore store = new(clock);
 
-    ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
+        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
 
-    Assert.AreEqual(1, result.Measurements.Count);
-    Assert.AreEqual(0, result.Measurements[0].SuccessfulSamples);
-    Assert.AreEqual(4, result.Measurements[0].TotalSamples);
-    Assert.IsTrue(result.Measurements[0].IsConfirmedOutage);
-    Assert.AreEqual(100, result.Aggregate!.PacketLossPercent);
-}
+        Assert.AreEqual(1, result.Measurements.Count);
+        Assert.AreEqual(0, result.Measurements[0].SuccessfulSamples);
+        Assert.AreEqual(4, result.Measurements[0].TotalSamples);
+        Assert.IsTrue(result.Measurements[0].IsConfirmedOutage);
+        Assert.AreEqual(100, result.Aggregate!.PacketLossPercent);
+    }
 
-[TestMethod]
-public async Task PartialLoss_DoesNotRetry()
-{
-    FakeServerHealthClock clock = new();
-    QueueServerHealthSource source = Source();
-    source.Enqueue(Success(clock, 40, 2));
-    using ServerHealthHistoryStore store = new(clock);
+    [TestMethod]
+    public async Task PartialLoss_DoesNotRetry()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Success(clock, 40, 2));
+        using ServerHealthHistoryStore store = new(clock);
 
-    ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
+        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
 
-    Assert.AreEqual(1, source.ProbeCount);
-    Assert.AreEqual(0, clock.Delays.Count);
-    Assert.AreEqual(50, result.Aggregate!.PacketLossPercent);
+        Assert.AreEqual(1, source.ProbeCount);
+        Assert.AreEqual(0, clock.Delays.Count);
+        Assert.AreEqual(50, result.Aggregate!.PacketLossPercent);
+    }
+
+    [TestMethod]
+    public async Task ConcurrentSameKeyRequests_UseOneProbe()
+    {
+        FakeServerHealthClock clock = new();
+        TaskCompletionSource<ServerHealthProbeMeasurement> completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        QueueServerHealthSource source = Source();
+        source.Enqueue(_ => completion.Task);
+        using ServerHealthHistoryStore store = new(clock);
+
+        Task<ServerHealthSnapshot> first = store.ProbeAsync(source, CancellationToken.None);
+        Task<ServerHealthSnapshot> second = store.ProbeAsync(source, CancellationToken.None);
+        completion.SetResult(Success(clock, 40, 4));
+        await Task.WhenAll(first, second);
+
+        Assert.AreEqual(1, source.ProbeCount);
+        Assert.AreSame(first.Result, second.Result);
+    }
+
+    [TestMethod]
+    public async Task RequestDuringRetryDelay_JoinsLogicalBatch()
+    {
+        FakeServerHealthClock clock = new() { BlockDelays = true };
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Failure(clock, "first"));
+        source.Enqueue(Failure(clock, "second"));
+        using ServerHealthHistoryStore store = new(clock);
+
+        Task<ServerHealthSnapshot> first = store.ProbeAsync(source, CancellationToken.None);
+        Assert.IsTrue(SpinWait.SpinUntil(() => clock.Delays.Count == 1, TimeSpan.FromSeconds(1)));
+        Task<ServerHealthSnapshot> second = store.ProbeAsync(source, CancellationToken.None);
+        clock.CompleteDelay();
+        await Task.WhenAll(first, second);
+
+        Assert.AreEqual(2, source.ProbeCount);
+        Assert.AreSame(first.Result, second.Result);
+        Assert.AreEqual(1, first.Result.Measurements.Count);
+        Assert.IsTrue(first.Result.Measurements[0].IsConfirmedOutage);
+    }
+
+    [TestMethod]
+    public async Task FirstFailure_PreservesPreviousAggregateWhileRechecking()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Success(clock, 40, 4));
+        source.Enqueue(Failure(clock, "first"));
+        source.Enqueue(Failure(clock, "second"));
+        using ServerHealthHistoryStore store = new(clock);
+        ServerHealthSnapshot previous = await store.ProbeAsync(source, CancellationToken.None);
+        List<ServerHealthSnapshot> observed = [];
+        store.SnapshotChanged += (_, args) => observed.Add(args.Snapshot);
+
+        await store.ProbeAsync(source, CancellationToken.None);
+
+        ServerHealthSnapshot rechecking = observed.Single(s => s.IsRechecking);
+        Assert.AreEqual(previous.Aggregate, rechecking.Aggregate);
+        Assert.AreEqual(1, rechecking.Measurements.Count);
+        Assert.AreEqual("first", rechecking.PendingError);
+    }
+
+    [TestMethod]
+    public async Task HistorySurvivesViewLifetimeAndExpiresAfterTenMinutes()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Success(clock, 40, 4));
+        using ServerHealthHistoryStore store = new(clock);
+        ServerHealthSnapshot recorded = await store.ProbeAsync(source, CancellationToken.None);
+
+        Assert.AreEqual(1, store.GetSnapshot(recorded.Key).Measurements.Count);
+        clock.Advance(TimeSpan.FromMinutes(9));
+        Assert.AreEqual(1, store.GetSnapshot(recorded.Key).Measurements.Count);
+        clock.Advance(TimeSpan.FromMinutes(1).Add(TimeSpan.FromMilliseconds(1)));
+        Assert.AreEqual(0, store.GetSnapshot(recorded.Key).Measurements.Count);
+    }
+
+    [TestMethod]
+    public async Task FourRecordedBatches_RetainGraphHistoryButScoreNewestThree()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Failure(clock, "first"));
+        source.Enqueue(Failure(clock, "retry"));
+        source.Enqueue(Success(clock, 30, 4));
+        source.Enqueue(Success(clock, 31, 4));
+        source.Enqueue(Success(clock, 32, 4));
+        using ServerHealthHistoryStore store = new(clock);
+
+        await store.ProbeAsync(source, CancellationToken.None);
+        await store.ProbeAsync(source, CancellationToken.None);
+        await store.ProbeAsync(source, CancellationToken.None);
+        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
+
+        Assert.AreEqual(4, result.Measurements.Count);
+        Assert.AreEqual(3, result.Aggregate!.MeasurementCount);
+        Assert.AreEqual(0, result.Aggregate.PacketLossPercent);
+    }
+
+    [TestMethod]
+    public async Task ConsumerCancellation_DoesNotCreateLoss()
+    {
+        FakeServerHealthClock clock = new();
+        TaskCompletionSource<ServerHealthProbeMeasurement> completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        QueueServerHealthSource source = Source();
+        source.Enqueue(_ => completion.Task);
+        using ServerHealthHistoryStore store = new(clock);
+        using CancellationTokenSource cancellation = new();
+        Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, cancellation.Token);
+        cancellation.Cancel();
+
+        await Assert.ThrowsExceptionAsync<OperationCanceledException>(() => pending);
+        TaskCompletionSource<ServerHealthSnapshot> recorded =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        store.SnapshotChanged += (_, args) =>
+        {
+            if (args.Snapshot.Aggregate is not null) recorded.TrySetResult(args.Snapshot);
+        };
+        completion.SetResult(Success(clock, 40, 4));
+        ServerHealthSnapshot result = await recorded.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.AreEqual(1, source.ProbeCount);
+        Assert.AreEqual(1, result.Measurements.Count);
+        Assert.IsFalse(result.Measurements[0].IsConfirmedOutage);
+    }
+
+    [TestMethod]
+    public async Task SecondConsumerWithSameKey_SeesExistingHistory()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Success(clock, 40, 4));
+        using ServerHealthHistoryStore store = new(clock);
+        ServerHealthSnapshot first = await store.ProbeAsync(source, CancellationToken.None);
+        ServerHealthSnapshot second = store.GetSnapshot(ServerHealthHistoryKey.Create(
+            source.HealthServerId,
+            source.HealthProbeAddress!));
+
+        CollectionAssert.AreEqual(first.Measurements.ToArray(), second.Measurements.ToArray());
+        Assert.AreEqual(first.Aggregate, second.Aggregate);
+    }
+
+    private static QueueServerHealthSource Source() => new()
+    {
+        HealthServerId = "server-1",
+        HealthProbeAddress = "10.0.0.1",
+        HealthServerLoad = 0.25,
+    };
+
+    private static ServerHealthProbeMeasurement Success(
+        FakeServerHealthClock clock,
+        double latency,
+        int successful) =>
+        new(latency, successful, 4, clock.UtcNow, true, null, 0.25);
+
+    private static ServerHealthProbeMeasurement Failure(
+        FakeServerHealthClock clock,
+        string error) =>
+        new(null, 0, 4, clock.UtcNow, false, error, 0.25);
 }
 ```
 
-Also implement tests named exactly:
-
-```csharp
-ProbeAsync_SameKeyConcurrentRequests_UseOneUnderlyingProbe
-ProbeAsync_RequestDuringRetryDelay_JoinsTheSameLogicalBatch
-ProbeAsync_FirstFailure_PreservesPreviousAggregateWhileRechecking
-GetSnapshot_RowLifetimeDoesNotClearHistoryButTenMinutesOfInactivityDoes
-ProbeAsync_FourBatches_RetainsGraphHistoryButScoresNewestThree
-ProbeAsync_ConsumerCancellation_DoesNotCreateSyntheticLoss
-GetSnapshot_ASecondConsumerWithTheSameCompositeKey_SeesExistingHistory
-```
-
-Each test uses the doubles above and asserts probe count, event state, retained count, aggregate count, and outage flags directly; the retry-delay test blocks `FakeServerHealthClock`, starts a second request, completes the delay, and asserts only two service probes occurred.
-
-- [ ] **Step 3: Run store tests and confirm the coordinator is missing**
+- [ ] **Step 3: Run the suite to verify failure**
 
 ```powershell
 dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
@@ -749,94 +873,294 @@ dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.
   --filter FullyQualifiedName~ServerHealthHistoryStoreTest
 ```
 
-Expected: build failure for missing `ServerHealthHistoryStore`.
+Expected: compilation fails for missing `ServerHealthHistoryStore`.
 
-- [ ] **Step 4: Implement `ServerHealthHistoryStore`**
+- [ ] **Step 4: Implement the complete store**
 
-Use these exact constants and public surface:
-
-```csharp
-private static readonly TimeSpan _retention = TimeSpan.FromMinutes(10);
-private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(5);
-private readonly SemaphoreSlim _probeSlots = new(8, 8);
-private readonly object _inFlightLock = new();
-private readonly Dictionary<ServerHealthHistoryKey, Task<ServerHealthSnapshot>> _inFlight = [];
-private readonly ConcurrentDictionary<ServerHealthHistoryKey, Entry> _entries = [];
-
-public event EventHandler<ServerHealthSnapshotChangedEventArgs>? SnapshotChanged;
-public ServerHealthSnapshot GetSnapshot(ServerHealthHistoryKey key);
-public Task<ServerHealthSnapshot> ProbeAsync(
-    IServerHealthSource source,
-    CancellationToken cancellationToken);
-```
-
-Coalesce consumers without letting one view cancellation cancel the underlying operation:
+`ServerHealthHistoryStore.cs`:
 
 ```csharp
-Task<ServerHealthSnapshot> pending;
-lock (_inFlightLock)
+using System.Collections.Concurrent;
+
+namespace ProtonVPN.Client.Common.UI.ServerHealth;
+
+public sealed class ServerHealthSnapshotChangedEventArgs : EventArgs
 {
-    if (!_inFlight.TryGetValue(key, out pending!))
+    public ServerHealthSnapshot Snapshot { get; }
+    public ServerHealthSnapshotChangedEventArgs(ServerHealthSnapshot snapshot) => Snapshot = snapshot;
+}
+
+public sealed class ServerHealthHistoryStore : IDisposable
+{
+    private static readonly TimeSpan _retention = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(5);
+    private readonly IServerHealthClock _clock;
+    private readonly SemaphoreSlim _probeSlots;
+    private readonly ConcurrentDictionary<ServerHealthHistoryKey, Entry> _entries = [];
+    private readonly object _inFlightLock = new();
+    private readonly Dictionary<ServerHealthHistoryKey, Task<ServerHealthSnapshot>> _inFlight = [];
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+
+    public event EventHandler<ServerHealthSnapshotChangedEventArgs>? SnapshotChanged;
+
+    public ServerHealthHistoryStore(
+        IServerHealthClock? clock = null,
+        int maximumConcurrentProbes = 8)
     {
-        TaskCompletionSource<ServerHealthSnapshot> completion =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        pending = completion.Task;
-        _inFlight.Add(key, pending);
-        _ = RunProbeAndReleaseAsync(key, source, completion);
+        _clock = clock ?? new SystemServerHealthClock();
+        _probeSlots = new(maximumConcurrentProbes, maximumConcurrentProbes);
+    }
+
+    public ServerHealthSnapshot GetSnapshot(ServerHealthHistoryKey key)
+    {
+        if (!_entries.TryGetValue(key, out Entry? entry)) return ServerHealthSnapshot.Empty(key);
+        lock (entry.SyncRoot)
+        {
+            Prune(entry);
+            if (entry.Measurements.Count == 0 &&
+                !entry.IsChecking &&
+                _clock.UtcNow - entry.LastRecordedAt > _retention)
+            {
+                _entries.TryRemove(key, out _);
+                return ServerHealthSnapshot.Empty(key);
+            }
+            return CreateSnapshot(key, entry);
+        }
+    }
+
+    public async Task<ServerHealthSnapshot> ProbeAsync(
+        IServerHealthSource source,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (string.IsNullOrWhiteSpace(source.HealthProbeAddress))
+        {
+            throw new ArgumentException("A health probe address is required.", nameof(source));
+        }
+
+        ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(
+            source.HealthServerId,
+            source.HealthProbeAddress);
+        Task<ServerHealthSnapshot> pending;
+        lock (_inFlightLock)
+        {
+            if (!_inFlight.TryGetValue(key, out pending!))
+            {
+                TaskCompletionSource<ServerHealthSnapshot> completion =
+                    new(TaskCreationOptions.RunContinuationsAsynchronously);
+                pending = completion.Task;
+                _inFlight.Add(key, pending);
+                _ = RunProbeAndReleaseAsync(key, source, completion);
+            }
+        }
+        return await pending.WaitAsync(cancellationToken);
+    }
+
+    private async Task RunProbeAndReleaseAsync(
+        ServerHealthHistoryKey key,
+        IServerHealthSource source,
+        TaskCompletionSource<ServerHealthSnapshot> completion)
+    {
+        try
+        {
+            completion.TrySetResult(
+                await ProbeCoreAsync(key, source, _lifetimeCancellation.Token));
+        }
+        catch (OperationCanceledException exception)
+        {
+            completion.TrySetCanceled(exception.CancellationToken);
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+        }
+        finally
+        {
+            lock (_inFlightLock) _inFlight.Remove(key);
+        }
+    }
+
+    private async Task<ServerHealthSnapshot> ProbeCoreAsync(
+        ServerHealthHistoryKey key,
+        IServerHealthSource source,
+        CancellationToken token)
+    {
+        Entry entry = _entries.GetOrAdd(key, _ => new Entry(_clock.UtcNow));
+        SetTransientState(key, entry, true, false, null);
+        await _probeSlots.WaitAsync(token);
+        try
+        {
+            ServerHealthProbeMeasurement first = await InvokeProbeAsync(source, token);
+            if (!first.IsCompleteFailure)
+            {
+                return Record(key, entry, first with { ServerLoad = source.HealthServerLoad });
+            }
+
+            SetTransientState(key, entry, false, true, first.Error);
+            await _clock.DelayAsync(_retryDelay, token);
+            ServerHealthProbeMeasurement retry = await InvokeProbeAsync(source, token);
+            if (!retry.IsCompleteFailure)
+            {
+                return Record(key, entry, retry with
+                {
+                    ServerLoad = source.HealthServerLoad,
+                    WasRetried = true,
+                });
+            }
+
+            return Record(key, entry, new(
+                null,
+                0,
+                4,
+                _clock.UtcNow,
+                first.UsedPhysicalRoute || retry.UsedPhysicalRoute,
+                retry.Error ?? first.Error,
+                source.HealthServerLoad,
+                WasRetried: true,
+                IsConfirmedOutage: true));
+        }
+        catch (OperationCanceledException)
+        {
+            SetTransientState(key, entry, false, false, null);
+            throw;
+        }
+        finally
+        {
+            _probeSlots.Release();
+        }
+    }
+
+    private async Task<ServerHealthProbeMeasurement> InvokeProbeAsync(
+        IServerHealthSource source,
+        CancellationToken token)
+    {
+        try
+        {
+            return await source.ProbeHealthAsync(token);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return new(
+                null, 0, 4, _clock.UtcNow, false,
+                exception.Message, source.HealthServerLoad);
+        }
+    }
+
+    private ServerHealthSnapshot Record(
+        ServerHealthHistoryKey key,
+        Entry entry,
+        ServerHealthProbeMeasurement measurement)
+    {
+        ServerHealthSnapshot snapshot;
+        lock (entry.SyncRoot)
+        {
+            entry.Measurements.Add(measurement);
+            entry.LastRecordedAt = measurement.CheckedAt;
+            entry.IsChecking = false;
+            entry.IsRechecking = false;
+            entry.PendingError = null;
+            Prune(entry);
+            snapshot = CreateSnapshot(key, entry);
+        }
+        RaiseSnapshotChanged(snapshot);
+        return snapshot;
+    }
+
+    private void SetTransientState(
+        ServerHealthHistoryKey key,
+        Entry entry,
+        bool checking,
+        bool rechecking,
+        string? error)
+    {
+        ServerHealthSnapshot snapshot;
+        lock (entry.SyncRoot)
+        {
+            Prune(entry);
+            entry.IsChecking = checking;
+            entry.IsRechecking = rechecking;
+            entry.PendingError = error;
+            snapshot = CreateSnapshot(key, entry);
+        }
+        RaiseSnapshotChanged(snapshot);
+    }
+
+    private void Prune(Entry entry)
+    {
+        DateTimeOffset cutoff = _clock.UtcNow - _retention;
+        entry.Measurements.RemoveAll(m => m.CheckedAt < cutoff);
+    }
+
+    private static ServerHealthSnapshot CreateSnapshot(
+        ServerHealthHistoryKey key,
+        Entry entry)
+    {
+        ServerHealthProbeMeasurement[] measurements = entry.Measurements
+            .OrderBy(m => m.CheckedAt)
+            .ToArray();
+        ServerHealthAggregate? aggregate = measurements.Length == 0
+            ? null
+            : ServerHealthCalculator.Aggregate(measurements);
+        return new(
+            key,
+            measurements,
+            aggregate,
+            measurements.Length == 0 ? null : measurements[^1],
+            entry.IsChecking,
+            entry.IsRechecking,
+            entry.PendingError);
+    }
+
+    private void RaiseSnapshotChanged(ServerHealthSnapshot snapshot) =>
+        SnapshotChanged?.Invoke(this, new(snapshot));
+
+    public void Dispose()
+    {
+        _lifetimeCancellation.Cancel();
+        _entries.Clear();
+        lock (_inFlightLock) _inFlight.Clear();
+        _lifetimeCancellation.Dispose();
+        _probeSlots.Dispose();
+    }
+
+    private sealed class Entry
+    {
+        public object SyncRoot { get; } = new();
+        public List<ServerHealthProbeMeasurement> Measurements { get; } = [];
+        public DateTimeOffset LastRecordedAt { get; set; }
+        public bool IsChecking { get; set; }
+        public bool IsRechecking { get; set; }
+        public string? PendingError { get; set; }
+        public Entry(DateTimeOffset createdAt) => LastRecordedAt = createdAt;
     }
 }
-return await pending.WaitAsync(cancellationToken);
 ```
-
-`RunProbeAndReleaseAsync` removes the key in `finally`. `ProbeCoreAsync` must:
-
-```csharp
-ServerHealthProbeMeasurement first = await InvokeProbeAsync(source, lifetimeToken);
-if (!first.IsCompleteFailure)
-{
-    return Record(key, entry, first with { ServerLoad = source.HealthServerLoad });
-}
-
-SetTransientState(key, entry, isChecking: false, isRechecking: true, first.Error);
-await _clock.DelayAsync(_retryDelay, lifetimeToken);
-ServerHealthProbeMeasurement retry = await InvokeProbeAsync(source, lifetimeToken);
-if (!retry.IsCompleteFailure)
-{
-    return Record(key, entry, retry with
-    {
-        ServerLoad = source.HealthServerLoad,
-        WasRetried = true,
-    });
-}
-
-return Record(key, entry, new ServerHealthProbeMeasurement(
-    null, 0, 4, _clock.UtcNow,
-    first.UsedPhysicalRoute || retry.UsedPhysicalRoute,
-    retry.Error ?? first.Error,
-    source.HealthServerLoad,
-    WasRetried: true,
-    IsConfirmedOutage: true));
-```
-
-`Record` appends one measurement, updates `LastRecordedAt`, prunes `CheckedAt < UtcNow - 10 minutes`, computes `ServerHealthCalculator.Aggregate`, clears checking flags, and raises an immutable snapshot. `GetSnapshot` performs the same prune and removes an inactive empty key after ten minutes. Catch non-cancellation probe exceptions and convert them to an unconfirmed zero-reply attempt; propagate cancellation without recording anything.
 
 - [ ] **Step 5: Add the session owner**
 
+`ServerHealthHistorySession.cs`:
+
 ```csharp
+namespace ProtonVPN.Client.Common.UI.ServerHealth;
+
 public static class ServerHealthHistorySession
 {
     public static ServerHealthHistoryStore Current { get; } = new();
 }
 ```
 
-- [ ] **Step 6: Run all shared-health tests**
+- [ ] **Step 6: Run all health tests**
 
 ```powershell
 dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
   --configuration Release --runtime win-x64 -p:Platform=x64
 ```
 
-Expected: all calculator and store tests pass.
+Expected: calculator and store tests pass.
 
 - [ ] **Step 7: Commit**
 
@@ -849,27 +1173,14 @@ git commit -m "feat: retain shared server health history"
 
 ---
 
-### Task 3: Make candidate-row meters consume shared snapshots
+### Task 3: Candidate-row integration
 
 **Files:**
-- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthControl.cs`
-- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/Custom/ServerConnectionRowButton.cs`
+- Modify `ServerHealthControl.cs` and `ServerConnectionRowButton.cs`.
 
-**Interfaces:** Consumes `ServerHealthHistorySession.Current`, `ProbeAsync`, `SnapshotChanged`, and `ServerHealthPresentation`.
+- [ ] **Step 1: Replace control-owned cache state**
 
-- [ ] **Step 1: Run the second-consumer shared-key test from Task 2**
-
-```powershell
-dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-  --configuration Release --runtime win-x64 -p:Platform=x64 `
-  --filter FullyQualifiedName~GetSnapshot_ASecondConsumer
-```
-
-Expected: pass before UI migration.
-
-- [ ] **Step 2: Remove candidate-owned history/cache state**
-
-Delete `_cacheLifetime`, `_probeSlots`, `_probeCache`, `_probesInProgress`, `ProbeCacheEntry`, and `GetMeasurementAsync`. Add:
+Delete `_cacheLifetime`, static `_probeSlots`, `_probeCache`, `_probesInProgress`, `ProbeCacheEntry`, and `GetMeasurementAsync`. Add:
 
 ```csharp
 private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
@@ -877,7 +1188,7 @@ private ServerHealthSnapshot? _snapshot;
 private ServerHealthHistoryKey? _historyKey;
 ```
 
-Subscribe on `Loaded`, unsubscribe on `Unloaded`, but never clear the store entry:
+Subscribe while loaded and unsubscribe while unloaded without deleting history:
 
 ```csharp
 private void OnLoaded(object sender, RoutedEventArgs e)
@@ -895,7 +1206,7 @@ private void OnUnloaded(object sender, RoutedEventArgs e)
 }
 ```
 
-- [ ] **Step 3: Restore history before probing and retain the 60-second cadence**
+- [ ] **Step 2: Restore history before a new probe**
 
 ```csharp
 private bool TryGetHistoryKey(out ServerHealthHistoryKey key)
@@ -924,34 +1235,71 @@ private void RestoreSnapshot()
 }
 ```
 
-The loop remains 60 seconds and uses:
+Call `RestoreSnapshot()` from `RestartProbeLoop()` instead of clearing the latest measurement.
+
+- [ ] **Step 3: Keep the existing 60-second loop but delegate the logical batch**
 
 ```csharp
-ServerHealthSnapshot snapshot =
-    await _historyStore.ProbeAsync(ProbeSource!, cancellationToken);
-ApplySnapshot(snapshot);
-await Task.Delay(_refreshInterval, cancellationToken);
+private async Task RunProbeLoopAsync(CancellationToken token)
+{
+    try
+    {
+        while (!token.IsCancellationRequested)
+        {
+            IServerHealthSource? source = ProbeSource;
+            if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress)) return;
+            ApplySnapshot(await _historyStore.ProbeAsync(source, token));
+            await Task.Delay(_refreshInterval, token);
+        }
+    }
+    catch (OperationCanceledException)
+    {
+    }
+    catch
+    {
+        if (!token.IsCancellationRequested)
+        {
+            SetUnavailableState("The direct health check could not be completed.");
+        }
+    }
+}
 ```
 
-- [ ] **Step 4: Apply pooled presentation and shared events**
-
-`ApplySnapshot` sets 0–4 bars from `ServerHealthPresentation.ActiveBarCount`, uses the existing success/warning/danger theme brushes by `snapshot.Aggregate.Grade`, and sets pooled latency/loss/load/confidence in the tooltip. During `IsRechecking`, keep the previous aggregate and bars while indicating the pending retry.
+- [ ] **Step 4: Apply pooled presentation and cross-surface notifications**
 
 ```csharp
+private void ApplySnapshot(ServerHealthSnapshot snapshot)
+{
+    _snapshot = snapshot;
+    ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
+    if (snapshot.Aggregate is null)
+    {
+        SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
+        return;
+    }
+
+    (string key, Color fallback) = snapshot.Aggregate.Grade switch
+    {
+        ServerHealthGrade.Fair => ("SignalWarningColorBrush", Color.FromArgb(255, 245, 166, 35)),
+        ServerHealthGrade.Poor => ("SignalDangerColorBrush", Color.FromArgb(255, 220, 65, 80)),
+        _ => ("SignalSuccessColorBrush", Color.FromArgb(255, 29, 171, 131)),
+    };
+    SetBars(presentation.ActiveBarCount, GetThemeBrush(key, fallback));
+}
+
 private void OnSnapshotChanged(object? sender, ServerHealthSnapshotChangedEventArgs e)
 {
     if (_historyKey is not ServerHealthHistoryKey key || e.Snapshot.Key != key) return;
     DispatcherQueue.TryEnqueue(() =>
     {
-        if (_isLoaded && _historyKey == e.Snapshot.Key)
-        {
-            ApplySnapshot(e.Snapshot);
-        }
+        if (_isLoaded && _historyKey == e.Snapshot.Key) ApplySnapshot(e.Snapshot);
     });
 }
 ```
 
-- [ ] **Step 5: Pass source load consistently from `ServerConnectionRowButton`**
+During recheck, `snapshot.Aggregate` remains the previous aggregate, so bars stay stable while tooltip text says rechecking.
+
+- [ ] **Step 5: Pass source identity/load from the row button**
 
 ```csharp
 IServerHealthSource? source = DataContext as IServerHealthSource;
@@ -962,34 +1310,29 @@ _serverHealthControl.Visibility = canProbe ? Visibility.Visible : Visibility.Col
 _serverHealthControl.ProbeSource = canProbe ? source : null;
 ```
 
-- [ ] **Step 6: Build Common UI**
+Stop rescoring from the `ServerLoad` setter; recorded measurement load owns the aggregate.
+
+- [ ] **Step 6: Build and commit**
 
 ```powershell
 dotnet build src/Client/Common/ProtonVPN.Client.Common.UI/ProtonVPN.Client.Common.UI.csproj `
   --configuration Release --runtime win-x64 -p:Platform=x64
-```
 
-Expected: success with no references to the removed static probe cache.
-
-- [ ] **Step 7: Commit**
-
-```powershell
 git add src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthControl.cs `
   src/Client/Common/ProtonVPN.Client.Common.UI/Controls/Custom/ServerConnectionRowButton.cs
 git commit -m "feat: use shared history for server row health"
 ```
 
+Expected: build succeeds and removed static-cache names no longer exist.
+
 ---
 
-### Task 4: Move the connected-server panel onto the same store
+### Task 4: Connected-panel integration
 
 **Files:**
-- Modify: `src/Client/ProtonVPN.Client/UI/Main/Home/Status/ConnectionStatusHeaderViewModel.cs`
-- Modify: `src/Client/ProtonVPN.Client/UI/Main/Home/Status/ConnectionStatusHeaderView.xaml`
+- Modify `ConnectionStatusHeaderViewModel.cs` and `ConnectionStatusHeaderView.xaml`.
 
-- [ ] **Step 1: Add shared state and a current-server source adapter**
-
-Add fields:
+- [ ] **Step 1: Add shared fields/state and lifecycle subscription**
 
 ```csharp
 private readonly ServerHealthHistoryStore _healthHistoryStore =
@@ -1000,9 +1343,86 @@ private ServerHealthHistoryKey? _currentHealthKey;
 private ServerHealthSnapshot? _currentServerHealthSnapshot;
 ```
 
-Subscribe/unsubscribe `SnapshotChanged` with view-model activation. Add a nested `CurrentServerHealthSource : IServerHealthSource` that captures `ServerId`, selected probe address, `ServerLoad`, and calls the existing `_vpnServiceCaller.ProbeServerHealthAsync` without changing the IPC request/result types. Map service failure to an unconfirmed zero-reply measurement and successful IPC data to sample counts, timestamp, route flag, and load.
+In `OnActivated`, subscribe after `base.OnActivated()`; in `OnDeactivated`, unsubscribe before returning:
 
-- [ ] **Step 2: Restore candidate history immediately on connection**
+```csharp
+_healthHistoryStore.SnapshotChanged += OnHealthSnapshotChanged;
+```
+
+```csharp
+_healthHistoryStore.SnapshotChanged -= OnHealthSnapshotChanged;
+```
+
+- [ ] **Step 2: Add the exact current-server source adapter**
+
+```csharp
+private sealed class CurrentServerHealthSource : IServerHealthSource
+{
+    private readonly IVpnServiceCaller _vpnServiceCaller;
+    public string HealthServerId { get; }
+    public string? HealthProbeAddress { get; }
+    public double HealthServerLoad { get; }
+
+    public CurrentServerHealthSource(
+        IVpnServiceCaller vpnServiceCaller,
+        string serverId,
+        string probeAddress,
+        double serverLoad)
+    {
+        _vpnServiceCaller = vpnServiceCaller;
+        HealthServerId = serverId;
+        HealthProbeAddress = probeAddress;
+        HealthServerLoad = serverLoad;
+    }
+
+    public async Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        Result<ServerHealthProbeResultIpcEntity> result =
+            await _vpnServiceCaller.ProbeServerHealthAsync(
+                new ServerHealthProbeRequestIpcEntity { Address = HealthProbeAddress! });
+        token.ThrowIfCancellationRequested();
+        if (!result.Success)
+        {
+            return new(
+                null, 0, HEALTH_PROBE_SAMPLE_COUNT, DateTimeOffset.UtcNow, false,
+                string.IsNullOrWhiteSpace(result.Error)
+                    ? "The VPN service did not complete the direct health check."
+                    : result.Error,
+                HealthServerLoad);
+        }
+
+        ServerHealthProbeResultIpcEntity response = result.Value;
+        return new(
+            response.AverageLatencyMilliseconds,
+            response.SuccessfulSamples,
+            response.TotalSamples,
+            new DateTimeOffset(DateTime.SpecifyKind(response.CheckedAtUtc, DateTimeKind.Utc)),
+            response.UsedPhysicalRoute,
+            response.Error,
+            HealthServerLoad);
+    }
+}
+```
+
+Factory:
+
+```csharp
+private IServerHealthSource? CreateCurrentServerHealthSource()
+{
+    ConnectionDetails? details = _connectionManager.CurrentConnectionDetails;
+    string? address = GetProbeAddress(details);
+    return details is null || string.IsNullOrWhiteSpace(address)
+        ? null
+        : new CurrentServerHealthSource(
+            _vpnServiceCaller,
+            details.ServerId,
+            address,
+            details.ServerLoad);
+}
+```
+
+- [ ] **Step 3: Restore existing history and keep the 30-second cadence**
 
 ```csharp
 private void RestartHealthMonitoring()
@@ -1022,13 +1442,7 @@ private void RestartHealthMonitoring()
     ApplyHealthSnapshot(_healthHistoryStore.GetSnapshot(_currentHealthKey.Value));
     _ = RefreshCurrentServerHealthAsync();
 }
-```
 
-`CreateCurrentServerHealthSource` must use the existing `GetProbeAddress(ConnectionDetails)` ordering and `ConnectionDetails.ServerId`/`ServerLoad`, guaranteeing the same composite key as the search model.
-
-- [ ] **Step 3: Replace direct latest-batch scoring while retaining the 30-second timer**
-
-```csharp
 private async Task RefreshCurrentServerHealthAsync()
 {
     if (_isHealthRefreshInProgress || !_connectionManager.IsConnected) return;
@@ -1060,9 +1474,9 @@ private async Task RefreshCurrentServerHealthAsync()
 }
 ```
 
-Delete `ApplyHealthMeasurement`, `CalculateHealthScore`, and `_lastHealthProbeAddress`; keep `HEALTH_REFRESH_TIMER_INTERVAL_IN_MS = 30000`.
+Delete `_lastHealthProbeAddress`, `ApplyHealthMeasurement`, and `CalculateHealthScore`; retain `HEALTH_REFRESH_TIMER_INTERVAL_IN_MS = 30000`.
 
-- [ ] **Step 4: Apply the same snapshot presentation on the UI thread**
+- [ ] **Step 4: Apply notifications through the existing UI dispatcher**
 
 ```csharp
 private void OnHealthSnapshotChanged(object? sender, ServerHealthSnapshotChangedEventArgs e)
@@ -1097,83 +1511,100 @@ private void ApplyHealthSnapshot(ServerHealthSnapshot snapshot)
 }
 ```
 
-`ResetHealthDisplay` also clears `CurrentServerHealthSnapshot` and `_currentHealthKey`. Keep the compact XAML dimensions; the existing footer now displays confidence.
+`ResetHealthDisplay` clears `_currentHealthKey` and `CurrentServerHealthSnapshot`. Keep the existing compact panel dimensions; its footer now displays confidence.
 
-- [ ] **Step 5: Build the full client**
+- [ ] **Step 5: Build and commit**
 
 ```powershell
 dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj `
   --configuration Release --runtime win-x64 -p:Platform=x64
-```
 
-Expected: success; both health surfaces now compile against one calculator/store.
-
-- [ ] **Step 6: Commit**
-
-```powershell
 git add src/Client/ProtonVPN.Client/UI/Main/Home/Status/ConnectionStatusHeaderViewModel.cs `
   src/Client/ProtonVPN.Client/UI/Main/Home/Status/ConnectionStatusHeaderView.xaml
 git commit -m "feat: share health history with connected server"
 ```
 
+Expected: client builds and latest-batch score code is gone.
+
 ---
 
-### Task 5: Add graph-ready history and reusable hover details
+### Task 5: Graph series and reusable hover details
 
 **Files:**
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGraphSeries.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthHistoryDetailsControl.cs`
-- Create: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthGraphSeriesTest.cs`
-- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthControl.cs`
-- Modify: `src/Client/ProtonVPN.Client/UI/Main/Home/Status/ConnectionStatusHeaderView.xaml`
+- Create `ServerHealthGraphSeries.cs`, `ServerHealthHistoryDetailsControl.cs`, and `ServerHealthGraphSeriesTest.cs`.
+- Modify both health surfaces to use the details control.
 
-- [ ] **Step 1: Write failing graph-series tests**
+- [ ] **Step 1: Write failing graph projection tests**
 
 ```csharp
-[TestMethod]
-public void Create_ReturnsRetainedMeasurementsInTimeOrderAndMarksNewestThree()
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ProtonVPN.Client.Common.UI.ServerHealth;
+
+namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
+
+[TestClass]
+public class ServerHealthGraphSeriesTest
 {
-    ServerHealthProbeMeasurement[] measurements =
-    [
-        Measurement(90, 40, 4),
-        Measurement(0, 50, 4),
-        Measurement(60, null, 0, true),
-        Measurement(30, 45, 3),
-    ];
-    ServerHealthSnapshot snapshot = ServerHealthSnapshot.CreateRecorded(
-        ServerHealthHistoryKey.Create("server-1", "10.0.0.1"),
-        measurements,
-        ServerHealthCalculator.Aggregate(measurements));
+    [TestMethod]
+    public void Create_OrdersPointsAndMarksNewestThree()
+    {
+        ServerHealthProbeMeasurement[] measurements =
+        [
+            Measurement(90, 40, 4),
+            Measurement(0, 50, 4),
+            Measurement(60, null, 0, true),
+            Measurement(30, 45, 3),
+        ];
+        ServerHealthSnapshot snapshot = ServerHealthSnapshot.CreateRecorded(
+            ServerHealthHistoryKey.Create("server-1", "10.0.0.1"),
+            measurements,
+            ServerHealthCalculator.Aggregate(measurements));
 
-    IReadOnlyList<ServerHealthGraphPoint> result =
-        ServerHealthGraphSeries.Create(snapshot);
+        IReadOnlyList<ServerHealthGraphPoint> result = ServerHealthGraphSeries.Create(snapshot);
 
-    CollectionAssert.AreEqual(
-        new[] { 0, 30, 60, 90 },
-        result.Select(p => (int)(p.CheckedAt - DateTimeOffset.UnixEpoch).TotalSeconds).ToArray());
-    CollectionAssert.AreEqual(
-        new[] { false, true, true, true },
-        result.Select(p => p.IsScoreDriver).ToArray());
-}
+        CollectionAssert.AreEqual(
+            new[] { 0, 30, 60, 90 },
+            result.Select(p => (int)(p.CheckedAt - DateTimeOffset.UnixEpoch).TotalSeconds).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { false, true, true, true },
+            result.Select(p => p.IsScoreDriver).ToArray());
+    }
 
-[TestMethod]
-public void Create_ConfirmedOutageHasLossButNoLatency()
-{
-    ServerHealthProbeMeasurement outage = Measurement(0, null, 0, true);
-    ServerHealthSnapshot snapshot = ServerHealthSnapshot.CreateRecorded(
-        ServerHealthHistoryKey.Create("server-1", "10.0.0.1"),
-        [outage],
-        ServerHealthCalculator.Aggregate([outage]));
+    [TestMethod]
+    public void Create_OutageHasLossButNoLatency()
+    {
+        ServerHealthProbeMeasurement outage = Measurement(0, null, 0, true);
+        ServerHealthSnapshot snapshot = ServerHealthSnapshot.CreateRecorded(
+            ServerHealthHistoryKey.Create("server-1", "10.0.0.1"),
+            [outage],
+            ServerHealthCalculator.Aggregate([outage]));
 
-    ServerHealthGraphPoint result = ServerHealthGraphSeries.Create(snapshot).Single();
+        ServerHealthGraphPoint result = ServerHealthGraphSeries.Create(snapshot).Single();
 
-    Assert.IsNull(result.LatencyMilliseconds);
-    Assert.AreEqual(100, result.PacketLossPercent);
-    Assert.IsTrue(result.IsConfirmedOutage);
+        Assert.IsNull(result.LatencyMilliseconds);
+        Assert.AreEqual(100, result.PacketLossPercent);
+        Assert.IsTrue(result.IsConfirmedOutage);
+    }
+
+    private static ServerHealthProbeMeasurement Measurement(
+        int seconds,
+        double? latency,
+        int successful,
+        bool outage = false) =>
+        new(
+            latency,
+            successful,
+            4,
+            DateTimeOffset.UnixEpoch.AddSeconds(seconds),
+            true,
+            outage ? "Confirmed outage" : null,
+            0.25,
+            WasRetried: outage,
+            IsConfirmedOutage: outage);
 }
 ```
 
-- [ ] **Step 2: Run graph tests and confirm projection types are missing**
+- [ ] **Step 2: Run to verify failure**
 
 ```powershell
 dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
@@ -1181,11 +1612,13 @@ dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.
   --filter FullyQualifiedName~ServerHealthGraphSeriesTest
 ```
 
-Expected: build failure for missing graph types.
+Expected: missing graph types.
 
 - [ ] **Step 3: Implement graph projection**
 
 ```csharp
+namespace ProtonVPN.Client.Common.UI.ServerHealth;
+
 public sealed record ServerHealthGraphPoint(
     DateTimeOffset CheckedAt,
     double? LatencyMilliseconds,
@@ -1223,59 +1656,235 @@ public static class ServerHealthGraphSeries
 
 - [ ] **Step 4: Run graph tests**
 
-Run Step 2. Expected: both graph tests pass.
+Run Step 2. Expected: pass.
 
-- [ ] **Step 5: Implement `ServerHealthHistoryDetailsControl`**
+- [ ] **Step 5: Implement the complete reusable hover control**
 
-Create a `Border`-derived WinUI control with:
+`ServerHealthHistoryDetailsControl.cs`:
 
 ```csharp
-public static readonly DependencyProperty SnapshotProperty =
-    DependencyProperty.Register(
-        nameof(Snapshot),
-        typeof(ServerHealthSnapshot),
-        typeof(ServerHealthHistoryDetailsControl),
-        new PropertyMetadata(null, OnSnapshotChanged));
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Shapes;
+using ProtonVPN.Client.Common.UI.ServerHealth;
+using Windows.Foundation;
+using Windows.UI;
 
-public ServerHealthSnapshot? Snapshot
+namespace ProtonVPN.Client.Common.UI.Controls;
+
+public sealed class ServerHealthHistoryDetailsControl : Border
 {
-    get => (ServerHealthSnapshot?)GetValue(SnapshotProperty);
-    set => SetValue(SnapshotProperty, value);
+    public static readonly DependencyProperty SnapshotProperty =
+        DependencyProperty.Register(
+            nameof(Snapshot),
+            typeof(ServerHealthSnapshot),
+            typeof(ServerHealthHistoryDetailsControl),
+            new PropertyMetadata(null, OnSnapshotChanged));
+
+    private readonly Grid _layout = new() { RowSpacing = 8 };
+    private readonly TextBlock _summary = new();
+    private readonly TextBlock _latest = new();
+    private readonly Canvas _chart = new() { Width = 320, Height = 120 };
+
+    public ServerHealthSnapshot? Snapshot
+    {
+        get => (ServerHealthSnapshot?)GetValue(SnapshotProperty);
+        set => SetValue(SnapshotProperty, value);
+    }
+
+    public ServerHealthHistoryDetailsControl()
+    {
+        Width = 344;
+        Padding = new Thickness(12);
+        Child = _layout;
+        _layout.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        _layout.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        _layout.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        Grid.SetRow(_summary, 0);
+        Grid.SetRow(_chart, 1);
+        Grid.SetRow(_latest, 2);
+        _layout.Children.Add(_summary);
+        _layout.Children.Add(_chart);
+        _layout.Children.Add(_latest);
+        Render();
+    }
+
+    private static void OnSnapshotChanged(
+        DependencyObject dependencyObject,
+        DependencyPropertyChangedEventArgs args) =>
+        ((ServerHealthHistoryDetailsControl)dependencyObject).Render();
+
+    private void Render()
+    {
+        _chart.Children.Clear();
+        if (Snapshot is not ServerHealthSnapshot snapshot)
+        {
+            _summary.Text = "Server health: Checking…";
+            _latest.Text = "Waiting for the first completed check.";
+            return;
+        }
+
+        ServerHealthPresentation p = ServerHealthPresentation.FromSnapshot(snapshot);
+        _summary.Text =
+            $"{p.GradeText} • {p.LatencyText} • {p.PacketLossText} loss • {p.ConfidenceText}";
+        _latest.Text = FormatLatest(snapshot, p);
+        IReadOnlyList<ServerHealthGraphPoint> points = ServerHealthGraphSeries.Create(snapshot);
+        if (points.Count == 0) return;
+
+        DateTimeOffset start = points[0].CheckedAt;
+        DateTimeOffset end = points[^1].CheckedAt;
+        double seconds = Math.Max(1, (end - start).TotalSeconds);
+        double maximumLatency = Math.Max(
+            1,
+            points.Where(x => x.LatencyMilliseconds is not null)
+                .Select(x => x.LatencyMilliseconds!.Value)
+                .DefaultIfEmpty(1)
+                .Max());
+        Brush latencyBrush = GetThemeBrush(
+            "SignalSuccessColorBrush",
+            Color.FromArgb(255, 29, 171, 131));
+        Polyline loadLine = new()
+        {
+            Stroke = GetThemeBrush(
+                "TextWeakColorBrush",
+                Color.FromArgb(255, 120, 120, 130)),
+            StrokeThickness = 1,
+            Opacity = 0.45,
+        };
+        _chart.Children.Add(loadLine);
+        Polyline? latencySegment = null;
+
+        foreach (ServerHealthGraphPoint point in points)
+        {
+            double x = (point.CheckedAt - start).TotalSeconds / seconds * _chart.Width;
+            if (point.LatencyMilliseconds is double latency)
+            {
+                if (latencySegment is null)
+                {
+                    latencySegment = new() { Stroke = latencyBrush, StrokeThickness = 2 };
+                    _chart.Children.Add(latencySegment);
+                }
+                double y = _chart.Height - latency / maximumLatency * (_chart.Height - 12);
+                latencySegment.Points.Add(new Point(x, y));
+            }
+            else
+            {
+                latencySegment = null;
+            }
+
+            loadLine.Points.Add(new Point(
+                x,
+                _chart.Height - point.ServerLoad * (_chart.Height - 12)));
+            Ellipse marker = new()
+            {
+                Width = point.IsScoreDriver ? 8 : 6,
+                Height = point.IsScoreDriver ? 8 : 6,
+                Fill = GetThemeBrush(
+                    point.PacketLossPercent > 0
+                        ? "SignalWarningColorBrush"
+                        : "SignalSuccessColorBrush",
+                    point.PacketLossPercent > 0
+                        ? Color.FromArgb(255, 245, 166, 35)
+                        : Color.FromArgb(255, 29, 171, 131)),
+            };
+            Canvas.SetLeft(marker, Math.Clamp(x - marker.Width / 2, 0, _chart.Width - marker.Width));
+            Canvas.SetTop(
+                marker,
+                point.IsConfirmedOutage
+                    ? 0
+                    : Math.Clamp(
+                        _chart.Height - point.PacketLossPercent / 100 * _chart.Height - marker.Height / 2,
+                        0,
+                        _chart.Height - marker.Height));
+            ToolTipService.SetToolTip(marker, FormatPoint(point));
+            _chart.Children.Add(marker);
+        }
+    }
+
+    private static string FormatLatest(
+        ServerHealthSnapshot snapshot,
+        ServerHealthPresentation presentation)
+    {
+        ServerHealthProbeMeasurement? latest = snapshot.LatestMeasurement;
+        if (latest is null)
+        {
+            return snapshot.IsRechecking
+                ? $"Rechecking after failure: {snapshot.PendingError}"
+                : "Waiting for the first completed check.";
+        }
+
+        string prefix = snapshot.IsRechecking
+            ? $"Rechecking after failure: {snapshot.PendingError}\n"
+            : string.Empty;
+        string latency = latest.AverageLatencyMilliseconds is null
+            ? "—"
+            : $"{latest.AverageLatencyMilliseconds.Value:0} ms";
+        return prefix +
+            $"Latest: {latency}, {latest.PacketLossPercent:0.#}% loss " +
+            $"({latest.SuccessfulSamples}/{latest.TotalSamples} replies), " +
+            $"{latest.CheckedAt.ToLocalTime():T}" +
+            (latest.WasRetried ? " • retry" : string.Empty) +
+            $"\nRoute: {presentation.RouteText}";
+    }
+
+    private static string FormatPoint(ServerHealthGraphPoint point)
+    {
+        string latency = point.LatencyMilliseconds is null
+            ? "—"
+            : $"{point.LatencyMilliseconds.Value:0} ms";
+        return
+            $"{point.CheckedAt.ToLocalTime():T}\n" +
+            $"Latency: {latency}\n" +
+            $"Loss: {point.PacketLossPercent:0.#}% " +
+            $"({point.SuccessfulSamples}/{point.TotalSamples})\n" +
+            $"Load: {point.ServerLoad:P0}\n" +
+            (point.IsConfirmedOutage ? "Confirmed outage\n" : string.Empty) +
+            (point.WasRetried ? "Retried check" : "Normal check");
+    }
+
+    private static Brush GetThemeBrush(string key, Color fallback) =>
+        Application.Current.Resources.TryGetValue(key, out object value) && value is Brush brush
+            ? brush
+            : new SolidColorBrush(fallback);
 }
 ```
 
-Its constructor builds a 344-pixel-wide layout containing summary text, a 320×120 `Canvas`, and latest-batch text. Rendering must:
+- [ ] **Step 6: Attach it to candidate rows**
 
-1. Use `ServerHealthPresentation` for pooled grade/latency/loss/confidence.
-2. Use `ServerHealthGraphSeries` for all retained points.
-3. Scale X from first to last timestamp.
-4. Draw load as a one-pixel, 45%-opacity secondary polyline.
-5. Draw latency as separate polyline segments so a no-reply point creates a visible gap rather than bridging the outage.
-6. Draw one marker per point; use larger markers for `IsScoreDriver` and position confirmed 100%-loss outages at the top.
-7. Attach a WinUI tooltip to each marker containing timestamp, latency or `—`, loss, reply count, load, retry status, and confirmed-outage status.
-8. Show `Rechecking after failure: <diagnostic>` above the previous latest batch while a retry is pending.
-9. Show route text and latest-batch time below the graph.
-10. Use existing theme brushes (`SignalSuccessColorBrush`, `SignalWarningColorBrush`, `SignalDangerColorBrush`, `TextWeakColorBrush`) with existing fallback colors.
-
-- [ ] **Step 6: Attach the same details control to candidate rows**
-
-Keep one instance in `ServerHealthControl`:
+In `ServerHealthControl`:
 
 ```csharp
 private readonly ServerHealthHistoryDetailsControl _detailsControl = new();
 ```
 
-Set it once with `ToolTipService.SetToolTip(this, _detailsControl)` and update `_detailsControl.Snapshot` in `ApplySnapshot`. Preserve a plain-text `AutomationProperties.Name` containing the same pooled values and confidence.
+Set once in the constructor:
+
+```csharp
+ToolTipService.SetToolTip(this, _detailsControl);
+```
+
+At the end of `ApplySnapshot`:
+
+```csharp
+_detailsControl.Snapshot = snapshot;
+AutomationProperties.SetName(
+    this,
+    $"Server health {presentation.GradeText}; " +
+    $"latency {presentation.LatencyText}; " +
+    $"packet loss {presentation.PacketLossText}; " +
+    presentation.ConfidenceText);
+```
 
 - [ ] **Step 7: Attach it to the connected panel**
 
-Add:
+Add namespace:
 
 ```xml
 xmlns:commonControls="using:ProtonVPN.Client.Common.UI.Controls"
 ```
 
-Inside `CurrentServerHealthPanel`:
+Inside `CurrentServerHealthPanel`, before its child grid:
 
 ```xml
 <ToolTipService.ToolTip>
@@ -1286,9 +1895,9 @@ Inside `CurrentServerHealthPanel`:
 </ToolTipService.ToolTip>
 ```
 
-Do not add another timer, probe callback, or graph collection to the view model.
+Do not create a second graph collection or probe timer.
 
-- [ ] **Step 8: Run tests and build**
+- [ ] **Step 8: Test, build, and commit**
 
 ```powershell
 dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
@@ -1296,13 +1905,7 @@ dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.
 
 dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj `
   --configuration Release --runtime win-x64 -p:Platform=x64
-```
 
-Expected: all shared-health tests pass and client build succeeds.
-
-- [ ] **Step 9: Commit**
-
-```powershell
 git add src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGraphSeries.cs `
   src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthHistoryDetailsControl.cs `
   src/Client/Common/ProtonVPN.Client.Common.UI/Controls/ServerHealthControl.cs `
@@ -1311,13 +1914,15 @@ git add src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGr
 git commit -m "feat: show shared server health history graph"
 ```
 
+Expected: tests and client build pass.
+
 ---
 
-### Task 6: Verify lifecycle, failure semantics, artifacts, and live behavior
+### Task 6: Full verification and pull request
 
-**Files:** Modify only when a verification reveals a concrete defect in Tasks 1–5.
+**Files:** Modify implementation files only for concrete failures discovered below.
 
-- [ ] **Step 1: Run the complete health suite twice**
+- [ ] **Step 1: Run the health suite twice**
 
 ```powershell
 1..2 | ForEach-Object {
@@ -1341,9 +1946,9 @@ dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj `
   --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal
 ```
 
-Expected: both builds succeed.
+Expected: both succeed.
 
-- [ ] **Step 3: Confirm direct-probe service and IPC files are untouched**
+- [ ] **Step 3: Confirm the privileged probe implementation and IPC contract are untouched**
 
 ```powershell
 git diff marc/proton...HEAD -- `
@@ -1369,34 +1974,32 @@ $runId = gh run list --repo marcmy/ProtonVPN-win-app `
 gh run watch $runId --repo marcmy/ProtonVPN-win-app --exit-status
 ```
 
-Expected: workflow succeeds and publishes raw patch and installer artifacts.
+Expected: workflow and artifacts succeed.
 
 - [ ] **Step 5: Verify live shared behavior**
 
-Install the artifact and perform these observations:
-
-1. Connect to a server also visible in search.
-2. Confirm search row and connected panel show identical pooled grade, latency, and loss.
-3. Confirm connected checks remain about 30 seconds and visible-row checks about 60 seconds.
+1. Connect to a server visible in search.
+2. Confirm candidate row and connected panel show identical pooled grade, latency, and loss.
+3. Confirm connected checks remain near 30 seconds and visible-row checks near 60 seconds.
 4. Confirm confidence advances 1-of-3 → 2-of-3 → 3 checks.
-5. Scroll the row off-screen/back and leave/return to search within ten minutes; history must remain.
-6. Hover both surfaces; they must show the same graph and latest batch.
-7. Confirm an isolated miss across three normal batches appears near 8.3% rather than 25%.
-8. Confirm one clean batch does not instantly erase a recent bad batch.
-9. Confirm graph history trims at ten minutes and newest three points are emphasized.
-10. Confirm normal traffic remains tunneled and temporary candidate `/32` routes are removed after probes.
+5. Scroll off-screen/back and leave/return to search within ten minutes; history remains.
+6. Hover both surfaces; graph and latest-batch details match.
+7. Confirm one miss across three normal batches is about 8.3%, not 25%.
+8. Confirm one clean batch does not immediately erase a recent bad batch.
+9. Confirm graph trims at ten minutes and newest three markers are emphasized.
+10. Confirm normal traffic remains tunneled and temporary candidate `/32` routes are removed.
 
-- [ ] **Step 6: Verify a live confirmed outage safely**
+- [ ] **Step 6: Verify confirmed outage safely**
 
-Temporarily substitute the current debug source’s probe address with the documentation-only unreachable address `192.0.2.1`, build without committing that substitution, and observe:
+Temporarily substitute the debug source address with documentation-only `192.0.2.1`, build without committing that change, and verify:
 
-1. First complete failure preserves the previous aggregate and shows `Rechecking…`.
-2. Retry starts about five seconds later.
-3. Second complete failure creates exactly one 100%-loss graph point.
-4. The point has no latency value and carries the retry/confirmed-outage labels.
-5. Remove the substitution, rebuild, and verify the next successful batches roll the outage out only after three newer recorded checks.
+1. First total failure preserves the previous aggregate and shows `Rechecking…`.
+2. Retry begins about five seconds later.
+3. Second total failure creates one—not two—100%-loss graph point.
+4. The point has no latency and is labeled retry/confirmed outage.
+5. Restore the address, rebuild, and verify the outage rolls out only after three newer recorded checks.
 
-The successful-retry path is already deterministically covered by `FirstCompleteFailure_RetriesAfterFiveSecondsAndRecordsSuccessfulRetry`; do not add a production test hook.
+The successful-retry path is covered deterministically by `FirstFailure_RetriesAfterFiveSecondsAndRecordsSuccessfulRetry`; do not add a production test hook.
 
 - [ ] **Step 7: Inspect final diff**
 
@@ -1408,7 +2011,7 @@ git grep -n "_probeCache\|_cacheLifetime\|CalculateHealthScore" -- `
   src/Client/ProtonVPN.Client/UI/Main/Home/Status/ConnectionStatusHeaderViewModel.cs
 ```
 
-Expected: first command prints nothing; second returns no matches and exit code 1.
+Expected: first command has no output; second has no matches and exits 1.
 
 - [ ] **Step 8: Commit only concrete verification fixes**
 
@@ -1420,11 +2023,12 @@ git add src/Client/Common/ProtonVPN.Client.Common.UI `
 git commit -m "fix: harden server health history behavior"
 ```
 
-Skip this commit when verification required no correction.
+Skip the commit when no correction was needed.
 
-- [ ] **Step 9: Prepare the pull request**
+- [ ] **Step 9: Open the pull request**
 
-Open from `feature/server-health-history` into `marc/proton`:
+Base: `marc/proton`  
+Head: `feature/server-health-history`
 
 ```markdown
 ## Summary
