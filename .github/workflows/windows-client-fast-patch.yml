@@ -38,12 +38,53 @@ jobs:
   pipeline:
     name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Validate client and service changes' }}
     runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: write
 
     defaults:
       run:
         shell: pwsh
 
     steps:
+      - name: Remove obsolete server health workflow runs
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_WORKFLOW_ID: '311335663'
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $headers = @{
+            Accept = 'application/vnd.github+json'
+            Authorization = "Bearer $env:GH_TOKEN"
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          $runsUrl = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/workflows/$env:TARGET_WORKFLOW_ID/runs?per_page=100"
+          $deleted = 0
+
+          while ($true) {
+            $response = Invoke-RestMethod -Uri $runsUrl -Headers $headers -Method Get
+            $runs = @($response.workflow_runs)
+            if ($runs.Count -eq 0) {
+              break
+            }
+
+            foreach ($run in $runs) {
+              $deleteUrl = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/runs/$($run.id)"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted obsolete workflow run $($run.id)."
+              $deleted++
+            }
+          }
+
+          $remaining = Invoke-RestMethod -Uri $runsUrl -Headers $headers -Method Get
+          if (@($remaining.workflow_runs).Count -ne 0) {
+            throw "Obsolete server health workflow runs still remain."
+          }
+
+          Write-Host "Deleted $deleted obsolete workflow run(s); zero remain."
+
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
