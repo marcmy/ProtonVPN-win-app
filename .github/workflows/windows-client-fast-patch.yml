@@ -127,6 +127,25 @@ jobs:
           Write-Host "Exact installed target folder: v$targetVersion"
           "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
 
+      - name: Run server health tests twice
+        if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          1..2 | ForEach-Object {
+            $pass = $_
+            dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
+              --configuration Release --runtime win-x64 -p:Platform=x64 *>&1 |
+              Tee-Object -FilePath "artifacts/logs/server-health-tests-$pass.log"
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Server health test pass $pass failed with exit code $LASTEXITCODE"
+            }
+          }
+
       - name: Restore client project
         if: ${{ inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
