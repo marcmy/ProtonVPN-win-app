@@ -133,10 +133,9 @@ public sealed class ServerHealthHistoryStore : IDisposable
     {
         Entry entry = _entries.GetOrAdd(key, _ => new Entry(_clock.UtcNow));
         SetTransientState(key, entry, checking: true, rechecking: false, error: null);
-        await _probeSlots.WaitAsync(cancellationToken);
         try
         {
-            ServerHealthProbeMeasurement first = await InvokeProbeAsync(source, cancellationToken);
+            ServerHealthProbeMeasurement first = await ProbeOnceAsync(source, cancellationToken);
             if (!first.IsCompleteFailure)
             {
                 return Record(key, entry, first with { ServerLoad = source.HealthServerLoad });
@@ -144,7 +143,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
             SetTransientState(key, entry, checking: false, rechecking: true, first.Error);
             await _clock.DelayAsync(_retryDelay, cancellationToken);
-            ServerHealthProbeMeasurement retry = await InvokeProbeAsync(source, cancellationToken);
+            ServerHealthProbeMeasurement retry = await ProbeOnceAsync(source, cancellationToken);
             if (!retry.IsCompleteFailure)
             {
                 return Record(key, entry, retry with
@@ -169,6 +168,17 @@ public sealed class ServerHealthHistoryStore : IDisposable
         {
             SetTransientState(key, entry, checking: false, rechecking: false, error: null);
             throw;
+        }
+    }
+
+    private async Task<ServerHealthProbeMeasurement> ProbeOnceAsync(
+        IServerHealthSource source,
+        CancellationToken cancellationToken)
+    {
+        await _probeSlots.WaitAsync(cancellationToken);
+        try
+        {
+            return await InvokeProbeAsync(source, cancellationToken);
         }
         finally
         {
