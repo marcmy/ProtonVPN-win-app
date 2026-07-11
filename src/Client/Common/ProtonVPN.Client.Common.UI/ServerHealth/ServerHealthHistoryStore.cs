@@ -1,4 +1,9 @@
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
@@ -24,6 +29,8 @@ public sealed class ServerHealthHistoryStore : IDisposable
     private readonly Dictionary<ServerHealthHistoryKey, Task<ServerHealthSnapshot>> _inFlight = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
 
+    private bool _isDisposed;
+
     public event EventHandler<ServerHealthSnapshotChangedEventArgs>? SnapshotChanged;
 
     public ServerHealthHistoryStore(
@@ -37,6 +44,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
     public ServerHealthSnapshot GetSnapshot(ServerHealthHistoryKey key)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
         if (!_entries.TryGetValue(key, out Entry? entry))
         {
             return ServerHealthSnapshot.Empty(key);
@@ -61,15 +69,17 @@ public sealed class ServerHealthHistoryStore : IDisposable
         IServerHealthSource source,
         CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
         ArgumentNullException.ThrowIfNull(source);
-        if (string.IsNullOrWhiteSpace(source.HealthProbeAddress))
+        string? probeAddress = source.HealthProbeAddress;
+        if (string.IsNullOrWhiteSpace(probeAddress))
         {
             throw new ArgumentException("A health probe address is required.", nameof(source));
         }
 
         ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(
             source.HealthServerId,
-            source.HealthProbeAddress);
+            probeAddress);
         Task<ServerHealthSnapshot> pending;
         lock (_inFlightLock)
         {
@@ -255,19 +265,33 @@ public sealed class ServerHealthHistoryStore : IDisposable
             entry.PendingError);
     }
 
-    private void RaiseSnapshotChanged(ServerHealthSnapshot snapshot) =>
-        SnapshotChanged?.Invoke(this, new(snapshot));
+    private void RaiseSnapshotChanged(ServerHealthSnapshot snapshot)
+    {
+        if (!_isDisposed)
+        {
+            SnapshotChanged?.Invoke(this, new(snapshot));
+        }
+    }
 
     public void Dispose()
     {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
         _lifetimeCancellation.Cancel();
+        SnapshotChanged = null;
         _entries.Clear();
         lock (_inFlightLock)
         {
             _inFlight.Clear();
         }
-        _lifetimeCancellation.Dispose();
-        _probeSlots.Dispose();
+
+        // In-flight operations may still unwind and release their slot after cancellation.
+        // The process-session store lives for the app lifetime, so leaving these lightweight
+        // synchronization objects undisposed avoids a shutdown race without retaining history.
     }
 
     private sealed class Entry
