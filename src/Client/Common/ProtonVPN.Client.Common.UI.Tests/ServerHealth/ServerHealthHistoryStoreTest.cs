@@ -39,7 +39,7 @@ public class ServerHealthHistoryStoreTest
         Assert.AreEqual(0, result.Measurements[0].SuccessfulSamples);
         Assert.AreEqual(4, result.Measurements[0].TotalSamples);
         Assert.IsTrue(result.Measurements[0].IsConfirmedOutage);
-        Assert.AreEqual(100, result.Aggregate!.PacketLossPercent);
+        Assert.AreEqual(100d, result.Aggregate!.PacketLossPercent, 0.001);
     }
 
     [TestMethod]
@@ -54,7 +54,7 @@ public class ServerHealthHistoryStoreTest
 
         Assert.AreEqual(1, source.ProbeCount);
         Assert.AreEqual(0, clock.Delays.Count);
-        Assert.AreEqual(50, result.Aggregate!.PacketLossPercent);
+        Assert.AreEqual(50d, result.Aggregate!.PacketLossPercent, 0.001);
     }
 
     [TestMethod]
@@ -178,7 +178,7 @@ public class ServerHealthHistoryStoreTest
 
         Assert.AreEqual(4, result.Measurements.Count);
         Assert.AreEqual(3, result.Aggregate!.MeasurementCount);
-        Assert.AreEqual(0, result.Aggregate.PacketLossPercent);
+        Assert.AreEqual(0d, result.Aggregate.PacketLossPercent, 0.001);
     }
 
     [TestMethod]
