@@ -55,6 +55,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
             Prune(entry);
             if (entry.Measurements.Count == 0 &&
                 !entry.IsChecking &&
+                !entry.IsRechecking &&
                 _clock.UtcNow - entry.LastRecordedAt > _retention)
             {
                 _entries.TryRemove(key, out _);
