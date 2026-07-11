@@ -93,6 +93,7 @@ jobs:
 
           $requestedVersion = $env:REQUESTED_TARGET_VERSION.Trim()
           $assemblyInfoPath = 'src/GlobalAssemblyInfo.cs'
+
           if ($requestedVersion -eq '') {
             if (-not (Test-Path -LiteralPath $assemblyInfoPath -PathType Leaf)) {
               throw "Assembly info file was not found: $assemblyInfoPath"
