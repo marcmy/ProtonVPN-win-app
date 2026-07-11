@@ -35,7 +35,7 @@ public class ServerHealthCalculatorTest
 
         ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
 
-        Assert.AreEqual(36, result.AverageLatencyMilliseconds!.Value, 0.001);
+        Assert.AreEqual(36d, result.AverageLatencyMilliseconds!.Value, 0.001);
     }
 
     [TestMethod]
@@ -53,7 +53,7 @@ public class ServerHealthCalculatorTest
 
         Assert.AreEqual(12, result.SuccessfulSamples);
         Assert.AreEqual(12, result.TotalSamples);
-        Assert.AreEqual(0, result.PacketLossPercent, 0.001);
+        Assert.AreEqual(0d, result.PacketLossPercent, 0.001);
         Assert.AreEqual(0.40, result.ServerLoad, 0.001);
     }
 
@@ -65,7 +65,7 @@ public class ServerHealthCalculatorTest
         ServerHealthAggregate result = ServerHealthCalculator.Aggregate([outage]);
 
         Assert.IsNull(result.AverageLatencyMilliseconds);
-        Assert.AreEqual(100, result.PacketLossPercent);
+        Assert.AreEqual(100d, result.PacketLossPercent, 0.001);
         Assert.AreEqual(ServerHealthGrade.Poor, result.Grade);
     }
 
