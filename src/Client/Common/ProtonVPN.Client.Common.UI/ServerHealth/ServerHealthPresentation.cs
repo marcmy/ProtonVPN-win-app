@@ -27,9 +27,10 @@ public sealed record ServerHealthPresentation(
         }
 
         ServerHealthAggregate aggregate = snapshot.Aggregate;
-        string confidence = aggregate.MeasurementCount >= 3
-            ? "Based on 3 checks"
-            : $"Based on {aggregate.MeasurementCount} of 3 checks";
+        int requiredMeasurements = ServerHealthCalculator.ScoreMeasurementCount;
+        string confidence = aggregate.MeasurementCount >= requiredMeasurements
+            ? $"Based on {requiredMeasurements} checks"
+            : $"Based on {aggregate.MeasurementCount} of {requiredMeasurements} checks";
         return new(
             aggregate.Grade.ToString(),
             aggregate.Grade switch
