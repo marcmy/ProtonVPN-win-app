@@ -135,6 +135,31 @@ public class ServerHealthHistoryStoreTest
     }
 
     [TestMethod]
+    public async Task ExpiredHistory_DuringRetry_RemainsAttachedToTheKey()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Success(clock, 40, 4));
+        using ServerHealthHistoryStore store = new(clock);
+        ServerHealthSnapshot initial = await store.ProbeAsync(source, CancellationToken.None);
+        clock.Advance(TimeSpan.FromMinutes(10).Add(TimeSpan.FromMilliseconds(1)));
+        clock.BlockDelays = true;
+        source.Enqueue(Failure(clock, "first"));
+        source.Enqueue(Success(clock, 45, 4));
+
+        Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, CancellationToken.None);
+        Assert.IsTrue(SpinWait.SpinUntil(() => clock.Delays.Count == 1, TimeSpan.FromSeconds(1)));
+        ServerHealthSnapshot duringRetry = store.GetSnapshot(initial.Key);
+        Assert.IsTrue(duringRetry.IsRechecking);
+        clock.CompleteDelay();
+        ServerHealthSnapshot result = await pending;
+
+        Assert.AreEqual(1, result.Measurements.Count);
+        Assert.AreEqual(1, store.GetSnapshot(initial.Key).Measurements.Count);
+        Assert.IsTrue(result.Measurements[0].WasRetried);
+    }
+
+    [TestMethod]
     public async Task FourRecordedBatches_RetainGraphHistoryButScoreNewestThree()
     {
         FakeServerHealthClock clock = new();
@@ -185,6 +210,28 @@ public class ServerHealthHistoryStoreTest
         Assert.AreEqual(1, source.ProbeCount);
         Assert.AreEqual(1, result.Measurements.Count);
         Assert.IsFalse(result.Measurements[0].IsConfirmedOutage);
+    }
+
+    [TestMethod]
+    public async Task DisposeDuringProbe_CancelsWithoutRecordingAnOutage()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(async cancellationToken =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return Success(clock, 40, 4);
+        });
+        ServerHealthHistoryStore store = new(clock);
+        List<ServerHealthSnapshot> observed = [];
+        store.SnapshotChanged += (_, args) => observed.Add(args.Snapshot);
+        Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, CancellationToken.None);
+        Assert.IsTrue(SpinWait.SpinUntil(() => source.ProbeCount == 1, TimeSpan.FromSeconds(1)));
+
+        store.Dispose();
+
+        await Assert.ThrowsExceptionAsync<OperationCanceledException>(() => pending);
+        Assert.IsFalse(observed.Any(snapshot => snapshot.Aggregate is not null));
     }
 
     [TestMethod]
