@@ -1,0 +1,45 @@
+name: Server health history CI
+
+on:
+  push:
+    branches:
+      - feature/server-health-history
+
+permissions:
+  contents: read
+
+jobs:
+  health-tests:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Run server health tests
+        run: |
+          dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
+            --configuration Release --runtime win-x64 -p:Platform=x64
+
+  client-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Build client
+        run: |
+          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64
+          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj `
+            --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal
