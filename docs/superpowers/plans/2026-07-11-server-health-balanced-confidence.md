@@ -310,7 +310,7 @@ Expected: PASS with zero failed tests and no MSTest analyzer annotations.
 git add \
   src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs \
   src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs
-git commit -m "test: update server health confidence copy"
+git commit -m "feat: update server health confidence copy"
 ```
 
 ### Task 3: Review the branch and validate both application builds
@@ -395,14 +395,15 @@ Expected final job conclusion: `success` with no new annotations.
 
 - [ ] **Step 5: Record the verified head SHA and validation result in the PR summary**
 
-Add a PR comment containing:
+Run:
 
-```text
-Verified head: <exact branch head SHA>
+```bash
+HEAD_SHA=$(git rev-parse HEAD)
+gh pr comment --body "Verified head: $HEAD_SHA
 Server-health tests: passed
 Client build: passed
 Service build: passed
-Annotations: none
+Annotations: none"
 ```
 
-Replace `<exact branch head SHA>` with the immutable SHA reported by GitHub for the validated workflow run.
+Expected: the pull request contains the immutable validated branch SHA and the four successful validation results.
