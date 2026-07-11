@@ -19,6 +19,8 @@ public sealed class ServerHealthSnapshotChangedEventArgs : EventArgs
 
 public sealed class ServerHealthHistoryStore : IDisposable
 {
+    private const string NO_REPLY_ERROR = "No ICMP replies were received.";
+
     private static readonly TimeSpan _retention = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(5);
 
@@ -141,7 +143,12 @@ public sealed class ServerHealthHistoryStore : IDisposable
                 return Record(key, entry, first with { ServerLoad = source.HealthServerLoad });
             }
 
-            SetTransientState(key, entry, checking: false, rechecking: true, first.Error);
+            SetTransientState(
+                key,
+                entry,
+                checking: false,
+                rechecking: true,
+                first.Error ?? NO_REPLY_ERROR);
             await _clock.DelayAsync(_retryDelay, cancellationToken);
             ServerHealthProbeMeasurement retry = await ProbeOnceAsync(source, cancellationToken);
             if (!retry.IsCompleteFailure)
@@ -159,7 +166,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
                 4,
                 _clock.UtcNow,
                 first.UsedPhysicalRoute || retry.UsedPhysicalRoute,
-                retry.Error ?? first.Error,
+                retry.Error ?? first.Error ?? NO_REPLY_ERROR,
                 source.HealthServerLoad,
                 WasRetried: true,
                 IsConfirmedOutage: true));
@@ -262,9 +269,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
         ServerHealthHistoryKey key,
         Entry entry)
     {
-        ServerHealthProbeMeasurement[] measurements = entry.Measurements
-            .OrderBy(measurement => measurement.CheckedAt)
-            .ToArray();
+        ServerHealthProbeMeasurement[] measurements = entry.Measurements.ToArray();
         ServerHealthAggregate? aggregate = measurements.Length == 0
             ? null
             : ServerHealthCalculator.Aggregate(measurements);
@@ -310,11 +315,23 @@ public sealed class ServerHealthHistoryStore : IDisposable
             return;
         }
 
-        _ = Task.WhenAll(pending).ContinueWith(
-            _ => DisposeResources(),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+        _ = DisposeResourcesWhenCompleteAsync(pending);
+    }
+
+    private async Task DisposeResourcesWhenCompleteAsync(Task[] pending)
+    {
+        try
+        {
+            await Task.WhenAll(pending);
+        }
+        catch
+        {
+            // Completion is enough; cancellation or faults are already observed by callers.
+        }
+        finally
+        {
+            DisposeResources();
+        }
     }
 
     private void DisposeResources()
