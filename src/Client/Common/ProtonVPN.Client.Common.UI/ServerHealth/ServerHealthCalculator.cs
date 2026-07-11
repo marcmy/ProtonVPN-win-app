@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
 public static class ServerHealthCalculator
@@ -13,15 +17,15 @@ public static class ServerHealthCalculator
         }
 
         ServerHealthProbeMeasurement[] measurements = retained
-            .OrderBy(m => m.CheckedAt)
+            .OrderBy(measurement => measurement.CheckedAt)
             .TakeLast(SCORE_MEASUREMENT_COUNT)
             .ToArray();
-        int successful = measurements.Sum(m => Math.Max(0, m.SuccessfulSamples));
-        int total = measurements.Sum(m => Math.Max(0, m.TotalSamples));
+        int successful = measurements.Sum(measurement => Math.Max(0, measurement.SuccessfulSamples));
+        int total = measurements.Sum(measurement => Math.Max(0, measurement.TotalSamples));
         double loss = total == 0 ? 100 : (total - successful) * 100d / total;
         double weightedLatency = measurements
-            .Where(m => m.AverageLatencyMilliseconds is not null && m.SuccessfulSamples > 0)
-            .Sum(m => m.AverageLatencyMilliseconds!.Value * m.SuccessfulSamples);
+            .Where(measurement => measurement.AverageLatencyMilliseconds is not null && measurement.SuccessfulSamples > 0)
+            .Sum(measurement => measurement.AverageLatencyMilliseconds!.Value * measurement.SuccessfulSamples);
         double? latency = successful == 0 ? null : weightedLatency / successful;
         double load = Math.Clamp(measurements[^1].ServerLoad, 0, 1);
         double score = CalculateScore(latency, loss, load);
