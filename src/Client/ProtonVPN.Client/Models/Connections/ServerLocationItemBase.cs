@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -18,7 +18,7 @@
  */
 
 using ProtonVPN.Client.Common.Extensions;
-using ProtonVPN.Client.Common.UI.Controls;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Contracts.Enums;
 using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Localization.Contracts;
@@ -56,6 +56,10 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>, IServer
                 : null;
 
     public double Load => Server.Load / 100d;
+
+    public string HealthServerId => Server.Id;
+
+    public double HealthServerLoad => Load;
 
     public string? HealthProbeAddress => Server.Servers
         .Select(physicalServer => physicalServer.EntryIp)
@@ -143,25 +147,16 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>, IServer
 
         return new ServerHealthProbeMeasurement(
             response.AverageLatencyMilliseconds,
-            response.PacketLossPercent,
             response.SuccessfulSamples,
             response.TotalSamples,
             new DateTimeOffset(checkedAtUtc),
             response.UsedPhysicalRoute,
-            response.Error);
+            response.Error,
+            HealthServerLoad);
     }
 
-    private static ServerHealthProbeMeasurement CreateUnavailableMeasurement(string error)
-    {
-        return new(
-            null,
-            100,
-            0,
-            4,
-            DateTimeOffset.UtcNow,
-            false,
-            error);
-    }
+    private ServerHealthProbeMeasurement CreateUnavailableMeasurement(string error) =>
+        new(null, 0, 4, DateTimeOffset.UtcNow, false, error, HealthServerLoad);
 
     protected override bool MatchesActiveConnection(ConnectionDetails? currentConnectionDetails)
     {

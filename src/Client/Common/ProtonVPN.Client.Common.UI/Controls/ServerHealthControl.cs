@@ -18,7 +18,6 @@
  */
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,39 +25,21 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using Windows.UI;
 
 namespace ProtonVPN.Client.Common.UI.Controls;
 
-public interface IServerHealthSource
-{
-    string? HealthProbeAddress { get; }
-
-    Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken);
-}
-
-public sealed record ServerHealthProbeMeasurement(
-    double? AverageLatencyMilliseconds,
-    double PacketLossPercent,
-    int SuccessfulSamples,
-    int TotalSamples,
-    DateTimeOffset CheckedAt,
-    bool UsedPhysicalRoute,
-    string? Error);
-
 public sealed class ServerHealthControl : Grid
 {
-    private static readonly TimeSpan _cacheLifetime = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan _refreshInterval = TimeSpan.FromSeconds(60);
 
-    private static readonly SemaphoreSlim _probeSlots = new(8, 8);
-    private static readonly ConcurrentDictionary<string, ProbeCacheEntry> _probeCache = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly ConcurrentDictionary<string, Lazy<Task<ServerHealthProbeMeasurement>>> _probesInProgress = new(StringComparer.OrdinalIgnoreCase);
-
     private readonly Border[] _bars;
+    private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
+    private readonly ServerHealthHistoryDetailsControl _detailsControl = new();
 
     private CancellationTokenSource? _probeCancellationTokenSource;
-    private ServerHealthProbeMeasurement? _lastMeasurement;
+    private ServerHealthHistoryKey? _historyKey;
     private IServerHealthSource? _probeSource;
     private double _serverLoad;
     private bool _isLoaded;
@@ -81,14 +62,7 @@ public sealed class ServerHealthControl : Grid
     public double ServerLoad
     {
         get => _serverLoad;
-        set
-        {
-            _serverLoad = Math.Clamp(value, 0, 1);
-            if (_lastMeasurement is not null)
-            {
-                ApplyMeasurement(_lastMeasurement);
-            }
-        }
+        set => _serverLoad = Math.Clamp(value, 0, 1);
     }
 
     public ServerHealthControl()
@@ -99,6 +73,7 @@ public sealed class ServerHealthControl : Grid
         VerticalAlignment = VerticalAlignment.Center;
         ColumnSpacing = 2;
         Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+        ToolTipService.SetToolTip(this, _detailsControl);
 
         _bars =
         [
@@ -121,41 +96,39 @@ public sealed class ServerHealthControl : Grid
         Unloaded += OnUnloaded;
     }
 
-    private static Border CreateBar(double height)
-    {
-        return new Border
+    private static Border CreateBar(double height) =>
+        new()
         {
             Width = 4,
             Height = height,
             VerticalAlignment = VerticalAlignment.Bottom,
             CornerRadius = new CornerRadius(1),
         };
-    }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _isLoaded = true;
+        _historyStore.SnapshotChanged += OnSnapshotChanged;
         RestartProbeLoop();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _isLoaded = false;
+        _historyStore.SnapshotChanged -= OnSnapshotChanged;
         StopProbeLoop();
     }
 
     private void RestartProbeLoop()
     {
         StopProbeLoop();
-        _lastMeasurement = null;
+        RestoreSnapshot();
 
-        if (!_isLoaded || ProbeSource is null || string.IsNullOrWhiteSpace(ProbeSource.HealthProbeAddress))
+        if (!_isLoaded || ProbeSource is null || _historyKey is null)
         {
-            SetUnavailableState("No probe address is available for this server.");
             return;
         }
 
-        SetCheckingState();
         _probeCancellationTokenSource = new CancellationTokenSource();
         _ = RunProbeLoopAsync(_probeCancellationTokenSource.Token);
     }
@@ -167,28 +140,46 @@ public sealed class ServerHealthControl : Grid
         _probeCancellationTokenSource = null;
     }
 
+    private bool TryGetHistoryKey(out ServerHealthHistoryKey key)
+    {
+        IServerHealthSource? source = ProbeSource;
+        string? probeAddress = source?.HealthProbeAddress;
+        if (source is null || string.IsNullOrWhiteSpace(probeAddress))
+        {
+            key = default;
+            return false;
+        }
+
+        key = ServerHealthHistoryKey.Create(source.HealthServerId, probeAddress);
+        return true;
+    }
+
+    private void RestoreSnapshot()
+    {
+        if (!TryGetHistoryKey(out ServerHealthHistoryKey key))
+        {
+            _historyKey = null;
+            SetUnavailableState("No probe address is available for this server.");
+            return;
+        }
+
+        _historyKey = key;
+        ApplySnapshot(_historyStore.GetSnapshot(key));
+    }
+
     private async Task RunProbeLoopAsync(CancellationToken cancellationToken)
     {
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                IServerHealthSource? probeSource = ProbeSource;
-                string? probeAddress = probeSource?.HealthProbeAddress;
-                if (probeSource is null || string.IsNullOrWhiteSpace(probeAddress))
+                IServerHealthSource? source = ProbeSource;
+                if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress))
                 {
                     return;
                 }
 
-                ServerHealthProbeMeasurement measurement = await GetMeasurementAsync(
-                    probeAddress,
-                    probeSource,
-                    cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                _lastMeasurement = measurement;
-                ApplyMeasurement(measurement);
-
+                ApplySnapshot(await _historyStore.ProbeAsync(source, cancellationToken));
                 await Task.Delay(_refreshInterval, cancellationToken);
             }
         }
@@ -204,131 +195,65 @@ public sealed class ServerHealthControl : Grid
         }
     }
 
-    private static async Task<ServerHealthProbeMeasurement> GetMeasurementAsync(
-        string address,
-        IServerHealthSource probeSource,
-        CancellationToken cancellationToken)
+    private void ApplySnapshot(ServerHealthSnapshot snapshot)
     {
-        DateTimeOffset utcNow = DateTimeOffset.UtcNow;
-        if (_probeCache.TryGetValue(address, out ProbeCacheEntry? cachedEntry) && utcNow - cachedEntry.CreatedAt <= _cacheLifetime)
+        _detailsControl.Snapshot = snapshot;
+        ToolTipService.SetToolTip(this, _detailsControl);
+        ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
+
+        if (snapshot.Aggregate is null)
         {
-            return cachedEntry.Measurement;
+            SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
+        }
+        else
+        {
+            (string resourceKey, Color fallback) = snapshot.Aggregate.Grade switch
+            {
+                ServerHealthGrade.Fair => ("SignalWarningColorBrush", Color.FromArgb(255, 245, 166, 35)),
+                ServerHealthGrade.Poor => ("SignalDangerColorBrush", Color.FromArgb(255, 220, 65, 80)),
+                _ => ("SignalSuccessColorBrush", Color.FromArgb(255, 29, 171, 131)),
+            };
+            SetBars(presentation.ActiveBarCount, GetThemeBrush(resourceKey, fallback));
         }
 
-        await _probeSlots.WaitAsync(cancellationToken);
-        try
-        {
-            Lazy<Task<ServerHealthProbeMeasurement>> pendingProbe = _probesInProgress.GetOrAdd(
-                address,
-                _ => new Lazy<Task<ServerHealthProbeMeasurement>>(
-                    () => probeSource.ProbeHealthAsync(CancellationToken.None),
-                    LazyThreadSafetyMode.ExecutionAndPublication));
-
-            try
-            {
-                ServerHealthProbeMeasurement measurement = await pendingProbe.Value.WaitAsync(cancellationToken);
-                _probeCache[address] = new ProbeCacheEntry(measurement, DateTimeOffset.UtcNow);
-                return measurement;
-            }
-            finally
-            {
-                if (pendingProbe.IsValueCreated && pendingProbe.Value.IsCompleted)
-                {
-                    _probesInProgress.TryRemove(address, out _);
-                }
-            }
-        }
-        finally
-        {
-            _probeSlots.Release();
-        }
+        AutomationProperties.SetName(
+            this,
+            $"Server health {presentation.GradeText}; " +
+            $"latency {presentation.LatencyText}; " +
+            $"packet loss {presentation.PacketLossText}; " +
+            presentation.ConfidenceText);
     }
 
-    private void ApplyMeasurement(ServerHealthProbeMeasurement measurement)
+    private void OnSnapshotChanged(object? sender, ServerHealthSnapshotChangedEventArgs e)
     {
-        if (measurement.SuccessfulSamples == 0 || measurement.AverageLatencyMilliseconds is null)
+        if (_historyKey is not ServerHealthHistoryKey key || e.Snapshot.Key != key)
         {
-            SetUnavailableState(
-                measurement.Error ?? "No ICMP replies were received. The server may block ping; this does not necessarily mean it is offline.",
-                measurement.CheckedAt);
             return;
         }
 
-        double score = CalculateScore(
-            measurement.AverageLatencyMilliseconds.Value,
-            measurement.PacketLossPercent,
-            ServerLoad);
-
-        (string label, int activeBars, string brushKey, Color fallbackColor) = score switch
+        DispatcherQueue.TryEnqueue(() =>
         {
-            >= 85 => ("Excellent", 4, "SignalSuccessColorBrush", Color.FromArgb(255, 29, 171, 131)),
-            >= 65 => ("Good", 3, "SignalSuccessColorBrush", Color.FromArgb(255, 29, 171, 131)),
-            >= 40 => ("Fair", 2, "SignalWarningColorBrush", Color.FromArgb(255, 245, 166, 35)),
-            _ => ("Poor", 1, "SignalDangerColorBrush", Color.FromArgb(255, 220, 65, 80)),
-        };
-
-        SetBars(activeBars, GetThemeBrush(brushKey, fallbackColor));
-
-        string routeDescription = measurement.UsedPhysicalRoute
-            ? "Physical adapter (direct)"
-            : "Unknown";
-        string toolTip =
-            $"Server health: {label}\n" +
-            $"Latency: {measurement.AverageLatencyMilliseconds.Value:0} ms\n" +
-            $"Packet loss: {measurement.PacketLossPercent:0}% ({measurement.SuccessfulSamples}/{measurement.TotalSamples} replies)\n" +
-            $"Server load: {ServerLoad:P0}\n" +
-            $"Route: {routeDescription}\n" +
-            $"Last checked: {measurement.CheckedAt.ToLocalTime():T}";
-
-        SetToolTip(toolTip);
-    }
-
-    private static double CalculateScore(double latencyMilliseconds, double packetLossPercent, double serverLoad)
-    {
-        double latencyScore = latencyMilliseconds switch
-        {
-            <= 40 => 100,
-            <= 80 => 85,
-            <= 140 => 65,
-            <= 220 => 40,
-            <= 350 => 20,
-            _ => 5,
-        };
-
-        double reliabilityScore = Math.Clamp(100 - packetLossPercent * 2, 0, 100);
-        double loadScore = 100 - Math.Clamp(serverLoad, 0, 1) * 100;
-        double score = latencyScore * 0.45 + reliabilityScore * 0.45 + loadScore * 0.10;
-
-        if (packetLossPercent >= 50)
-        {
-            return Math.Min(score, 39);
-        }
-
-        if (packetLossPercent >= 25)
-        {
-            return Math.Min(score, 64);
-        }
-
-        return score;
+            if (_isLoaded && _historyKey == e.Snapshot.Key)
+            {
+                ApplySnapshot(e.Snapshot);
+            }
+        });
     }
 
     private void SetCheckingState()
     {
         SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
-        SetToolTip("Server health: Checking…\nMeasuring latency and packet loss through the physical adapter.");
+        _detailsControl.Snapshot = null;
+        ToolTipService.SetToolTip(this, _detailsControl);
+        AutomationProperties.SetName(this, "Server health checking");
     }
 
-    private void SetUnavailableState(string reason, DateTimeOffset? checkedAt = null)
+    private void SetUnavailableState(string reason)
     {
         SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
-
-        string toolTip = $"Server health: Unavailable\n{reason}\nServer load: {ServerLoad:P0}";
-        if (checkedAt is not null)
-        {
-            toolTip += $"\nLast checked: {checkedAt.Value.ToLocalTime():T}";
-        }
-
-        SetToolTip(toolTip);
+        string text = $"Server health: Unavailable\n{reason}\nServer load: {ServerLoad:P0}";
+        ToolTipService.SetToolTip(this, text);
+        AutomationProperties.SetName(this, text.Replace('\n', ' '));
     }
 
     private void SetBars(int activeBarCount, Brush activeBrush)
@@ -341,12 +266,6 @@ public sealed class ServerHealthControl : Grid
             _bars[i].Background = isActive ? activeBrush : inactiveBrush;
             _bars[i].Opacity = isActive ? 1 : 0.2;
         }
-    }
-
-    private void SetToolTip(string text)
-    {
-        ToolTipService.SetToolTip(this, text);
-        AutomationProperties.SetName(this, text.Replace('\n', ' '));
     }
 
     private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
@@ -364,6 +283,4 @@ public sealed class ServerHealthControl : Grid
 
         return new SolidColorBrush(fallbackColor);
     }
-
-    private sealed record ProbeCacheEntry(ServerHealthProbeMeasurement Measurement, DateTimeOffset CreatedAt);
 }

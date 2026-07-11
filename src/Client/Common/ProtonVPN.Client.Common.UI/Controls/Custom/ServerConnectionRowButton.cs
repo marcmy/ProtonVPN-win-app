@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2024 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -20,6 +20,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using ProtonVPN.Client.Common.UI.Controls.Bases;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 
 namespace ProtonVPN.Client.Common.UI.Controls.Custom;
 
@@ -120,13 +121,13 @@ public class ServerConnectionRowButton : ConnectionRowButtonBase
             return;
         }
 
-        _serverHealthControl.ServerLoad = ServerLoad;
+        IServerHealthSource? source = DataContext as IServerHealthSource;
+        bool canProbe = !IsUnderMaintenance &&
+                        !string.IsNullOrWhiteSpace(source?.HealthProbeAddress);
+
+        _serverHealthControl.ServerLoad = source?.HealthServerLoad ?? ServerLoad;
         _serverHealthControl.Opacity = IsRestricted ? 0.6 : 1;
-
-        IServerHealthSource? probeSource = DataContext as IServerHealthSource;
-        bool canProbe = !IsUnderMaintenance && !string.IsNullOrWhiteSpace(probeSource?.HealthProbeAddress);
-
         _serverHealthControl.Visibility = canProbe ? Visibility.Visible : Visibility.Collapsed;
-        _serverHealthControl.ProbeSource = canProbe ? probeSource : null;
+        _serverHealthControl.ProbeSource = canProbe ? source : null;
     }
 }
