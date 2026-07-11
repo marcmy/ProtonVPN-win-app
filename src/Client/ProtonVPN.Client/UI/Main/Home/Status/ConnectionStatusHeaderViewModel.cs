@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -19,6 +19,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using ProtonVPN.Client.Common.Dispatching;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Bases.ViewModels;
 using ProtonVPN.Client.EventMessaging.Contracts;
@@ -48,13 +49,14 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
 
     private readonly IDispatcherTimer _refreshTimer;
     private readonly IDispatcherTimer _healthRefreshTimer;
-
     private readonly IConnectionManager _connectionManager;
     private readonly ISettings _settings;
     private readonly IVpnServiceCaller _vpnServiceCaller;
+    private readonly ServerHealthHistoryStore _healthHistoryStore =
+        ServerHealthHistorySession.Current;
 
     private bool _isHealthRefreshInProgress;
-    private string? _lastHealthProbeAddress;
+    private ServerHealthHistoryKey? _currentHealthKey;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProtectionDescription))]
@@ -62,6 +64,9 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
 
     [ObservableProperty]
     private string _currentServerName = string.Empty;
+
+    [ObservableProperty]
+    private ServerHealthSnapshot? _currentServerHealthSnapshot;
 
     [ObservableProperty]
     private string _healthGrade = "Checking…";
@@ -184,12 +189,14 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
     {
         base.OnActivated();
 
+        _healthHistoryStore.SnapshotChanged += OnHealthSnapshotChanged;
         InvalidateAutoRefreshTimer();
         InvalidateHealthRefreshTimer();
     }
 
     protected override void OnDeactivated()
     {
+        _healthHistoryStore.SnapshotChanged -= OnHealthSnapshotChanged;
         base.OnDeactivated();
 
         InvalidateAutoRefreshTimer();
@@ -262,8 +269,19 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
 
     private void RestartHealthMonitoring()
     {
-        _lastHealthProbeAddress = null;
-        SetHealthState(HealthState.Checking);
+        IServerHealthSource? source = CreateCurrentServerHealthSource();
+        if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress))
+        {
+            _currentHealthKey = null;
+            CurrentServerHealthSnapshot = null;
+            SetUnavailableHealth("No endpoint is available for the current server.");
+            return;
+        }
+
+        _currentHealthKey = ServerHealthHistoryKey.Create(
+            source.HealthServerId,
+            source.HealthProbeAddress);
+        ApplyHealthSnapshot(_healthHistoryStore.GetSnapshot(_currentHealthKey.Value));
         _ = RefreshCurrentServerHealthAsync();
     }
 
@@ -273,8 +291,6 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
         {
             _healthRefreshTimer.Stop();
         }
-
-        _lastHealthProbeAddress = null;
     }
 
     private void OnRefreshTimerTick(object? sender, object e)
@@ -299,7 +315,19 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
     {
         ConnectionDetails? connectionDetails = _connectionManager.CurrentConnectionDetails;
         CurrentServerName = connectionDetails?.ServerName ?? string.Empty;
-        HealthLoad = connectionDetails is null ? "—" : $"{connectionDetails.ServerLoad:P0}";
+    }
+
+    private IServerHealthSource? CreateCurrentServerHealthSource()
+    {
+        ConnectionDetails? details = _connectionManager.CurrentConnectionDetails;
+        string? address = GetProbeAddress(details);
+        return details is null || string.IsNullOrWhiteSpace(address)
+            ? null
+            : new CurrentServerHealthSource(
+                _vpnServiceCaller,
+                details.ServerId,
+                address,
+                details.ServerLoad);
     }
 
     private async Task RefreshCurrentServerHealthAsync()
@@ -309,52 +337,26 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
             return;
         }
 
-        ConnectionDetails? connectionDetails = _connectionManager.CurrentConnectionDetails;
-        string? probeAddress = GetProbeAddress(connectionDetails);
-        if (connectionDetails is null || string.IsNullOrWhiteSpace(probeAddress))
+        IServerHealthSource? source = CreateCurrentServerHealthSource();
+        if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress))
         {
             SetUnavailableHealth("No endpoint is available for the current server.");
             return;
         }
 
-        string serverId = connectionDetails.ServerId;
+        ServerHealthHistoryKey requestedKey = ServerHealthHistoryKey.Create(
+            source.HealthServerId,
+            source.HealthProbeAddress);
+        _currentHealthKey = requestedKey;
         _isHealthRefreshInProgress = true;
-
         try
         {
-            if (!string.Equals(_lastHealthProbeAddress, probeAddress, StringComparison.OrdinalIgnoreCase))
+            ServerHealthSnapshot snapshot =
+                await _healthHistoryStore.ProbeAsync(source, CancellationToken.None);
+            if (_connectionManager.IsConnected && _currentHealthKey == requestedKey)
             {
-                SetHealthState(HealthState.Checking);
+                ApplyHealthSnapshot(snapshot);
             }
-
-            Result<ServerHealthProbeResultIpcEntity> result = await _vpnServiceCaller.ProbeServerHealthAsync(
-                new ServerHealthProbeRequestIpcEntity
-                {
-                    Address = probeAddress,
-                });
-
-            ConnectionDetails? currentConnectionDetails = _connectionManager.CurrentConnectionDetails;
-            if (!_connectionManager.IsConnected ||
-                currentConnectionDetails is null ||
-                !string.Equals(currentConnectionDetails.ServerId, serverId, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            InvalidateCurrentServerDetails();
-
-            if (!result.Success)
-            {
-                SetUnavailableHealth(
-                    string.IsNullOrWhiteSpace(result.Error)
-                        ? "The current server health check could not be completed."
-                        : result.Error);
-                return;
-            }
-
-            ServerHealthProbeResultIpcEntity measurement = result.Value;
-            _lastHealthProbeAddress = probeAddress;
-            ApplyHealthMeasurement(measurement, currentConnectionDetails.ServerLoad);
         }
         finally
         {
@@ -362,71 +364,58 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
         }
     }
 
-    private void ApplyHealthMeasurement(ServerHealthProbeResultIpcEntity measurement, double serverLoad)
+    private void OnHealthSnapshotChanged(object? sender, ServerHealthSnapshotChangedEventArgs e)
     {
-        DateTime checkedAtUtc = DateTime.SpecifyKind(measurement.CheckedAtUtc, DateTimeKind.Utc);
-        DateTimeOffset checkedAt = new(checkedAtUtc);
-
-        HealthLoad = $"{serverLoad:P0}";
-        HealthRoute = measurement.UsedPhysicalRoute
-            ? "Physical adapter (direct)"
-            : "Route unavailable";
-        HealthLastChecked = $"Updated {checkedAt.ToLocalTime():T}";
-
-        if (measurement.SuccessfulSamples == 0 || measurement.AverageLatencyMilliseconds is null)
+        if (_currentHealthKey is not ServerHealthHistoryKey key || e.Snapshot.Key != key)
         {
-            SetUnavailableHealth(
-                measurement.Error ?? "No ICMP replies were received. The server may block ping.",
-                preserveTimestamp: true);
             return;
         }
 
-        HealthLatency = $"{measurement.AverageLatencyMilliseconds.Value:0} ms";
-        HealthPacketLoss = $"{measurement.PacketLossPercent:0}%";
-
-        double score = CalculateHealthScore(
-            measurement.AverageLatencyMilliseconds.Value,
-            measurement.PacketLossPercent,
-            serverLoad);
-
-        if (score >= 85)
+        ExecuteOnUIThread(() =>
         {
-            HealthGrade = "Excellent";
-            SetHealthState(HealthState.Excellent);
-        }
-        else if (score >= 65)
-        {
-            HealthGrade = "Good";
-            SetHealthState(HealthState.Good);
-        }
-        else if (score >= 40)
-        {
-            HealthGrade = "Fair";
-            SetHealthState(HealthState.Fair);
-        }
-        else
-        {
-            HealthGrade = "Poor";
-            SetHealthState(HealthState.Poor);
-        }
+            if (_currentHealthKey == e.Snapshot.Key)
+            {
+                ApplyHealthSnapshot(e.Snapshot);
+            }
+        });
     }
 
-    private void SetUnavailableHealth(string error, bool preserveTimestamp = false)
+    private void ApplyHealthSnapshot(ServerHealthSnapshot snapshot)
+    {
+        CurrentServerHealthSnapshot = snapshot;
+        ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
+        HealthGrade = presentation.GradeText;
+        HealthLatency = presentation.LatencyText;
+        HealthPacketLoss = presentation.PacketLossText;
+        HealthLoad = presentation.LoadText;
+        HealthRoute = snapshot.IsRechecking
+            ? $"Rechecking in progress — {presentation.RouteText}"
+            : presentation.RouteText;
+        HealthLastChecked = presentation.ConfidenceText;
+        SetHealthState(snapshot.Aggregate?.Grade switch
+        {
+            ServerHealthGrade.Excellent => HealthState.Excellent,
+            ServerHealthGrade.Good => HealthState.Good,
+            ServerHealthGrade.Fair => HealthState.Fair,
+            ServerHealthGrade.Poor => HealthState.Poor,
+            _ => HealthState.Checking,
+        });
+    }
+
+    private void SetUnavailableHealth(string error)
     {
         HealthGrade = "Unavailable";
         HealthLatency = "—";
         HealthPacketLoss = "—";
         HealthRoute = error;
-        if (!preserveTimestamp)
-        {
-            HealthLastChecked = "Check failed";
-        }
-
+        HealthLastChecked = "Check failed";
         SetHealthState(HealthState.Unavailable);
     }
 
     private void ResetHealthDisplay()
     {
+        _currentHealthKey = null;
+        CurrentServerHealthSnapshot = null;
         CurrentServerName = string.Empty;
         HealthGrade = "Checking…";
         HealthLatency = "—";
@@ -469,33 +458,58 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
             .FirstOrDefault(ipAddress => !string.IsNullOrWhiteSpace(ipAddress));
     }
 
-    private static double CalculateHealthScore(double latencyMilliseconds, double packetLossPercent, double serverLoad)
+    private sealed class CurrentServerHealthSource : IServerHealthSource
     {
-        double latencyScore = latencyMilliseconds switch
-        {
-            <= 40 => 100,
-            <= 80 => 85,
-            <= 140 => 65,
-            <= 220 => 40,
-            <= 350 => 20,
-            _ => 5,
-        };
+        private readonly IVpnServiceCaller _vpnServiceCaller;
 
-        double reliabilityScore = Math.Clamp(100 - packetLossPercent * 2, 0, 100);
-        double loadScore = 100 - Math.Clamp(serverLoad, 0, 1) * 100;
-        double score = latencyScore * 0.45 + reliabilityScore * 0.45 + loadScore * 0.10;
+        public string HealthServerId { get; }
+        public string? HealthProbeAddress { get; }
+        public double HealthServerLoad { get; }
 
-        if (packetLossPercent >= 50)
+        public CurrentServerHealthSource(
+            IVpnServiceCaller vpnServiceCaller,
+            string serverId,
+            string probeAddress,
+            double serverLoad)
         {
-            return Math.Min(score, 39);
+            _vpnServiceCaller = vpnServiceCaller;
+            HealthServerId = serverId;
+            HealthProbeAddress = probeAddress;
+            HealthServerLoad = serverLoad;
         }
 
-        if (packetLossPercent >= 25)
+        public async Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken)
         {
-            return Math.Min(score, 64);
-        }
+            cancellationToken.ThrowIfCancellationRequested();
+            Result<ServerHealthProbeResultIpcEntity> result =
+                await _vpnServiceCaller.ProbeServerHealthAsync(
+                    new ServerHealthProbeRequestIpcEntity { Address = HealthProbeAddress! });
+            cancellationToken.ThrowIfCancellationRequested();
 
-        return score;
+            if (!result.Success)
+            {
+                return new(
+                    null,
+                    0,
+                    HEALTH_PROBE_SAMPLE_COUNT,
+                    DateTimeOffset.UtcNow,
+                    false,
+                    string.IsNullOrWhiteSpace(result.Error)
+                        ? "The VPN service did not complete the direct health check."
+                        : result.Error,
+                    HealthServerLoad);
+            }
+
+            ServerHealthProbeResultIpcEntity response = result.Value;
+            return new(
+                response.AverageLatencyMilliseconds,
+                response.SuccessfulSamples,
+                response.TotalSamples,
+                new DateTimeOffset(DateTime.SpecifyKind(response.CheckedAtUtc, DateTimeKind.Utc)),
+                response.UsedPhysicalRoute,
+                response.Error,
+                HealthServerLoad);
+        }
     }
 
     private enum HealthState
