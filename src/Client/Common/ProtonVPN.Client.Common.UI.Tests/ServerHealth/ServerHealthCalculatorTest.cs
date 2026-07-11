@@ -22,6 +22,7 @@ public class ServerHealthCalculatorTest
         Assert.AreEqual(12, result.TotalSamples);
         Assert.AreEqual(100d / 12d, result.PacketLossPercent, 0.001);
         Assert.AreEqual(3, result.MeasurementCount);
+        Assert.IsTrue(result.Grade is ServerHealthGrade.Good or ServerHealthGrade.Excellent);
     }
 
     [TestMethod]
@@ -47,6 +48,25 @@ public class ServerHealthCalculatorTest
             Measurement(30, 4, 4, 0.20, 30),
             Measurement(31, 4, 4, 0.30, 60),
             Measurement(32, 4, 4, 0.40, 90),
+        ];
+
+        ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
+
+        Assert.AreEqual(12, result.SuccessfulSamples);
+        Assert.AreEqual(12, result.TotalSamples);
+        Assert.AreEqual(0d, result.PacketLossPercent, 0.001);
+        Assert.AreEqual(0.40, result.ServerLoad, 0.001);
+    }
+
+    [TestMethod]
+    public void Aggregate_UsesRecordedOrderWhenTheClockMovesBackward()
+    {
+        ServerHealthProbeMeasurement[] measurements =
+        [
+            Measurement(null, 0, 4, 0.10, 0, true),
+            Measurement(30, 4, 4, 0.20, 30),
+            Measurement(31, 4, 4, 0.30, 60),
+            Measurement(32, 4, 4, 0.40, -30),
         ];
 
         ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
