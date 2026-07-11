@@ -140,9 +140,12 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    [DataRow(1, "Based on 1 of 3 checks")]
-    [DataRow(2, "Based on 2 of 3 checks")]
-    [DataRow(3, "Based on 3 checks")]
+    [DataRow(1, "Based on 1 of 6 checks")]
+    [DataRow(2, "Based on 2 of 6 checks")]
+    [DataRow(3, "Based on 3 of 6 checks")]
+    [DataRow(4, "Based on 4 of 6 checks")]
+    [DataRow(5, "Based on 5 of 6 checks")]
+    [DataRow(6, "Based on 6 checks")]
     public void FromSnapshot_FormatsConfidence(int count, string expected)
     {
         ServerHealthProbeMeasurement[] measurements = Enumerable.Range(0, count)
