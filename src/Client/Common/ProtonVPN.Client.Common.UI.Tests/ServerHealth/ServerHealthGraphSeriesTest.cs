@@ -7,7 +7,7 @@ namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
 public class ServerHealthGraphSeriesTest
 {
     [TestMethod]
-    public void Create_OrdersPointsAndMarksNewestThree()
+    public void Create_OrdersPointsAndMarksNewestSixByRecordedOrder()
     {
         ServerHealthProbeMeasurement[] measurements =
         [
@@ -15,6 +15,9 @@ public class ServerHealthGraphSeriesTest
             Measurement(0, 50, 4),
             Measurement(60, null, 0, true),
             Measurement(30, 45, 3),
+            Measurement(120, 42, 4),
+            Measurement(150, 43, 4),
+            Measurement(-30, 44, 4),
         ];
         ServerHealthSnapshot snapshot = ServerHealthSnapshot.CreateRecorded(
             ServerHealthHistoryKey.Create("server-1", "10.0.0.1"),
@@ -24,10 +27,10 @@ public class ServerHealthGraphSeriesTest
         IReadOnlyList<ServerHealthGraphPoint> result = ServerHealthGraphSeries.Create(snapshot);
 
         CollectionAssert.AreEqual(
-            new[] { 0, 30, 60, 90 },
+            new[] { -30, 0, 30, 60, 90, 120, 150 },
             result.Select(point => (int)(point.CheckedAt - DateTimeOffset.UnixEpoch).TotalSeconds).ToArray());
         CollectionAssert.AreEqual(
-            new[] { false, true, true, true },
+            new[] { true, true, true, true, false, true, true },
             result.Select(point => point.IsScoreDriver).ToArray());
     }
 

@@ -160,24 +160,26 @@ public class ServerHealthHistoryStoreTest
     }
 
     [TestMethod]
-    public async Task FourRecordedBatches_RetainGraphHistoryButScoreNewestThree()
+    public async Task SevenRecordedBatches_RetainGraphHistoryButScoreNewestSix()
     {
         FakeServerHealthClock clock = new();
         QueueServerHealthSource source = Source();
         source.Enqueue(Failure(clock, "first"));
         source.Enqueue(Failure(clock, "retry"));
-        source.Enqueue(Success(clock, 30, 4));
-        source.Enqueue(Success(clock, 31, 4));
-        source.Enqueue(Success(clock, 32, 4));
+        for (int i = 0; i < 6; i++)
+        {
+            source.Enqueue(Success(clock, 30 + i, 4));
+        }
         using ServerHealthHistoryStore store = new(clock);
 
-        await store.ProbeAsync(source, CancellationToken.None);
-        await store.ProbeAsync(source, CancellationToken.None);
-        await store.ProbeAsync(source, CancellationToken.None);
         ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
+        for (int i = 0; i < 6; i++)
+        {
+            result = await store.ProbeAsync(source, CancellationToken.None);
+        }
 
-        Assert.AreEqual(4, result.Measurements.Count);
-        Assert.AreEqual(3, result.Aggregate!.MeasurementCount);
+        Assert.AreEqual(7, result.Measurements.Count);
+        Assert.AreEqual(6, result.Aggregate!.MeasurementCount);
         Assert.AreEqual(0d, result.Aggregate.PacketLossPercent, 0.001);
     }
 

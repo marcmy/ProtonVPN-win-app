@@ -6,7 +6,7 @@ namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
 public static class ServerHealthCalculator
 {
-    private const int SCORE_MEASUREMENT_COUNT = 3;
+    internal const int ScoreMeasurementCount = 6;
 
     public static ServerHealthAggregate Aggregate(
         IReadOnlyList<ServerHealthProbeMeasurement> retained)
@@ -17,7 +17,7 @@ public static class ServerHealthCalculator
         }
 
         ServerHealthProbeMeasurement[] measurements = retained
-            .TakeLast(SCORE_MEASUREMENT_COUNT)
+            .TakeLast(ScoreMeasurementCount)
             .ToArray();
         int total = measurements.Sum(measurement => Math.Max(0, measurement.TotalSamples));
         int successful = measurements.Sum(measurement => Math.Clamp(

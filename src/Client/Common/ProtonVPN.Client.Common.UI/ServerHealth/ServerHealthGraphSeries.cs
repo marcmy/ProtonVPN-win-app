@@ -20,20 +20,25 @@ public static class ServerHealthGraphSeries
 {
     public static IReadOnlyList<ServerHealthGraphPoint> Create(ServerHealthSnapshot snapshot)
     {
-        ServerHealthProbeMeasurement[] ordered = snapshot.Measurements
-            .OrderBy(measurement => measurement.CheckedAt)
+        int scoreStart = Math.Max(
+            0,
+            snapshot.Measurements.Count - ServerHealthCalculator.ScoreMeasurementCount);
+        return snapshot.Measurements
+            .Select((measurement, index) => (
+                Measurement: measurement,
+                IsScoreDriver: index >= scoreStart))
+            .OrderBy(item => item.Measurement.CheckedAt)
+            .Select(item => new ServerHealthGraphPoint(
+                item.Measurement.CheckedAt,
+                item.Measurement.AverageLatencyMilliseconds,
+                item.Measurement.PacketLossPercent,
+                item.Measurement.ServerLoad,
+                item.Measurement.SuccessfulSamples,
+                item.Measurement.TotalSamples,
+                item.Measurement.WasRetried,
+                item.Measurement.IsConfirmedOutage,
+                item.IsScoreDriver,
+                item.Measurement.Error))
             .ToArray();
-        int scoreStart = Math.Max(0, ordered.Length - 3);
-        return ordered.Select((measurement, index) => new ServerHealthGraphPoint(
-            measurement.CheckedAt,
-            measurement.AverageLatencyMilliseconds,
-            measurement.PacketLossPercent,
-            measurement.ServerLoad,
-            measurement.SuccessfulSamples,
-            measurement.TotalSamples,
-            measurement.WasRetried,
-            measurement.IsConfirmedOutage,
-            index >= scoreStart,
-            measurement.Error)).ToArray();
     }
 }
