@@ -32,7 +32,16 @@ jobs:
       - name: Run server health tests
         run: |
           dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-            --configuration Release --runtime win-x64 -p:Platform=x64
+            --configuration Release --runtime win-x64 -p:Platform=x64 `
+            --logger "trx;LogFileName=server-health.trx" `
+            --results-directory artifacts/test-results
+      - name: Upload server health test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: server-health-test-results
+          path: artifacts/test-results
+          if-no-files-found: warn
 
   client-build:
     runs-on: windows-latest
