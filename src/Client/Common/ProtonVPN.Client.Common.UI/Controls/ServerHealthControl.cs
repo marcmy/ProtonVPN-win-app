@@ -39,7 +39,6 @@ public sealed class ServerHealthControl : Grid
     private readonly ServerHealthHistoryDetailsControl _detailsControl = new();
 
     private CancellationTokenSource? _probeCancellationTokenSource;
-    private ServerHealthSnapshot? _snapshot;
     private ServerHealthHistoryKey? _historyKey;
     private IServerHealthSource? _probeSource;
     private double _serverLoad;
@@ -144,13 +143,14 @@ public sealed class ServerHealthControl : Grid
     private bool TryGetHistoryKey(out ServerHealthHistoryKey key)
     {
         IServerHealthSource? source = ProbeSource;
-        if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress))
+        string? probeAddress = source?.HealthProbeAddress;
+        if (source is null || string.IsNullOrWhiteSpace(probeAddress))
         {
             key = default;
             return false;
         }
 
-        key = ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress);
+        key = ServerHealthHistoryKey.Create(source.HealthServerId, probeAddress);
         return true;
     }
 
@@ -159,7 +159,6 @@ public sealed class ServerHealthControl : Grid
         if (!TryGetHistoryKey(out ServerHealthHistoryKey key))
         {
             _historyKey = null;
-            _snapshot = null;
             SetUnavailableState("No probe address is available for this server.");
             return;
         }
@@ -198,7 +197,6 @@ public sealed class ServerHealthControl : Grid
 
     private void ApplySnapshot(ServerHealthSnapshot snapshot)
     {
-        _snapshot = snapshot;
         _detailsControl.Snapshot = snapshot;
         ToolTipService.SetToolTip(this, _detailsControl);
         ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
