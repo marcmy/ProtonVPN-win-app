@@ -43,7 +43,7 @@ public class ServerHealthGraphSeriesTest
         ServerHealthGraphPoint result = ServerHealthGraphSeries.Create(snapshot).Single();
 
         Assert.IsNull(result.LatencyMilliseconds);
-        Assert.AreEqual(100, result.PacketLossPercent);
+        Assert.AreEqual(100d, result.PacketLossPercent, 0.001);
         Assert.IsTrue(result.IsConfirmedOutage);
     }
 
