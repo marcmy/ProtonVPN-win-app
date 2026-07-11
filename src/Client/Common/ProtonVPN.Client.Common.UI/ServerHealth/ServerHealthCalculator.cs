@@ -17,16 +17,25 @@ public static class ServerHealthCalculator
         }
 
         ServerHealthProbeMeasurement[] measurements = retained
-            .OrderBy(measurement => measurement.CheckedAt)
             .TakeLast(SCORE_MEASUREMENT_COUNT)
             .ToArray();
-        int successful = measurements.Sum(measurement => Math.Max(0, measurement.SuccessfulSamples));
         int total = measurements.Sum(measurement => Math.Max(0, measurement.TotalSamples));
+        int successful = measurements.Sum(measurement => Math.Clamp(
+            measurement.SuccessfulSamples,
+            0,
+            Math.Max(0, measurement.TotalSamples)));
         double loss = total == 0 ? 100 : (total - successful) * 100d / total;
-        double weightedLatency = measurements
+        ServerHealthProbeMeasurement[] latencyMeasurements = measurements
             .Where(measurement => measurement.AverageLatencyMilliseconds is not null && measurement.SuccessfulSamples > 0)
-            .Sum(measurement => measurement.AverageLatencyMilliseconds!.Value * measurement.SuccessfulSamples);
-        double? latency = successful == 0 ? null : weightedLatency / successful;
+            .ToArray();
+        int latencySamples = latencyMeasurements.Sum(measurement => Math.Clamp(
+            measurement.SuccessfulSamples,
+            0,
+            Math.Max(0, measurement.TotalSamples)));
+        double weightedLatency = latencyMeasurements.Sum(measurement =>
+            measurement.AverageLatencyMilliseconds!.Value *
+            Math.Clamp(measurement.SuccessfulSamples, 0, Math.Max(0, measurement.TotalSamples)));
+        double? latency = latencySamples == 0 ? null : weightedLatency / latencySamples;
         double load = Math.Clamp(measurements[^1].ServerLoad, 0, 1);
         double score = CalculateScore(latency, loss, load);
         ServerHealthGrade grade = score switch
