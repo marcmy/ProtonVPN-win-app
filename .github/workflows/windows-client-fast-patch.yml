@@ -73,7 +73,6 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Prepare artifact folders
-        if: github.event_name == 'workflow_dispatch'
         run: |
           New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
           New-Item -ItemType Directory -Force -Path artifacts/ProtonVPN.Client.Patch | Out-Null
