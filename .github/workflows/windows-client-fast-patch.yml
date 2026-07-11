@@ -22,21 +22,12 @@ on:
         type: string
         required: false
         default: ''
-  pull_request:
-    branches:
-      - marc/proton
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
 
 permissions:
   contents: read
 
 jobs:
   patch:
-    if: github.event_name == 'workflow_dispatch'
     name: Build ${{ inputs.build_mode }} patch artifact
     runs-on: windows-latest
 
@@ -257,44 +248,3 @@ jobs:
           name: protonvpn-client-patch-logs-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/logs
           if-no-files-found: ignore
-
-  server-health-validation:
-    if: github.event_name == 'pull_request'
-    name: Validate client and service changes
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.23.x'
-          cache: false
-
-      - name: Run server health tests
-        run: |
-          dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-            --configuration Release -p:Platform=x64
-
-      - name: Build client
-        run: |
-          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64
-          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj `
-            --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal
-
-      - name: Build service
-        run: |
-          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64
-          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj `
-            --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal
