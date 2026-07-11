@@ -1,3 +1,5 @@
+using System;
+
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
 public sealed record ServerHealthProbeMeasurement(
