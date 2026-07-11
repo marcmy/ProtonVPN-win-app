@@ -270,7 +270,8 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
     private void RestartHealthMonitoring()
     {
         IServerHealthSource? source = CreateCurrentServerHealthSource();
-        if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress))
+        string? probeAddress = source?.HealthProbeAddress;
+        if (source is null || string.IsNullOrWhiteSpace(probeAddress))
         {
             _currentHealthKey = null;
             CurrentServerHealthSnapshot = null;
@@ -280,7 +281,7 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
 
         _currentHealthKey = ServerHealthHistoryKey.Create(
             source.HealthServerId,
-            source.HealthProbeAddress);
+            probeAddress);
         ApplyHealthSnapshot(_healthHistoryStore.GetSnapshot(_currentHealthKey.Value));
         _ = RefreshCurrentServerHealthAsync();
     }
@@ -315,6 +316,7 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
     {
         ConnectionDetails? connectionDetails = _connectionManager.CurrentConnectionDetails;
         CurrentServerName = connectionDetails?.ServerName ?? string.Empty;
+        HealthLoad = connectionDetails is null ? "—" : $"{connectionDetails.ServerLoad:P0}";
     }
 
     private IServerHealthSource? CreateCurrentServerHealthSource()
@@ -338,7 +340,8 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
         }
 
         IServerHealthSource? source = CreateCurrentServerHealthSource();
-        if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress))
+        string? probeAddress = source?.HealthProbeAddress;
+        if (source is null || string.IsNullOrWhiteSpace(probeAddress))
         {
             SetUnavailableHealth("No endpoint is available for the current server.");
             return;
@@ -346,7 +349,7 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
 
         ServerHealthHistoryKey requestedKey = ServerHealthHistoryKey.Create(
             source.HealthServerId,
-            source.HealthProbeAddress);
+            probeAddress);
         _currentHealthKey = requestedKey;
         _isHealthRefreshInProgress = true;
         try
@@ -387,7 +390,10 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
         HealthGrade = presentation.GradeText;
         HealthLatency = presentation.LatencyText;
         HealthPacketLoss = presentation.PacketLossText;
-        HealthLoad = presentation.LoadText;
+        if (snapshot.Aggregate is not null)
+        {
+            HealthLoad = presentation.LoadText;
+        }
         HealthRoute = snapshot.IsRechecking
             ? $"Rechecking in progress — {presentation.RouteText}"
             : presentation.RouteText;
