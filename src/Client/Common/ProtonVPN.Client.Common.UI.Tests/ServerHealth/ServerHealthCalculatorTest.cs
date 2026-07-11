@@ -7,21 +7,24 @@ namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
 public class ServerHealthCalculatorTest
 {
     [TestMethod]
-    public void Aggregate_OneMissAcrossThreeBatches_UsesOneOfTwelveLoss()
+    public void Aggregate_OneMissAcrossSixBatches_UsesOneOfTwentyFourLoss()
     {
         ServerHealthProbeMeasurement[] measurements =
         [
             Measurement(40, 4, 4, 0.20, 0),
             Measurement(42, 3, 4, 0.25, 30),
             Measurement(41, 4, 4, 0.30, 60),
+            Measurement(39, 4, 4, 0.20, 90),
+            Measurement(40, 4, 4, 0.20, 120),
+            Measurement(41, 4, 4, 0.20, 150),
         ];
 
         ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
 
-        Assert.AreEqual(11, result.SuccessfulSamples);
-        Assert.AreEqual(12, result.TotalSamples);
-        Assert.AreEqual(100d / 12d, result.PacketLossPercent, 0.001);
-        Assert.AreEqual(3, result.MeasurementCount);
+        Assert.AreEqual(23, result.SuccessfulSamples);
+        Assert.AreEqual(24, result.TotalSamples);
+        Assert.AreEqual(100d / 24d, result.PacketLossPercent, 0.001);
+        Assert.AreEqual(6, result.MeasurementCount);
         Assert.IsTrue(result.Grade is ServerHealthGrade.Good or ServerHealthGrade.Excellent);
     }
 
@@ -40,7 +43,7 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    public void Aggregate_UsesNewestThreeBatchesAndNewestLoad()
+    public void Aggregate_UsesNewestSixBatchesAndNewestLoad()
     {
         ServerHealthProbeMeasurement[] measurements =
         [
@@ -48,14 +51,18 @@ public class ServerHealthCalculatorTest
             Measurement(30, 4, 4, 0.20, 30),
             Measurement(31, 4, 4, 0.30, 60),
             Measurement(32, 4, 4, 0.40, 90),
+            Measurement(33, 4, 4, 0.50, 120),
+            Measurement(34, 4, 4, 0.60, 150),
+            Measurement(35, 4, 4, 0.70, 180),
         ];
 
         ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
 
-        Assert.AreEqual(12, result.SuccessfulSamples);
-        Assert.AreEqual(12, result.TotalSamples);
+        Assert.AreEqual(24, result.SuccessfulSamples);
+        Assert.AreEqual(24, result.TotalSamples);
         Assert.AreEqual(0d, result.PacketLossPercent, 0.001);
-        Assert.AreEqual(0.40, result.ServerLoad, 0.001);
+        Assert.AreEqual(0.70, result.ServerLoad, 0.001);
+        Assert.AreEqual(6, result.MeasurementCount);
     }
 
     [TestMethod]
@@ -66,15 +73,19 @@ public class ServerHealthCalculatorTest
             Measurement(null, 0, 4, 0.10, 0, true),
             Measurement(30, 4, 4, 0.20, 30),
             Measurement(31, 4, 4, 0.30, 60),
-            Measurement(32, 4, 4, 0.40, -30),
+            Measurement(32, 4, 4, 0.40, 90),
+            Measurement(33, 4, 4, 0.50, 120),
+            Measurement(34, 4, 4, 0.60, 150),
+            Measurement(35, 4, 4, 0.70, -30),
         ];
 
         ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
 
-        Assert.AreEqual(12, result.SuccessfulSamples);
-        Assert.AreEqual(12, result.TotalSamples);
+        Assert.AreEqual(24, result.SuccessfulSamples);
+        Assert.AreEqual(24, result.TotalSamples);
         Assert.AreEqual(0d, result.PacketLossPercent, 0.001);
-        Assert.AreEqual(0.40, result.ServerLoad, 0.001);
+        Assert.AreEqual(0.70, result.ServerLoad, 0.001);
+        Assert.AreEqual(6, result.MeasurementCount);
     }
 
     [TestMethod]
@@ -90,13 +101,16 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    public void Aggregate_ThreeCleanFastBatches_CanBeExcellent()
+    public void Aggregate_SixCleanFastBatches_CanBeExcellent()
     {
         ServerHealthProbeMeasurement[] measurements =
         [
             Measurement(20, 4, 4, 0.10, 0),
             Measurement(22, 4, 4, 0.10, 30),
             Measurement(21, 4, 4, 0.10, 60),
+            Measurement(20, 4, 4, 0.10, 90),
+            Measurement(22, 4, 4, 0.10, 120),
+            Measurement(21, 4, 4, 0.10, 150),
         ];
 
         Assert.AreEqual(
@@ -105,22 +119,24 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    public void Aggregate_ConfirmedOutage_RemainsUntilThreeNewerBatchesReplaceIt()
+    public void Aggregate_ConfirmedOutage_RemainsUntilSixNewerBatchesReplaceIt()
     {
         ServerHealthProbeMeasurement outage = Measurement(null, 0, 4, 0.10, 0, true);
-        ServerHealthProbeMeasurement first = Measurement(20, 4, 4, 0.10, 30);
-        ServerHealthProbeMeasurement second = Measurement(20, 4, 4, 0.10, 60);
-        ServerHealthProbeMeasurement third = Measurement(20, 4, 4, 0.10, 90);
+        ServerHealthProbeMeasurement[] recovery = Enumerable.Range(1, 6)
+            .Select(index => Measurement(20, 4, 4, 0.10, index * 30))
+            .ToArray();
 
-        Assert.AreNotEqual(
-            ServerHealthGrade.Excellent,
-            ServerHealthCalculator.Aggregate([outage, first]).Grade);
-        Assert.AreNotEqual(
-            ServerHealthGrade.Excellent,
-            ServerHealthCalculator.Aggregate([outage, first, second]).Grade);
+        for (int count = 1; count < 6; count++)
+        {
+            Assert.AreNotEqual(
+                ServerHealthGrade.Excellent,
+                ServerHealthCalculator.Aggregate([outage, .. recovery.Take(count)]).Grade,
+                $"The outage should still affect the grade after only {count} newer checks.");
+        }
+
         Assert.AreEqual(
             ServerHealthGrade.Excellent,
-            ServerHealthCalculator.Aggregate([outage, first, second, third]).Grade);
+            ServerHealthCalculator.Aggregate([outage, .. recovery]).Grade);
     }
 
     [TestMethod]
