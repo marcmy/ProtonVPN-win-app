@@ -1,3 +1,5 @@
+using System;
+
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
 public readonly record struct ServerHealthHistoryKey(string ServerId, string ProbeAddress)
