@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
 public sealed record ServerHealthSnapshot(
