@@ -4,7 +4,7 @@
 
 **Goal:** Change shared server-health grading from the newest three completed checks to the newest six completed checks for both the connected-server panel and candidate-server rows.
 
-**Architecture:** Keep `ServerHealthCalculator` as the single source of truth for the rolling grading window and keep `ServerHealthPresentation` responsible only for user-facing confidence copy. The existing `ServerHealthHistoryStore`, probe cadence, retry behavior, retention policy, score weights, grade thresholds, and routing behavior remain unchanged.
+**Architecture:** Keep `ServerHealthCalculator` as the single source of truth through an internal `ScoreMeasurementCount` constant. Reuse that count in aggregation, confidence presentation, and history-graph score-driver marking so the UI cannot drift from the grading policy. Preserve recorded order when selecting score drivers, then sort graph points chronologically for display.
 
 **Tech Stack:** C# 12, .NET 8, MSTest 3.11.1, GitHub Actions on `windows-latest`.
 
@@ -15,6 +15,7 @@
 - Continue grading from all available measurements while fewer than six exist.
 - Show partial confidence as `Based on X of 6 checks`.
 - Show full confidence as `Based on 6 checks`.
+- Mark the same newest six recorded measurements as score drivers in the history graph.
 - Keep the current-server refresh cadence at 30 seconds.
 - Keep the candidate-server refresh cadence at 60 seconds.
 - Keep each completed check at four ping samples.
@@ -26,276 +27,185 @@
 ## File Map
 
 - `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs`
-  - Owns the rolling measurement-count policy and aggregate calculations.
+  - Owns the shared six-measurement policy and aggregate calculations.
 - `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs`
-  - Formats the confidence label shown by both server-health displays.
+  - Formats confidence text from the shared count.
+- `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGraphSeries.cs`
+  - Marks score-driving measurements by recorded order and sorts points for display.
 - `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs`
-  - Verifies the rolling window, outage displacement, recorded-order semantics, newest-load behavior, partial-history grading, and confidence copy.
+  - Verifies aggregation, outage displacement, newest-load behavior, and confidence text.
+- `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthHistoryStoreTest.cs`
+  - Verifies retained graph history while only the newest six checks drive scoring.
+- `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthGraphSeriesTest.cs`
+  - Verifies chronological graph order and recorded-order score-driver selection.
 
-### Task 1: Expand the shared grading window to six measurements
+### Task 1: Define the six-check behavior with failing tests
 
 **Files:**
 - Modify: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs`
-- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs:11-23`
+- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthHistoryStoreTest.cs`
+- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthGraphSeriesTest.cs`
 
 **Interfaces:**
-- Consumes: `ServerHealthCalculator.Aggregate(IReadOnlyList<ServerHealthProbeMeasurement>)`
-- Produces: the same public method and `ServerHealthAggregate` shape, now calculated from up to six newest measurements.
+- Consumes: `ServerHealthCalculator.Aggregate`, `ServerHealthPresentation.FromSnapshot`, `ServerHealthGraphSeries.Create`, and `ServerHealthHistoryStore.ProbeAsync`.
+- Produces: regression coverage for a shared six-check policy.
 
-- [ ] **Step 1: Replace three-check regression cases with six-check cases**
+- [ ] **Step 1: Replace three-check calculator expectations with six-check expectations**
 
-In `ServerHealthCalculatorTest.cs`, replace the existing three-check window tests with the following methods:
-
-```csharp
-[TestMethod]
-public void Aggregate_OneMissAcrossSixBatches_UsesOneOfTwentyFourLoss()
-{
-    ServerHealthProbeMeasurement[] measurements =
-    [
-        Measurement(40, 4, 4, 0.20, 0),
-        Measurement(42, 3, 4, 0.25, 30),
-        Measurement(41, 4, 4, 0.30, 60),
-        Measurement(39, 4, 4, 0.20, 90),
-        Measurement(40, 4, 4, 0.20, 120),
-        Measurement(41, 4, 4, 0.20, 150),
-    ];
-
-    ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
-
-    Assert.AreEqual(23, result.SuccessfulSamples);
-    Assert.AreEqual(24, result.TotalSamples);
-    Assert.AreEqual(100d / 24d, result.PacketLossPercent, 0.001);
-    Assert.AreEqual(6, result.MeasurementCount);
-    Assert.IsTrue(result.Grade is ServerHealthGrade.Good or ServerHealthGrade.Excellent);
-}
-
-[TestMethod]
-public void Aggregate_UsesNewestSixBatchesAndNewestLoad()
-{
-    ServerHealthProbeMeasurement[] measurements =
-    [
-        Measurement(null, 0, 4, 0.10, 0, true),
-        Measurement(30, 4, 4, 0.20, 30),
-        Measurement(31, 4, 4, 0.30, 60),
-        Measurement(32, 4, 4, 0.40, 90),
-        Measurement(33, 4, 4, 0.50, 120),
-        Measurement(34, 4, 4, 0.60, 150),
-        Measurement(35, 4, 4, 0.70, 180),
-    ];
-
-    ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
-
-    Assert.AreEqual(24, result.SuccessfulSamples);
-    Assert.AreEqual(24, result.TotalSamples);
-    Assert.AreEqual(0d, result.PacketLossPercent, 0.001);
-    Assert.AreEqual(0.70, result.ServerLoad, 0.001);
-    Assert.AreEqual(6, result.MeasurementCount);
-}
-
-[TestMethod]
-public void Aggregate_UsesRecordedOrderWhenTheClockMovesBackward()
-{
-    ServerHealthProbeMeasurement[] measurements =
-    [
-        Measurement(null, 0, 4, 0.10, 0, true),
-        Measurement(30, 4, 4, 0.20, 30),
-        Measurement(31, 4, 4, 0.30, 60),
-        Measurement(32, 4, 4, 0.40, 90),
-        Measurement(33, 4, 4, 0.50, 120),
-        Measurement(34, 4, 4, 0.60, 150),
-        Measurement(35, 4, 4, 0.70, -30),
-    ];
-
-    ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
-
-    Assert.AreEqual(24, result.SuccessfulSamples);
-    Assert.AreEqual(24, result.TotalSamples);
-    Assert.AreEqual(0d, result.PacketLossPercent, 0.001);
-    Assert.AreEqual(0.70, result.ServerLoad, 0.001);
-    Assert.AreEqual(6, result.MeasurementCount);
-}
-
-[TestMethod]
-public void Aggregate_SixCleanFastBatches_CanBeExcellent()
-{
-    ServerHealthProbeMeasurement[] measurements =
-    [
-        Measurement(20, 4, 4, 0.10, 0),
-        Measurement(22, 4, 4, 0.10, 30),
-        Measurement(21, 4, 4, 0.10, 60),
-        Measurement(20, 4, 4, 0.10, 90),
-        Measurement(22, 4, 4, 0.10, 120),
-        Measurement(21, 4, 4, 0.10, 150),
-    ];
-
-    Assert.AreEqual(
-        ServerHealthGrade.Excellent,
-        ServerHealthCalculator.Aggregate(measurements).Grade);
-}
-
-[TestMethod]
-public void Aggregate_ConfirmedOutage_RemainsUntilSixNewerBatchesReplaceIt()
-{
-    ServerHealthProbeMeasurement outage = Measurement(null, 0, 4, 0.10, 0, true);
-    ServerHealthProbeMeasurement[] recovery = Enumerable.Range(1, 6)
-        .Select(index => Measurement(20, 4, 4, 0.10, index * 30))
-        .ToArray();
-
-    for (int count = 1; count < 6; count++)
-    {
-        Assert.AreNotEqual(
-            ServerHealthGrade.Excellent,
-            ServerHealthCalculator.Aggregate([outage, .. recovery.Take(count)]).Grade,
-            $"The outage should still affect the grade after only {count} newer checks.");
-    }
-
-    Assert.AreEqual(
-        ServerHealthGrade.Excellent,
-        ServerHealthCalculator.Aggregate([outage, .. recovery]).Grade);
-}
-```
-
-Keep these existing tests unchanged because they verify required partial-history behavior:
+Cover these cases in `ServerHealthCalculatorTest.cs`:
 
 ```csharp
-Aggregate_WeightsLatencyBySuccessfulReplies
-Aggregate_ConfirmedOutageWithoutReplies_IsPoorAndHasNoLatency
+Assert.AreEqual(6, result.MeasurementCount);
+Assert.AreEqual(24, result.TotalSamples);
 ```
 
-- [ ] **Step 2: Run the calculator tests and verify the new expectations fail**
+Use seven retained measurements to prove the oldest one is excluded, six clean measurements to prove Excellent remains possible, and one outage followed by six clean measurements to prove the outage remains until the sixth newer check displaces it.
 
-Run:
+- [ ] **Step 2: Expand confidence-copy coverage from one-through-three to one-through-six**
 
-```powershell
-dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-  --configuration Release -p:Platform=x64 `
-  --filter "FullyQualifiedName~ServerHealthCalculatorTest"
-```
-
-Expected: FAIL. At minimum, `Aggregate_UsesNewestSixBatchesAndNewestLoad` must fail because the implementation still selects only three measurements, and the outage-recovery test must show the outage disappearing after three newer checks instead of six.
-
-- [ ] **Step 3: Change the calculator window from three to six**
-
-In `ServerHealthCalculator.cs`, replace:
+Use these exact data rows:
 
 ```csharp
-private const int SCORE_MEASUREMENT_COUNT = 3;
-```
-
-with:
-
-```csharp
-private const int SCORE_MEASUREMENT_COUNT = 6;
-```
-
-Do not change the aggregation formulas, newest-load selection, grade thresholds, or loss caps.
-
-- [ ] **Step 4: Run the calculator tests and verify they pass**
-
-Run:
-
-```powershell
-dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-  --configuration Release -p:Platform=x64 `
-  --filter "FullyQualifiedName~ServerHealthCalculatorTest"
-```
-
-Expected: PASS with zero failed tests.
-
-- [ ] **Step 5: Commit the calculator behavior change**
-
-```bash
-git add \
-  src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs \
-  src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs
-git commit -m "feat: use six checks for server health grading"
-```
-
-### Task 2: Update confidence presentation for the six-check target
-
-**Files:**
-- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs:128-145`
-- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs:31-34`
-
-**Interfaces:**
-- Consumes: `ServerHealthPresentation.FromSnapshot(ServerHealthSnapshot)` and `ServerHealthAggregate.MeasurementCount`
-- Produces: unchanged `ServerHealthPresentation` record shape with six-check confidence copy.
-
-- [ ] **Step 1: Expand the confidence test matrix from one-through-three to one-through-six**
-
-Replace the existing `FromSnapshot_FormatsConfidence` data rows with:
-
-```csharp
-[TestMethod]
 [DataRow(1, "Based on 1 of 6 checks")]
 [DataRow(2, "Based on 2 of 6 checks")]
 [DataRow(3, "Based on 3 of 6 checks")]
 [DataRow(4, "Based on 4 of 6 checks")]
 [DataRow(5, "Based on 5 of 6 checks")]
 [DataRow(6, "Based on 6 checks")]
-public void FromSnapshot_FormatsConfidence(int count, string expected)
-{
-    ServerHealthProbeMeasurement[] measurements = Enumerable.Range(0, count)
-        .Select(i => Measurement(40, 4, 4, 0.25, i * 30))
-        .ToArray();
-    ServerHealthSnapshot snapshot = ServerHealthSnapshot.CreateRecorded(
-        ServerHealthHistoryKey.Create("server-1", "10.0.0.1"),
-        measurements,
-        ServerHealthCalculator.Aggregate(measurements));
+```
 
-    Assert.AreEqual(
-        expected,
-        ServerHealthPresentation.FromSnapshot(snapshot).ConfidenceText);
+- [ ] **Step 3: Update the retained-history regression test**
+
+Replace the four-batch/three-score test with one outage followed by six successful checks:
+
+```csharp
+[TestMethod]
+public async Task SevenRecordedBatches_RetainGraphHistoryButScoreNewestSix()
+{
+    FakeServerHealthClock clock = new();
+    QueueServerHealthSource source = Source();
+    source.Enqueue(Failure(clock, "first"));
+    source.Enqueue(Failure(clock, "retry"));
+    for (int i = 0; i < 6; i++)
+    {
+        source.Enqueue(Success(clock, 30 + i, 4));
+    }
+    using ServerHealthHistoryStore store = new(clock);
+
+    ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
+    for (int i = 0; i < 6; i++)
+    {
+        result = await store.ProbeAsync(source, CancellationToken.None);
+    }
+
+    Assert.AreEqual(7, result.Measurements.Count);
+    Assert.AreEqual(6, result.Aggregate!.MeasurementCount);
+    Assert.AreEqual(0d, result.Aggregate.PacketLossPercent, 0.001);
 }
 ```
 
-- [ ] **Step 2: Run only the confidence test and verify it fails**
+- [ ] **Step 4: Update the graph-series regression test**
+
+Use seven measurements with the newest recorded measurement carrying a backward timestamp. After chronological sorting, expect the oldest recorded measurement—not the earliest timestamp—to be the only non-driver:
+
+```csharp
+CollectionAssert.AreEqual(
+    new[] { -30, 0, 30, 60, 90, 120, 150 },
+    result.Select(point => (int)(point.CheckedAt - DateTimeOffset.UnixEpoch).TotalSeconds).ToArray());
+CollectionAssert.AreEqual(
+    new[] { true, true, true, true, false, true, true },
+    result.Select(point => point.IsScoreDriver).ToArray());
+```
+
+- [ ] **Step 5: Run the server-health test project and verify the new expectations fail**
 
 Run:
 
 ```powershell
 dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-  --configuration Release -p:Platform=x64 `
-  --filter "FullyQualifiedName~FromSnapshot_FormatsConfidence"
+  --configuration Release -p:Platform=x64
 ```
 
-Expected: FAIL because production still formats against a target of three checks.
+Expected: FAIL in the confidence-copy and graph score-driver tests because production still formats and marks only three checks.
 
-- [ ] **Step 3: Change the presentation target from three to six**
+- [ ] **Step 6: Commit the regression tests**
 
-In `ServerHealthPresentation.cs`, replace:
+```bash
+git add \
+  src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs \
+  src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthHistoryStoreTest.cs \
+  src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthGraphSeriesTest.cs
+git commit -m "test: define balanced server health confidence"
+```
+
+### Task 2: Implement one shared six-check policy
+
+**Files:**
+- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs`
+- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs`
+- Modify: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGraphSeries.cs`
+
+**Interfaces:**
+- Produces: `ServerHealthCalculator.ScoreMeasurementCount` as an internal constant shared within the UI assembly.
+- Preserves: all existing public method and record signatures.
+
+- [ ] **Step 1: Make the calculator own the shared count**
+
+Use:
 
 ```csharp
-string confidence = aggregate.MeasurementCount >= 3
-    ? "Based on 3 checks"
-    : $"Based on {aggregate.MeasurementCount} of 3 checks";
+internal const int ScoreMeasurementCount = 6;
 ```
 
-with:
+and select measurements with:
 
 ```csharp
-string confidence = aggregate.MeasurementCount >= 6
-    ? "Based on 6 checks"
-    : $"Based on {aggregate.MeasurementCount} of 6 checks";
+ServerHealthProbeMeasurement[] measurements = retained
+    .TakeLast(ScoreMeasurementCount)
+    .ToArray();
 ```
 
-Do not change the waiting state, grade text, active-bar mapping, latency, packet-loss, load, route, or last-checked formatting.
+Do not change scoring formulas, thresholds, load selection, or loss caps.
 
-- [ ] **Step 4: Run the confidence test and verify it passes**
+- [ ] **Step 2: Format confidence text from the shared count**
 
-Run:
+Use:
 
-```powershell
-dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-  --configuration Release -p:Platform=x64 `
-  --filter "FullyQualifiedName~FromSnapshot_FormatsConfidence"
+```csharp
+int requiredMeasurements = ServerHealthCalculator.ScoreMeasurementCount;
+string confidence = aggregate.MeasurementCount >= requiredMeasurements
+    ? $"Based on {requiredMeasurements} checks"
+    : $"Based on {aggregate.MeasurementCount} of {requiredMeasurements} checks";
 ```
 
-Expected: PASS for all six data rows.
+- [ ] **Step 3: Mark graph score drivers before chronological sorting**
 
-- [ ] **Step 5: Run the complete server-health test project**
+Use recorded indexes to determine score drivers, then sort for display:
 
-Run:
+```csharp
+int scoreStart = Math.Max(
+    0,
+    snapshot.Measurements.Count - ServerHealthCalculator.ScoreMeasurementCount);
+return snapshot.Measurements
+    .Select((measurement, index) => (
+        Measurement: measurement,
+        IsScoreDriver: index >= scoreStart))
+    .OrderBy(item => item.Measurement.CheckedAt)
+    .Select(item => new ServerHealthGraphPoint(
+        item.Measurement.CheckedAt,
+        item.Measurement.AverageLatencyMilliseconds,
+        item.Measurement.PacketLossPercent,
+        item.Measurement.ServerLoad,
+        item.Measurement.SuccessfulSamples,
+        item.Measurement.TotalSamples,
+        item.Measurement.WasRetried,
+        item.Measurement.IsConfirmedOutage,
+        item.IsScoreDriver,
+        item.Measurement.Error))
+    .ToArray();
+```
+
+- [ ] **Step 4: Run the complete server-health test project**
 
 ```powershell
 dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
@@ -304,84 +214,38 @@ dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.
 
 Expected: PASS with zero failed tests and no MSTest analyzer annotations.
 
-- [ ] **Step 6: Commit the presentation update**
+- [ ] **Step 5: Commit the implementation**
 
 ```bash
 git add \
+  src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs \
   src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs \
-  src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs
-git commit -m "feat: update server health confidence copy"
+  src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthGraphSeries.cs
+git commit -m "feat: use balanced server health confidence"
 ```
 
-### Task 3: Review the branch and validate both application builds
+### Task 3: Validate scope and application builds
 
 **Files:**
-- Review only: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs`
-- Review only: `src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs`
-- Review only: `src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs`
-- Review only: `docs/superpowers/specs/2026-07-11-server-health-balanced-confidence-design.md`
+- Review the six implementation/test files above.
+- Review: `docs/superpowers/specs/2026-07-11-server-health-balanced-confidence-design.md`
+- Review: `docs/superpowers/plans/2026-07-11-server-health-balanced-confidence.md`
 
-**Interfaces:**
-- Consumes: the two implementation commits from Tasks 1 and 2.
-- Produces: a reviewable pull request whose existing validation workflow proves tests, client build, and service build.
-
-- [ ] **Step 1: Inspect the final diff for scope compliance**
-
-Run:
+- [ ] **Step 1: Inspect the final branch diff**
 
 ```bash
 git diff marc/proton...HEAD -- \
-  src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthCalculator.cs \
-  src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth/ServerHealthPresentation.cs \
-  src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth/ServerHealthCalculatorTest.cs \
+  src/Client/Common/ProtonVPN.Client.Common.UI/ServerHealth \
+  src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ServerHealth \
   docs/superpowers/specs/2026-07-11-server-health-balanced-confidence-design.md \
   docs/superpowers/plans/2026-07-11-server-health-balanced-confidence.md
 ```
 
-Expected: only the shared measurement-count constant, confidence copy, six-check tests, and approved documentation differ. There must be no cadence, routing, retention, score-weight, grade-threshold, project-file, or workflow changes.
+Expected: no cadence, routing, retention, score-weight, grade-threshold, project-file, or workflow changes.
 
-- [ ] **Step 2: Re-run the full unit-test project from the final branch head**
+- [ ] **Step 2: Run the existing pull-request validation workflow**
 
-Run:
-
-```powershell
-dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-  --configuration Release -p:Platform=x64
-```
-
-Expected: PASS with zero failed tests.
-
-- [ ] **Step 3: Open the pull request against `marc/proton`**
-
-Run:
-
-```bash
-gh pr create \
-  --base marc/proton \
-  --head feature/server-health-balanced-confidence \
-  --title "feat: use balanced server health confidence" \
-  --body "## Summary
-
-- grade server health from the newest six completed checks instead of three
-- apply the shared six-check window to current and candidate servers
-- update confidence text to `Based on X of 6 checks`
-- keep outage history until six newer checks replace it
-- preserve refresh cadences, score thresholds, routing, retries, and retention
-
-## Validation
-
-- server-health unit tests
-- client build
-- service build"
-```
-
-Expected: a new open pull request targeting `marc/proton`.
-
-- [ ] **Step 4: Verify the existing PR validation workflow**
-
-Wait for the existing `Windows fast patch build` workflow job named `Validate client and service changes`.
-
-Expected successful steps:
+The `Windows fast patch build` workflow job named `Validate client and service changes` must complete these steps successfully:
 
 ```text
 Run server health tests
@@ -393,17 +257,13 @@ Build service project
 
 Expected final job conclusion: `success` with no new annotations.
 
-- [ ] **Step 5: Record the verified head SHA and validation result in the PR summary**
+- [ ] **Step 3: Record the validated immutable head SHA**
 
-Run:
+After CI succeeds, read the PR head SHA from GitHub and post it with:
 
-```bash
-HEAD_SHA=$(git rev-parse HEAD)
-gh pr comment --body "Verified head: $HEAD_SHA
+```text
 Server-health tests: passed
 Client build: passed
 Service build: passed
-Annotations: none"
+Annotations: none
 ```
-
-Expected: the pull request contains the immutable validated branch SHA and the four successful validation results.
