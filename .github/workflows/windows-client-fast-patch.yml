@@ -64,9 +64,21 @@ jobs:
           $deleted = 0
 
           while ($true) {
-            $response = Invoke-RestMethod -Uri $runsUrl -Headers $headers -Method Get
+            try {
+              $response = Invoke-RestMethod -Uri $runsUrl -Headers $headers -Method Get
+            }
+            catch {
+              if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
+                Write-Host "The obsolete workflow record no longer exists; zero runs remain."
+                break
+              }
+
+              throw
+            }
+
             $runs = @($response.workflow_runs)
             if ($runs.Count -eq 0) {
+              Write-Host "The obsolete workflow has zero runs remaining."
               break
             }
 
@@ -75,15 +87,11 @@ jobs:
               Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
               Write-Host "Deleted obsolete workflow run $($run.id)."
               $deleted++
+              Start-Sleep -Milliseconds 500
             }
           }
 
-          $remaining = Invoke-RestMethod -Uri $runsUrl -Headers $headers -Method Get
-          if (@($remaining.workflow_runs).Count -ne 0) {
-            throw "Obsolete server health workflow runs still remain."
-          }
-
-          Write-Host "Deleted $deleted obsolete workflow run(s); zero remain."
+          Write-Host "Deleted $deleted obsolete workflow run(s) in this pass."
 
       - name: Checkout repository
         uses: actions/checkout@v7
