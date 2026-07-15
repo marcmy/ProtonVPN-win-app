@@ -5,8 +5,8 @@ on:
   pull_request:
   push:
     branches:
-      - main
       - master
+      - marc/proton
   schedule:
     # Every Monday at 07:23 UTC
     - cron: "23 7 * * 1"
