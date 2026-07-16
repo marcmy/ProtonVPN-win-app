@@ -1,0 +1,5 @@
+# Exclude Proton-signed native binaries from the GitHub dependency snapshot.
+# These vendor artifacts cannot be independently rebuilt or replaced without
+# invalidating Proton's signatures. Trivy continues to scan Setup/Native.
+exclude:
+  - ./Setup/Native/
