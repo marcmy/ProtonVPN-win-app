@@ -9,8 +9,6 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $TargetBranch,
 
-    [switch] $IncludeUpdaterSkip,
-
     [switch] $ForceResetTarget
 )
 
@@ -144,41 +142,31 @@ function Commit-StagedChanges {
     return Get-GitOutput rev-parse HEAD
 }
 
-function Apply-PathPatch {
+function Apply-ForkPatch {
     param(
-        [Parameter(Mandatory = $true)]
-        [string] $Name,
-
         [Parameter(Mandatory = $true)]
         [string] $SourceBase,
 
         [Parameter(Mandatory = $true)]
-        [string] $SourceRef,
-
-        [Parameter(Mandatory = $true)]
-        [string[]] $Paths
+        [string] $SourceRef
     )
 
-    Write-Host "Preparing $Name patch from $SourceBase..$SourceRef"
+    Write-Host "Preparing the complete fork patch from $SourceBase..$SourceRef"
 
-    $patchFile = Join-Path ([System.IO.Path]::GetTempPath()) "$($Name -replace '[^A-Za-z0-9_.-]', '-')-$([System.Guid]::NewGuid()).patch"
-    $diffOutput = & git diff --binary $SourceBase $SourceRef -- @Paths
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to create $Name patch."
-    }
-
-    if ([string]::IsNullOrWhiteSpace(($diffOutput -join "`n"))) {
-        Write-Host "No $Name hunks were found in the requested source branch."
-        return
-    }
-
-    $diffOutput | Set-Content -LiteralPath $patchFile -Encoding utf8
+    $patchFile = Join-Path ([System.IO.Path]::GetTempPath()) "complete-fork-$([System.Guid]::NewGuid()).patch"
 
     try {
+        Invoke-Git diff --binary --full-index "--output=$patchFile" $SourceBase $SourceRef -- .
+        if (-not (Test-Path -LiteralPath $patchFile -PathType Leaf) -or
+            (Get-Item -LiteralPath $patchFile).Length -eq 0) {
+            Write-Host 'The source branch contains no fork changes to port.'
+            return
+        }
+
         Invoke-Git apply --3way --index --whitespace=nowarn $patchFile
     }
     catch {
-        Write-Host "$Name patch could not be applied cleanly. Current status:"
+        Write-Host 'The complete fork patch could not be applied cleanly. Current status:'
         & git status --short
         throw
     }
@@ -194,7 +182,7 @@ $targetBranch = Normalize-BranchName $TargetBranch
 $protectedTargets = @(
     'main',
     'master',
-    'marc/v4.4.1-split-tunnel-patterns'
+    'marc/proton'
 )
 
 if ($protectedTargets -contains $targetBranch) {
@@ -252,47 +240,12 @@ else {
 $sourceBase = Get-GitOutput merge-base "origin/$baseBranch" "origin/$sourcePatchBranch"
 $sourceRef = "origin/$sourcePatchBranch"
 
-$splitTunnelPaths = @(
-    'src/Client/ProtonVPN.Client.Core/Models/ExternalApp.cs',
-    'src/Client/ProtonVPN.Client.Core/Models/TunnelingApp.cs',
-    'src/Client/ProtonVPN.Client/UI/Main/Settings/Pages/Connection/SplitTunnelingPageViewModel.cs',
-    'src/Client/ProtonVPN.Client/UI/Overlays/Selection/AppSelectorOverlayView.xaml',
-    'src/Client/ProtonVPN.Client/UI/Overlays/Selection/AppSelectorOverlayView.xaml.cs',
-    'src/Client/ProtonVPN.Client/UI/Overlays/Selection/AppSelectorOverlayViewModel.cs',
-    'src/Client/ProtonVPN.Client/Handlers/ServiceSettingChangeHandler.cs',
-    'src/Client/Settings/ProtonVPN.Client.Settings/RequiredReconnections/RequiredReconnectionSettings.cs',
-    'src/ProtonVPN.Service/SplitTunneling/SplitTunnel.cs',
-    'src/Tests/ProtonVPN.Integration.Tests/Handlers/ServiceSettingChangeHandlerTest.cs',
-    'src/Tests/ProtonVPN.Integration.Tests/Settings/RequiredReconnectionSettingsTest.cs',
-    'src/Tests/ProtonVPN.Service.Tests/SplitTunneling/SplitTunnelTest.cs'
-)
-
-$updaterSkipPaths = @(
-    'src/Client/Settings/ProtonVPN.Client.Settings.Contracts/IGlobalSettings.cs',
-    'src/Client/Settings/ProtonVPN.Client.Settings/GlobalSettings.cs',
-    'src/Client/Logic/Updates/ProtonVPN.Client.Logic.Updates.Contracts/IUpdatesManager.cs',
-    'src/Client/Logic/Updates/ProtonVPN.Client.Logic.Updates/UpdatesManager.cs',
-    'src/Client/ProtonVPN.Client/UI/Update/UpdateComponent.xaml',
-    'src/Client/ProtonVPN.Client/UI/Update/UpdateComponent.xaml.cs',
-    'src/Client/ProtonVPN.Client/UI/Update/UpdateViewModel.cs',
-    'src/Tests/ProtonVPN.Integration.Tests/Updates/UpdatesManagerSkipTest.cs'
-)
-
-Apply-PathPatch -Name 'split-tunnel' -SourceBase $sourceBase -SourceRef $sourceRef -Paths $splitTunnelPaths
-$splitTunnelCommit = Commit-StagedChanges "Apply split tunnel patch from $sourcePatchBranch"
-
-if ($IncludeUpdaterSkip) {
-    Apply-PathPatch -Name 'updater-skip' -SourceBase $sourceBase -SourceRef $sourceRef -Paths $updaterSkipPaths
-    $updaterSkipCommit = Commit-StagedChanges "Apply updater skip patch from $sourcePatchBranch"
-}
-else {
-    $updaterSkipCommit = ''
-    Write-Host 'Updater-skip hunks were not requested.'
-}
+Apply-ForkPatch -SourceBase $sourceBase -SourceRef $sourceRef
+$forkPatchCommit = Commit-StagedChanges "Port complete fork from $sourcePatchBranch onto $baseBranch"
 
 Invoke-Git diff --check
 
-$unstagedChanges = & git diff --name-only
+$unstagedChanges = @(& git diff --name-only)
 if ($LASTEXITCODE -ne 0) {
     throw 'Unable to inspect unstaged changes.'
 }
@@ -314,14 +267,10 @@ Write-GitHubOutput -Name 'target_branch' -Value $targetBranch
 Write-GitHubOutput -Name 'target_sha' -Value $targetSha
 Write-GitHubOutput -Name 'target_slug' -Value $targetSlug
 Write-GitHubOutput -Name 'target_exists' -Value ($targetExists.ToString().ToLowerInvariant())
-Write-GitHubOutput -Name 'split_tunnel_commit' -Value $splitTunnelCommit
-Write-GitHubOutput -Name 'updater_skip_commit' -Value $updaterSkipCommit
+Write-GitHubOutput -Name 'fork_patch_commit' -Value $forkPatchCommit
 
 Write-Host "Patched branch: $targetBranch"
 Write-Host "Target SHA: $targetSha"
-if ($splitTunnelCommit) {
-    Write-Host "Split tunnel commit: $splitTunnelCommit"
-}
-if ($updaterSkipCommit) {
-    Write-Host "Updater skip commit: $updaterSkipCommit"
+if ($forkPatchCommit) {
+    Write-Host "Complete fork patch commit: $forkPatchCommit"
 }
