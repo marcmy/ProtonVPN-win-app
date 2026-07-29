@@ -1,0 +1,10 @@
+vulnerabilities:
+  - id: CVE-2026-40021
+    paths:
+      - "Directory.Packages.props"
+    expired_at: 2026-10-31
+    statement: >-
+      Proton VPN 5.1.5 installs the strongly named log4net 3.2.0.0 assembly.
+      Fast-patch artifacts intentionally omit third-party runtime assemblies and
+      must remain compatible with the installed app. Reassess when the official
+      Proton VPN package upgrades log4net or the patch packaging model changes.
