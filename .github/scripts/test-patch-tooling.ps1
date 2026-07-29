@@ -14,6 +14,8 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'
 $applyPatchScript = Join-Path $PSScriptRoot 'apply-future-version-patch.ps1'
 $packageScript = Join-Path $PSScriptRoot 'package-patch-artifacts.ps1'
 $setVersionScript = Join-Path $PSScriptRoot 'set-assembly-version.ps1'
+$stageClientScript = Join-Path $PSScriptRoot 'stage-client-patch-output.ps1'
+$installerScript = Join-Path $repositoryRoot 'scripts/Install-ProtonVPNPatch.ps1'
 
 $ownsWorkingDirectory = [string]::IsNullOrWhiteSpace($WorkingDirectory)
 $testRoot = if ($ownsWorkingDirectory) {
@@ -218,6 +220,71 @@ function Invoke-PackageFixture {
 
 function Test-PackageComposition {
     $fixture = New-PackageFixture
+
+    $installerSource = Get-Content -LiteralPath $installerScript -Raw
+    $elevationGuardIndex = $installerSource.IndexOf(
+        'if (-not $ValidateOnly -and -not (Test-IsAdministrator)) {',
+        [StringComparison]::Ordinal)
+    $preflightValidationIndex = $installerSource.IndexOf(
+        'Test-PatchPayload',
+        $elevationGuardIndex,
+        [StringComparison]::Ordinal)
+    $elevationIndex = $installerSource.IndexOf(
+        'Restart-Elevated',
+        $elevationGuardIndex,
+        [StringComparison]::Ordinal)
+
+    Assert-Condition (
+        $elevationGuardIndex -ge 0 -and
+        $preflightValidationIndex -gt $elevationGuardIndex -and
+        $elevationIndex -gt $preflightValidationIndex
+    ) 'Installer payload validation must occur before requesting elevation.'
+
+    $unsafeStageRejected = $false
+    try {
+        & $stageClientScript `
+            -ClientOutputDirectory $fixture.Client `
+            -StageDirectory $fixture.Client
+    }
+    catch {
+        if ($_.Exception.Message -like '*must not overlap client build output*') {
+            $unsafeStageRejected = $true
+        } else {
+            throw
+        }
+    }
+
+    Assert-Condition $unsafeStageRejected `
+        'Client staging did not reject a cleanup directory that overlapped its source.'
+
+    $unsafePackageRejected = $false
+    try {
+        & $packageScript `
+            -BuildMode both `
+            -TargetVersion '5.1.5' `
+            -SourceCommit '0123456789abcdef' `
+            -SourceRef 'test/full-fork' `
+            -WorkflowRunId '1234' `
+            -BinDirectory $fixture.Bin `
+            -ServiceOutputDirectory $fixture.Service `
+            -ClientOutputDirectory $fixture.Client `
+            -PatchDirectory $fixture.Client `
+            -InstallerDirectory (Join-Path $fixture.Root 'unsafe-installer') `
+            -BuilderPath $fixture.Builder `
+            -InstallerScriptPath $fixture.InstallerScript `
+            -LauncherPath $fixture.Launcher
+    }
+    catch {
+        if ($_.Exception.Message -like '*must not overlap protected input path*') {
+            $unsafePackageRejected = $true
+        } else {
+            throw
+        }
+    }
+
+    Assert-Condition $unsafePackageRejected `
+        'Patch packaging did not reject a cleanup directory that overlapped an input.'
+
     $patchDir = Invoke-PackageFixture -Fixture $fixture -OutputSuffix 'complete'
     $manifest = Get-Content -LiteralPath (Join-Path $patchDir 'patch-manifest.json') -Raw | ConvertFrom-Json
     $manifestPaths = @($manifest.files | ForEach-Object { [string] $_.path })
@@ -229,6 +296,29 @@ function Test-PackageComposition {
 
     Assert-Condition ([int] $manifest.serviceRuntimeAssemblyCount -eq $fixture.ServiceAssets.Count) `
         'Packaged manifest reported the wrong service runtime assembly count.'
+
+    & powershell.exe `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
+        -File $installerScript `
+        -PatchPath $patchDir `
+        -TargetVersion '5.1.5' `
+        -ValidateOnly
+    Assert-Condition ($LASTEXITCODE -eq 0) `
+        'Installer rejected an untampered patch payload.'
+
+    Write-TestText (Join-Path $patchDir 'ProtonVPN.Client.dll') 'tampered-client'
+    & powershell.exe `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
+        -File $installerScript `
+        -PatchPath $patchDir `
+        -TargetVersion '5.1.5' `
+        -ValidateOnly 2>$null
+    Assert-Condition ($LASTEXITCODE -ne 0) `
+        'Installer accepted a patch payload whose manifest hash no longer matched.'
 
     Write-TestText (Join-Path $fixture.Service 'ProtonVPN.Shared.dll') 'service-collision'
     $collisionDetected = $false

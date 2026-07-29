@@ -47,6 +47,83 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Test-PathIntersection {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $FirstPath,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SecondPath
+    )
+
+    $first = [System.IO.Path]::GetFullPath($FirstPath).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar)
+    $second = [System.IO.Path]::GetFullPath($SecondPath).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar)
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+
+    return $first.Equals($second, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $first.StartsWith("$second$separator", [System.StringComparison]::OrdinalIgnoreCase) -or
+        $second.StartsWith("$first$separator", [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Resolve-SafeCleanDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Label,
+
+        [string[]] $ProtectedPaths = @()
+    )
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar)
+    $pathRoot = [System.IO.Path]::GetPathRoot($fullPath).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar)
+
+    if ($fullPath.Equals($pathRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "$Label must not be a filesystem root: $fullPath"
+    }
+
+    $allowedRoots = @(
+        [System.Environment]::CurrentDirectory,
+        [System.IO.Path]::GetTempPath(),
+        $env:GITHUB_WORKSPACE,
+        $env:RUNNER_TEMP
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object {
+        [System.IO.Path]::GetFullPath($_).TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar)
+    } | Sort-Object -Unique
+
+    $isAllowed = $false
+    foreach ($allowedRoot in $allowedRoots) {
+        $allowedPrefix = "$allowedRoot$([System.IO.Path]::DirectorySeparatorChar)"
+        if ($fullPath.StartsWith($allowedPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $isAllowed = $true
+            break
+        }
+    }
+
+    if (-not $isAllowed) {
+        throw "$Label must be below the repository workspace or the runner temporary directory: $fullPath"
+    }
+
+    foreach ($protectedPath in $ProtectedPaths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) {
+        if (Test-PathIntersection -FirstPath $fullPath -SecondPath $protectedPath) {
+            throw "$Label must not overlap protected input path '$protectedPath': $fullPath"
+        }
+    }
+
+    return $fullPath
+}
+
 $binDir = [System.IO.Path]::GetFullPath($BinDirectory)
 $serviceOutputDir = if ([string]::IsNullOrWhiteSpace($ServiceOutputDirectory)) {
     Join-Path $binDir 'win-x64'
@@ -54,11 +131,30 @@ $serviceOutputDir = if ([string]::IsNullOrWhiteSpace($ServiceOutputDirectory)) {
     [System.IO.Path]::GetFullPath($ServiceOutputDirectory)
 }
 $clientOutputDir = [System.IO.Path]::GetFullPath($ClientOutputDirectory)
-$patchDir = [System.IO.Path]::GetFullPath($PatchDirectory)
-$installerDir = [System.IO.Path]::GetFullPath($InstallerDirectory)
 $resolvedBuilderPath = [System.IO.Path]::GetFullPath($BuilderPath)
 $resolvedInstallerScriptPath = [System.IO.Path]::GetFullPath($InstallerScriptPath)
 $resolvedLauncherPath = [System.IO.Path]::GetFullPath($LauncherPath)
+$protectedInputPaths = @(
+    $binDir,
+    $serviceOutputDir,
+    $clientOutputDir,
+    $resolvedBuilderPath,
+    $resolvedInstallerScriptPath,
+    $resolvedLauncherPath
+)
+$patchDir = Resolve-SafeCleanDirectory `
+    -Path $PatchDirectory `
+    -Label 'Patch output directory' `
+    -ProtectedPaths $protectedInputPaths
+$installerDir = Resolve-SafeCleanDirectory `
+    -Path $InstallerDirectory `
+    -Label 'Installer output directory' `
+    -ProtectedPaths $protectedInputPaths
+
+if (Test-PathIntersection -FirstPath $patchDir -SecondPath $installerDir) {
+    throw "Patch and installer output directories must not overlap: '$patchDir' and '$installerDir'."
+}
+
 $manifestPath = Join-Path $patchDir 'patch-manifest.json'
 $installerName = "ProtonVPN-Custom-Patch-$TargetVersion.exe"
 $installerPath = Join-Path $installerDir $installerName

@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,10 +17,13 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+namespace ProtonVPN.Service.PortMapping;
 
-[assembly: Guid("b23ab123-f51e-49b4-b434-282d8eeb137c")]
-[assembly: InternalsVisibleTo("ProtonVPN.Service.Test")]
-[assembly: InternalsVisibleTo("ProtonVPN.Service.Tests")]
-[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+internal interface IPortForwardingRouteOperations
+{
+    int GetInterfaceIndexForLocalIp(string? localIp);
+
+    void AddRoute(int interfaceIndex);
+
+    void DeleteRoute(int interfaceIndex);
+}

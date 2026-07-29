@@ -77,6 +77,28 @@ public class ServerHealthHistoryStoreTest
     }
 
     [TestMethod]
+    public async Task RecentMeasurement_SuppressesDuplicateProbeUntilMinimumIntervalExpires()
+    {
+        FakeServerHealthClock clock = new();
+        QueueServerHealthSource source = Source();
+        source.Enqueue(Success(clock, 40, 4));
+        source.Enqueue(Success(clock, 45, 4));
+        using ServerHealthHistoryStore store = new(
+            clock,
+            minimumProbeInterval: TimeSpan.FromSeconds(30));
+
+        ServerHealthSnapshot first = await store.ProbeAsync(source, CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(29));
+        ServerHealthSnapshot cached = await store.ProbeAsync(source, CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(2));
+        ServerHealthSnapshot refreshed = await store.ProbeAsync(source, CancellationToken.None);
+
+        Assert.AreEqual(2, source.ProbeCount);
+        Assert.AreEqual(first.Measurements.Count, cached.Measurements.Count);
+        Assert.AreEqual(2, refreshed.Measurements.Count);
+    }
+
+    [TestMethod]
     public async Task RequestDuringRetryDelay_JoinsLogicalBatch()
     {
         FakeServerHealthClock clock = new() { BlockDelays = true };
@@ -105,7 +127,9 @@ public class ServerHealthHistoryStoreTest
         source.Enqueue(Success(clock, 40, 4));
         source.Enqueue(Failure(clock, "first"));
         source.Enqueue(Failure(clock, "second"));
-        using ServerHealthHistoryStore store = new(clock);
+        using ServerHealthHistoryStore store = new(
+            clock,
+            minimumProbeInterval: TimeSpan.Zero);
         ServerHealthSnapshot previous = await store.ProbeAsync(source, CancellationToken.None);
         List<ServerHealthSnapshot> observed = [];
         store.SnapshotChanged += (_, args) => observed.Add(args.Snapshot);
@@ -170,7 +194,9 @@ public class ServerHealthHistoryStoreTest
         {
             source.Enqueue(Success(clock, 30 + i, 4));
         }
-        using ServerHealthHistoryStore store = new(clock);
+        using ServerHealthHistoryStore store = new(
+            clock,
+            minimumProbeInterval: TimeSpan.Zero);
 
         ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
         for (int i = 0; i < 6; i++)

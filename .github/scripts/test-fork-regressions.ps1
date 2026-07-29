@@ -15,6 +15,8 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $TestOutputDirectory = 'artifacts/test-bin',
 
+    [string] $RepositoryRoot = '',
+
     [switch] $RepeatServerHealth
 )
 
@@ -25,8 +27,67 @@ if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction Sile
     $PSNativeCommandUseErrorActionPreference = $false
 }
 
-$logsDir = [System.IO.Path]::GetFullPath($LogsDirectory)
-$testOutputRoot = [System.IO.Path]::GetFullPath($TestOutputDirectory)
+function Resolve-RepositoryPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path
+    )
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return [System.IO.Path]::GetFullPath($Path)
+    }
+
+    return [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $Path))
+}
+
+$scriptRepositoryCandidate = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+$repositoryRoot = if (-not [string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    [System.IO.Path]::GetFullPath($RepositoryRoot)
+} elseif ((Test-Path -LiteralPath (Join-Path $scriptRepositoryCandidate 'src') -PathType Container) -and
+          (Test-Path -LiteralPath (Join-Path $scriptRepositoryCandidate '.github') -PathType Container)) {
+    $scriptRepositoryCandidate
+} else {
+    [System.IO.Path]::GetFullPath([System.Environment]::CurrentDirectory)
+}
+
+if (-not (Test-Path -LiteralPath (Join-Path $repositoryRoot 'src') -PathType Container)) {
+    throw "Repository root does not contain the Proton VPN source tree: $repositoryRoot"
+}
+
+$logsDir = Resolve-RepositoryPath $LogsDirectory
+$testOutputRoot = Resolve-RepositoryPath $TestOutputDirectory
+$normalizedRepositoryRoot = $repositoryRoot.TrimEnd('\', '/')
+$normalizedTestOutputRoot = $testOutputRoot.TrimEnd('\', '/')
+$testOutputPrefix = "$normalizedRepositoryRoot$([System.IO.Path]::DirectorySeparatorChar)"
+$sourceRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot 'src')).TrimEnd('\', '/')
+$sourcePrefix = "$sourceRoot$([System.IO.Path]::DirectorySeparatorChar)"
+$temporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\', '/')
+$temporaryPrefix = "$temporaryRoot$([System.IO.Path]::DirectorySeparatorChar)"
+
+if (-not $normalizedTestOutputRoot.StartsWith(
+        $testOutputPrefix,
+        [System.StringComparison]::OrdinalIgnoreCase) -and
+    -not $normalizedTestOutputRoot.StartsWith(
+        $temporaryPrefix,
+        [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Test output must be below the repository root or temporary directory: $testOutputRoot"
+}
+
+if ($normalizedTestOutputRoot.Equals(
+        $normalizedRepositoryRoot,
+        [System.StringComparison]::OrdinalIgnoreCase) -or
+    $normalizedTestOutputRoot.Equals(
+        $temporaryRoot,
+        [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Test output must not be a broad cleanup root: $testOutputRoot"
+}
+
+if ($normalizedTestOutputRoot.StartsWith(
+        $sourcePrefix,
+        [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Test output must not be written inside the source tree: $testOutputRoot"
+}
+
 New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $testOutputRoot | Out-Null
 
@@ -67,8 +128,9 @@ function Invoke-TestProject {
         [string] $LogSuffix = ''
     )
 
-    if (-not (Test-Path -LiteralPath $ProjectPath -PathType Leaf)) {
-        throw "Fork regression test project was not found: $ProjectPath"
+    $resolvedProjectPath = Resolve-RepositoryPath $ProjectPath
+    if (-not (Test-Path -LiteralPath $resolvedProjectPath -PathType Leaf)) {
+        throw "Fork regression test project was not found: $resolvedProjectPath"
     }
 
     $projectName = [System.IO.Path]::GetFileNameWithoutExtension($ProjectPath)
@@ -81,7 +143,7 @@ function Invoke-TestProject {
     New-Item -ItemType Directory -Force -Path $testOutputDir | Out-Null
 
     Write-Host "Running fork regression project: $ProjectPath"
-    dotnet test $ProjectPath `
+    dotnet test $resolvedProjectPath `
         --configuration $Configuration `
         -p:Platform=$Platform `
         -p:OutputPath=$testOutputDir `

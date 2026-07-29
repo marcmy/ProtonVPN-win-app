@@ -18,11 +18,7 @@
  */
 
 using System;
-using System.Diagnostics;
-using System.Linq;
 using System.Net;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Threading.Tasks;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
@@ -39,12 +35,13 @@ namespace ProtonVPN.Service.PortMapping;
 internal sealed class PortForwardingForAppsRouteShim : IDisposable
 {
     private const string ProtonNatPmpGatewayIp = "10.2.0.1";
-    private const string DefaultRoutePrefix = "0.0.0.0/0";
 
     private readonly object _sync = new();
+    private readonly object _reconcileSync = new();
     private readonly ILogger _logger;
     private readonly IServiceSettings _serviceSettings;
     private readonly IPortMappingProtocolClient _portMappingProtocolClient;
+    private readonly IPortForwardingRouteOperations _routeOperations;
 
     private VpnState _vpnState = VpnState.Default;
     private PortForwardingState _portForwardingState = PortForwardingState.Default;
@@ -53,11 +50,13 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
     public PortForwardingForAppsRouteShim(
         ILogger logger,
         IServiceSettings serviceSettings,
-        IPortMappingProtocolClient portMappingProtocolClient)
+        IPortMappingProtocolClient portMappingProtocolClient,
+        IPortForwardingRouteOperations routeOperations)
     {
         _logger = logger;
         _serviceSettings = serviceSettings;
         _portMappingProtocolClient = portMappingProtocolClient;
+        _routeOperations = routeOperations;
 
         _serviceSettings.SettingsChanged += OnSettingsChanged;
         _portMappingProtocolClient.StateChanged += OnPortMappingStateChanged;
@@ -75,7 +74,11 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
 
     public async Task StopAsync()
     {
-        RemoveRouteIfNeeded();
+        lock (_reconcileSync)
+        {
+            RemoveRouteIfNeeded();
+        }
+
         await Task.CompletedTask;
     }
 
@@ -96,13 +99,16 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
 
     private void ReconcileState()
     {
-        if (ShouldRun())
+        lock (_reconcileSync)
         {
-            AddRouteIfNeeded();
-        }
-        else
-        {
-            RemoveRouteIfNeeded();
+            if (ShouldRun())
+            {
+                AddRouteIfNeeded();
+            }
+            else
+            {
+                RemoveRouteIfNeeded();
+            }
         }
     }
 
@@ -133,7 +139,7 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
     private void AddRouteIfNeeded()
     {
         string? localIp = LocalIp;
-        int interfaceIndex = GetInterfaceIndexForLocalIp(localIp);
+        int interfaceIndex = _routeOperations.GetInterfaceIndexForLocalIp(localIp);
         if (interfaceIndex <= 0)
         {
             _logger.Error<ConnectionLog>($"Could not find Proton VPN interface index for local IP {localIp}.");
@@ -149,20 +155,26 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         }
 
         RemoveRouteIfNeeded();
-        DeleteRoute(interfaceIndex);
+        TryDeleteRoute(interfaceIndex);
 
         try
         {
-            RunNetsh($"interface ipv4 add route prefix={DefaultRoutePrefix} interface={interfaceIndex} nexthop={ProtonNatPmpGatewayIp} metric=1 store=active");
+            _routeOperations.AddRoute(interfaceIndex);
             lock (_sync)
             {
                 _routeInterfaceIndex = interfaceIndex;
             }
 
             _logger.Info<ConnectionLog>($"Added app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}.");
+
+            if (!ShouldRun())
+            {
+                RemoveRouteIfNeeded();
+            }
         }
         catch (Exception e)
         {
+            TryDeleteRoute(interfaceIndex);
             _logger.Error<ConnectionLog>($"Failed to add app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}.", e);
         }
     }
@@ -173,7 +185,6 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         lock (_sync)
         {
             interfaceIndex = _routeInterfaceIndex;
-            _routeInterfaceIndex = null;
         }
 
         if (interfaceIndex is null)
@@ -181,81 +192,30 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
             return;
         }
 
-        DeleteRoute(interfaceIndex.Value);
+        if (TryDeleteRoute(interfaceIndex.Value))
+        {
+            lock (_sync)
+            {
+                if (_routeInterfaceIndex == interfaceIndex)
+                {
+                    _routeInterfaceIndex = null;
+                }
+            }
+        }
     }
 
-    private void DeleteRoute(int interfaceIndex)
+    private bool TryDeleteRoute(int interfaceIndex)
     {
         try
         {
-            RunNetsh($"interface ipv4 delete route prefix={DefaultRoutePrefix} interface={interfaceIndex} nexthop={ProtonNatPmpGatewayIp} store=active");
+            _routeOperations.DeleteRoute(interfaceIndex);
             _logger.Info<ConnectionLog>($"Removed app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}.");
+            return true;
         }
         catch (Exception e)
         {
             _logger.Warn<ConnectionLog>($"App port forwarding NAT-PMP route shim was not present or could not be removed. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}. {e.Message}");
-        }
-    }
-
-    private static int GetInterfaceIndexForLocalIp(string? localIp)
-    {
-        if (!IPAddress.TryParse(localIp, out IPAddress? address))
-        {
-            return 0;
-        }
-
-        foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
-        {
-            IPInterfaceProperties properties = networkInterface.GetIPProperties();
-            UnicastIPAddressInformation? match = properties.UnicastAddresses
-                .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork &&
-                                     a.Address.Equals(address));
-
-            if (match is not null)
-            {
-                return properties.GetIPv4Properties()?.Index ?? 0;
-            }
-        }
-
-        return 0;
-    }
-
-    private static void RunNetsh(string arguments)
-    {
-        using Process process = new()
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "netsh.exe",
-                Arguments = arguments,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            }
-        };
-
-        process.Start();
-
-        string output = process.StandardOutput.ReadToEnd();
-        string error = process.StandardError.ReadToEnd();
-
-        if (!process.WaitForExit(5000))
-        {
-            try
-            {
-                process.Kill();
-            }
-            catch
-            {
-            }
-
-            throw new InvalidOperationException($"netsh timed out. Arguments: {arguments}");
-        }
-
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"netsh failed with exit code {process.ExitCode}. Arguments: {arguments}. Output: {output}. Error: {error}");
+            return false;
         }
     }
 
@@ -263,6 +223,9 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
     {
         _serviceSettings.SettingsChanged -= OnSettingsChanged;
         _portMappingProtocolClient.StateChanged -= OnPortMappingStateChanged;
-        RemoveRouteIfNeeded();
+        lock (_reconcileSync)
+        {
+            RemoveRouteIfNeeded();
+        }
     }
 }

@@ -1,7 +1,15 @@
 # Contribution Policy
 
-By making a contribution to this project:
+This repository is an unofficial fork. Contributions must be compatible with the
+project's [GPLv3 license](LICENSE), preserve the fork invariants documented in
+[FORK_MAINTENANCE.md](docs/FORK_MAINTENANCE.md), and include focused regression
+coverage for changed behavior.
 
-1.    I assign any and all copyright related to the contribution to Proton AG;
-2.    I certify that the contribution was created in whole by me;
-3.    I understand and agree that this project and the contribution are public and that a record of the contribution (including all personal information I submit with it) is maintained indefinitely and may be redistributed with this project or the open source license(s) involved.
+Changes intended for Proton's official application should be submitted to the
+[upstream repository](https://github.com/ProtonVPN/win-app) and follow Proton's
+contribution terms there. Opening a pull request in this fork does not make it an
+upstream Proton submission.
+
+By contributing here, you certify that you have the right to submit the work and
+understand that the contribution and its public Git history may be redistributed
+under the repository license.

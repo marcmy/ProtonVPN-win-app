@@ -47,6 +47,18 @@ Every workflow-built patch now contains `patch-manifest.json`. The manifest reco
 - workflow run ID and build time
 - path, size, and SHA-256 hash for every payload file
 
+Before requesting elevation or stopping any service, the installer validates the
+manifest schema, target version, safe and unique relative paths, exact payload file
+set, file sizes, and SHA-256 hashes. `-ValidateOnly` performs the same verification
+without changing the installed application:
+
+```powershell
+.\scripts\Install-ProtonVPNPatch.ps1 `
+    -PatchPath .\protonvpn-client-patch-5.1.5-both `
+    -TargetVersion 5.1.5 `
+    -ValidateOnly
+```
+
 The self-extracting installer builder requires this manifest and bakes its `targetVersion` into the launcher. An installer built for `5.1.5` therefore passes:
 
 ```text
@@ -55,7 +67,9 @@ The self-extracting installer builder requires this manifest and bakes its `targ
 
 The install stops if `C:\Program Files\Proton\VPN\v5.1.5` is not present. It will not silently apply 5.1.5 binaries to a newer `v5.1.6` folder.
 
-Running `Install-ProtonVPNPatch.ps1` directly without a manifest or `-TargetVersion` retains the legacy behavior of selecting the newest installed version folder. For version-safe manual use, always pass `-TargetVersion`.
+`Install-ProtonVPNPatch.ps1` requires a valid manifest. If `-TargetVersion` is
+omitted, the selected installed folder must still exactly match the manifest's
+target version.
 
 ## Install from an existing patch ZIP
 
@@ -103,6 +117,26 @@ protonvpn-custom-patch-installer-5.1.5-both.zip
 `both` is the default and recommended build mode. It stages the client files plus every first-party service runtime assembly declared by `ProtonVPNService.deps.json`; packaging stops if a required assembly is missing or if client and service builds produce different files for the same install path.
 
 GitHub Actions always wraps an artifact in a ZIP. A future GitHub Release can publish `ProtonVPN-Custom-Patch-5.1.5.exe` directly as a release asset.
+
+Manual build workflows also publish GitHub build-provenance attestations. After
+installing the GitHub CLI, verify a downloaded artifact before use:
+
+```powershell
+gh attestation verify .\ProtonVPN-Custom-Patch-5.1.5.exe `
+    --repo marcmy/ProtonVPN-win-app
+```
+
+The installer EXE itself is not Authenticode-signed. The attestation proves which
+GitHub Actions workflow and repository produced the exact bytes; it does not make
+this fork an official Proton release.
+
+## Official updates
+
+An official Proton update installs a new release and can replace files previously
+overlaid by this fork. Keep automatic security updates enabled, and only reapply a
+fork patch whose manifest targets the exact installed version folder. If Proton has
+released a new version but this fork has not yet ported it, use the official build
+until the matching fork patch is available.
 
 ## Future Proton VPN releases
 
