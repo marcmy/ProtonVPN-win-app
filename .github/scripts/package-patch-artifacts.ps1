@@ -23,6 +23,8 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $BinDirectory = 'src/bin',
 
+    [string] $ServiceOutputDirectory = '',
+
     [ValidateNotNullOrEmpty()]
     [string] $ClientOutputDirectory = 'artifacts/client-build-output',
 
@@ -46,6 +48,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $binDir = [System.IO.Path]::GetFullPath($BinDirectory)
+$serviceOutputDir = if ([string]::IsNullOrWhiteSpace($ServiceOutputDirectory)) {
+    Join-Path $binDir 'win-x64'
+} else {
+    [System.IO.Path]::GetFullPath($ServiceOutputDirectory)
+}
 $clientOutputDir = [System.IO.Path]::GetFullPath($ClientOutputDirectory)
 $patchDir = [System.IO.Path]::GetFullPath($PatchDirectory)
 $installerDir = [System.IO.Path]::GetFullPath($InstallerDirectory)
@@ -55,10 +62,6 @@ $resolvedLauncherPath = [System.IO.Path]::GetFullPath($LauncherPath)
 $manifestPath = Join-Path $patchDir 'patch-manifest.json'
 $installerName = "ProtonVPN-Custom-Patch-$TargetVersion.exe"
 $installerPath = Join-Path $installerDir $installerName
-
-if (-not (Test-Path -LiteralPath $binDir -PathType Container)) {
-    throw "Build output directory missing: $binDir"
-}
 
 foreach ($requiredTool in @($resolvedBuilderPath, $resolvedInstallerScriptPath, $resolvedLauncherPath)) {
     if (-not (Test-Path -LiteralPath $requiredTool -PathType Leaf)) {
@@ -71,19 +74,49 @@ Remove-Item -LiteralPath $installerDir -Recurse -Force -ErrorAction SilentlyCont
 New-Item -ItemType Directory -Force -Path $patchDir | Out-Null
 New-Item -ItemType Directory -Force -Path $installerDir | Out-Null
 
-function Copy-ToPatchRoot {
+function Copy-ToPatch {
     param(
         [Parameter(Mandatory = $true)]
-        [string] $SourcePath
+        [string] $SourcePath,
+
+        [string] $RelativePath = '',
+
+        [string] $SourceLabel = 'build output'
     )
 
     if (-not (Test-Path -LiteralPath $SourcePath -PathType Leaf)) {
         throw "Required patch file missing: $SourcePath"
     }
 
-    $targetPath = Join-Path $patchDir ([System.IO.Path]::GetFileName($SourcePath))
+    if ([string]::IsNullOrWhiteSpace($RelativePath)) {
+        $RelativePath = [System.IO.Path]::GetFileName($SourcePath)
+    }
+
+    $normalizedRelativePath = $RelativePath.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+    $pathSegments = $normalizedRelativePath.Split(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.StringSplitOptions]::RemoveEmptyEntries)
+    if ([System.IO.Path]::IsPathRooted($normalizedRelativePath) -or $pathSegments -contains '..') {
+        throw "Unsafe relative patch path '$RelativePath' from $SourceLabel."
+    }
+
+    $targetPath = Join-Path $patchDir $normalizedRelativePath
+    $targetParent = Split-Path -Path $targetPath -Parent
+    New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
+
+    if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+        $sourceHash = (Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256).Hash
+        $targetHash = (Get-FileHash -LiteralPath $targetPath -Algorithm SHA256).Hash
+        if ($sourceHash -ne $targetHash) {
+            throw "Patch payload collision for '$RelativePath': $SourceLabel differs from the file already staged (source SHA-256 $sourceHash; staged SHA-256 $targetHash)."
+        }
+
+        Write-Host "Verified identical $SourceLabel file: $RelativePath"
+        return
+    }
+
     Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
-    Write-Host "Copied $SourcePath -> $targetPath"
+    Write-Host "Copied $SourceLabel file: $RelativePath"
 }
 
 function Copy-RelativeClientFile {
@@ -97,12 +130,56 @@ function Copy-RelativeClientFile {
         throw "Required client patch file missing: $RelativePath"
     }
 
-    $targetPath = Join-Path $patchDir $RelativePath
-    $targetParent = Split-Path -Path $targetPath -Parent
-    New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
-    Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
-    Write-Host "Copied $RelativePath"
+    Copy-ToPatch -SourcePath $sourcePath -RelativePath $RelativePath -SourceLabel 'client'
 }
+
+function Get-FirstPartyServiceRuntimeAssets {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $DependenciesPath
+    )
+
+    try {
+        $dependencies = Get-Content -LiteralPath $DependenciesPath -Raw | ConvertFrom-Json
+    }
+    catch {
+        throw "Service dependency manifest is not valid JSON: $DependenciesPath. $($_.Exception.Message)"
+    }
+
+    $runtimeTargetName = [string] $dependencies.runtimeTarget.name
+    if ([string]::IsNullOrWhiteSpace($runtimeTargetName)) {
+        throw "Service dependency manifest does not declare runtimeTarget.name: $DependenciesPath"
+    }
+
+    $targetProperty = $dependencies.targets.PSObject.Properties[$runtimeTargetName]
+    if ($null -eq $targetProperty) {
+        throw "Service dependency manifest does not contain runtime target '$runtimeTargetName': $DependenciesPath"
+    }
+
+    $runtimeAssets = @(
+        foreach ($library in $targetProperty.Value.PSObject.Properties) {
+            $runtimeProperty = $library.Value.PSObject.Properties['runtime']
+            if ($null -eq $runtimeProperty) {
+                continue
+            }
+
+            foreach ($asset in $runtimeProperty.Value.PSObject.Properties) {
+                if ([System.IO.Path]::GetFileName($asset.Name) -like 'ProtonVPN*.dll') {
+                    $asset.Name.Replace('\', '/')
+                }
+            }
+        }
+    ) | Sort-Object -Unique
+
+    if ($runtimeAssets.Count -eq 0) {
+        throw "No first-party ProtonVPN runtime assemblies were found in $DependenciesPath"
+    }
+
+    return $runtimeAssets
+}
+
+$clientDlls = @()
+$serviceRuntimeAssets = @()
 
 if ($BuildMode -in @('client', 'both')) {
     if (-not (Test-Path -LiteralPath (Join-Path $clientOutputDir 'ProtonVPN.Client.dll') -PathType Leaf)) {
@@ -124,7 +201,7 @@ if ($BuildMode -in @('client', 'both')) {
     }
 
     foreach ($dll in $clientDlls) {
-        Copy-ToPatchRoot -SourcePath $dll.FullName
+        Copy-ToPatch -SourcePath $dll.FullName -SourceLabel 'client'
     }
 
     Copy-RelativeClientFile -RelativePath 'ProtonVPN.Client.pri'
@@ -148,20 +225,37 @@ if ($BuildMode -in @('client', 'both')) {
 }
 
 if ($BuildMode -in @('service', 'both')) {
-    $serviceCandidates = @(
-        (Join-Path $binDir 'win-x64/ProtonVPNService.dll'),
-        (Join-Path $binDir 'ProtonVPNService.dll')
-    )
-
-    $servicePath = $serviceCandidates |
-        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-        Select-Object -First 1
-
-    if ($null -eq $servicePath) {
-        throw 'Service build output missing ProtonVPNService.dll.'
+    if (-not (Test-Path -LiteralPath $serviceOutputDir -PathType Container)) {
+        throw "Service build output directory missing: $serviceOutputDir"
     }
 
-    Copy-ToPatchRoot -SourcePath $servicePath
+    $serviceDependenciesPath = Join-Path $serviceOutputDir 'ProtonVPNService.deps.json'
+    if (-not (Test-Path -LiteralPath $serviceDependenciesPath -PathType Leaf)) {
+        throw "Service build output missing ProtonVPNService.deps.json in $serviceOutputDir"
+    }
+
+    $serviceRuntimeAssets = @(Get-FirstPartyServiceRuntimeAssets -DependenciesPath $serviceDependenciesPath)
+    foreach ($relativePath in $serviceRuntimeAssets) {
+        $normalizedRelativePath = $relativePath.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+        $sourcePath = Join-Path $serviceOutputDir $normalizedRelativePath
+        Copy-ToPatch -SourcePath $sourcePath -RelativePath $relativePath -SourceLabel 'service'
+    }
+
+    $criticalServiceAssemblies = @(
+        'ProtonVPNService.dll',
+        'ProtonVPN.Vpn.dll',
+        'ProtonVPN.Update.dll',
+        'ProtonVPN.ProcessCommunication.Service.dll',
+        'ProtonVPN.ProTun.dll',
+        'ProtonVPN.Native.dll',
+        'ProtonVPN.NetworkFilter.dll'
+    )
+
+    foreach ($assemblyName in $criticalServiceAssemblies) {
+        if (-not (Test-Path -LiteralPath (Join-Path $patchDir $assemblyName) -PathType Leaf)) {
+            throw "Service patch payload is incomplete: required assembly '$assemblyName' was not declared and copied from ProtonVPNService.deps.json."
+        }
+    }
 }
 
 $patchFiles = @(Get-ChildItem -LiteralPath $patchDir -Recurse -File)
@@ -232,6 +326,8 @@ $manifest = [ordered]@{
     sourceRef = $SourceRef
     workflowRunId = $WorkflowRunId
     builtAtUtc = [DateTime]::UtcNow.ToString('o')
+    clientAssemblyCount = $clientDlls.Count
+    serviceRuntimeAssemblyCount = $serviceRuntimeAssets.Count
     files = $manifestFiles
 }
 

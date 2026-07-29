@@ -4,24 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       base_branch:
-        description: Branch to use as the unpatched base
+        description: Upstream release branch to use as the unpatched base
         required: true
         default: master
       source_patch_branch:
-        description: Branch containing the split-tunnel patch, and optionally updater-skip hunks
+        description: Branch containing the complete maintained fork
         required: true
-        default: marc/updater-skip-and-patch-automation
+        default: marc/proton
       target_branch:
         description: New branch to create for the patched version
         required: true
       target_version:
         description: Proton VPN release version to patch
         required: true
-      include_updater_skip:
-        description: Also port updater/beta skip behavior from source_patch_branch
-        type: boolean
-        required: true
-        default: false
       force_reset_target:
         description: Reset target_branch from base_branch if it already exists
         type: boolean
@@ -38,7 +33,7 @@ permissions:
 
 jobs:
   patch-build:
-    name: Patch future branch and build versioned installer
+    name: Port complete fork and build versioned installer
     runs-on: windows-latest
 
     defaults:
@@ -74,6 +69,9 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
+      - name: Test patch automation
+        run: .\.github\scripts\test-patch-tooling.ps1
+
       - name: Preserve automation and installer tools
         run: |
           $ErrorActionPreference = 'Stop'
@@ -82,6 +80,7 @@ jobs:
             @{ Source = '.github/scripts/set-assembly-version.ps1'; Name = 'set-assembly-version.ps1' },
             @{ Source = '.github/scripts/stage-client-patch-output.ps1'; Name = 'stage-client-patch-output.ps1' },
             @{ Source = '.github/scripts/package-patch-artifacts.ps1'; Name = 'package-patch-artifacts.ps1' },
+            @{ Source = '.github/scripts/test-fork-regressions.ps1'; Name = 'test-fork-regressions.ps1' },
             @{ Source = 'scripts/New-ProtonVPNPatchSfx.ps1'; Name = 'New-ProtonVPNPatchSfx.ps1' },
             @{ Source = 'scripts/Install-ProtonVPNPatch.ps1'; Name = 'Install-ProtonVPNPatch.ps1' },
             @{ Source = 'scripts/Install-ProtonVPNPatch.cmd'; Name = 'Install-ProtonVPNPatch.cmd' }
@@ -95,24 +94,21 @@ jobs:
             Copy-Item -LiteralPath $tool.Source -Destination (Join-Path $env:RUNNER_TEMP $tool.Name) -Force
           }
 
-      - name: Apply requested patch hunks
+      - name: Port complete maintained fork
         id: apply_patch
         env:
           BASE_BRANCH: ${{ inputs.base_branch }}
           SOURCE_PATCH_BRANCH: ${{ inputs.source_patch_branch }}
           TARGET_BRANCH: ${{ inputs.target_branch }}
-          INCLUDE_UPDATER_SKIP: ${{ inputs.include_updater_skip }}
           FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $includeUpdaterSkip = [System.Convert]::ToBoolean($env:INCLUDE_UPDATER_SKIP)
           $forceResetTarget = [System.Convert]::ToBoolean($env:FORCE_RESET_TARGET)
 
           .\.github\scripts\apply-future-version-patch.ps1 `
             -BaseBranch $env:BASE_BRANCH `
             -SourcePatchBranch $env:SOURCE_PATCH_BRANCH `
             -TargetBranch $env:TARGET_BRANCH `
-            -IncludeUpdaterSkip:$includeUpdaterSkip `
             -ForceResetTarget:$forceResetTarget
 
       - name: Stamp target app version
@@ -224,6 +220,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Service build failed with exit code $LASTEXITCODE"
           }
+
+      - name: Run complete fork regression tests
+        run: |
+          & (Join-Path $env:RUNNER_TEMP 'test-fork-regressions.ps1') `
+            -Scope All `
+            -LogsDirectory artifacts/logs `
+            -RepeatServerHealth
 
       - name: Package versioned patch artifacts
         id: package

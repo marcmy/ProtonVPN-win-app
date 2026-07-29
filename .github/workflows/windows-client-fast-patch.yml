@@ -7,7 +7,7 @@ on:
         description: What to build
         type: choice
         required: true
-        default: client
+        default: both
         options:
           - client
           - service
@@ -129,30 +129,25 @@ jobs:
           Write-Host "Exact installed target folder: v$targetVersion"
           "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
 
-      - name: Run server health tests
-        if: github.event_name == 'pull_request'
-        run: |
-          dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-            --configuration Release -p:Platform=x64
+      - name: Test patch automation
+        run: .\.github\scripts\test-patch-tooling.ps1
 
-      - name: Run server health tests twice
-        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_mode == 'client' || inputs.build_mode == 'both') }}
+      - name: Run fork regression tests
+        env:
+          REQUESTED_BUILD_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.build_mode || 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
-          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
-            $PSNativeCommandUseErrorActionPreference = $false
+          $scope = switch ($env:REQUESTED_BUILD_MODE) {
+            'client' { 'Client' }
+            'service' { 'Service' }
+            default { 'All' }
           }
 
-          1..2 | ForEach-Object {
-            $pass = $_
-            dotnet test src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj `
-              --configuration Release -p:Platform=x64 *>&1 |
-              Tee-Object -FilePath "artifacts/logs/server-health-tests-$pass.log"
-
-            if ($LASTEXITCODE -ne 0) {
-              throw "Server health test pass $pass failed with exit code $LASTEXITCODE"
-            }
-          }
+          $repeatServerHealth = $scope -in @('Client', 'All')
+          .\.github\scripts\test-fork-regressions.ps1 `
+            -Scope $scope `
+            -LogsDirectory artifacts/logs `
+            -RepeatServerHealth:$repeatServerHealth
 
       - name: Restore client project
         if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}

@@ -12,18 +12,6 @@ on:
         type: string
         required: false
         default: ''
-  push:
-    branches:
-      - marc/github-built-runtime-artifact
-    paths:
-      - .github/scripts/set-assembly-version.ps1
-      - .github/workflows/windows-full-runtime-build.yml
-      - Directory.Build.props
-      - Directory.Build.targets
-      - Directory.Packages.props
-      - NuGet.config
-      - global.json
-      - src/**
 
 permissions:
   contents: read
@@ -39,25 +27,25 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.23.x'
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
@@ -89,18 +77,21 @@ jobs:
             }
 
             $content = Get-Content -LiteralPath $assemblyInfoPath -Raw
-            $match = [regex]::Match($content, '\[assembly:\s*AssemblyInformationalVersion\("(?<version>[^"]+)"\)\]')
-            if (-not $match.Success) {
-              $match = [regex]::Match($content, '\[assembly:\s*AssemblyVersion\("(?<version>[^"]+)"\)\]')
-            }
-
+            $match = [regex]::Match($content, '\[assembly:\s*AssemblyVersion\("(?<version>[^"]+)"\)\]')
             if (-not $match.Success) {
               throw "Could not determine target version from $assemblyInfoPath"
             }
 
-            $targetVersion = $match.Groups['version'].Value
+            $parsedVersion = [Version]::Parse($match.Groups['version'].Value)
+            $targetVersion = '{0}.{1}.{2}' -f $parsedVersion.Major, $parsedVersion.Minor, $parsedVersion.Build
             Write-Host "No target_version override provided; using existing app version $targetVersion from $assemblyInfoPath."
           } else {
+            if ($targetVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') {
+              throw "target_version must be a numeric three- or four-part version. Received '$targetVersion'."
+            }
+
+            $parsedVersion = [Version]::Parse($targetVersion)
+            $targetVersion = '{0}.{1}.{2}' -f $parsedVersion.Major, $parsedVersion.Minor, $parsedVersion.Build
             Write-Host "Using target_version override: $targetVersion"
             .\.github\scripts\set-assembly-version.ps1 -TargetVersion $targetVersion
           }
@@ -279,7 +270,7 @@ jobs:
             }
 
       - name: Upload GitHub runtime artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: protonvpn-github-runtime
           path: artifacts/ProtonVPN.GitHubRuntime
@@ -287,7 +278,7 @@ jobs:
 
       - name: Upload build logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: protonvpn-github-runtime-logs
           path: artifacts/logs

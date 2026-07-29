@@ -41,6 +41,15 @@ public class ResourceKeyValidationTests
         "Settings_SelectedProtocol_",
     };
 
+    /// <summary>
+    /// Localized resources that still require a neutral candidate for MakePri,
+    /// even though the current source tree does not reference the key directly.
+    /// </summary>
+    private static readonly HashSet<string> _neutralFallbackOnlyKeys = new(StringComparer.Ordinal)
+    {
+        "Settings_Common_IpAddresses_Watermark",
+    };
+
     [TestMethod]
     [Ignore("Temporarily disabled. Enable when required.")]
     public void EnUsResw_ShouldNotContainDuplicateValues()
@@ -109,6 +118,11 @@ public class ResourceKeyValidationTests
             {
                 return true;
             }
+        }
+
+        if (_neutralFallbackOnlyKeys.Contains(key))
+        {
+            return true;
         }
 
         return PluralKeyHelper.IsPluralVariantOfReferencedKey(key, referencedKeys);

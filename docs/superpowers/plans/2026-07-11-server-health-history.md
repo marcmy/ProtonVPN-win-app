@@ -1965,7 +1965,7 @@ Expected: no output.
 gh workflow run windows-client-fast-patch.yml `
   --repo marcmy/ProtonVPN-win-app `
   --ref feature/server-health-history `
-  -f build_mode=both -f upload_full_bin=false -f target_version=4.4.1
+  -f build_mode=both -f upload_full_bin=false -f target_version=5.1.5
 
 $runId = gh run list --repo marcmy/ProtonVPN-win-app `
   --workflow windows-client-fast-patch.yml `

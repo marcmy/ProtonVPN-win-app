@@ -44,7 +44,8 @@ public class TestBase
     protected MockHttpMessageHandler? MessageHandler = new();
     protected TestSrpProofGenerator SrpProofGenerator { get; } = new();
 
-    public T Resolve<T>() => _container.Resolve<T>();
+    public T Resolve<T>() where T : notnull =>
+        (_container ?? throw new InvalidOperationException("The test container has not been initialized.")).Resolve<T>();
 
     [TestCleanup]
     public virtual void Cleanup()
