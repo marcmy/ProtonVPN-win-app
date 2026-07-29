@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -28,7 +28,7 @@ using ProtonVPN.Dns.Contracts;
 
 namespace ProtonVPN.Client.Settings;
 
-public class GlobalSettings : IGlobalSettings
+public class GlobalSettings : TransientSettings, IGlobalSettings
 {
     private readonly IGlobalSettingsCache _globalCache;
 
@@ -96,6 +96,24 @@ public class GlobalSettings : IGlobalSettings
     {
         get => _globalCache.GetValueType<AutoLaunchMode>(SettingEncryption.Unencrypted) ?? DefaultSettings.AutoLaunchMode;
         set => _globalCache.SetValueType<AutoLaunchMode>(value, SettingEncryption.Unencrypted);
+    }
+
+    public int[] ProTunUdpPorts
+    {
+        get => _globalCache.GetReferenceType<int[]>(SettingEncryption.Unencrypted) ?? DefaultSettings.ProTunUdpPorts;
+        set => _globalCache.SetReferenceType(value, SettingEncryption.Unencrypted);
+    }
+
+    public int[] ProTunTcpPorts
+    {
+        get => _globalCache.GetReferenceType<int[]>(SettingEncryption.Unencrypted) ?? DefaultSettings.ProTunTcpPorts;
+        set => _globalCache.SetReferenceType(value, SettingEncryption.Unencrypted);
+    }
+
+    public int[] ProTunTlsPorts
+    {
+        get => _globalCache.GetReferenceType<int[]>(SettingEncryption.Unencrypted) ?? DefaultSettings.ProTunTlsPorts;
+        set => _globalCache.SetReferenceType(value, SettingEncryption.Unencrypted);
     }
 
     public int[] WireGuardUdpPorts

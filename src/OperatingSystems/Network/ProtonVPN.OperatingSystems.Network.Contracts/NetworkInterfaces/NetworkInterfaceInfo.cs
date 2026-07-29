@@ -1,0 +1,33 @@
+﻿/*
+ * Copyright (c) 2026 Proton AG
+ *
+ * This file is part of ProtonVPN.
+ *
+ * ProtonVPN is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * ProtonVPN is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System.Net.NetworkInformation;
+
+namespace ProtonVPN.OperatingSystems.Network.Contracts.NetworkInterfaces;
+
+public class NetworkInterfaceInfo
+{
+    public required string Guid { get; init; }
+    public required string Name { get; init; }
+    public required string Description { get; init; }
+    public required NetworkInterfaceType Type { get; init; }
+    public required OperationalStatus OperationalStatus { get; init; }
+
+    public NetworkInterfaceDriverInfo? Driver { get; init; }
+}

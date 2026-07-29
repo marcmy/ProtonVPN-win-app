@@ -40,9 +40,6 @@ public class LoginTests : FreshSessionSetUp
     private const string INCORRECT_USERNAME_ERROR = "Invalid username";
     private const string NO_SERVERS_ERROR = "To start your journey in Proton VPN please contact your organization administrator to assign VPN connections to your account.";
 
-    private const string DISABLE_INTERNET_SCRIPT = @"Disable-NetAdapter -Name ""Ethernet"" -Confirm:$false"; //Wi-Fi - local, Ethernet - ci
-    private const string ENABLE_INTERNET_SCRIPT = @"Enable-NetAdapter -Name ""Ethernet"" -Confirm:$false";
-
     private const string LINE_TO_LOOK_FOR_IN_CLIENT = "vpn/v2/logicals?";
     private const string WORD_TO_LOOK_FOR_IN_SERVER = "protonvpn.net";
     private const string LINE_TO_LOOK_FOR_IN_SERVER = "node-";
@@ -50,19 +47,36 @@ public class LoginTests : FreshSessionSetUp
     private static string ClientLogsPath => TestConstants.ClientLogsPath;
     private static string? ServerStoragePath => TestConstants.ServerStoragePath;
 
+    private static readonly (string Plan, TestUserData User)[] _validCredentialUsersToCheck =
+        [
+            (Plan: "VPN Plus", User: TestUserData.PlusUser),
+            (Plan: "Visionary", User: TestUserData.VisionaryUser),
+            (Plan: "Proton Unlimited", User: TestUserData.UnlimitedUser),
+            (Plan: "Proton VPN Free", User: TestUserData.FreeUser)
+        ];
+
+    private static readonly (string Plan, TestUserData User)[] _serverListUsersToCheck =
+        [
+            (Plan: "VPN Plus", User: TestUserData.PlusUser),
+            (Plan: "Proton VPN Free", User: TestUserData.FreeUser)
+        ];
+
     [Test]
+    [Property("TestCaseId", "602337")]
     public void LoginWithSpecialCharsUser()
     {
         LoginWithUser(TestUserData.SpecialCharsUser);
     }
 
     [Test]
+    [Property("TestCaseId", "602325")]
     public void LoginWithTwoPassUser()
     {
         LoginWithUser(TestUserData.TwoPassUser);
     }
 
     [Test]
+    [Property("TestCaseId", "602321")]
     public void LoginWithIncorrectCredentials()
     {
         NavigationRobot
@@ -74,6 +88,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602322")]
     [Retry(3)]
     public void LoginWithTwoFactor()
     {
@@ -89,6 +104,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602324")]
     public void LoginWithIncorrectTwoFactorCode()
     {
         LoginRobot
@@ -98,6 +114,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "791683")]
     public void LoginWithWhitespaceUsername()
     {
         NavigationRobot
@@ -114,6 +131,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "760480")]
     public void CancelLogin()
     {
         NavigationRobot
@@ -130,6 +148,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "760481")]
     public void CancelTwoFactorLogin()
     {
         NavigationRobot
@@ -147,7 +166,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
-    [Ignore("JIRA - VPNWIN-3177")]
+    [Property("TestCaseId", "602323")]
     public void LoginWithEmptyCredentials()
     {
         NavigationRobot
@@ -165,6 +184,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602326")]
     public void LoginWithZeroConnectionsAccount()
     {
         NavigationRobot
@@ -183,6 +203,7 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602328")]
     public void LoginWithInvalidCredentialsFiveTimes()
     {
         for (int i = 0; i < 5; i++)
@@ -197,82 +218,77 @@ public class LoginTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602320")]
+    [Category("SMOKE_1")]
     [Retry(3)]
-    public void LoginWithValidCredentials()
+    [TestCaseSource(nameof(_validCredentialUsersToCheck))]
+    public void LoginWithValidCredentials((string Plan, TestUserData User) userToCheck)
     {
-        (string Plan, TestUserData User)[] usersToCheck =
-        {
-            (Plan: "VPN Plus", User: TestUserData.PlusUser),
-            (Plan: "Visionary", User: TestUserData.VisionaryUser),
-            (Plan: "Proton Unlimited", User: TestUserData.UnlimitedUser),
-            (Plan: "Proton VPN Free", User: TestUserData.FreeUser)
-        };
+        CommonUiFlows.FullLogin(userToCheck.User);
 
-        foreach ((string Plan, TestUserData User) userToCheck in usersToCheck)
+        try
         {
-            CommonUiFlows.FullLogin(userToCheck.User);
+            DesktopRobot.CloseSurvey();
+        }
+        catch { }
 
-            SettingRobot
-                .OpenSettings()
-                .Verify.IsCorrectAccountInfoDisplayed(userToCheck.User.Username, userToCheck.Plan)
-                .ExpandAccountDropdown()
-                .SignOut()
-                .ConfirmSignOut();
+        SettingRobot
+            .OpenSettings()
+            .Verify.IsCorrectAccountInfoDisplayed(userToCheck.User.Username, userToCheck.Plan)
+            .CloseSettings();
+
+        CommonUiFlows.Logout();
+    }
+
+    [Test]
+    [Property("TestCaseId", "602329")]
+    [TestCaseSource(nameof(_serverListUsersToCheck))]
+    public void ServerListFullyLoadedAfterLogin((string Plan, TestUserData User) userToCheck)
+    {
+        CommonUiFlows.FullLogin(userToCheck.User);
+
+        SidebarRobot
+            .Verify.AreAllServersDisplayed();
+
+        //give it time to populate the service-logs after connecting
+        Thread.Sleep(TestConstants.OneSecondTimeout);
+
+        WindowsUtils.AssertLogFile(ClientLogsPath, LINE_TO_LOOK_FOR_IN_CLIENT);
+
+        WindowsUtils.AssertLogFile(ServerStoragePath!, LINE_TO_LOOK_FOR_IN_SERVER, WORD_TO_LOOK_FOR_IN_SERVER);
+
+        CommonUiFlows.Logout();
+    }
+
+    [Test]
+    [Property("TestCaseId", "602319")]
+    [Retry(3)]
+    public void LoginWithoutInternet()
+    {
+        try
+        {
+            NavigationRobot
+                .Verify.IsOnLoginPage();
+
+            ScriptHelper.DisableInternet();
+            NetworkUtils.AssertInternetAvailability(false);
+
+            LoginRobot
+               .Login(TestUserData.PlusUser);
+
+            Thread.Sleep(TestConstants.TenSecondsTimeout);
+            SupportRobot
+                .Verify.IsConnectionHelpDisplayed()
+                .CloseSupportWindow();
 
             LoginRobot
                 .Verify.IsLoginWindowDisplayed();
         }
-    }
-
-    [Test]
-    public void ServerListFullyLoadedAfterLogin()
-    {
-        TestUserData[] usersToCheck = { TestUserData.PlusUser, TestUserData.FreeUser };
-
-        foreach (TestUserData userToCheck in usersToCheck)
+        finally
         {
-            CommonUiFlows.FullLogin(userToCheck);
-
-            SidebarRobot
-                .Verify.AreAllServersDisplayed();
-
-            //give it time to populate the service-logs after connecting
-            Thread.Sleep(TestConstants.OneSecondTimeout);
-
-            WindowsUtils.AssertLogFile(ClientLogsPath, LINE_TO_LOOK_FOR_IN_CLIENT);
-
-            WindowsUtils.AssertLogFile(ServerStoragePath!, LINE_TO_LOOK_FOR_IN_SERVER, WORD_TO_LOOK_FOR_IN_SERVER);
-
-            HomeRobot.ExpandKebabMenuButton();
-            SettingRobot
-                .SignOut()
-                .ConfirmSignOut();
-            LoginRobot.Verify.IsLoginWindowDisplayed();
+            ScriptHelper.EnableInternet();
+            NetworkUtils.AssertInternetAvailability(true);
         }
-    }
-
-    [Test, Order(99)]
-    public void LoginWithoutInternet()
-    {
-        NavigationRobot
-            .Verify.IsOnLoginPage();
-
-        WindowsUtils.RunPowerShellScript(DISABLE_INTERNET_SCRIPT);
-        NetworkUtils.IsInternetAvailable(false);
-
-        LoginRobot
-           .Login(TestUserData.PlusUser);
-
-        Thread.Sleep(TestConstants.FiveSecondsTimeout);
-        SupportRobot
-            .Verify.IsConnectionHelpDisplayed()
-            .CloseSupportWindow();
-
-        LoginRobot
-            .Verify.IsLoginWindowDisplayed();
-
-        WindowsUtils.RunPowerShellScript(ENABLE_INTERNET_SCRIPT);
-        NetworkUtils.IsInternetAvailable(true);
     }
 
     private void LoginWithUser(TestUserData user)
@@ -290,7 +306,7 @@ public class LoginTests : FreshSessionSetUp
     [OneTimeTearDown]
     public void TearDown()
     {
-        WindowsUtils.RunPowerShellScript(ENABLE_INTERNET_SCRIPT);
-        NetworkUtils.IsInternetAvailable(true);
+        ScriptHelper.EnableInternet();
+        NetworkUtils.AssertInternetAvailability(true);
     }
 }

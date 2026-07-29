@@ -23,22 +23,28 @@ using System.Net;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using ProtonVPN.Common.Core.Networking;
+using ProtonVPN.Common.Legacy;
 using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Configurations.Contracts;
+using ProtonVPN.Logging.Contracts;
 using ProtonVPN.NetworkFilter;
 using ProtonVPN.OperatingSystems.Network.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
+using ProtonVPN.ProTun.Contracts.Adapters;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Service.SplitTunneling;
 using ProtonVPN.Vpn.Common;
+using ProtonVPN.Vpn.SplitTunnel;
 
 namespace ProtonVPN.Service.Tests.SplitTunneling;
 
 [TestClass]
 public class SplitTunnelTest
 {
+    private ILogger _logger;
+    private ISplitTunnelRouting _splitTunnelRouting;
     private INetworkUtilities _networkUtilities;
     private ISystemNetworkInterfaces _networkInterfaces;
     private IConfiguration _config;
@@ -46,10 +52,13 @@ public class SplitTunnelTest
     private ISplitTunnelClient _splitTunnelClient;
     private IAppFilter _appFilter;
     private IPermittedRemoteAddress _permittedRemoteAddress;
+    private IAdapterDetailsCache _proTunAdapterDetailsCache;
 
     [TestInitialize]
     public void TestInitialize()
     {
+        _logger = Substitute.For<ILogger>();
+        _splitTunnelRouting = Substitute.For<ISplitTunnelRouting>();
         _networkUtilities = Substitute.For<INetworkUtilities>();
         _networkInterfaces = Substitute.For<ISystemNetworkInterfaces>();
         _config = Substitute.For<IConfiguration>();
@@ -57,6 +66,7 @@ public class SplitTunnelTest
         _splitTunnelClient = Substitute.For<ISplitTunnelClient>();
         _appFilter = Substitute.For<IAppFilter>();
         _permittedRemoteAddress = Substitute.For<IPermittedRemoteAddress>();
+        _proTunAdapterDetailsCache = Substitute.For<IAdapterDetailsCache>();
     }
 
     [TestMethod]
@@ -110,7 +120,9 @@ public class SplitTunnelTest
         splitTunnel.OnVpnConnected(GetConnectedVpnState());
 
         // Assert
-        _permittedRemoteAddress.Received(1).Add(addresses, NetworkFilter.Action.HardPermit);
+        _permittedRemoteAddress.Received(1).Add(
+            Arg.Is<string[]>(actual => actual.SequenceEqual(addresses)),
+            NetworkFilter.Action.HardPermit);
     }
 
     [TestMethod]
@@ -331,18 +343,57 @@ public class SplitTunnelTest
             Arg.Any<IPAddress>());
     }
 
+    [TestMethod]
+    public void OnServiceSettingsChanged_WhenConnected_ReplacesRoutesWithCurrentAddresses()
+    {
+        // Arrange
+        string[] initialAddresses = ["192.0.2.10"];
+        string[] updatedAddresses = ["198.51.100.20"];
+        SplitTunnelSettingsIpcEntity splitTunnelSettings = new()
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [],
+            Ips = initialAddresses,
+        };
+        _serviceSettings.SplitTunnelSettings.Returns(_ => splitTunnelSettings);
+
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(initialAddresses));
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        // Act
+        splitTunnelSettings = new()
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [],
+            Ips = updatedAddresses,
+        };
+        ((IServiceSettingsAware)splitTunnel).OnServiceSettingsChanged(new MainSettingsIpcEntity());
+
+        // Assert
+        _splitTunnelRouting.Received(1).DeleteRoutes(
+            Arg.Is<VpnConfig>(config => config.SplitTunnelIPs.SequenceEqual(initialAddresses)));
+        _splitTunnelRouting.Received(1).SetUpRoutingTable(
+            Arg.Is<VpnConfig>(config => config.SplitTunnelIPs.SequenceEqual(updatedAddresses)),
+            "1.1.1.1",
+            Arg.Any<bool>());
+    }
+
     private SplitTunnel GetSplitTunnel(bool enabled = false, bool reverseEnabled = false)
     {
         return new SplitTunnel(
             enabled,
             reverseEnabled,
+            _logger,
+            _splitTunnelRouting,
             _networkUtilities,
             _networkInterfaces,
             _config,
             _serviceSettings,
             _splitTunnelClient,
             _appFilter,
-            _permittedRemoteAddress);
+            _permittedRemoteAddress,
+            _proTunAdapterDetailsCache);
     }
 
     private VpnState GetConnectedVpnState()
@@ -376,5 +427,26 @@ public class SplitTunnelTest
             "2.2.2.2",
             443,
             VpnProtocol.Smart);
+    }
+
+    private static SplitTunnelContext CreateSplitTunnelContext(string[] addresses)
+    {
+        VpnConfig config = new(new VpnConfigParameters
+        {
+            SplitTunnelMode = SplitTunnelMode.Block,
+            SplitTunnelIPs = addresses,
+            VpnProtocol = VpnProtocol.WireGuardUdp,
+            PreferredProtocols = [],
+        });
+        VpnHost server = new(
+            "test.protonvpn.net",
+            "203.0.113.1",
+            string.Empty,
+            default,
+            string.Empty,
+            true,
+            null);
+
+        return new SplitTunnelContext(config, new VpnEndpoint(server, VpnProtocol.WireGuardUdp, 443));
     }
 }

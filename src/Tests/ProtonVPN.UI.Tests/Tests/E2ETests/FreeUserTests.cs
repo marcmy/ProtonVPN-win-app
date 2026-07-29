@@ -18,7 +18,9 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
+using FlaUI.Core.Tools;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
@@ -27,10 +29,13 @@ using ProtonVPN.UI.Tests.TestsHelper;
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
 [TestFixture]
-[Category("2")]
+[Category("4")]
 [Category("ARM")]
+[Category("SMOKE_4")]
 public class FreeUserTests : FreshSessionSetUp
 {
+    private const string BROWSER_APP = "Google Chrome";
+
     private const string PROFILE_NAME = "Max security";
 
     private const string COUNTRY = "Austria";
@@ -39,6 +44,8 @@ public class FreeUserTests : FreshSessionSetUp
     private const string SERVER_COUNTRY = "Australia";
     private const string TOR_COUNTRY = "France";
 
+    private static readonly List<string> _freeCountries = ["Canada", "Japan", "Mexico", "Netherlands", "Norway", "Poland", "Romania", "Singapore", "Switzerland", "United States"];
+
     [SetUp]
     public void TestInitialize()
     {
@@ -46,6 +53,18 @@ public class FreeUserTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602338")]
+    public void ConnectToServerFreeUser()
+    {
+        HomeRobot
+            .Verify.IsConnectionCardFreeConnectionsTaglineDisplayed()
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected()
+                   .ConnectionCardDescriptionContainsOneOf(_freeCountries);
+    }
+
+    [Test]
+    [Property("TestCaseId", "602339")]
     public void ChangeServerFreeUser()
     {
         HomeRobot
@@ -58,25 +77,22 @@ public class FreeUserTests : FreshSessionSetUp
             .ClickLockedChangedServer()
             .Verify.IsConnected()
             .IsUnlimitedServersChangesUpsellDisplayed();
+
+        SettingRobot.CloseSettingsUsingEscButton();
     }
 
     [Test]
+    [Property("TestCaseId", "602387")]
+    [Retry(3)]
     public void CancelChangeServerDoesNotTriggerTimer()
     {
+        CommonUiFlows.EnsureUserIsDisconnected();
+
         HomeRobot
             .ConnectViaConnectionCard()
-            .Verify.IsConnected()
-            .ChangeServer();
+            .Verify.IsConnected();
 
-        // Intentional delay to simulate user's input
-        Thread.Sleep(TestConstants.UserInputSimulationDelay);
-
-        HomeRobot
-            .CancelConnection()
-            .Verify.IsDisconnected();
-
-        // Intentional delay to simulate user's input
-        Thread.Sleep(TestConstants.UserInputSimulationDelay);
+        CancelChangeServerWithRetry();
 
         HomeRobot
             .ConnectViaConnectionCard()
@@ -85,8 +101,32 @@ public class FreeUserTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602459")]
+    public void LocalNetworkingIsNotReachableWhileConnected()
+    {
+        HomeRobot
+            .Verify.IsDisconnected()
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected();
+
+        NetworkUtils.VerifyLocalNetworking(isLanEnabled: false);
+
+        SettingRobot
+            .OpenSettings()
+            .OpenAdvancedSettings();
+        AdvancedSettingsRobot
+            .NavigateToLan();
+        UpsellCarrouselRobot
+            .Verify.IsAdvancedSettingsUpsellDisplayed()
+            .CloseModal();
+    }
+
+    [Test]
+    [Property("TestCaseId", "602390")]
     public void UpsellCarousel()
     {
+        CommonUiFlows.EnsureUserIsDisconnected();
+
         SidebarRobot
             .ConnectToFastest();
         UpsellCarrouselRobot
@@ -121,6 +161,7 @@ public class FreeUserTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602388")]
     public void UpsellThroughSettings()
     {
         SettingRobot
@@ -137,13 +178,13 @@ public class FreeUserTests : FreshSessionSetUp
             .CloseModal();
 
         SettingRobot
-            .OpenSplitTunnelingSettingsCard();
+            .OpenSplitTunnelingSettings();
         UpsellCarrouselRobot
             .Verify.IsSplitTunnelingUpsellDisplayed()
             .CloseModal();
 
         SettingRobot
-            .OpenVpnAcceleratorSettingsCard();
+            .OpenVpnAcceleratorSettings();
         UpsellCarrouselRobot
             .Verify.IsServersSpeedUpsellDisplayed()
             .CloseModal();
@@ -164,6 +205,7 @@ public class FreeUserTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602389")]
     public void HomeScreenUpsell()
     {
         HomeRobot
@@ -182,8 +224,12 @@ public class FreeUserTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "609947")]
+    [Retry(5)]
     public void ConnectionRequestTriggersUpsellCarousel()
     {
+        CommonUiFlows.EnsureUserIsDisconnected();
+
         HomeRobot
             .ConnectViaConnectionCard()
             .Verify.IsConnected();
@@ -220,10 +266,65 @@ public class FreeUserTests : FreshSessionSetUp
             UpsellCarrouselRobot.Verify.IsProfilesUpsellDisplayed,
             profileName: PROFILE_NAME);
 
-        //Hover over the map and click a country's pin
+        //TODO: Hover over the map and click a country's pin
         //The "Discover VPN Plus" pop-up modal is displayed
 
         CommonAssertions.AssertIpAddressUnchanged(ipAddressToCompare!);
+    }
+
+    [Test]
+    [Property("TestCaseId", "870071")]
+    [Retry(3)]
+    public void StreamingInProgressUpsell()
+    {
+        HomeRobot
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected();
+
+        BrowserUtils.OpenStreamingWebsite(BROWSER_APP);
+
+        UpsellCarrouselRobot
+            .Verify.IsStreamingInProgressUpsellDisplayed()
+            .CloseModal();
+
+        BrowserUtils.KillAllBrowsers();
+    }
+
+    [Test]
+    [Property("TestCaseId", "602438")]
+    [Retry(4)]
+    public void P2PInProgressUpsell()
+    {
+        TorrentHelper.AllowTorrentFirewall();
+        TorrentHelper.StopAndCleanup();
+
+        HomeRobot
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected();
+
+        string? ipAddressConnected = HomeRobot.GetVpnServerIp();
+        Assert.That(ipAddressConnected, Is.Not.Null);
+        int portToCheck = 52069;
+
+        try
+        {
+            TorrentHelper.StartTorrentOnPort(portToCheck);
+            Window?.Focus();
+
+            UpsellCarrouselRobot
+                .Verify.IsP2PTorrentInProgressUpsellDisplayed()
+                .CloseModal();
+
+            // give it time so that the internet restores
+            Thread.Sleep(TestConstants.TenSecondsTimeout);
+            BrowserUtils.AssertBrowserInternetAvailability(BROWSER_APP, shouldBeAvailable: true);
+            TorrentHelper.IsPortClosed(ipAddressConnected!, portToCheck);
+        }
+        finally
+        {
+            BrowserUtils.KillAllBrowsers();
+            TorrentHelper.StopAndCleanup();
+        }
     }
 
     private void VerifyTabUpsells(
@@ -283,5 +384,27 @@ public class FreeUserTests : FreshSessionSetUp
         verifyAction();
 
         UpsellCarrouselRobot.CloseModal();
+    }
+
+    private void CancelChangeServerWithRetry()
+    {
+        Retry.WhileFalse(
+           () =>
+           {
+               try
+               {
+                   HomeRobot
+                       .ChangeServer()
+                       .CancelConnection(TestConstants.MoreFrequentRetryInterval)
+                       .Verify.IsDisconnected();
+
+                   return true;
+               }
+               catch (TimeoutException)
+               {
+                   return false;
+               }
+           },
+           TestConstants.ThirtySecondsTimeout, TestConstants.TenSecondsTimeout);
     }
 }

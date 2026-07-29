@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2025 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -24,24 +24,27 @@ namespace ProtonVPN.StatisticalEvents.Dimensions.Mappers;
 
 public class VpnProtocolDimensionMapper : DimensionMapperBase, IVpnProtocolDimensionMapper
 {
-    private const string SMART = "smart"; // Should never be used
-    private const string IKEV2 = "ikev2"; // Not used on Windows
     private const string OPENVPN_UDP = "openvpn_udp";
     private const string OPENVPN_TCP = "openvpn_tcp";
     private const string WIREGUARD_UDP = "wireguard_udp";
     private const string WIREGUARD_TCP = "wireguard_tcp";
     private const string WIREGUARD_TLS = "wireguard_tls";
+    private const string PROTUN_UDP = "protun_udp";
+    private const string PROTUN_TCP = "protun_tcp";
+    private const string PROTUN_TLS = "protun_tls";
 
     public string Map(VpnProtocol? protocol)
     {
         return protocol switch
         {
-            VpnProtocol.Smart => SMART, 
             VpnProtocol.OpenVpnUdp => OPENVPN_UDP,
             VpnProtocol.OpenVpnTcp => OPENVPN_TCP,
             VpnProtocol.WireGuardUdp => WIREGUARD_UDP,
             VpnProtocol.WireGuardTcp => WIREGUARD_TCP,
             VpnProtocol.WireGuardTls => WIREGUARD_TLS,
+            VpnProtocol.ProTunUdp => PROTUN_UDP,
+            VpnProtocol.ProTunTcp => PROTUN_TCP,
+            VpnProtocol.ProTunTls => PROTUN_TLS,
             _ => NOT_AVAILABLE
         };
     }

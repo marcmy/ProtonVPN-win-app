@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2024 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -37,22 +37,18 @@ public class LogoutTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602331")]
     public void LogoutWhileConnectedToVpn()
     {
-        HomeRobot.ConnectViaConnectionCard()
+        HomeRobot
+            .ConnectViaConnectionCard()
             .Verify.IsConnected();
-
 
         // Delay to give it time to get the connected ip
         Thread.Sleep(TestConstants.FiveSecondsTimeout);
         string ipAddressConnected = NetworkUtils.GetIpAddressWithRetry();
 
-        HomeRobot.ExpandKebabMenuButton();
-        SettingRobot
-            .SignOut()
-            .ConfirmSignOut();
-
-        LoginRobot.Verify.IsLoginWindowDisplayed();
+        CommonUiFlows.Logout();
 
         // Delay to make sure the ip gets back.
         Thread.Sleep(TestConstants.FiveSecondsTimeout);
@@ -62,12 +58,15 @@ public class LogoutTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602332")]
     public void CancelLogoutWhileConnectedToVpn()
     {
-        HomeRobot.ConnectViaConnectionCard()
+        HomeRobot
+            .ConnectViaConnectionCard()
             .Verify.IsConnected();
 
-        HomeRobot.ExpandKebabMenuButton();
+        HomeRobot
+            .ExpandKebabMenuButton();
         SettingRobot
             .SignOut()
             .CancelSignOut();
@@ -77,22 +76,25 @@ public class LogoutTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602391")]
+    [Category("SMOKE_1")]
     public void LogoutViaKebabMenu()
     {
-        HomeRobot.ExpandKebabMenuButton();
-        SettingRobot.SignOut()
-            .ConfirmSignOut();
-        LoginRobot.Verify.IsLoginWindowDisplayed();
+        CommonUiFlows.Logout();
     }
 
     [Test]
+    [Property("TestCaseId", "602330")]
     public void LogoutViaAccountMenu()
     {
-        SettingRobot.OpenSettings()
+        SettingRobot
+            .OpenSettings()
             .Verify.IsSettingsPageDisplayed()
             .ExpandAccountDropdown()
             .SignOut()
             .ConfirmSignOut();
-        LoginRobot.Verify.IsLoginWindowDisplayed();
+
+        LoginRobot
+            .Verify.IsLoginWindowDisplayed();
     }
 }

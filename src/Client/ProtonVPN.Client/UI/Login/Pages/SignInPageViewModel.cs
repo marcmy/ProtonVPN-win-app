@@ -38,6 +38,7 @@ using ProtonVPN.Client.UI.Login.Enums;
 using ProtonVPN.Client.UI.Login.Overlays;
 using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Legacy.Abstract;
+using ProtonVPN.Logging.Contracts.Events.UserLogs;
 using Windows.System;
 
 namespace ProtonVPN.Client.UI.Login.Pages;
@@ -172,8 +173,13 @@ public partial class SignInPageViewModel : LoginPageViewModelBase
                 HandleError(result);
             }
         }
+        catch (OperationCanceledException)
+        {
+            Logger.Info<UserLog>("Authentication was cancelled by the user.");
+        }
         catch (Exception e)
         {
+            Logger.Error<UserLog>("An error occurred during authentication.", e);
             _eventMessageSender.Send(new LoginStateChangedMessage(LoginState.Error, AuthError.Unknown, e.Message));
         }
         finally
@@ -191,7 +197,7 @@ public partial class SignInPageViewModel : LoginPageViewModelBase
                 IsToShowPasswordError = Password is null || Password.Length == 0;
                 break;
             case SignInFormType.SSO:
-                Username = Username.Trim();
+                Username = Username?.Trim() ?? string.Empty;
                 IsToShowUsernameError = string.IsNullOrWhiteSpace(Username) || !Username.IsValidEmailAddress();
                 break;
         }
@@ -206,9 +212,11 @@ public partial class SignInPageViewModel : LoginPageViewModelBase
 
     private async Task<AuthResult> HandleSrpLoginAsync()
     {
+        // Copy password so it can be cleared immediately without affecting the ongoing authentication.
+        SecureString password = Password;
         try
         {
-            return await _userAuthenticator.LoginUserAsync(Username, Password);
+            return await _userAuthenticator.LoginUserAsync(Username, password);
         }
         finally
         {

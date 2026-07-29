@@ -27,16 +27,15 @@ using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.Settings;
-using ProtonVPN.Service.Vpn;
-using ProtonVPN.Vpn.Common;
 
 namespace ProtonVPN.Service.KillSwitch;
 
-public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
+public class KillSwitch : IKillSwitch, IServiceSettingsAware, IStartable
 {
     private readonly IFirewall _firewall;
     private readonly IServiceSettings _serviceSettings;
-    private readonly INetworkInterfaceLoader _networkInterfaceLoader;
+    private readonly object _stateLock = new();
+    private readonly INetworkInterfaceProvider _networkInterfaceProvider;
     private VpnState _lastVpnState = new(VpnStatus.Disconnected, default);
     private KillSwitchMode _killSwitchMode;
 
@@ -45,11 +44,11 @@ public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
     public KillSwitch(
         IFirewall firewall,
         IServiceSettings serviceSettings,
-        INetworkInterfaceLoader networkInterfaceLoader)
+        INetworkInterfaceProvider networkInterfaceProvider)
     {
         _firewall = firewall;
         _serviceSettings = serviceSettings;
-        _networkInterfaceLoader = networkInterfaceLoader;
+        _networkInterfaceProvider = networkInterfaceProvider;
     }
 
     public void Start()
@@ -59,38 +58,51 @@ public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
 
     public void OnVpnConnecting(VpnState state)
     {
-        _lastVpnState = state;
+        lock (_stateLock)
+        {
+            _lastVpnState = state;
+        }
         UpdateLeakProtectionStatus(state);
     }
 
     public void OnVpnConnected(VpnState state)
     {
-        _lastVpnState = state;
-
-        bool hasVpnProtocolChanged = state.VpnProtocol != _lastConnectedProtocol;
+        bool hasVpnProtocolChanged;
+        lock (_stateLock)
+        {
+            _lastVpnState = state;
+            hasVpnProtocolChanged = state.VpnProtocol != _lastConnectedProtocol;
+            _lastConnectedProtocol = state.VpnProtocol;
+        }
         UpdateLeakProtectionStatus(state, hasVpnProtocolChanged);
-
-        _lastConnectedProtocol = state.VpnProtocol;
     }
 
     public void OnVpnDisconnected(VpnState state)
     {
-        _lastVpnState = state;
+        lock (_stateLock)
+        {
+            _lastVpnState = state;
+        }
         UpdateLeakProtectionStatus(state);
     }
 
-    public bool ExpectedLeakProtectionStatus(VpnState state)
+    public bool GetExpectedLeakProtectionStatus(VpnState state)
     {
         return UpdatedLeakProtectionStatus(state) ?? _firewall.LeakProtectionEnabled;
     }
 
     public void AssigningIp(VpnState state)
     {
+        lock (_stateLock)
+        {
+            _lastVpnState = state;
+        }
+
         // AssigningIp VPN status for WireGuard is fired when WireGuard finishes its startup "Startup complete"
         // Only then the interface is up and we can get its index to permit it on the firewall.
-        if (state.VpnProtocol.IsWireGuard())
+        if (state.VpnProtocol.IsProTunOrWireGuard())
         {
-            EnableLeakProtection();
+            EnableLeakProtection(state);
         }
     }
 
@@ -99,7 +111,7 @@ public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
         switch (UpdatedLeakProtectionStatus(state))
         {
             case true:
-                EnableLeakProtection(hasVpnProtocolChanged);
+                EnableLeakProtection(state, hasVpnProtocolChanged);
                 break;
             case false:
                 _firewall.DisableLeakProtection();
@@ -109,6 +121,12 @@ public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
 
     public void OnServiceSettingsChanged(MainSettingsIpcEntity settings)
     {
+        VpnState lastVpnState;
+        lock (_stateLock)
+        {
+            lastVpnState = _lastVpnState;
+        }
+
         KillSwitchMode killSwitchMode = (KillSwitchMode)settings.KillSwitchMode;
         if (_killSwitchMode != killSwitchMode)
         {
@@ -118,7 +136,7 @@ public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
         {
             if (killSwitchMode == KillSwitchMode.Hard && !_firewall.LeakProtectionEnabled)
             {
-                EnableLeakProtection();
+                EnableLeakProtection(lastVpnState);
             }
         }
 
@@ -126,9 +144,9 @@ public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
 
         if (_firewall.IsLocalAreaNetworkAccessEnabled.HasValue &&
             settings.IsLocalAreaNetworkAccessEnabled != _firewall.IsLocalAreaNetworkAccessEnabled &&
-            _lastVpnState.Status == VpnStatus.Connected)
+            lastVpnState.Status == VpnStatus.Connected)
         {
-            EnableLeakProtection();
+            EnableLeakProtection(lastVpnState);
         }
     }
 
@@ -156,13 +174,24 @@ public class KillSwitch : IVpnStateAware, IServiceSettingsAware, IStartable
 
     private void EnableLeakProtection(bool hasVpnProtocolChanged = false)
     {
-        bool dnsLeakOnly = _serviceSettings.SplitTunnelSettings.Mode == SplitTunnelModeIpcEntity.Permit && _lastVpnState.Status == VpnStatus.Connected;
+        VpnState lastVpnState;
+        lock (_stateLock)
+        {
+            lastVpnState = _lastVpnState;
+        }
+
+        EnableLeakProtection(lastVpnState, hasVpnProtocolChanged);
+    }
+
+    private void EnableLeakProtection(VpnState state, bool hasVpnProtocolChanged = false)
+    {
+        bool dnsLeakOnly = _serviceSettings.SplitTunnelSettings.Mode == SplitTunnelModeIpcEntity.Permit && state.Status == VpnStatus.Connected;
         bool persistent = _serviceSettings.KillSwitchMode == KillSwitchMode.Hard;
-        INetworkInterface networkInterface = _networkInterfaceLoader.GetByVpnProtocol(_lastVpnState.VpnProtocol, _lastVpnState.OpenVpnAdapter);
+        INetworkInterface networkInterface = _networkInterfaceProvider.GetByVpnProtocol(state.VpnProtocol, state.OpenVpnAdapter);
         uint interfaceIndex = networkInterface?.Index ?? 0;
         FirewallParams firewallParams = new()
         {
-            ServerIp = _lastVpnState.RemoteIp,
+            ServerIp = state.RemoteIp,
             DnsLeakOnly = dnsLeakOnly,
             InterfaceIndex = interfaceIndex,
             AddInterfaceFilters = interfaceIndex > 0,

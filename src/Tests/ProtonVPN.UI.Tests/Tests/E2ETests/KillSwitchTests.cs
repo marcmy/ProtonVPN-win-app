@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2025 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -28,6 +28,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [TestFixture]
 [Category("2")]
 [Category("ARM")]
+[Category("SMOKE_2")]
 public class KillSwitchTests : FreshSessionSetUp
 {
     [SetUp]
@@ -37,13 +38,46 @@ public class KillSwitchTests : FreshSessionSetUp
     }
 
     [Test, Order(0)]
-    public void KillSwitchEnabled()
+    [Property("TestCaseId", "602468")]
+    public void WarningIsDisplayedWhenAdvancedKillSwitchIsOn()
     {
-        EnableKillSwitch(KillSwitchMode.Standard);
-        ConnectAndVerify();
+        HomeRobot
+            .Verify.IsDisconnected();
+
+        SettingRobot
+            .OpenSettings()
+            .Verify.IsKillSwitchDisabledStateDisplayed()
+            .CloseSettings();
+
+        EnableKillSwitch(KillSwitchMode.Advanced);
+
+        HomeRobot
+            .Verify.IsAdvancedKillSwitchActivated();
+
+        FeaturesRobot
+            .HoverOverKillSwitchWidget()
+            .Verify.IsAdvancedKillSwitchTextInFlyoutMenu(isConnected: false);
+
+        SettingRobot
+            .OpenSettings()
+            .Verify.IsKillSwitchEnabledStateDisplayed(KillSwitchMode.Advanced);
+
+        //TODO: A Warning sign is added as a badge to the Kill Switch icon;
     }
 
     [Test, Order(1)]
+    [Property("TestCaseId", "791685")]
+    public void EnableKillSwitchFromSettings()
+    {
+        EnableKillSwitch(KillSwitchMode.Standard);
+        NetworkUtils.AssertInternetAvailability(true);
+
+        EnableKillSwitch(KillSwitchMode.Advanced);
+        NetworkUtils.AssertInternetAvailability(false);
+    }
+
+    [Test, Order(2)]
+    [Property("TestCaseId", "602450")]
     public void SignOutWithStandardKillSwitchEnabled()
     {
         EnableKillSwitch(KillSwitchMode.Standard);
@@ -57,17 +91,13 @@ public class KillSwitchTests : FreshSessionSetUp
         NavigationRobot
             .Verify.IsOnConnectionDetailsPage();
 
-        HomeRobot.ExpandKebabMenuButton();
-        SettingRobot
-            .SignOut()
-            .ConfirmSignOut();
-
-        LoginRobot.Verify.IsLoginWindowDisplayed();
+        CommonUiFlows.Logout();
 
         NetworkUtils.AssertInternetAvailability(true);
     }
 
-    [Test, Order(2)]
+    [Test, Order(3)]
+    [Property("TestCaseId", "610981")]
     public void ExitTheAppWithStandardKillSwitchEnabled()
     {
         EnableKillSwitch(KillSwitchMode.Standard);
@@ -81,13 +111,38 @@ public class KillSwitchTests : FreshSessionSetUp
         NavigationRobot
             .Verify.IsOnConnectionDetailsPage();
 
-        HomeRobot.ExpandKebabMenuButton()
-                 .ExitViaKebabMenuWithConfirmation();
+        HomeRobot
+            .ExpandKebabMenuButton()
+            .ExitViaKebabMenuWithConfirmation();
 
         NetworkUtils.AssertInternetAvailability(true);
     }
 
-    [Test, Order(3)]
+    [Test, Order(4)]
+    [Property("TestCaseId", "737760")]
+    public void SignOutWithAdvancedKillSwitchEnabled()
+    {
+        EnableKillSwitch(KillSwitchMode.Advanced);
+
+        NavigationRobot
+            .Verify.IsOnHomePage()
+                   .IsOnLocationDetailsPage();
+
+        ConnectAndVerify();
+
+        NavigationRobot
+            .Verify.IsOnConnectionDetailsPage();
+
+        CommonUiFlows.Logout();
+
+        LoginRobot
+            .Verify.IsAdvancedKillSwitchDisplayed();
+
+        NetworkUtils.AssertInternetAvailability(false);
+    }
+
+    [Test, Order(5)]
+    [Property("TestCaseId", "610982")]
     public void InternetConnectionBlockedAdvancedKillSwitchEnabled()
     {
         EnableKillSwitch(KillSwitchMode.Advanced);
@@ -98,40 +153,34 @@ public class KillSwitchTests : FreshSessionSetUp
             .Disconnect()
             .Verify.IsAdvancedKillSwitchActivated();
 
-        //needs a 5sec wait locally
-        //Thread.Sleep(TestConstants.FiveSecondsTimeout);
         NetworkUtils.AssertInternetAvailability(false);
     }
 
-    [Test, Order(4)]
+    [Test, Order(6)]
+    [Property("TestCaseId", "610983")]
     public void ExitTheAppWithAdvancedKillSwitchEnabled()
     {
         EnableKillSwitch(KillSwitchMode.Advanced);
 
         EnsureVpnConnectedFromHome();
 
-        HomeRobot.ExpandKebabMenuButton()
-                 .ExitViaKebabMenuWithConfirmation();
+        HomeRobot
+            .ExpandKebabMenuButton()
+            .ExitViaKebabMenuWithConfirmation();
 
         NetworkUtils.AssertInternetAvailability(false);
     }
 
-    [Test, Order(5)]
+    [Test, Order(7)]
+    [Property("TestCaseId", "610984")]
     public void DisableAdvancedKillSwitchFromSignInPage()
     {
         EnableKillSwitch(KillSwitchMode.Advanced);
 
         EnsureVpnConnectedFromHome();
 
-        HomeRobot.ExpandKebabMenuButton();
-        SettingRobot.SignOut()
-            .ConfirmSignOut();
+        CommonUiFlows.Logout();
 
-        NavigationRobot
-            .Verify.IsOnLoginPage();
-
-        //needs a 5sec wait locally
-        //Thread.Sleep(TestConstants.FiveSecondsTimeout);
         NetworkUtils.AssertInternetAvailability(false);
 
         LoginRobot
@@ -141,24 +190,39 @@ public class KillSwitchTests : FreshSessionSetUp
         NetworkUtils.AssertInternetAvailability(true);
     }
 
-    [Test, Order(6)]
+    [Test, Order(8)]
+    [Property("TestCaseId", "791686")]
     public void DisableKillSwitchFromSettings()
     {
-        DisableKillSwitch();
-    }
+        EnableKillSwitch(KillSwitchMode.Advanced);
+        NetworkUtils.AssertInternetAvailability(false);
 
-    private void EnableKillSwitch(KillSwitchMode mode)
-    {
         SettingRobot
             .OpenSettings()
-            .Verify.IsKillSwitchDisabledStateDisplayed()
             .OpenKillSwitchSettings();
 
         NavigationRobot
             .Verify.IsOnKillSwitchPage();
 
         SettingRobot
-            .ToggleKillSwitchSetting()
+            .DisableKillSwitchToggle()
+            .ApplySettings()
+            .CloseSettings();
+
+        NetworkUtils.AssertInternetAvailability(true);
+    }
+
+    private void EnableKillSwitch(KillSwitchMode mode)
+    {
+        SettingRobot
+            .OpenSettings()
+            .OpenKillSwitchSettings();
+
+        NavigationRobot
+            .Verify.IsOnKillSwitchPage();
+
+        SettingRobot
+            .EnableKillSwitchToggle()
             .SelectKillSwitchMode(mode)
             .ApplySettings()
             .CloseSettings();
@@ -168,37 +232,13 @@ public class KillSwitchTests : FreshSessionSetUp
                    .IsOnLocationDetailsPage();
     }
 
-    private void DisableKillSwitch()
+    private static void ConnectAndVerify()
     {
-        SettingRobot
-            .OpenSettings()
-            .OpenKillSwitchSettings();
-
-        NavigationRobot
-            .Verify.IsOnKillSwitchPage();
-
-        SettingRobot
-            .DisableKillSwitch()
-            .CloseSettings();
-
-        NavigationRobot
-            .Verify.IsOnHomePage()
-                   .IsOnLocationDetailsPage();
-    }
-
-    private static (string ipAddressBefore, string ipAddressAfter) ConnectAndVerify()
-    {
-        string ipAddressBefore = NetworkUtils.GetIpAddressWithRetry();
-
         HomeRobot
-            .Verify.IsDisconnected()
             .ConnectViaConnectionCard()
             .Verify.IsConnected();
 
-        string ipAddressAfter = NetworkUtils.GetIpAddressWithRetry();
-        HomeRobot.Verify.AssertVpnConnectionEstablished(ipAddressBefore, ipAddressAfter);
-
-        return (ipAddressBefore, ipAddressAfter);
+        NetworkUtils.AssertInternetAvailability(true);
     }
 
     private static void EnsureVpnConnectedFromHome()

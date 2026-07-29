@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.StatisticalEvents.Contracts.Models;
 using ProtonVPN.StatisticalEvents.Dimensions.Mappers;
 
@@ -29,6 +30,7 @@ namespace ProtonVPN.StatisticalEvents.Dimensions.Builders;
 public class VpnConnectionDimensionsBuilder : IVpnConnectionDimensionsBuilder
 {
     private readonly ISettings _settings;
+    private readonly IBooleanDimensionMapper _booleanDimensionMapper;
     private readonly IVpnProtocolDimensionMapper _vpnProtocolDimensionMapper;
     private readonly IOutcomeDimensionMapper _outcomeDimensionMapper;
     private readonly IVpnStatusDimensionMapper _vpnStatusDimensionMapper;
@@ -42,9 +44,11 @@ public class VpnConnectionDimensionsBuilder : IVpnConnectionDimensionsBuilder
     private readonly ITenureDimensionMapper _tenureDimensionMapper;
     private readonly IUserFeedbackDimensionMapper _userFeedbackDimensionMapper;
     private readonly IClientFeaturesDimensionMapper _clientFeaturesDimensionMapper;
+    private readonly IFailureReasonDimensionMapper _failureReasonDimensionMapper;
 
     public VpnConnectionDimensionsBuilder(
         ISettings settings,
+        IBooleanDimensionMapper booleanDimensionMapper,
         IVpnProtocolDimensionMapper vpnProtocolDimensionMapper,
         IOutcomeDimensionMapper outcomeDimensionMapper,
         IVpnStatusDimensionMapper vpnStatusDimensionMapper,
@@ -57,9 +61,11 @@ public class VpnConnectionDimensionsBuilder : IVpnConnectionDimensionsBuilder
         IStringDimensionMapper stringDimensionMapper,
         ITenureDimensionMapper tenureDimensionMapper,
         IUserFeedbackDimensionMapper userFeedbackDimensionMapper,
-        IClientFeaturesDimensionMapper clientFeaturesDimensionMapper)
+        IClientFeaturesDimensionMapper clientFeaturesDimensionMapper,
+        IFailureReasonDimensionMapper failureReasonDimensionMapper)
     {
         _settings = settings;
+        _booleanDimensionMapper = booleanDimensionMapper;
         _vpnProtocolDimensionMapper = vpnProtocolDimensionMapper;
         _outcomeDimensionMapper = outcomeDimensionMapper;
         _vpnStatusDimensionMapper = vpnStatusDimensionMapper;
@@ -73,6 +79,7 @@ public class VpnConnectionDimensionsBuilder : IVpnConnectionDimensionsBuilder
         _tenureDimensionMapper = tenureDimensionMapper;
         _userFeedbackDimensionMapper = userFeedbackDimensionMapper;
         _clientFeaturesDimensionMapper = clientFeaturesDimensionMapper;
+        _failureReasonDimensionMapper = failureReasonDimensionMapper;
     }
 
     public Dictionary<string, string> Build(VpnConnectionEventData eventData)
@@ -87,13 +94,15 @@ public class VpnConnectionDimensionsBuilder : IVpnConnectionDimensionsBuilder
             { "server_features", _serverDetailsDimensionMapper.Map(eventData.Server) },
             { "vpn_country", _stringDimensionMapper.Map(eventData.VpnCountry) },
             { "user_country",  _stringDimensionMapper.Map(eventData.UserCountry) },
-            { "protocol", _vpnProtocolDimensionMapper.Map(eventData.Protocol) },
+            { "protocol", _vpnProtocolDimensionMapper.Map(eventData.ActualProtocol) },
             { "server",  _stringDimensionMapper.Map(eventData.Server?.Name) },
             { "entry_ip", _stringDimensionMapper.Map(eventData.Server?.EntryIp) },
             { "port", _portDimensionMapper.Map(eventData.Port) },
             { "isp",  _stringDimensionMapper.Map(eventData.Isp) },
             { "is_ipv6_enabled", (eventData.IsIpv6Enabled && (eventData.Server?.SupportsIpv6 ?? false)).ToBooleanString() },
             { "has_active_exclusions", eventData.HasActiveExclusions.ToBooleanString() },
+            { "failure_reason", _failureReasonDimensionMapper.Map(eventData.FailureCode) },
+            { "is_smart_protocol", _booleanDimensionMapper.Map(eventData.DesiredProtocol is VpnProtocol.Smart) },
         };
     }
 
@@ -113,7 +122,7 @@ public class VpnConnectionDimensionsBuilder : IVpnConnectionDimensionsBuilder
         {
             { "client_features", _clientFeaturesDimensionMapper.Map(eventData.ClientFeatures) },
             { "tenure", _tenureDimensionMapper.Map(accountCreationDateUtc) },
-            { "user_feedback", _userFeedbackDimensionMapper.Map(null) },
+            { "user_feedback", _userFeedbackDimensionMapper.Map(eventData.UserFeedback) },
         };
     }
 }

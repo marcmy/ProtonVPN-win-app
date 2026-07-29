@@ -45,8 +45,8 @@ public class ConnectionSLIs : SliSetUp
     [SetUp]
     public void TestInitialize()
     {
-        LaunchApp();
-        CommonUiFlows.FullLogin(TestUserData.PlusUser);
+        LaunchClient();
+        CommonUiFlows.FullLogin(TestUserData.PlusUser, TestConstants.IsProTunVersion);
     }
 
     [Test]
@@ -59,6 +59,12 @@ public class ConnectionSLIs : SliSetUp
             .ConnectViaConnectionCard()
             .Verify.IsConnected()
             .Disconnect();
+
+        if (!TestConstants.IsProTunVersion)
+        {
+            ConfirmationRobot
+                .CancelAction();
+        }
 
         // Simulate users delay
         Thread.Sleep(TestConstants.TenSecondsTimeout);
@@ -81,7 +87,7 @@ public class ConnectionSLIs : SliSetUp
         SecureString password = new NetworkCredential("", TestUserData.PlusUser.Password).SecurePassword;
         string serverName = await _prodTestApiClient.GetRandomSpecificPaidServerAsync(TestUserData.PlusUser.Username, password);
 
-        ConnectAndDisconnect(CountryTab.All, serverName, true);
+        ConnectAndDisconnect(CountryTab.All, serverName, isServer: true);
     }
 
     [Test]

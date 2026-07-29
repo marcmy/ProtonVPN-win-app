@@ -26,6 +26,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [TestFixture]
 [Category("1")]
 [Category("ARM")]
+[Category("SMOKE_1")]
 public class SearchTests : FreshSessionSetUp
 {
     private const string COUNTRY_TO_SEARCH = "United States";
@@ -43,6 +44,7 @@ public class SearchTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602383")]
     public void SearchForCountryConnectAndDisconnect()
     {
         SidebarRobot
@@ -60,6 +62,7 @@ public class SearchTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602382")]
     public void SearchForCountryAndConnectDisconnectToCity()
     {
         SidebarRobot
@@ -78,6 +81,7 @@ public class SearchTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602381")]
     public void SearchCountryAndConnectDisconnectToSpecificServer()
     {
         SidebarRobot
@@ -98,6 +102,7 @@ public class SearchTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "610985")]
     public void SearchForCityAndConnectDisconnect()
     {
         SidebarRobot
@@ -115,6 +120,7 @@ public class SearchTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "610986")]
     public void SearchForServerAndConnectDisconnect()
     {
         SidebarRobot
@@ -132,6 +138,7 @@ public class SearchTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "610987")]
     public void SearchBehaviorAfterRemovingFocus()
     {
         SidebarRobot
@@ -155,16 +162,17 @@ public class SearchTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "610988")]
     public void SearchBehaviorAfterRemovingText()
     {
         SidebarRobot
             .SearchFor(COUNTRY_TO_SEARCH)
-            .Verify.IsBackBtnInSearchBoxDisplayed()
-            .ClickXBtnInSearchBox()
+            .Verify.IsBackButtonInSearchBoxDisplayed()
+            .ClickXButtonInSearchBox()
             .Verify.AssertSidebarSearchResults(TRY_SEARCHING_TEXT)
             .SearchFor(CITY)
-            .Verify.IsBackBtnInSearchBoxDisplayed()
-            .ClickBackBtnInSearchBox()
+            .Verify.IsBackButtonInSearchBoxDisplayed()
+            .ClickBackButtonInSearchBox()
             .Verify.IsSidebarConnectionsDisplayed();
     }
 }

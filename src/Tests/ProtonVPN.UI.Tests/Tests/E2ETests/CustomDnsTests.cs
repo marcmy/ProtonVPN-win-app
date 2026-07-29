@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2024 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -18,9 +18,11 @@
  */
 
 using NUnit.Framework;
+using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using static ProtonVPN.UI.Tests.TestsHelper.TestConstants;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -29,61 +31,82 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("ARM")]
 public class CustomDnsTests : BaseTest
 {
-    private const string CUSTOM_DNS_SERVER = "8.8.8.8";
-    private const string SECONDARY_CUSTOM_DNS_SERVER = "1.1.1.1";
-
     private const string ENABLE_CUSTOM_DNS_TITLE = "Enable custom DNS servers?";
     private const string ENABLE_CUSTOM_DNS_DESCRIPTION = "You won't be able to use NetShield when connected with a custom DNS server.";
     private const string ENABLE_CUSTOM_DNS_BUTTON = "Enable";
 
+    private const string UNSAVED_CHANGES_TITLE = "Discard unsaved changes?";
+    private const string UNSAVED_CHANGES_DISCARD_BUTTON = "Discard changes";
+    private const string UNSAVED_CHANGES_KEEP_EDITING_BUTTON = "Keep editing";
+
+    private const string FIRST_CUSTOM_DNS_SERVER = "8.8.8.8";
+    private const string SECOND_CUSTOM_DNS_SERVER = "1.1.1.1";
+    private const string NEW_CUSTOM_DNS_SERVER = "22.33.0.5";
+
+    private const string QUAD9_DNS_SERVER = "9.9.9.9";
+    private const string ALTERNATE_DNS_SERVER = "76.76.19.19";
+    private const string OPENDNS_DNS_SERVER = "208.67.222.222";
+
+    private static readonly (IpSelectorAction Action, string Ip)[] _scenarios =
+        [
+            (Action: IpSelectorAction.Add, Ip: NEW_CUSTOM_DNS_SERVER),
+            (Action: IpSelectorAction.Remove, Ip: SECOND_CUSTOM_DNS_SERVER),
+            (Action: IpSelectorAction.Tick, Ip: FIRST_CUSTOM_DNS_SERVER)
+        ];
+
     [OneTimeSetUp]
     public void OneTimeSetup()
     {
-        LaunchApp();
+        LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
     }
 
     [Test, Order(0)]
+    [Property("TestCaseId", "602403")]
+    [Category("SMOKE_3")]
     public void NetshieldIsDisabledWhenCustomDnsIsEnabled()
     {
         SettingRobot
-           .OpenSettings()
-           .Verify.IsNetshieldEnabledStateDisplayed()
-           .OpenAdvancedSettings();
+            .OpenSettings()
+            .Verify.IsNetshieldEnabledStateDisplayed()
+            .OpenAdvancedSettings();
 
         AdvancedSettingsRobot
             .NavigateToCustomDns()
-            .ToggleCustomDnsSetting();
+            .EnableCustomDnsToggle();
 
         ConfirmationRobot
             .Verify.IsOverlayDisplayed()
                    .OverlayTextContains(ENABLE_CUSTOM_DNS_TITLE)
                    .OverlayTextContains(ENABLE_CUSTOM_DNS_DESCRIPTION)
                    .OverlayButtonsEquals(primary: ENABLE_CUSTOM_DNS_BUTTON)
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .ApplySettings()
-            .Verify.IsNetshieldDisabledStateDisplayed();
+            .Verify.IsNetshieldDisabledStateDisplayed()
+            .CloseSettings();
     }
 
-    //On Some screens notifications have to be disabled in order for it to pass. 
-    // (Navigation to settings page is overlayed by nofication)
     [Test, Order(1)]
+    [Property("TestCaseId", "602404")]
+    [Category("SMOKE_3")]
     public void CustomDnsIsSet()
     {
-        SettingRobot
-            .OpenAdvancedSettings();
+        NavigateToCustomDnsSetting();
 
         AdvancedSettingsRobot
-            .NavigateToCustomDns()
             .EditCustomDnsServers();
 
         IpSelectorRobot
-            .AddIpAddress(CUSTOM_DNS_SERVER)
-            .Verify.WasIpAdded(CUSTOM_DNS_SERVER);
+            .AddIpAddress(FIRST_CUSTOM_DNS_SERVER)
+            .AddIpAddress(SECOND_CUSTOM_DNS_SERVER)
+            .Verify.WasIpAdded(FIRST_CUSTOM_DNS_SERVER)
+                   .WasIpAdded(SECOND_CUSTOM_DNS_SERVER);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .ApplySettings()
@@ -93,11 +116,12 @@ public class CustomDnsTests : BaseTest
             .ConnectViaConnectionCard()
             .Verify.IsConnected();
 
-        AdvancedSettingsRobot
-            .Verify.IsCustomDnsAddressSet(CUSTOM_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressSet(FIRST_CUSTOM_DNS_SERVER, order: 0);
+        DnsHelper.IsCustomDnsAddressSet(SECOND_CUSTOM_DNS_SERVER, order: 1);
     }
 
     [Test, Order(2)]
+    [Property("TestCaseId", "602405")]
     public void CustomDnsIsDisabledByTickingCheckBox()
     {
         NavigateToCustomDnsSetting();
@@ -106,9 +130,10 @@ public class CustomDnsTests : BaseTest
             .EditCustomDnsServers();
 
         IpSelectorRobot
-            .TickIpAddressCheckBox(CUSTOM_DNS_SERVER);
+            .TickIpAddressCheckBox(FIRST_CUSTOM_DNS_SERVER);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .Reconnect();
@@ -116,11 +141,182 @@ public class CustomDnsTests : BaseTest
         HomeRobot
             .Verify.IsConnected();
 
-        AdvancedSettingsRobot
-            .Verify.IsCustomDnsAddressNotSet(CUSTOM_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressNotSet(FIRST_CUSTOM_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressSet(SECOND_CUSTOM_DNS_SERVER);
     }
 
     [Test, Order(3)]
+    [Property("TestCaseId", "863611")]
+    [TestCaseSource(typeof(TestConstants), nameof(AllNonProTunProtocols))]
+    public void CustomDnsUsingDifferentProtocols(Protocol protocol)
+    {
+        PerformProtocolTest(protocol);
+    }
+
+    [Test, Order(4)]
+    [Property("TestCaseId", "863616")]
+    [TestCaseSource(typeof(TestConstants), nameof(ProTunProtocols))]
+    public void CustomDnsUsingDifferentProTunProtocols(Protocol protocol)
+    {
+        PerformProtocolTest(protocol, shouldEnableProTun: true);
+    }
+
+    [Test, Order(5)]
+    [Property("TestCaseId", "610989")]
+    public void ReconnectionRequiredAfterUpdatingTheCustomDnsConfiguration()
+    {
+        // Pre-condition: FIRST_CUSTOM_DNS_SERVER is added and disabled, SECOND_CUSTOM_DNS_SERVER is added and enabled
+        HomeRobot
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected();
+
+        NavigateToCustomDnsSetting();
+
+        foreach ((IpSelectorAction Action, string Ip) in _scenarios)
+        {
+            AdvancedSettingsRobot
+                .EditCustomDnsServers();
+
+            switch (Action)
+            {
+                case IpSelectorAction.Add:
+                    IpSelectorRobot.AddIpAddress(Ip);
+                    break;
+                case IpSelectorAction.Remove:
+                    IpSelectorRobot.RemoveIp(Ip);
+                    break;
+                case IpSelectorAction.Tick:
+                    IpSelectorRobot.TickIpAddressCheckBox(Ip);
+                    break;
+            }
+
+            ConfirmationRobot
+                .PrimaryAction()
+                .Verify.IsOverlayClosed();
+
+            SettingRobot
+                .Verify.IsReconnectBtnDisplayed()
+                .GoBack();
+
+            ConfirmationRobot
+                .Verify.IsOverlayDisplayed()
+                .OverlayTextContains(UNSAVED_CHANGES_TITLE)
+                .OverlayButtonsEquals(
+                    primary: UNSAVED_CHANGES_DISCARD_BUTTON,
+                    cancel: UNSAVED_CHANGES_KEEP_EDITING_BUTTON)
+                .PrimaryAction()
+                .Verify.IsOverlayClosed();
+
+            AdvancedSettingsRobot.NavigateToCustomDns();
+        }
+
+        SettingRobot
+            .CloseSettings();
+        HomeRobot
+            .Disconnect()
+            .Verify.IsDisconnected();
+    }
+
+    [Test, Order(6)]
+    [Property("TestCaseId", "610990")]
+    public void DiscardCustomDnsConfiguration()
+    {
+        NavigateToCustomDnsSetting();
+
+        AdvancedSettingsRobot
+            .EditCustomDnsServers();
+
+        IpSelectorRobot
+            .AddIpAddress(NEW_CUSTOM_DNS_SERVER)
+            .TickIpAddressCheckBox(FIRST_CUSTOM_DNS_SERVER)
+            .RemoveIp(SECOND_CUSTOM_DNS_SERVER);
+        ConfirmationRobot
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
+
+        AdvancedSettingsRobot
+            .Verify.CustomDnsContainsIpAddress(NEW_CUSTOM_DNS_SERVER)
+                   .CustomDnsContainsIpAddress(FIRST_CUSTOM_DNS_SERVER)
+                   .CustomDnsDoesNotContainIpAddress(SECOND_CUSTOM_DNS_SERVER);
+
+        SettingRobot
+            .Verify.IsApplyBtnDisplayed()
+            .CloseSettings();
+
+        ConfirmationRobot
+            .Verify.IsOverlayDisplayed()
+            .OverlayTextContains(UNSAVED_CHANGES_TITLE)
+            .OverlayButtonsEquals(
+                primary: UNSAVED_CHANGES_DISCARD_BUTTON,
+                cancel: UNSAVED_CHANGES_KEEP_EDITING_BUTTON)
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
+
+        SettingRobot
+            .OpenSettings()
+            .OpenAdvancedSettings();
+        AdvancedSettingsRobot
+            .NavigateToCustomDns()
+            .Verify.CustomDnsContainsIpAddress(SECOND_CUSTOM_DNS_SERVER)
+                   .CustomDnsDoesNotContainIpAddress(FIRST_CUSTOM_DNS_SERVER)
+                   .CustomDnsDoesNotContainIpAddress(NEW_CUSTOM_DNS_SERVER);
+    }
+
+    [Test, Order(7)]
+    [Property("TestCaseId", "760743")]
+    public void ReorderingCustomDnsServers()
+    {
+        AdvancedSettingsRobot
+            .EditCustomDnsServers();
+
+        IpSelectorRobot
+            .RemoveAllIps()
+            .AddIpAddress(QUAD9_DNS_SERVER)
+            .AddIpAddress(ALTERNATE_DNS_SERVER)
+            .AddIpAddress(OPENDNS_DNS_SERVER);
+
+        ConfirmationRobot
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
+
+        SettingRobot
+            .ApplySettings()
+            .CloseSettings();
+
+        HomeRobot
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected();
+
+        DnsHelper.IsCustomDnsAddressSet(QUAD9_DNS_SERVER, order: 0);
+        DnsHelper.IsCustomDnsAddressSet(ALTERNATE_DNS_SERVER, order: 1);
+        DnsHelper.IsCustomDnsAddressSet(OPENDNS_DNS_SERVER, order: 2);
+
+        SettingRobot
+            .OpenSettings()
+            .OpenAdvancedSettings();
+
+        AdvancedSettingsRobot
+            .NavigateToCustomDns()
+            .EditCustomDnsServers();
+
+        IpSelectorRobot
+            .ReorderIpAddress(QUAD9_DNS_SERVER, IpOrderDirection.Down)
+            .ReorderIpAddress(OPENDNS_DNS_SERVER, IpOrderDirection.Up);
+
+        ConfirmationRobot
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
+
+        SettingRobot
+            .Reconnect();
+
+        DnsHelper.IsCustomDnsAddressSet(ALTERNATE_DNS_SERVER, order: 0);
+        DnsHelper.IsCustomDnsAddressSet(OPENDNS_DNS_SERVER, order: 1);
+        DnsHelper.IsCustomDnsAddressSet(QUAD9_DNS_SERVER, order: 2);
+    }
+
+    [Test, Order(8)]
+    [Property("TestCaseId", "602406")]
     public void CustomDnsServerRemoval()
     {
         NavigateToCustomDnsSetting();
@@ -129,11 +325,10 @@ public class CustomDnsTests : BaseTest
             .EditCustomDnsServers();
 
         IpSelectorRobot
-            .DeleteAllIps()
-            .AddIpAddress(SECONDARY_CUSTOM_DNS_SERVER)
-            .Verify.WasIpAdded(SECONDARY_CUSTOM_DNS_SERVER);
+            .RemoveIp(OPENDNS_DNS_SERVER);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .Reconnect();
@@ -141,20 +336,19 @@ public class CustomDnsTests : BaseTest
         HomeRobot
             .Verify.IsConnected();
 
-        AdvancedSettingsRobot
-            .Verify.IsCustomDnsAddressNotSet(CUSTOM_DNS_SERVER);
-
-        AdvancedSettingsRobot
-            .Verify.IsCustomDnsAddressSet(SECONDARY_CUSTOM_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressNotSet(OPENDNS_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressSet(ALTERNATE_DNS_SERVER, order: 0);
+        DnsHelper.IsCustomDnsAddressSet(QUAD9_DNS_SERVER, order: 1);
     }
 
-    [Test, Order(4)]
-    public void CustomDnsDisableSettingDoesNotSetCustomDnsServer()
+    [Test, Order(9)]
+    [Property("TestCaseId", "602407")]
+    public void DisablingCustomDnsRemovesDnsServers()
     {
         NavigateToCustomDnsSetting();
 
         AdvancedSettingsRobot
-            .ToggleCustomDnsSetting();
+            .DisableCustomDnsToggle();
 
         SettingRobot
             .Reconnect();
@@ -162,18 +356,31 @@ public class CustomDnsTests : BaseTest
         HomeRobot
             .Verify.IsConnected();
 
-        AdvancedSettingsRobot
-            .Verify.IsCustomDnsAddressNotSet(CUSTOM_DNS_SERVER)
-                   .IsCustomDnsAddressNotSet(SECONDARY_CUSTOM_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressNotSet(OPENDNS_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressNotSet(ALTERNATE_DNS_SERVER);
+        DnsHelper.IsCustomDnsAddressNotSet(QUAD9_DNS_SERVER);
+
+        CommonUiFlows.EnsureUserIsDisconnected();
     }
 
-    [OneTimeTearDown]
-    public void OneTimeTearDown()
+    private static void PerformProtocolTest(Protocol protocol, bool shouldEnableProTun = false)
     {
-        Cleanup();
+        CommonUiFlows.EnsureUserIsDisconnected();
+        CommonUiFlows.ChangeProtocol(protocol, shouldEnableProTun);
+
+        HomeRobot
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected()
+                   .IsProtocolDisplayed(protocol);
+
+        DnsHelper.IsCustomDnsAddressSet(SECOND_CUSTOM_DNS_SERVER);
+
+        HomeRobot
+            .Disconnect()
+            .Verify.IsDisconnected();
     }
 
-    private void NavigateToCustomDnsSetting()
+    private static void NavigateToCustomDnsSetting()
     {
         SettingRobot
             .OpenSettings()
@@ -181,5 +388,11 @@ public class CustomDnsTests : BaseTest
 
         AdvancedSettingsRobot
             .NavigateToCustomDns();
+    }
+
+    [OneTimeTearDown]
+    public void OneTimeTearDown()
+    {
+        Cleanup();
     }
 }

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,38 +17,37 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Common.Legacy.Vpn;
+using ProtonVPN.Common.Core.Networking;
 
-namespace ProtonVPN.Vpn.Common
+namespace ProtonVPN.Vpn.Common;
+
+internal static class VpnStateExtensions
 {
-    internal static class VpnStateExtensions
+    public static VpnState WithRemoteIp(this VpnState state, string remoteIp, int port, string label)
     {
-        public static VpnState WithRemoteIp(this VpnState state, string remoteIp, int port, string label)
-        {
-            return new(
-                state.Status,
-                state.Error,
-                state.LocalIp,
-                remoteIp,
-                port,
-                state.VpnProtocol,
-                state.PortForwarding,
-                state.OpenVpnAdapter,
-                label);
-        }
+        return new(
+            state.Status,
+            state.Error,
+            state.LocalIp ?? string.Empty,
+            remoteIp,
+            port,
+            state.VpnProtocol,
+            state.PortForwarding,
+            state.OpenVpnAdapter,
+            label);
+    }
 
-        public static VpnState WithError(this VpnState state, VpnError error)
-        {
-            return new(
-                state.Status,
-                error,
-                state.LocalIp,
-                state.RemoteIp,
-                state.EndpointPort,
-                state.VpnProtocol,
-                state.PortForwarding,
-                state.OpenVpnAdapter,
-                state.Label);
-        }
+    public static VpnState WithError(this VpnState state, VpnError error)
+    {
+        return new(
+            state.Status,
+            error,
+            state.LocalIp ?? string.Empty,
+            state.RemoteIp,
+            state.EndpointPort,
+            state.VpnProtocol,
+            state.PortForwarding,
+            state.OpenVpnAdapter,
+            state.Label);
     }
 }

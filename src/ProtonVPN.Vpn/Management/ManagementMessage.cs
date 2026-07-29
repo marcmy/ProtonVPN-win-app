@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,23 +17,22 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace ProtonVPN.Vpn.Management
+namespace ProtonVPN.Vpn.Management;
+
+/// <summary>
+/// Message to be sent to the OpenVPN management interface.
+/// </summary>
+public class ManagementMessage
 {
-    /// <summary>
-    /// Message to be send to OpenVPN management interface.
-    /// </summary>
-    internal class ManagementMessage
+    private readonly string _messageText;
+
+    public ManagementMessage(string messageText, string logText)
     {
-        private readonly string _messageText;
-
-        public ManagementMessage(string messageText, string logText)
-        {
-            _messageText = messageText;
-            LogText = logText;
-        }
-
-        public string LogText { get; }
-
-        public override string ToString() => _messageText;
+        _messageText = messageText;
+        LogText = logText;
     }
+
+    public string LogText { get; }
+
+    public override string ToString() => _messageText;
 }

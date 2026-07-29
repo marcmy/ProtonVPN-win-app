@@ -20,10 +20,7 @@
 using System.IO;
 using System.Threading;
 using System.Diagnostics;
-using System.Collections.Generic;
 using NUnit.Framework;
-using ProtonVPN.UI.Tests.UiTools;
-using ProtonVPN.UI.Tests.Extensions;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
 
@@ -32,6 +29,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [TestFixture]
 [Category("3")]
 [Category("ARM")]
+[Category("SMOKE_3")]
 public class SplitTunnelingIncludeTests : BaseTest
 {
     private string? _ipAddressNotConnected = null;
@@ -44,19 +42,19 @@ public class SplitTunnelingIncludeTests : BaseTest
     private const string RENAMED_CHROME_FOLDER = @"C:\Program Files\Google\Chrome\Application\chrome_disabled.exe";
 
     private const string APP_NOT_FOUND_TEXT = "Application not found";
-    private const string NO_APP_SELECTED_TEXT = "Select apps";
-    private const string SPLIT_TUNNELING_MODE = "Included apps (1)"; //Excluded apps (1)
-
+    private const string SPLIT_TUNNELING_MODE = "Included apps (1)";
 
     [OneTimeSetUp]
     public void SetUp()
     {
-        _ipAddressNotConnected = NetworkUtils.GetIpAddressWithRetry();
-        LaunchApp();
+        LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
+        NetworkUtils.AssertInternetAvailability(true);
+        _ipAddressNotConnected = NetworkUtils.GetIpAddressWithRetry();
     }
 
     [Test, Order(0)]
+    [Property("TestCaseId", "602416")]
     public void SplitTunnelingIncludeIpAddress()
     {
         SettingRobot
@@ -64,7 +62,7 @@ public class SplitTunnelingIncludeTests : BaseTest
             .OpenSplitTunnelingSettings();
 
         SplitTunnelingRobot
-            .ToggleSplitTunnelingSwitch()
+            .EnableSplitTunnelingToggle()
             .SelectIncludeMode()
             .EditSplitTunnelingIps();
 
@@ -73,7 +71,8 @@ public class SplitTunnelingIncludeTests : BaseTest
             .AddIpAddress(IP_ADDRESS_TO_INCLUDE)
             .Verify.WasIpAdded(IP_ADDRESS_TO_INCLUDE);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .ApplySettings()
@@ -87,6 +86,7 @@ public class SplitTunnelingIncludeTests : BaseTest
     }
 
     [Test, Order(1)]
+    [Property("TestCaseId", "602415")]
     public void SplitTunnelingDisableIpAddress()
     {
         SettingRobot
@@ -99,7 +99,8 @@ public class SplitTunnelingIncludeTests : BaseTest
             .Verify.IsIpSelectorOpened()
             .TickIpAddressCheckBox(IP_ADDRESS_TO_INCLUDE);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .Reconnect();
@@ -111,6 +112,7 @@ public class SplitTunnelingIncludeTests : BaseTest
     }
 
     [Test, Order(2)]
+    [Property("TestCaseId", "787610")]
     public void SplitTunnelingIncludeModeApp()
     {
         SettingRobot
@@ -120,34 +122,35 @@ public class SplitTunnelingIncludeTests : BaseTest
         SplitTunnelingRobot
             .EditSplitTunnelingApps();
         AppSelectorRobot
-            .Verify.AssertAppAvailability(APP_TO_INCLUDE, true)
+            .Verify.AssertAppAvailability(APP_TO_INCLUDE, shouldBeAvailable: true)
             .AddSuggestedApp(APP_TO_INCLUDE)
             .Verify.IsAppChecked(APP_TO_INCLUDE);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .Reconnect();
 
         HomeRobot
             .Verify.IsConnected();
+
         string? ipAddressToCompare = HomeRobot.GetVpnServerIp();
 
-        BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_INCLUDE, true, ipAddressToCompare);
-        BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, false, ipAddressToCompare);
+        BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_INCLUDE, hasVpn: true, ipAddressToCompare);
+        BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, hasVpn: false, ipAddressToCompare);
         BrowserUtils.KillAllBrowsers();
 
         HomeRobot
             .Disconnect()
             .Verify.IsDisconnected();
 
-        ConfirmationRobot.DismissExcludedLocationsPrompt();
-
-        BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_INCLUDE, false, ipAddressToCompare);
-        BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, false, ipAddressToCompare);
+        BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_INCLUDE, hasVpn: false, ipAddressToCompare);
+        BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, hasVpn: false, ipAddressToCompare);
     }
 
     [Test, Order(3)]
+    [Property("TestCaseId", "724450")]
     public void SplitTunnelingWithUninstalledApp()
     {
         SettingRobot
@@ -158,7 +161,7 @@ public class SplitTunnelingIncludeTests : BaseTest
             .EditSplitTunnelingApps();
         AppSelectorRobot
             .Verify.IsAppChecked(APP_TO_INCLUDE)
-                   .AssertAppAvailability(APP_TO_INCLUDE, true);
+                   .AssertAppAvailability(APP_TO_INCLUDE, shouldBeAvailable: true);
         ConfirmationRobot
             .CancelAction();
 
@@ -167,21 +170,23 @@ public class SplitTunnelingIncludeTests : BaseTest
 
         HomeRobot
             .ConnectViaConnectionCard()
-            .Verify.IsConnected()
-            .HoverOverSplitTunnelingFlyoutWidget();
-        IsSplitTunnelingAppInFlyoutMenu(true, SPLIT_TUNNELING_MODE);
+            .Verify.IsConnected();
+        FeaturesRobot
+            .HoverOverSplitTunnelingWidget();
+        VerifyIsSplitTunnelingAppInFlyoutMenu(isAppAvailable: true);
 
         HomeRobot
             .ClickOnConnectionCardTitle();
 
+        BrowserUtils.KillAllBrowsers();
         RenameChrome();
-        Thread.Sleep(1_000);
+        Thread.Sleep(TestConstants.OneSecondTimeout);
 
-        HomeRobot
-            .HoverOverSplitTunnelingFlyoutWidget();
-        IsSplitTunnelingAppInFlyoutMenu(false, SPLIT_TUNNELING_MODE);
+        FeaturesRobot
+            .HoverOverSplitTunnelingWidget();
+        VerifyIsSplitTunnelingAppInFlyoutMenu(isAppAvailable: false);
 
-        Thread.Sleep(1_000);
+        Thread.Sleep(TestConstants.OneSecondTimeout);
         //it glitches after the hover, so clicking the sidebar just in case
         SidebarRobot
             .ClickOnSidebar();
@@ -193,35 +198,35 @@ public class SplitTunnelingIncludeTests : BaseTest
         SplitTunnelingRobot
             .EditSplitTunnelingApps();
         AppSelectorRobot
-            .Verify.AssertAppAvailability(APP_TO_INCLUDE, false)
-                   .AssertAppAvailability(APP_NOT_FOUND_TEXT, true);
+            .Verify.AssertAppAvailability(APP_TO_INCLUDE, shouldBeAvailable: false)
+                   .AssertAppAvailability(APP_NOT_FOUND_TEXT, shouldBeAvailable: true);
     }
 
-    private void IsSplitTunnelingAppInFlyoutMenu(bool isAppAvailable, string splitTunnelingMode)
+    private static void VerifyIsSplitTunnelingAppInFlyoutMenu(bool isAppAvailable)
     {
-        Thread.Sleep(TestConstants.OneSecondTimeout);
         string appName = isAppAvailable ? APP_TO_INCLUDE : APP_NOT_FOUND_TEXT;
 
-        List<string> allChildren = Element.ByAutomationId("WidgetFlyout").GetAllChildrenNames();
-        Assert.That(allChildren, isAppAvailable ? Does.Contain(splitTunnelingMode) : Does.Contain(splitTunnelingMode.Replace("1", "0")));
-        Assert.That(allChildren, isAppAvailable ? Does.Not.Contain(NO_APP_SELECTED_TEXT) : Does.Contain(NO_APP_SELECTED_TEXT));
+        if (isAppAvailable)
+        {
+            FeaturesRobot
+                .Verify.IsSplitTunnelingAppAvailableInFlyoutMenu(SPLIT_TUNNELING_MODE);
+        }
+        else
+        {
+            FeaturesRobot
+                .Verify.IsSplitTunnelingAppUnavailableInFlyoutMenu(SPLIT_TUNNELING_MODE);
+        }
 
         SplitTunnelingRobot
             .EditSplitTunnelingApps();
         AppSelectorRobot
-            .Verify.AssertAppAvailability(appName, true);
+            .Verify.AssertAppAvailability(appName, shouldBeAvailable: true);
         ConfirmationRobot
             .CancelAction();
     }
 
     private static void RenameChrome()
     {
-        foreach (Process process in Process.GetProcessesByName("chrome"))
-        {
-            process.Kill();
-            process.WaitForExit();
-        }
-
         if (File.Exists(ORIGINAL_CHROME_FOLDER))
         {
             File.Move(ORIGINAL_CHROME_FOLDER, RENAMED_CHROME_FOLDER);

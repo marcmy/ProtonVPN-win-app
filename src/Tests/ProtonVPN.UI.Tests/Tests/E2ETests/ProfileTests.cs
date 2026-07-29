@@ -17,19 +17,20 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
 using System.Threading;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
-using static ProtonVPN.UI.Tests.TestsHelper.TestConstants;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
 [TestFixture]
 [Category("2")]
 [Category("ARM")]
+[Category("SMOKE_4")]
 public class ProfileTests : BaseTest
 {
     private const string PROFILE_NAME = "Profile A";
@@ -50,21 +51,22 @@ public class ProfileTests : BaseTest
 
     private static readonly string[] _defaultProfiles = { "Streaming US", "Gaming", "P2P", "Max security", "Work/School" };
 
-    private static readonly (string profileName, ConnectionType connectionType, string countryName, TestConstants.Protocol protocol)[] _profiles =
+    private static readonly (string profileName, ConnectionType connectionType, string countryName, Protocol protocol)[] _profiles =
     {
-        (profileName: "Profile 1", connectionType: ConnectionType.Standard, countryName: "Argentina", protocol: TestConstants.Protocol.OpenVpnUdp),
-        (profileName: "Profile 2", connectionType: ConnectionType.P2P, countryName: "Bosnia and Herzegovina", protocol: TestConstants.Protocol.WireGuardTcp),
-        (profileName: "Profile 3", connectionType: ConnectionType.SecureCore, countryName: "Egypt", protocol: TestConstants.Protocol.WireGuardUdp)
+        (profileName: "Profile 1", connectionType: ConnectionType.Standard, countryName: "Argentina", protocol: Protocol.OpenVpnUdp),
+        (profileName: "Profile 2", connectionType: ConnectionType.P2P, countryName: "Belgium", protocol: Protocol.WireGuardTcp),
+        (profileName: "Profile 3", connectionType: ConnectionType.SecureCore, countryName: "Egypt", protocol: Protocol.WireGuardUdp)
     };
 
     [OneTimeSetUp]
     public void SetUp()
     {
-        LaunchApp();
+        LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
     }
 
     [Test, Order(0)]
+    [Property("TestCaseId", "247")]
     public void VerifyDefaultProfilesExist()
     {
         NavigationRobot
@@ -80,6 +82,7 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(1)]
+    [Property("TestCaseId", "602398")]
     public void EmptyProfileList()
     {
         NavigationRobot
@@ -92,6 +95,7 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(2)]
+    [Property("TestCaseId", "602399")]
     public void CreateProfile()
     {
         SidebarRobot
@@ -108,6 +112,7 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(3)]
+    [Property("TestCaseId", "602400")]
     public void ConnectToProfileAndDisconnect()
     {
         SidebarRobot
@@ -129,6 +134,7 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(4)]
+    [Property("TestCaseId", "602401")]
     public void EditProfile()
     {
         SidebarRobot
@@ -159,6 +165,7 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(5)]
+    [Property("TestCaseId", "602402")]
     public void DeleteProfile()
     {
         SidebarRobot
@@ -182,6 +189,7 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(6)]
+    [Property("TestCaseId", "254")]
     public void DiscardNewProfile()
     {
         SidebarRobot
@@ -201,6 +209,8 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(7)]
+    [Property("TestCaseId", "610978")]
+    [Retry(3)]
     public void ConnectAndGoWebsite()
     {
         BrowserUtils.KillAllBrowsers();
@@ -222,9 +232,6 @@ public class ProfileTests : BaseTest
             .Verify.IsConnected()
                    .ConnectionCardTitleEquals(WEBSITE_PROFILE_NAME);
 
-        // Giving it some time for the app to open
-        Thread.Sleep(TestConstants.FiveSecondsTimeout);
-
         DesktopRobot
             .Verify.IsWindowTitlePresent(WEBSITE_TO_ASSERT);
 
@@ -232,6 +239,8 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(8)]
+    [Property("TestCaseId", "760486")]
+    [Retry(3)]
     public void ConnectAndGoApp()
     {
         BrowserUtils.KillAllBrowsers();
@@ -254,9 +263,6 @@ public class ProfileTests : BaseTest
             .Verify.IsConnected()
                    .ConnectionCardTitleEquals(APP_PROFILE_NAME);
 
-        // Giving it some time for the app to open
-        Thread.Sleep(TestConstants.TenSecondsTimeout);
-
         DesktopRobot
             .Verify.IsWindowTitlePresent(APP_TO_OPEN);
 
@@ -264,8 +270,13 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(9)]
+    [Property("TestCaseId", "610977")]
     public void ConnectWithCustomSettings()
     {
+        BrowserUtils.KillAllBrowsers();
+
+        CloseLeftoverProfilePage();
+
         SidebarRobot
             .NavigateToProfiles()
             .ClickCreateProfile();
@@ -290,9 +301,11 @@ public class ProfileTests : BaseTest
             .Verify.IsConnecting()
                    .IsConnected()
                    .ConnectionCardTitleEquals(CUSTOM_SETTINGS_PROFILE_NAME)
-                   .ConnectionCardDescriptionContains(CONNECTION_CARD_DESCRIPTION)
-                   .IsPortForwardingEnabled()
-                   .IsProtocolDisplayed(CUSTOM_SETTINGS_PROTOCOL);
+                   .ConnectionCardDescriptionContains(CONNECTION_CARD_DESCRIPTION);
+        FeaturesRobot
+            .Verify.IsPortForwardingEnabled();
+        HomeRobot
+            .Verify.IsProtocolDisplayed(CUSTOM_SETTINGS_PROTOCOL);
 
         SettingRobot
             .Verify.IsNetshieldBlocking(NetShieldMode.BlockAdsMalwareTrackersAdultContent);
@@ -301,42 +314,43 @@ public class ProfileTests : BaseTest
     }
 
     [Test, Order(10)]
+    [Property("TestCaseId", "602437")]
     [Retry(3)]
-    public void ConnectToDifferentProfilesWithDifferentConnectionTypesAndProtocols()
+    [TestCaseSource(nameof(_profiles))]
+    public void ConnectToDifferentProfilesWithDifferentConnectionTypesAndProtocols((string profileName, ConnectionType connectionType, string countryName, Protocol protocol) profile)
     {
+        CloseLeftoverProfilePage();
+
         SidebarRobot
             .NavigateToProfiles();
 
-        foreach ((string profileName, ConnectionType connectionType, string countryName, TestConstants.Protocol protocol) _profile in _profiles)
+        CreateProfile(profile.profileName, profile.connectionType, profile.countryName, profile.protocol);
+
+        SidebarRobot
+            .ConnectToProfile(profile.profileName);
+
+        HomeRobot
+            .Verify.IsConnected()
+                   .ConnectionCardTitleEquals(profile.profileName)
+                   .ConnectionCardDescriptionContains(profile.countryName)
+                   .IsProtocolDisplayed(profile.protocol);
+
+        if (profile.connectionType == ConnectionType.P2P)
         {
-            CreateProfile(_profile.profileName, _profile.connectionType, _profile.countryName, _profile.protocol);
-
-            SidebarRobot
-                .ConnectToProfile(_profile.profileName);
-
             HomeRobot
-                .Verify.IsConnected()
-                       .ConnectionCardTitleEquals(_profile.profileName)
-                       .ConnectionCardDescriptionContains(_profile.countryName)
-                       .IsProtocolDisplayed(_profile.protocol);
-
-            if (_profile.connectionType == ConnectionType.P2P)
-            {
-                HomeRobot
-                    .Verify.IsP2PConnection();
-            }
-
-            if (_profile.connectionType == ConnectionType.SecureCore)
-            {
-                HomeRobot.Verify
-                    .ConnectionCardDescriptionContains(" via ");
-            }
-
-            //TODO: The map highlights the country of the server;
+                .Verify.IsP2PConnection();
         }
+
+        if (profile.connectionType == ConnectionType.SecureCore)
+        {
+            HomeRobot.Verify
+                .ConnectionCardDescriptionContains(" via ");
+        }
+
+        //TODO: The map highlights the country of the server;
     }
 
-    private void CreateProfile(string profileName, ConnectionType connectionType, string country, TestConstants.Protocol protocol)
+    private void CreateProfile(string profileName, ConnectionType connectionType, string country, Protocol protocol)
     {
         SidebarRobot
             .ClickCreateProfile();
@@ -378,6 +392,19 @@ public class ProfileTests : BaseTest
         ProfileRobot
             .SaveProfile();
         Thread.Sleep(TestConstants.AnimationDelay);
+    }
+
+    private void CloseLeftoverProfilePage()
+    {
+        try
+        {
+            ProfileRobot.CloseProfile();
+            ConfirmationRobot.PrimaryAction();
+        }
+        catch (TimeoutException)
+        {
+            //do nothing
+        }
     }
 
     [OneTimeTearDown]

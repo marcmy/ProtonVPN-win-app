@@ -40,6 +40,7 @@ public class RequiredReconnectionSettings : IRequiredReconnectionSettings
             {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => false},
             {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => false},
 
+            {nameof(ISettings.AreProtonProtocolsEnabled), () => true},
             {nameof(ISettings.VpnProtocol), () => true},
             {nameof(ISettings.OpenVpnAdapter), () => true},
             {nameof(ISettings.IsIpv6LeakProtectionEnabled), () => true},

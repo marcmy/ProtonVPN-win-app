@@ -18,7 +18,6 @@
  */
 
 using NUnit.Framework;
-using ProtonVPN.UI.Tests.Extensions;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
@@ -28,6 +27,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [TestFixture]
 [Category("3")]
 [Category("ARM")]
+[Category("SMOKE_3")]
 public class RecentsTests : BaseTest
 {
     private const string CONNECTION_NAME = "Fastest country";
@@ -37,11 +37,12 @@ public class RecentsTests : BaseTest
     [OneTimeSetUp]
     public void SetUp()
     {
-        LaunchApp();
+        LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
     }
 
     [Test, Order(0)]
+    [Property("TestCaseId", "602418")]
     public void RecentIsAddedToList()
     {
         SidebarRobot
@@ -53,8 +54,6 @@ public class RecentsTests : BaseTest
             .Verify.IsConnected()
             .Disconnect()
             .Verify.IsDisconnected();
-
-        ConfirmationRobot.DismissExcludedLocationsPrompt();
 
         SidebarRobot
             .Verify.HasNoRecentsLabel()
@@ -75,6 +74,7 @@ public class RecentsTests : BaseTest
     }
 
     [Test, Order(1)]
+    [Property("TestCaseId", "602425")]
     public void ProfilesAreAddedToRecentList()
     {
         SidebarRobot
@@ -93,6 +93,7 @@ public class RecentsTests : BaseTest
     }
 
     [Test, Order(2)]
+    [Property("TestCaseId", "602419")]
     public void RemoveRecentFromList()
     {
         SidebarRobot
@@ -103,6 +104,7 @@ public class RecentsTests : BaseTest
     }
 
     [Test, Order(3)]
+    [Property("TestCaseId", "602420")]
     public void PinRecentFromList()
     {
         SidebarRobot
@@ -116,6 +118,7 @@ public class RecentsTests : BaseTest
     }
 
     [Test, Order(4)]
+    [Property("TestCaseId", "800922")]
     public void UnpinRecentFromList()
     {
         SidebarRobot

@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using ProtonVPN.Common.Core.Helpers;
+using ProtonVPN.Common.Core.LocalAgent;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy.Threading;
 using ProtonVPN.Common.Legacy.Vpn;
@@ -36,7 +37,9 @@ using ProtonVPN.Service.ControllerRetries;
 using ProtonVPN.Service.ProcessCommunication;
 using ProtonVPN.Service.ServerHealth;
 using ProtonVPN.Service.Settings;
-using ProtonVPN.Vpn.Common;
+using ProtonVPN.Service.StateMachine;
+using ProtonVPN.Service.Vpn;
+using ProtonVPN.Vpn.Connection;
 using ProtonVPN.Vpn.LocalAgent;
 using ProtonVPN.Vpn.PortMapping;
 
@@ -44,7 +47,6 @@ namespace ProtonVPN.Service;
 
 public class VpnController : IVpnController
 {
-    private readonly IVpnConnection _vpnConnection;
     private readonly ILogger _logger;
     private readonly IServiceSettings _serviceSettings;
     private readonly ITaskQueue _taskQueue;
@@ -54,9 +56,12 @@ public class VpnController : IVpnController
     private readonly ILocalAgentTlsCredentialsCache _localAgentTlsCredentialsCache;
     private readonly IControllerRetryManager _controllerRetryManager;
     private readonly IServerHealthProbeService _serverHealthProbeService;
+    private readonly IVpnConnectionStateMachine _stateMachine;
+    private readonly ITunnelOrchestrator _tunnelOrchestrator;
+    private readonly ILocalAgent _localAgent;
+    private readonly ILocalAgentEventReceiver _localAgentEventReceiver;
 
     public VpnController(
-        IVpnConnection vpnConnection,
         ILogger logger,
         IServiceSettings serviceSettings,
         ITaskQueue taskQueue,
@@ -65,9 +70,12 @@ public class VpnController : IVpnController
         IEntityMapper entityMapper,
         ILocalAgentTlsCredentialsCache localAgentTlsCredentialsCache,
         IControllerRetryManager controllerRetryManager,
+        IVpnConnectionStateMachine stateMachine,
+        ITunnelOrchestrator tunnelOrchestrator,
+        ILocalAgent localAgent,
+        ILocalAgentEventReceiver localAgentEventReceiver,
         IServerHealthProbeService serverHealthProbeService)
     {
-        _vpnConnection = vpnConnection;
         _logger = logger;
         _serviceSettings = serviceSettings;
         _taskQueue = taskQueue;
@@ -76,6 +84,10 @@ public class VpnController : IVpnController
         _entityMapper = entityMapper;
         _localAgentTlsCredentialsCache = localAgentTlsCredentialsCache;
         _controllerRetryManager = controllerRetryManager;
+        _stateMachine = stateMachine;
+        _tunnelOrchestrator = tunnelOrchestrator;
+        _localAgent = localAgent;
+        _localAgentEventReceiver = localAgentEventReceiver;
         _serverHealthProbeService = serverHealthProbeService;
     }
 
@@ -86,16 +98,29 @@ public class VpnController : IVpnController
 
         _logger.Info<ConnectLog>("Connect requested");
 
+        if (_stateMachine.LastError == VpnError.BaseFilteringEngineServiceNotRunning || cancelToken.IsCancellationRequested)
+        {
+            return;
+        }
+
         _serviceSettings.Apply(connectionRequest.Settings);
 
         VpnConfig config = _entityMapper.Map<VpnConfigIpcEntity, VpnConfig>(connectionRequest.Config);
         config.OpenVpnAdapter = _serviceSettings.OpenVpnAdapter;
         IReadOnlyList<VpnHost> endpoints = _entityMapper.Map<VpnServerIpcEntity, VpnHost>(connectionRequest.Servers);
         VpnCredentials credentials = _entityMapper.Map<VpnCredentialsIpcEntity, VpnCredentials>(connectionRequest.Credentials);
-        _localAgentTlsCredentialsCache.Set(new LocalAgentTlsCredentials(
+        if (string.IsNullOrEmpty(credentials.ClientCertPem) &&
+            string.IsNullOrEmpty(credentials.Username) &&
+            string.IsNullOrEmpty(credentials.Password))
+        {
+            _logger.Error<ConnectLog>("Connection credentials are missing, aborting connection.");
+            return;
+        }
+
+        await _localAgentTlsCredentialsCache.SetAsync(new LocalAgentTlsCredentials(
             new ConnectionCertificate(credentials.ClientCertPem, credentials.ClientCertificateExpirationDateUtc),
-            credentials.ClientKeyPair));
-        _vpnConnection.Connect(endpoints, config, credentials);
+            credentials.ClientKeyPair), cancelToken);
+        _stateMachine.Connect(endpoints, config, credentials);
     }
 
     public async Task Disconnect(DisconnectionRequestIpcEntity disconnectionRequest, CancellationToken cancelToken)
@@ -105,18 +130,21 @@ public class VpnController : IVpnController
 
         _logger.Info<DisconnectLog>($"Disconnect requested (Error: {disconnectionRequest.ErrorType})");
         _serviceSettings.Apply(disconnectionRequest.Settings);
-        _vpnConnection.Disconnect((VpnError)disconnectionRequest.ErrorType);
+
+        VpnError error = _entityMapper.Map<VpnErrorTypeIpcEntity, VpnError>(disconnectionRequest.ErrorType);
+
+        _stateMachine.Disconnect(error);
     }
 
     public async Task UpdateLocalAgentTlsCredentialsAsync(LocalAgentTlsCredentialsIpcEntity credentialsIpcEntity, CancellationToken cancelToken)
     {
         LocalAgentTlsCredentials credentials = _entityMapper.Map<LocalAgentTlsCredentialsIpcEntity, LocalAgentTlsCredentials>(credentialsIpcEntity);
-        _localAgentTlsCredentialsCache.Set(credentials);
+        await _localAgentTlsCredentialsCache.SetAsync(credentials, cancelToken);
     }
 
-    public async Task<NetworkTrafficIpcEntity> GetNetworkTraffic(CancellationToken cancelToken)
+    public Task<NetworkTrafficIpcEntity> GetNetworkTraffic(CancellationToken cancelToken)
     {
-        return _entityMapper.Map<NetworkTraffic, NetworkTrafficIpcEntity>(_vpnConnection.NetworkTraffic);
+        return Task.FromResult(_entityMapper.Map<NetworkTraffic, NetworkTrafficIpcEntity>(_tunnelOrchestrator.NetworkTraffic));
     }
 
     public Task<ServerHealthProbeResultIpcEntity> ProbeServerHealth(
@@ -148,11 +176,11 @@ public class VpnController : IVpnController
 
     public async Task RequestNetShieldStats(CancellationToken cancelToken)
     {
-        _vpnConnection.RequestNetShieldStats();
+        _localAgent.RequestNetShieldStats();
     }
 
     public async Task RequestConnectionDetails(CancellationToken cancelToken)
     {
-        _vpnConnection.RequestConnectionDetails();
+        await _localAgentEventReceiver.RequestConnectionDetailsAsync(cancelToken);
     }
 }

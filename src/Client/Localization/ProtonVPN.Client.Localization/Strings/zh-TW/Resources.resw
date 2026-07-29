@@ -123,6 +123,9 @@
   <data name="Automation_Properties_ConnectionDetails_Page">
     <value>連線詳細資訊</value>
   </data>
+  <data name="Automation_Properties_ConnectionPreferences_Page">
+    <value>Connection preferences page</value>
+  </data>
   <data name="Automation_Properties_Connection_Card_Component">
     <value>連線資訊卡</value>
   </data>
@@ -184,7 +187,7 @@
     <value>分隔通道</value>
   </data>
   <data name="City_Fastest">
-    <value>Fastest city</value>
+    <value>最快的城市</value>
   </data>
   <data name="City_Random">
     <value>Random city</value>
@@ -207,9 +210,6 @@
   <data name="Common_Actions_Connect">
     <value>連線</value>
   </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>連線</value>
-  </data>
   <data name="Common_Actions_ContactUs">
     <value>聯絡我們</value>
   </data>
@@ -217,9 +217,6 @@
     <value>刪除</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>斷線</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
     <value>斷線</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -241,16 +238,16 @@
     <value>安裝</value>
   </data>
   <data name="Common_Actions_MoveDown">
-    <value>Move Down</value>
+    <value>向下移動</value>
   </data>
   <data name="Common_Actions_MoveUp">
-    <value>Move Up</value>
+    <value>向上移動</value>
   </data>
   <data name="Common_Actions_Reconnect">
     <value>重新連線</value>
   </data>
   <data name="Common_Actions_Refresh">
-    <value>Refresh</value>
+    <value>重新整理</value>
   </data>
   <data name="Common_Actions_Remove">
     <value>移除</value>
@@ -300,7 +297,7 @@
     <comment>This tag indicates that a newer version of the app is currently available</comment>
   </data>
   <data name="Common_Tags_Recommended">
-    <value>Recommended</value>
+    <value>推薦</value>
     <comment>This tag indicates that a given option in the settings is recommended by Proton</comment>
   </data>
   <data name="Components_Update_GetMostFromYourVpn">
@@ -320,6 +317,12 @@
   </data>
   <data name="Connection_Error_AllServersExcluded_Action">
     <value>Excluded locations</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Description">
+    <value>To fix it, close or uninstall the app associated with:</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Title">
+    <value>Another app might be preventing Proton VPN from connecting</value>
   </data>
   <data name="Connection_Error_EditProfile">
     <value>編輯個人資料</value>
@@ -380,6 +383,9 @@
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
     <value>裝置的 WireGuard 配接器現正使用中。請將其它正在裝置上執行的 VPN 予以中斷連線，然後再試一次。</value>
+  </data>
+  <data name="Connection_Feedback_Question">
+    <value>How is your connection?</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
     <value>自動選擇自</value>
@@ -1570,7 +1576,7 @@
     <comment>The name of WS country</comment>
   </data>
   <data name="Country_val_XK">
-    <value>Kosovo</value>
+    <value>科索沃</value>
     <comment>The name of XK country</comment>
   </data>
   <data name="Country_val_YE">
@@ -1843,7 +1849,7 @@
     <value>You unlocked all premium Proton VPN, Mail, Calendar, Drive, and Pass features.</value>
   </data>
   <data name="Dialogs_WelcomeUnlimited_Title">
-    <value>Welcome to {0}</value>
+    <value>歡迎使用 {0}</value>
     <comment>Title to welcome the user after an account upgrade. {0} is a placeholder for the name of the new plan (eg. Proton Unlimited, Proton Duo, Proton Family).</comment>
   </data>
   <data name="Dialogs_WhatsNew_LanConnections_Description">
@@ -1877,7 +1883,7 @@
     <value>If there are locations you don't want to be automatically connected to, you can exclude them from Fastest and Random country.</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Skip">
-    <value>Skip</value>
+    <value>略過</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Title">
     <value>Not the country you wanted?</value>
@@ -2381,6 +2387,12 @@
   <data name="Login_Error_IncorrectTwoFactorCode">
     <value>驗證碼不正確，請重試。</value>
   </data>
+  <data name="Login_Error_MissingSrpDll_Message">
+    <value>A file required for sign-in is missing from your installation. Please reinstall Proton VPN to fix this issue.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Title">
+    <value>無法登入</value>
+  </data>
   <data name="Login_Error_SessionExpired">
     <value>連線逾時，請重新登入。</value>
     <comment>The message displayed in Login window when expired session is detected</comment>
@@ -2405,7 +2417,7 @@
     <value>兩步驟驗證</value>
   </data>
   <data name="Login_TwoFactor_Authenticator">
-    <value>Authenticator app</value>
+    <value>驗證 app</value>
   </data>
   <data name="Login_TwoFactor_Digit1">
     <value>第一個數字</value>
@@ -2458,7 +2470,7 @@
     <comment>A label inside a map pin tooltip. {0} is a placeholder for country, state or city. (eg. "Connect - United States", "Connect - New York")</comment>
   </data>
   <data name="NoServers_ContactUs">
-    <value>Contact us</value>
+    <value>聯絡我們</value>
   </data>
   <data name="NoServers_FailedToLoad">
     <value>We couldn't load the server list.</value>
@@ -2467,7 +2479,7 @@
     <value>Need help?</value>
   </data>
   <data name="NoServers_SignOut">
-    <value>Sign out</value>
+    <value>登出</value>
   </data>
   <data name="NoServers_Tip">
     <value>Ask your administrator to enable VPN access for your account.</value>
@@ -2675,7 +2687,7 @@ VPN 連線</value>
     <value>App</value>
   </data>
   <data name="Profile_Options_Application_Select">
-    <value>Select an app</value>
+    <value>選擇應用程式</value>
   </data>
   <data name="Profile_Options_ConnectAndGo_Application">
     <value>Open an app</value>
@@ -2753,7 +2765,7 @@ VPN 連線</value>
     <value>伺服器</value>
   </data>
   <data name="Server_Fastest">
-    <value>Fastest server</value>
+    <value>最快速的伺服器</value>
   </data>
   <data name="Server_Fastest_Free">
     <value>最快速的免費伺服器</value>
@@ -2869,7 +2881,7 @@ VPN 連線</value>
     <value>自訂 DNS 伺服器</value>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_AddNew">
-    <value>Add new DNS server</value>
+    <value>加入新增的 DNS 伺服器</value>
     <comment>Label above an input field where users can enter a new DNS server IP address.</comment>
   </data>
   <data name="Settings_Connection_Advanced_CustomDnsServers_Conflict_Description">
@@ -2988,10 +3000,10 @@ VPN 連線</value>
     <value>Excluded locations</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Cities">
-    <value>Cities</value>
+    <value>城市</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Countries">
-    <value>Countries</value>
+    <value>國家</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Description">
     <value>The selected locations will never be used when you connect to Fastest or Random</value>
@@ -3000,10 +3012,10 @@ VPN 連線</value>
     <value>No locations available</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Search">
-    <value>Select...</value>
+    <value>選取...</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_States">
-    <value>States</value>
+    <value>州</value>
   </data>
   <data name="Settings_Connection_KillSwitch">
     <value>緊急終止開關</value>
@@ -3100,7 +3112,7 @@ VPN 連線</value>
     <value>Select apps which will be excluded from the VPN connection</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Excluded_FormattedHeader">
-    <value>Excluded apps ({0})</value>
+    <value>排除的應用程式 ({0})</value>
     <comment>Header for the list of apps to exclude for Split Tunneling. {0} is a placeholder for the number of selected apps in the list. (eg. "Excluded apps (2)")</comment>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Excluded_Header">
@@ -3121,7 +3133,7 @@ VPN 連線</value>
     <value>Included apps</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Apps_Select">
-    <value>Select apps</value>
+    <value>選取應用程式</value>
   </data>
   <data name="Settings_Connection_SplitTunneling_Description">
     <value>透過決定哪些應用程式和 IP 位址受到 VPN 保護，來自訂您的連線設定。</value>
@@ -3282,6 +3294,30 @@ VPN 連線</value>
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
+  <data name="Settings_Protocols_ProTunTcp_Description">
+    <value>Our new WireGuard-based framework for increased stability, functionality, and censorship resistance.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTcp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Description">
+    <value>Our new WireGuard-based framework for increased stability, functionality, and censorship resistance.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Title">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Description">
+    <value>Our new WireGuard-based framework for increased stability, functionality, and censorship resistance.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Description">
+    <value>Use Proton VPN's own implementation of WireGuard. This is an experimental feature, so you may experience some instability.</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Title">
+    <value>Proton protocols</value>
+  </data>
   <data name="Settings_Protocols_Smart_Description">
     <value>自動為您選擇最適合的通訊協定。</value>
   </data>
@@ -3335,6 +3371,15 @@ VPN 連線</value>
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnUdp">
     <value>OpenVPN (UDP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunUdp">
+    <value>Proton WireGuard (UDP)</value>
   </data>
   <data name="Settings_SelectedProtocol_Smart">
     <value>Smart</value>
@@ -3486,19 +3531,25 @@ VPN 連線</value>
   <data name="SystemNotification_StreamingWarning_Title">
     <value>Blocked website?</value>
   </data>
-  <data name="Tray_Actions_ExitApplication">
-    <value>離開</value>
+  <data name="System_Tray_Actions_Connect">
+    <value>連線</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
+    <value>斷線</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
     <value>離開</value>
   </data>
-  <data name="Tray_Actions_OpenApplication">
-    <value>Open {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
-  </data>
   <data name="System_Tray_Actions_OpenApplication">
     <value>Open {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="Tray_Actions_ExitApplication">
+    <value>離開</value>
+  </data>
+  <data name="Tray_Actions_OpenApplication">
+    <value>Open {0}</value>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
     <value>開啟應用程式以登入。</value>
@@ -3721,6 +3772,24 @@ VPN 連線</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
     <value>已建立、經過良好測試且安全。</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp_Description">
+    <value>State-of-the-art protocol for security and performance</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls_Description">
+    <value>Overcomes VPN blocks by hiding your connection from censors</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp">
+    <value>Proton WireGuard (UDP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp_Description">
+    <value>State-of-the-art protocol for security and performance</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2025 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -18,10 +18,12 @@
  */
 
 using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using NUnit.Framework;
+using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
@@ -35,6 +37,21 @@ public class PortForwardingTests : FreshSessionSetUp
 {
     private const string COUNTRY_NAME = "Austria";
 
+    private const string ENABLE_MODERATE_NAT_TITLE = "Enable Moderate NAT?";
+    private const string ENABLE_MODERATE_NAT_DESCRIPTION = "You won't be able to use port forwarding with Moderate NAT.";
+
+    private const string ENABLE_PORT_FORWARDING_TITLE = "Enable port forwarding?";
+    private const string ENABLE_PORT_FORWARDING_DESCRIPTION = "You won't be able to use Moderate NAT when port forwarding is enabled.";
+
+    private const string ENABLE_BUTTON = "Enable";
+
+    private const string MODERATE_NAT_ENABLED_LINE_TO_LOOK_FOR = "\"randomized-nat\": false, \"port-forwarding\": false";
+    private const string MODERATE_NAT_DISABLED_LINE_TO_LOOK_FOR = "\"randomized-nat\": true, \"port-forwarding\": true";
+
+    private static readonly string _serviceLogsPath = TestEnvironment.GetServiceLogsPath();
+
+    private static readonly List<string> _serversWithoutP2PSupport = ["FI#3", "MD#48"];
+
     [SetUp]
     public void SetUp()
     {
@@ -42,10 +59,11 @@ public class PortForwardingTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602439")]
     [Retry(3)]
-    public async Task PortForwardingOpensThePortAsync()
+    public void PortForwardingOpensThePort()
     {
-        TorrentHelper.AllowAriaFirewallScript();
+        TorrentHelper.AllowTorrentFirewall();
         TorrentHelper.StopAndCleanup();
 
         EnablePortForwardingAndConnect();
@@ -53,50 +71,180 @@ public class PortForwardingTests : FreshSessionSetUp
         string? ipAddressConnected = HomeRobot.GetVpnServerIp();
         Assert.That(ipAddressConnected, Is.Not.Null);
 
-        SettingRobot.ClickCopyPortNumber();
+        FeaturesRobot.ClickCopyPortNumberFromActivePortSection();
         int forwardedPort = GetForwardedPortFromClipboard();
 
-        await TorrentHelper.StartTorrentOnPortAsync(forwardedPort);
-
-        await TorrentHelper.IsPortOpenAsync(ipAddressConnected!, forwardedPort);
-
-        TorrentHelper.StopAndCleanup();
+        try
+        {
+            TorrentHelper.StartTorrentOnPort(forwardedPort);
+            Window?.Focus();
+            TorrentHelper.IsPortOpen(ipAddressConnected!, forwardedPort);
+        }
+        finally
+        {
+            TorrentHelper.StopAndCleanup();
+            CommonUiFlows.EnsureUserIsDisconnected();
+        }
     }
 
     [Test]
-    public void VerifyCopiedPortForwardingNotification()
+    [Property("TestCaseId", "602440")]
+    public void PortForwardingIsDisabledWhenModerateNatIsEnabled()
     {
-        EnablePortForwardingAndConnect();
+        SettingRobot
+            .OpenSettings()
+            .OpenPortForwardingSettings()
+            .EnablePortForwarding()
+            .ApplySettings()
+            .OpenAdvancedSettings();
+        AdvancedSettingsRobot
+            .SelectNatType(NatType.Moderate);
+
+        ConfirmationRobot
+            .Verify.IsOverlayDisplayed()
+                   .OverlayTextContains(ENABLE_MODERATE_NAT_TITLE)
+                   .OverlayTextContains(ENABLE_MODERATE_NAT_DESCRIPTION)
+                   .OverlayButtonsEquals(primary: ENABLE_BUTTON)
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
-            .ClickCopyPortNumber();
+            .ApplySettings()
+            .Verify.IsPortForwardingDisabledStateDisplayed()
+            .CloseSettings();
 
-        int uiPort = GetForwardedPortFromClipboard();
+        ConnectAndVerify();
 
-        DesktopRobot.Verify
-            .IsDisplayed()
-            .PortMatchesUI(uiPort)
-            .ClickCopyMatchesUI(uiPort);
+        WindowsUtils.AssertLogFile(_serviceLogsPath, MODERATE_NAT_ENABLED_LINE_TO_LOOK_FOR);
+
+        CommonUiFlows.EnsureUserIsDisconnected();
     }
 
     [Test]
-    public void VerifyPortForwardingHoverOver()
+    [Property("TestCaseId", "786553")]
+    public void ModerateNatIsDisabledWhenPortForwardingIsEnabled()
     {
-        EnablePortForwardingAndConnect();
+        SettingRobot
+            .OpenSettings()
+            .OpenAdvancedSettings();
+        AdvancedSettingsRobot
+            .SelectNatType(NatType.Moderate);
+        SettingRobot
+            .ApplySettings()
+            .OpenPortForwardingSettings()
+            .EnablePortForwarding();
+
+        ConfirmationRobot
+            .Verify.IsOverlayDisplayed()
+                   .OverlayTextContains(ENABLE_PORT_FORWARDING_TITLE)
+                   .OverlayTextContains(ENABLE_PORT_FORWARDING_DESCRIPTION)
+                   .OverlayButtonsEquals(primary: ENABLE_BUTTON)
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
-            .ClickCopyPortNumber();
+            .ApplySettings()
+            .Verify.IsPortForwardingEnabledStateDisplayed();
 
-        int uiPort = GetForwardedPortFromClipboard();
+        ConnectAndVerify();
+
+        WindowsUtils.AssertLogFile(_serviceLogsPath, MODERATE_NAT_DISABLED_LINE_TO_LOOK_FOR);
+
+        CommonUiFlows.EnsureUserIsDisconnected();
+    }
+
+    [Test]
+    [Retry(3)]
+    [Property("TestCaseId", "602441")]
+    [Category("SMOKE_3")]
+    public void VerifyP2PServerGeneratesPortNumber()
+    {
+        SettingRobot
+            .OpenSettings()
+            .Verify.AreNotificationsEnabled()
+            .CloseSettings();
+
+        EnablePortForwardingAndConnect();
+
+        FeaturesRobot.ClickCopyPortNumberFromActivePortSection();
+        int widgetMenuPort = GetForwardedPortFromClipboard();
+
+        VerifyPortInToast(widgetMenuPort);
+
+        CopyPortFromFlyoutHover();
+        int flyoutHoverPort = GetForwardedPortFromClipboard();
+
+        CopyPortFromSettings();
+        int settingsPort = GetForwardedPortFromClipboard();
+
+        Assert.That(widgetMenuPort == flyoutHoverPort && flyoutHoverPort == settingsPort,
+            $"Port in Flyout menu ({flyoutHoverPort}) does not match port in UI ({widgetMenuPort}) or settings ({settingsPort}).");
+
+        VerifyPortUnavailableForServerWithoutP2PSupport();
+
+        CommonUiFlows.EnsureUserIsDisconnected();
+    }
+
+    private static void CopyPortFromFlyoutHover()
+    {
+        FeaturesRobot
+            .HoverOverPortForwardingWidget()
+            .Verify.IsLastChangedTimerDisplayed()
+            .ClickCopyPortNumberFromFlyoutMenu();
+    }
+
+    private static void CopyPortFromSettings()
+    {
+        SettingRobot
+            .OpenSettings()
+            .OpenPortForwardingSettings()
+            .ClickCopyPortNumber();
+    }
+
+    private static void VerifyPortUnavailableForServerWithoutP2PSupport()
+    {
+        ConnectToServerWithoutP2PSupport();
 
         DesktopRobot
-            .HoverOverPortForwarding()
-            .ClickHoverCopyPort();
+            .Verify.IsToastNotDisplayed();
 
-        int hoverPort = GetForwardedPortFromClipboard();
+        FeaturesRobot
+            .HoverOverPortForwardingWidget()
+            .Verify.IsPortUnavailable();
+    }
 
-        Assert.That(hoverPort, Is.EqualTo(uiPort),
-                $"Port in toast ({hoverPort}) does not match port in UI ({uiPort}).");
+    private static void ConnectToServerWithoutP2PSupport()
+    {
+        StringBuilder failureMessages = new();
+
+        foreach (string server in _serversWithoutP2PSupport)
+        {
+            try
+            {
+                SidebarRobot
+                    .SearchFor(server)
+                    .ConnectToServer(server);
+
+                HomeRobot
+                    .Verify.ConnectionCardDescriptionContains(server);
+
+                return;
+            }
+            catch (Exception e)
+            {
+                failureMessages.AppendLine($"Failed to connect to {server}: {e.Message}");
+            }
+        }
+
+        Assert.Fail(failureMessages.ToString());
+    }
+
+    private static void VerifyPortInToast(int port)
+    {
+        DesktopRobot
+            .Verify.IsToastDisplayed()
+            .DoesToastPortMatchUI(port)
+            .DoesToastCopyPortMatchUI(port);
     }
 
     private static void EnablePortForwardingAndConnect()
@@ -104,14 +252,18 @@ public class PortForwardingTests : FreshSessionSetUp
         SettingRobot
             .OpenSettings()
             .OpenPortForwardingSettings()
-            .TogglePortForwardingnSetting()
+            .EnablePortForwarding()
             .ApplySettings()
             .CloseSettings();
 
+        ConnectAndVerify();
+    }
+
+    private static void ConnectAndVerify()
+    {
         SidebarRobot
             .NavigateToP2PCountriesTab()
             .ConnectToCountry(COUNTRY_NAME);
-
         HomeRobot
             .Verify.IsConnected();
     }
@@ -133,5 +285,11 @@ public class PortForwardingTests : FreshSessionSetUp
         }
 
         return port;
+    }
+
+    [OneTimeTearDown]
+    public void TearDown()
+    {
+        DesktopRobot.Dispose();
     }
 }

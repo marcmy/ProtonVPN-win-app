@@ -33,7 +33,7 @@ public class LoginSLIs : SliSetUp
     [OneTimeSetUp]
     public void TestInitialize()
     {
-        LaunchApp();
+        LaunchClient();
     }
 
     [Test]
@@ -49,9 +49,8 @@ public class LoginSLIs : SliSetUp
 
         SliHelper.MeasureTime(() =>
         {
-            HomeRobot.Verify.IsWelcomeModalDisplayed();
+            NavigationRobot
+                .Verify.IsOnMainPage();
         });
-
-        HomeRobot.DismissWelcomeModal();
     }
 }

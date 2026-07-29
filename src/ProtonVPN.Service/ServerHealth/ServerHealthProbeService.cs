@@ -40,7 +40,7 @@ using ServiceIpFilter = ProtonVPN.Service.Firewall.IpFilter;
 
 namespace ProtonVPN.Service.ServerHealth;
 
-public sealed class ServerHealthProbeService : IServerHealthProbeService
+internal sealed class ServerHealthProbeService : IServerHealthProbeService
 {
     private const int PROBE_SAMPLE_COUNT = 4;
     private const int PROBE_TIMEOUT_IN_MILLISECONDS = 500;
@@ -53,6 +53,7 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
     private readonly IRoutingTableHelper _routingTableHelper;
     private readonly ServiceIpFilter _ipFilter;
     private readonly IpLayer _ipLayer;
+    private readonly IIpv6 _ipv6;
     private readonly SemaphoreSlim _probeSlots = new(8, 8);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _addressLocks = new(StringComparer.OrdinalIgnoreCase);
 
@@ -62,7 +63,8 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
         ISystemNetworkInterfaces networkInterfaces,
         IRoutingTableHelper routingTableHelper,
         ServiceIpFilter ipFilter,
-        IpLayer ipLayer)
+        IpLayer ipLayer,
+        IIpv6 ipv6)
     {
         _configuration = configuration;
         _serviceSettings = serviceSettings;
@@ -70,13 +72,14 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
         _routingTableHelper = routingTableHelper;
         _ipFilter = ipFilter;
         _ipLayer = ipLayer;
+        _ipv6 = ipv6;
     }
 
     public async Task<ServerHealthProbeResultIpcEntity> ProbeAsync(
         string address,
         CancellationToken cancellationToken)
     {
-        if (!IPAddress.TryParse(address, out IPAddress ipAddress) ||
+        if (!IPAddress.TryParse(address, out IPAddress? ipAddress) ||
             ipAddress.AddressFamily != AddressFamily.InterNetwork)
         {
             return CreateUnavailableResult("Only IPv4 server endpoints can currently be probed directly.");
@@ -114,7 +117,7 @@ public sealed class ServerHealthProbeService : IServerHealthProbeService
         IPAddress ipAddress,
         CancellationToken cancellationToken)
     {
-        string excludedHardwareId = _configuration.GetHardwareId(_serviceSettings.OpenVpnAdapter);
+        string excludedHardwareId = _configuration.GetHardwareId(_ipv6.VpnProtocol, _serviceSettings.OpenVpnAdapter);
         INetworkInterface physicalInterface = _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId);
 
         if (!HasUsableGateway(physicalInterface))

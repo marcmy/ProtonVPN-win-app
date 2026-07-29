@@ -21,6 +21,7 @@ using ProtonVPN.Client.Logic.Users.Contracts.Messages;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.OperatingSystems.Network.Contracts;
 using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
+using ProtonVPN.StatisticalEvents.Contracts.Enums;
 
 namespace ProtonVPN.StatisticalEvents.Contracts.Models;
 
@@ -30,7 +31,8 @@ public class VpnConnectionEventData
     public VpnStatusDimension? VpnStatus { get; init; }
     public VpnTriggerDimension? VpnTrigger { get; init; }
     public NetworkConnectionType? NetworkConnectionType { get; init; }
-    public VpnProtocol? Protocol { get; init; }
+    public VpnProtocol? DesiredProtocol { get; init; }
+    public VpnProtocol? ActualProtocol { get; init; }
     public VpnFeatureIntent? VpnFeatureIntent { get; init; }
     public VpnPlan VpnPlan { get; init; }
     public string? VpnCountry { get; init; }
@@ -41,4 +43,6 @@ public class VpnConnectionEventData
     public bool IsIpv6Enabled { get; init; }
     public required ClientFeaturesEventData ClientFeatures { get; init; }
     public bool HasActiveExclusions { get; init; }
+    public int? FailureCode { get; init; }
+    public UserFeedback? UserFeedback { get; init; }
 }

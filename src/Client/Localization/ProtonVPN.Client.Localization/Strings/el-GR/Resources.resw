@@ -123,6 +123,9 @@
   <data name="Automation_Properties_ConnectionDetails_Page">
     <value>Σελίδα λεπτομερειών σύνδεσης</value>
   </data>
+  <data name="Automation_Properties_ConnectionPreferences_Page">
+    <value>Σελίδα προτιμήσεων σύνδεσης</value>
+  </data>
   <data name="Automation_Properties_Connection_Card_Component">
     <value>Κάρτα σύνδεσης</value>
   </data>
@@ -207,9 +210,6 @@
   <data name="Common_Actions_Connect">
     <value>Σύνδεση</value>
   </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>Σύνδεση</value>
-  </data>
   <data name="Common_Actions_ContactUs">
     <value>Επικοινωνήστε μαζί μας</value>
   </data>
@@ -217,9 +217,6 @@
     <value>Διαγραφή</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>Αποσύνδεση</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
     <value>Αποσύνδεση</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -321,6 +318,12 @@
   <data name="Connection_Error_AllServersExcluded_Action">
     <value>Εξαιρούμενες τοποθεσίες</value>
   </data>
+  <data name="Connection_Error_ConflictingAdapter_Description">
+    <value>Για να το διορθώσετε, κλείστε ή απεγκαταστήστε την εφαρμογή που σχετίζεται με:</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Title">
+    <value>Μια άλλη εφαρμογή ενδέχεται να εμποδίζει το Proton VPN να συνδεθεί</value>
+  </data>
   <data name="Connection_Error_EditProfile">
     <value>Επεξεργασία προφίλ</value>
   </data>
@@ -380,6 +383,9 @@
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
     <value>Ο προσαρμογέας WireGuard της συσκευής σας βρίσκεται σε χρήση. Αποσυνδεθείτε από οποιοδήποτε άλλο VPN που εκτελείται στη συσκευή σας και, στη συνέχεια, δοκιμάστε ξανά.</value>
+  </data>
+  <data name="Connection_Feedback_Question">
+    <value>Πώς είναι η σύνδεσή σας;</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
     <value>Επιλέχθηκε αυτόματα από</value>
@@ -2476,6 +2482,12 @@
   <data name="Login_Error_IncorrectTwoFactorCode">
     <value>Λανθασμένος κωδικός. Παρακαλούμε δοκιμάστε ξανά.</value>
   </data>
+  <data name="Login_Error_MissingSrpDll_Message">
+    <value>Λείπει ένα αρχείο που απαιτείται για τη σύνδεση από την εγκατάστασή σας. Παρακαλούμε επανεγκαταστήστε το Proton VPN για να διορθώσετε αυτό το πρόβλημα.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Title">
+    <value>Αδυναμία σύνδεσης</value>
+  </data>
   <data name="Login_Error_SessionExpired">
     <value>Η συνεδρία σας έχει λήξει. Παρακαλούμε εισέλθετε ξανά.</value>
     <comment>The message displayed in Login window when expired session is detected</comment>
@@ -3377,6 +3389,30 @@
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
+  <data name="Settings_Protocols_ProTunTcp_Description">
+    <value>Το νέο μας πλαίσιο που βασίζεται στο WireGuard για αυξημένη σταθερότητα, λειτουργικότητα και αντοχή στη λογοκρισία.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTcp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Description">
+    <value>Το νέο μας πλαίσιο που βασίζεται στο WireGuard για αυξημένη σταθερότητα, λειτουργικότητα και αντοχή στη λογοκρισία.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Title">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Description">
+    <value>Το νέο μας πλαίσιο που βασίζεται στο WireGuard για αυξημένη σταθερότητα, λειτουργικότητα και αντοχή στη λογοκρισία.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Description">
+    <value>Χρησιμοποιήστε την εφαρμογή WireGuard της Proton VPN. Πρόκειται για μια πειραματική λειτουργία, οπότε ενδέχεται να αντιμετωπίσετε κάποια αστάθεια.</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Title">
+    <value>Πρωτόκολλα Proton</value>
+  </data>
   <data name="Settings_Protocols_Smart_Description">
     <value>Επιλέγει αυτόματα το καλύτερο πρωτόκολλο για τη σύνδεσή σας.</value>
   </data>
@@ -3430,6 +3466,15 @@
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnUdp">
     <value>OpenVPN (UDP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunUdp">
+    <value>Proton WireGuard (UDP)</value>
   </data>
   <data name="Settings_SelectedProtocol_Smart">
     <value>Smart</value>
@@ -3581,19 +3626,25 @@
   <data name="SystemNotification_StreamingWarning_Title">
     <value>Αποκλεισμένος ιστότοπος;</value>
   </data>
-  <data name="Tray_Actions_ExitApplication">
-    <value>Έξοδος</value>
+  <data name="System_Tray_Actions_Connect">
+    <value>Σύνδεση</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
+    <value>Αποσύνδεση</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
     <value>Έξοδος</value>
   </data>
-  <data name="Tray_Actions_OpenApplication">
-    <value>Άνοιγμα {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
-  </data>
   <data name="System_Tray_Actions_OpenApplication">
     <value>Άνοιγμα {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="Tray_Actions_ExitApplication">
+    <value>Έξοδος</value>
+  </data>
+  <data name="Tray_Actions_OpenApplication">
+    <value>Άνοιγμα {0}</value>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
     <value>Άνοιγμα εφαρμογής για είσοδο</value>
@@ -3822,6 +3873,24 @@
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
     <value>Καθιερωμένο, καλά δοκιμασμένο και ασφαλές</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp_Description">
+    <value>Πρωτόκολλο τελευταίας τεχνολογίας για ασφάλεια και απόδοση</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls_Description">
+    <value>Ξεπερνά τα μπλοκαρίσματα VPN κρύβοντας τη σύνδεσή σας από τους λογοκριτές</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp">
+    <value>Proton WireGuard (UDP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp_Description">
+    <value>Πρωτόκολλο τελευταίας τεχνολογίας για ασφάλεια και απόδοση</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>

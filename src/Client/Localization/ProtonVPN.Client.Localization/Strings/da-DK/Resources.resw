@@ -123,6 +123,9 @@
   <data name="Automation_Properties_ConnectionDetails_Page">
     <value>Forbindelsesoplysningsside</value>
   </data>
+  <data name="Automation_Properties_ConnectionPreferences_Page">
+    <value>Forbindelsespræferencer-side</value>
+  </data>
   <data name="Automation_Properties_Connection_Card_Component">
     <value>Forbindelseskort</value>
   </data>
@@ -207,9 +210,6 @@
   <data name="Common_Actions_Connect">
     <value>Forbind</value>
   </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>Forbind</value>
-  </data>
   <data name="Common_Actions_ContactUs">
     <value>Kontakt os</value>
   </data>
@@ -217,9 +217,6 @@
     <value>Slet</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>Afbryd</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
     <value>Afbryd</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -321,6 +318,12 @@
   <data name="Connection_Error_AllServersExcluded_Action">
     <value>Udelukkede lokationer</value>
   </data>
+  <data name="Connection_Error_ConflictingAdapter_Description">
+    <value>For at fikse det, luk eller afinstaller appen forbundet med:</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Title">
+    <value>En anden app forhindrer muligvis Proton VPN i at forbinde</value>
+  </data>
   <data name="Connection_Error_EditProfile">
     <value>Rediger profil</value>
   </data>
@@ -380,6 +383,9 @@ Fejlkode: {0}</value>
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
     <value>Din enheds WireGuard-adapter er i brug. Afbryd forbindelsen til enhver anden VPN, der kører på din enhed, og prøv derefter igen.</value>
+  </data>
+  <data name="Connection_Feedback_Question">
+    <value>Hvordan er din forbindelse?</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
     <value>Auto-valgt fra</value>
@@ -2476,6 +2482,12 @@ Fejlkode: {0}</value>
   <data name="Login_Error_IncorrectTwoFactorCode">
     <value>Forkert kode. Prøv igen.</value>
   </data>
+  <data name="Login_Error_MissingSrpDll_Message">
+    <value>En fil, der er påkrævet for at du kan logge ind, mangler fra din installation. Geninstaller venligst Proton VPN for at løse problemet.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Title">
+    <value>Kunne ikke logge ind</value>
+  </data>
   <data name="Login_Error_SessionExpired">
     <value>Din session er udløbet. Log ind igen.</value>
     <comment>The message displayed in Login window when expired session is detected</comment>
@@ -3377,6 +3389,30 @@ En høj serverbelastning kan gøre din forbindelse langsommere.</value>
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
+  <data name="Settings_Protocols_ProTunTcp_Description">
+    <value>Vores nye WireGuard-baseret framework med forbedret stabilitet, funktionalitet, og modstand mod censur.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTcp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Description">
+    <value>Vores nye WireGuard-baseret framework med forbedret stabilitet, funktionalitet, og modstand mod censur.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Title">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Description">
+    <value>Vores nye WireGuard-baseret framework med forbedret stabilitet, funktionalitet, og modstand mod censur.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Description">
+    <value>Brug Proton VPN's egen implementering af WireGuard. Dette er en eksperimentel funktion, så du kan opleve en vis ustabilitet.</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Title">
+    <value>Proton-protokoller</value>
+  </data>
   <data name="Settings_Protocols_Smart_Description">
     <value>Vælger automatisk den bedste protokol til din forbindelse.</value>
   </data>
@@ -3430,6 +3466,15 @@ En høj serverbelastning kan gøre din forbindelse langsommere.</value>
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnUdp">
     <value>OpenVPN (UDP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunUdp">
+    <value>Proton WireGuard (UDP)</value>
   </data>
   <data name="Settings_SelectedProtocol_Smart">
     <value>Smart</value>
@@ -3581,19 +3626,25 @@ En høj serverbelastning kan gøre din forbindelse langsommere.</value>
   <data name="SystemNotification_StreamingWarning_Title">
     <value>Blokeret websted?</value>
   </data>
-  <data name="Tray_Actions_ExitApplication">
-    <value>Afslut</value>
+  <data name="System_Tray_Actions_Connect">
+    <value>Forbind</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
+    <value>Afbryd</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
     <value>Afslut</value>
   </data>
-  <data name="Tray_Actions_OpenApplication">
-    <value>Åbn {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
-  </data>
   <data name="System_Tray_Actions_OpenApplication">
     <value>Åbn {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="Tray_Actions_ExitApplication">
+    <value>Afslut</value>
+  </data>
+  <data name="Tray_Actions_OpenApplication">
+    <value>Åbn {0}</value>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
     <value>Åbn app for at logge ind</value>
@@ -3822,6 +3873,24 @@ En høj serverbelastning kan gøre din forbindelse langsommere.</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
     <value>Etableret, gennemtestet og sikker</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp_Description">
+    <value>Banebrydende protokol for sikkerhed og ydeevne</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls_Description">
+    <value>Overkommer VPN-blokeringer ved at skjule din forbindelse for censurerende myndigheder</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp">
+    <value>Proton WireGuard (UDP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp_Description">
+    <value>Banebrydende protokol for sikkerhed og ydeevne</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>

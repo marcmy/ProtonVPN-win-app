@@ -22,7 +22,6 @@ using ProtonVPN.Client.Common.Enums;
 using ProtonVPN.Client.Contracts.Services.Browsing;
 using ProtonVPN.Client.EventMessaging.Contracts;
 using ProtonVPN.Client.Localization.Contracts;
-using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts.Messages;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.Settings.Contracts.Messages;
@@ -51,6 +50,8 @@ public class TwoFactorRequiredConnectionError : ConnectionErrorBase,
     public override string ActionLabel => _u2fGatewayPortalUrl.IsValidUrl() ? Localizer.Get("Login_TwoFactorForm_Authenticate") : string.Empty;
 
     public override bool IsToCloseErrorOnDisconnect => true;
+
+    public override bool IsToCloseErrorOnConnecting => false;
 
     public TwoFactorRequiredConnectionError(
         ILocalizationProvider localizer,

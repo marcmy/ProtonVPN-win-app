@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -20,6 +20,7 @@
 using System;
 using Newtonsoft.Json;
 using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.Crypto.Contracts;

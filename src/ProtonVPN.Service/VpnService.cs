@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -18,10 +18,13 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ServiceProcess;
 using System.Threading;
-using ProtonVPN.Common.Legacy.Vpn;
+using System.Threading.Tasks;
+using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.IssueReporting.Contracts;
 using ProtonVPN.Logging.Contracts;
@@ -30,13 +33,12 @@ using ProtonVPN.Logging.Contracts.Events.ConnectionLogs;
 using ProtonVPN.Logging.Contracts.Events.OperatingSystemLogs;
 using ProtonVPN.OperatingSystems.NRPT.Contracts;
 using ProtonVPN.OperatingSystems.PowerEvents.Contracts;
-using ProtonVPN.OperatingSystems.Services.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts;
+using ProtonVPN.ProTun.Contracts;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.PortMapping;
-using ProtonVPN.Service.Settings;
+using ProtonVPN.Service.StateMachine;
 using ProtonVPN.Vpn.Common;
-using ProtonVPN.Vpn.PortMapping;
 
 namespace ProtonVPN.Service;
 
@@ -48,39 +50,45 @@ internal partial class VpnService : ServiceBase
     private readonly ILogger _logger;
     private readonly IIssueReporter _issueReporter;
     private readonly IStaticConfiguration _staticConfig;
-    private readonly IVpnConnection _vpnConnection;
+    private readonly IEnumerable<IVpnConnection> _vpnConnections;
     private readonly IIpv6 _ipv6;
     private readonly IGrpcServer _grpcServer;
-    private readonly IServiceFactory _serviceFactory;
     private readonly INrptInvoker _nrptInvoker;
     private readonly PortForwardingForAppsRouteShim _portForwardingForAppsRouteShim;
-    private bool _isConnected;
+    private readonly IProTunManager _proTunManager;
+    private readonly INrptWatchdogScheduler _nrptWatchdogScheduler;
+    private readonly INrptWatchdogStarter _nrptWatchdogStarter;
+    private readonly IVpnConnectionStateMachine _vpnConnectionStateMachine;
 
     public VpnService(
         ILogger logger,
         IIssueReporter issueReporter,
         IStaticConfiguration staticConfig,
-        IVpnConnection vpnConnection,
+        IEnumerable<IVpnConnection> vpnConnections,
         IIpv6 ipv6,
         IGrpcServer grpcServer,
         IPowerEventNotifier powerEventNotifier,
-        IServiceFactory serviceFactory,
         INrptInvoker nrptInvoker,
-        IServiceSettings serviceSettings,
-        IPortMappingProtocolClient portMappingProtocolClient)
+        IProTunManager proTunManager,
+        INrptWatchdogScheduler nrptWatchdogScheduler,
+        INrptWatchdogStarter nrptWatchdogStarter,
+        IVpnConnectionStateMachine vpnConnectionStateMachine,
+        PortForwardingForAppsRouteShim portForwardingForAppsRouteShim)
     {
         _logger = logger;
         _issueReporter = issueReporter;
         _staticConfig = staticConfig;
-        _vpnConnection = vpnConnection;
+        _vpnConnections = vpnConnections;
         _ipv6 = ipv6;
         _grpcServer = grpcServer;
-        _serviceFactory = serviceFactory;
         _nrptInvoker = nrptInvoker;
-        _portForwardingForAppsRouteShim = new PortForwardingForAppsRouteShim(logger, serviceSettings, portMappingProtocolClient);
+        _proTunManager = proTunManager;
+        _nrptWatchdogScheduler = nrptWatchdogScheduler;
+        _nrptWatchdogStarter = nrptWatchdogStarter;
+        _vpnConnectionStateMachine = vpnConnectionStateMachine;
+        _portForwardingForAppsRouteShim = portForwardingForAppsRouteShim;
 
         powerEventNotifier.OnResume += OnPowerEventResume;
-        _vpnConnection.StateChanged += OnVpnStateChanged;
         _grpcServer.InvokingServiceStop += OnInvokingServiceStop;
 
         _cancellationTokenSource = new CancellationTokenSource();
@@ -92,7 +100,7 @@ internal partial class VpnService : ServiceBase
         InitializeComponent();
     }
 
-    private void OnInvokingServiceStop(object sender, EventArgs e)
+    private void OnInvokingServiceStop(object? sender, EventArgs e)
     {
         Stop();
     }
@@ -110,23 +118,24 @@ internal partial class VpnService : ServiceBase
         base.OnSessionChange(changeDescription);
     }
 
-    protected override async void OnStart(string[] args)
+    protected override void OnStart(string[] args)
     {
         LogEvent("Service is starting");
         try
         {
-            _grpcServer.CreateAndStart();
-
             if (!IsBfeServiceRunningAndEnabled())
             {
-                _vpnConnection.Disconnect(VpnError.BaseFilteringEngineServiceNotRunning);
-                Stop();
+                _vpnConnectionStateMachine.ReportDisconnected(VpnError.BaseFilteringEngineServiceNotRunning);
                 return;
             }
 
-            _vpnConnection.Disconnect();
-            _nrptInvoker.DeleteRule();
+            _grpcServer.CreateAndStart();
+            _proTunManager.InitializeAsync().FireAndForget();
 
+            TriggerDisconnectAsync().FireAndForget();
+            _nrptInvoker.DeleteRule();
+            _nrptWatchdogScheduler.Schedule();
+            _nrptWatchdogStarter.Start();
         }
         catch (Exception ex)
         {
@@ -144,15 +153,14 @@ internal partial class VpnService : ServiceBase
             LogEvent("Service is stopping");
 
             await _portForwardingForAppsRouteShim.StopAsync();
-            _vpnConnection.Disconnect();
-            StopWireGuardService();
+            await _vpnConnectionStateMachine.DisconnectAsync();
 
             if (!_ipv6.IsEnabled)
             {
-                _ipv6.Enable();
+                _ipv6.Enable(_ipv6.VpnProtocol);
             }
 
-            await _grpcServer?.StopAsync();
+            await _grpcServer.StopAsync();
         }
         catch (Exception ex)
         {
@@ -166,37 +174,31 @@ internal partial class VpnService : ServiceBase
         }
     }
 
+    private async Task TriggerDisconnectAsync()
+    {
+        foreach (IVpnConnection vpnConnection in _vpnConnections)
+        {
+            await vpnConnection.DisconnectAsync();
+        }
+
+        _vpnConnectionStateMachine.ReportDisconnected(VpnError.None);
+    }
+
     protected override bool OnPowerEvent(PowerBroadcastStatus powerStatus)
     {
         _logger.Debug<OperatingSystemLog>($"Power status changed to {powerStatus}");
-        if (powerStatus == PowerBroadcastStatus.ResumeSuspend && _isConnected)
+        if (powerStatus == PowerBroadcastStatus.ResumeSuspend && _vpnConnectionStateMachine.IsConnected)
         {
             _logger.Info<ConnectionLog>("Resetting connection due to resume from sleep.");
-            _vpnConnection.ResetConnection();
+            _vpnConnectionStateMachine.Reconnect();
         }
 
         return true;
     }
 
-    private void OnPowerEventResume(object sender, EventArgs e)
+    private void OnPowerEventResume(object? sender, EventArgs e)
     {
         _logger.Info<OperatingSystemLog>($"{nameof(OnPowerEventResume)}");
-    }
-
-    private void StopWireGuardService()
-    {
-        try
-        {
-            IService wireGuardService = _serviceFactory.Get(_staticConfig.WireGuard.ServiceName);
-            if (wireGuardService.IsRunning())
-            {
-                wireGuardService.Stop();
-            }
-        }
-        catch (Exception e)
-        {
-            _logger.Error<AppServiceStopFailedLog>($"Failed to stop {_staticConfig.WireGuard.ServiceName}.", e);
-        }
     }
 
     private void LogEvent(string message)
@@ -210,14 +212,6 @@ internal partial class VpnService : ServiceBase
         }
     }
 
-    private void OnVpnStateChanged(object sender, Common.Legacy.EventArgs<VpnState> e)
-    {
-        _isConnected = e.Data.Status == VpnStatus.Connected;
-
-        // Let NAT-PMP-compatible apps discover Proton's real NAT-PMP gateway.
-        _portForwardingForAppsRouteShim.SetVpnState(e.Data);
-    }
-
     private bool IsBfeServiceRunningAndEnabled()
     {
         string bfeServiceName = _staticConfig.BaseFilteringEngineServiceName;
@@ -228,7 +222,7 @@ internal partial class VpnService : ServiceBase
             ServiceStartMode bfeServiceStartType = serviceController.StartType;
             ServiceControllerStatus bfeServiceStatus = serviceController.Status;
 
-            _logger.Info<AppServiceStartLog>($"´{bfeServiceName} Service - Start type: {bfeServiceStartType}, Status: {bfeServiceStatus}");
+            _logger.Info<AppServiceStartLog>($"{bfeServiceName} Service - Start type: {bfeServiceStartType}, Status: {bfeServiceStatus}");
 
             return bfeServiceStartType != ServiceStartMode.Disabled
                 && bfeServiceStatus == ServiceControllerStatus.Running;

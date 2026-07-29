@@ -56,9 +56,9 @@
   </Folder>
   <Folder Name="/Client/Logic/Auth/">
     <Project Path="src/Client/Logic/Auth/ProtonVPN.Client.Logic.Auth.Contracts/ProtonVPN.Client.Logic.Auth.Contracts.csproj" />
+    <Project Path="src/Client/Logic/Auth/ProtonVPN.Client.Logic.Auth.Installers/ProtonVPN.Client.Logic.Auth.Installers.csproj" />
     <Project Path="src/Client/Logic/Auth/ProtonVPN.Client.Logic.Auth.Srp.Contracts/ProtonVPN.Client.Logic.Auth.Srp.Contracts.csproj" />
     <Project Path="src/Client/Logic/Auth/ProtonVPN.Client.Logic.Auth.Srp/ProtonVPN.Client.Logic.Auth.Srp.csproj" />
-    <Project Path="src/Client/Logic/Auth/ProtonVPN.Client.Logic.Auth.Installers/ProtonVPN.Client.Logic.Auth.Installers.csproj" />
     <Project Path="src/Client/Logic/Auth/ProtonVPN.Client.Logic.Auth.Tests/ProtonVPN.Client.Logic.Auth.Tests.csproj" />
     <Project Path="src/Client/Logic/Auth/ProtonVPN.Client.Logic.Auth/ProtonVPN.Client.Logic.Auth.csproj" />
   </Folder>
@@ -228,6 +228,11 @@
     <Project Path="src/OperatingSystems/Services/ProtonVPN.OperatingSystems.Services.Installers/ProtonVPN.OperatingSystems.Services.Installers.csproj" />
     <Project Path="src/OperatingSystems/Services/ProtonVPN.OperatingSystems.Services/ProtonVPN.OperatingSystems.Services.csproj" />
   </Folder>
+  <Folder Name="/OperatingSystems/TaskScheduling/">
+    <Project Path="src/OperatingSystems/TaskScheduling/ProtonVPN.OperatingSystems.TaskScheduling.Contracts/ProtonVPN.OperatingSystems.TaskScheduling.Contracts.csproj" Id="ca60ec7f-f3ce-4ffe-a0c0-9a858b6355d4" />
+    <Project Path="src/OperatingSystems/TaskScheduling/ProtonVPN.OperatingSystems.TaskScheduling.Installers/ProtonVPN.OperatingSystems.TaskScheduling.Installers.csproj" Id="4e929078-6fdd-4bde-a1c5-49e5589d142e" />
+    <Project Path="src/OperatingSystems/TaskScheduling/ProtonVPN.OperatingSystems.TaskScheduling/ProtonVPN.OperatingSystems.TaskScheduling.csproj" Id="9657c3b6-6d40-479e-8e56-2be096a54823" />
+  </Folder>
   <Folder Name="/OperatingSystems/WebAuthn/">
     <Project Path="src/OperatingSystems/WebAuthn/ProtonVPN.OperatingSystems.WebAuthn.Contracts/ProtonVPN.OperatingSystems.WebAuthn.Contracts.csproj" />
     <Project Path="src/OperatingSystems/WebAuthn/ProtonVPN.OperatingSystems.WebAuthn.Installers/ProtonVPN.OperatingSystems.WebAuthn.Installers.csproj" />
@@ -237,8 +242,6 @@
   <Folder Name="/ProcessCommunication/">
     <Project Path="src/ProcessCommunication/ProtonVPN.ProcessCommunication.Contracts/ProtonVPN.ProcessCommunication.Contracts.csproj" />
     <Project Path="src/ProcessCommunication/ProtonVPN.ProcessCommunication.EntityMapping.Tests/ProtonVPN.ProcessCommunication.EntityMapping.Tests.csproj" />
-    <Project Path="src/ProcessCommunication/ProtonVPN.ProcessCommunication.EntityMapping/ProtonVPN.ProcessCommunication.EntityMapping.csproj" />
-    <Project Path="src/ProcessCommunication/ProtonVPN.ProcessCommunication.Installers/ProtonVPN.ProcessCommunication.Installers.csproj" />
   </Folder>
   <Folder Name="/ProcessCommunication/Client/">
     <Project Path="src/ProcessCommunication/Client/ProtonVPN.ProcessCommunication.Client.Installers/ProtonVPN.ProcessCommunication.Client.Installers.csproj" />
@@ -247,12 +250,26 @@
   <Folder Name="/ProcessCommunication/Common/">
     <Project Path="src/ProcessCommunication/Common/ProtonVPN.ProcessCommunication.Common/ProtonVPN.ProcessCommunication.Common.csproj" />
   </Folder>
-  <Folder Name="/ProcessCommunication/Server/">
-    <Project Path="src/ProcessCommunication/Server/ProtonVPN.ProcessCommunication.Server.Installers/ProtonVPN.ProcessCommunication.Server.Installers.csproj" />
-    <Project Path="src/ProcessCommunication/Server/ProtonVPN.ProcessCommunication.Server/ProtonVPN.ProcessCommunication.Server.csproj" />
+  <Folder Name="/ProcessCommunication/EntityMapping/">
+    <Project Path="src/ProcessCommunication/EntityMapping/ProtonVPN.ProcessCommunication.EntityMapping.Client.Logic.Connection/ProtonVPN.ProcessCommunication.EntityMapping.Client.Logic.Connection.csproj" Id="44a03117-de42-48bb-9a34-edbb38f71ca7" />
+    <Project Path="src/ProcessCommunication/EntityMapping/ProtonVPN.ProcessCommunication.EntityMapping.Common.Core/ProtonVPN.ProcessCommunication.EntityMapping.Common.Core.csproj" Id="3608ec04-1011-434d-ab88-cf73983f785d" />
+    <Project Path="src/ProcessCommunication/EntityMapping/ProtonVPN.ProcessCommunication.EntityMapping.Common.Legacy/ProtonVPN.ProcessCommunication.EntityMapping.Common.Legacy.csproj" Id="3670c8a3-d396-456b-b68f-d8c6690937aa" />
+    <Project Path="src/ProcessCommunication/EntityMapping/ProtonVPN.ProcessCommunication.EntityMapping.Crypto/ProtonVPN.ProcessCommunication.EntityMapping.Crypto.csproj" Id="c0951c46-5e9b-4fb5-b191-c942d11d5a0b" />
+    <Project Path="src/ProcessCommunication/EntityMapping/ProtonVPN.ProcessCommunication.EntityMapping.Update/ProtonVPN.ProcessCommunication.EntityMapping.Update.csproj" Id="c0cc6972-a27f-4bf1-af14-ddaf63e3e73e" />
+    <Project Path="src/ProcessCommunication/EntityMapping/ProtonVPN.ProcessCommunication.EntityMapping.Vpn/ProtonVPN.ProcessCommunication.EntityMapping.Vpn.csproj" Id="e8f5eca4-604a-4cb1-8ab4-712c6c2dde95" />
+  </Folder>
+  <Folder Name="/ProcessCommunication/Service/">
+    <Project Path="src/ProcessCommunication/Service/ProtonVPN.ProcessCommunication.Service.Installers/ProtonVPN.ProcessCommunication.Service.Installers.csproj" />
+    <Project Path="src/ProcessCommunication/Service/ProtonVPN.ProcessCommunication.Service/ProtonVPN.ProcessCommunication.Service.csproj" />
   </Folder>
   <Folder Name="/ProtonInstaller/">
     <Project Path="src/ProtonInstaller/ProtonInstaller.csproj" />
+  </Folder>
+  <Folder Name="/ProTun/">
+    <Project Path="src/ProTun/ProtonVPN.ProTun.Contracts/ProtonVPN.ProTun.Contracts.csproj" />
+    <Project Path="src/ProTun/ProtonVPN.ProTun.Generated/ProtonVPN.ProTun.Generated.csproj" />
+    <Project Path="src/ProTun/ProtonVPN.ProTun.Installers/ProtonVPN.ProTun.Installers.csproj" />
+    <Project Path="src/ProTun/ProtonVPN.ProTun/ProtonVPN.ProTun.csproj" />
   </Folder>
   <Folder Name="/Serialization/">
     <Project Path="src/Serialization/ProtonVPN.Serialization.Contracts/ProtonVPN.Serialization.Contracts.csproj" />
@@ -299,6 +316,7 @@
   <Project Path="src/ProtonVPN.MarkupValidator/ProtonVPN.MarkupValidator.csproj" />
   <Project Path="src/ProtonVPN.Native/ProtonVPN.Native.csproj" />
   <Project Path="src/ProtonVPN.NetworkFilter/ProtonVPN.NetworkFilter.csproj" />
+  <Project Path="src/ProtonVPN.NrptWatchdog/ProtonVPN.NrptWatchdog.csproj" />
   <Project Path="src/ProtonVPN.RestoreInternet/ProtonVPN.RestoreInternet.csproj" />
   <Project Path="src/ProtonVPN.Service/ProtonVPN.Service.csproj" />
   <Project Path="src/ProtonVPN.TlsVerify/ProtonVPN.TlsVerify.csproj" />

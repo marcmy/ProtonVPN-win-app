@@ -27,6 +27,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [TestFixture]
 [Category("3")]
 [Category("ARM")]
+[Category("SMOKE_3")]
 public class SplitTunnelingExcludeTests : BaseTest
 {
     private const string COUNTRY_NAME = "Austria";
@@ -45,12 +46,14 @@ public class SplitTunnelingExcludeTests : BaseTest
     [OneTimeSetUp]
     public void SetUp()
     {
-        _ipAddressNotConnected = NetworkUtils.GetIpAddressWithRetry();
-        LaunchApp();
+        LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
+        NetworkUtils.AssertInternetAvailability(true);
+        _ipAddressNotConnected = NetworkUtils.GetIpAddressWithRetry();
     }
 
     [Test, Order(0)]
+    [Property("TestCaseId", "602413")]
     public void SplitTunnelingIpInputDoesNotAllowInvalidIp()
     {
         SettingRobot
@@ -58,7 +61,7 @@ public class SplitTunnelingExcludeTests : BaseTest
             .OpenSplitTunnelingSettings();
 
         SplitTunnelingRobot
-            .ToggleSplitTunnelingSwitch()
+            .EnableSplitTunnelingToggle()
             .SelectExcludeMode()
             .EditSplitTunnelingIps();
 
@@ -71,6 +74,7 @@ public class SplitTunnelingExcludeTests : BaseTest
     }
 
     [Test, Order(1)]
+    [Property("TestCaseId", "788411")]
     public void SplitTunnelingIpInputAllowsIpV6()
     {
         IpSelectorRobot
@@ -79,13 +83,15 @@ public class SplitTunnelingExcludeTests : BaseTest
     }
 
     [Test, Order(2)]
+    [Property("TestCaseId", "602414")]
     public void SplitTunnelingExcludeIpAddress()
     {
         IpSelectorRobot
             .AddIpAddress(IP_ADDRESS_TO_EXCLUDE)
             .Verify.WasIpAdded(IP_ADDRESS_TO_EXCLUDE);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .ApplySettings()
@@ -99,6 +105,7 @@ public class SplitTunnelingExcludeTests : BaseTest
     }
 
     [Test, Order(3)]
+    [Property("TestCaseId", "787617")]
     [Ignore("JIRA - VPNWIN-1563")]
     public void SplitTunnelingExcludeModeSpecialIP()
     {
@@ -114,7 +121,8 @@ public class SplitTunnelingExcludeTests : BaseTest
                 .AddIpAddress(specialIP);
         }
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .Reconnect();
@@ -137,7 +145,7 @@ public class SplitTunnelingExcludeTests : BaseTest
             .Verify.IsConnected();
 
         //if LAN works
-        NetworkUtils.VerifyIfLocalNetworkingWorks();
+        NetworkUtils.VerifyLocalNetworking(isLanEnabled: true);
 
         //if location change works
         SidebarRobot
@@ -153,6 +161,7 @@ public class SplitTunnelingExcludeTests : BaseTest
     }
 
     [Test, Order(4)]
+    [Property("TestCaseId", "602417")]
     public void SplitTunnelingDeleteIpAddress()
     {
         SettingRobot
@@ -163,9 +172,10 @@ public class SplitTunnelingExcludeTests : BaseTest
             .EditSplitTunnelingIps();
         IpSelectorRobot
             .Verify.IsIpSelectorOpened()
-            .DeleteAllIps();
+            .RemoveAllIps();
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .Reconnect();
@@ -177,38 +187,56 @@ public class SplitTunnelingExcludeTests : BaseTest
     }
 
     [Test, Order(5)]
+    [Property("TestCaseId", "787609")]
     public void SplitTunnelingExcludeModeApp()
     {
-        SettingRobot
-            .OpenSettings()
-            .OpenSplitTunnelingSettings();
+        try
+        {
+            SettingRobot
+                .OpenSettings()
+                .OpenSplitTunnelingSettings();
 
-        SplitTunnelingRobot
-            .EditSplitTunnelingApps();
-        AppSelectorRobot
-            .Verify.AssertAppAvailability(APP_TO_EXCLUDE, true)
-            .AddSuggestedApp(APP_TO_EXCLUDE)
-            .Verify.IsAppChecked(APP_TO_EXCLUDE);
-        ConfirmationRobot
-            .PrimaryAction();
+            SplitTunnelingRobot
+                .EditSplitTunnelingApps();
+            AppSelectorRobot
+                .Verify.AssertAppAvailability(APP_TO_EXCLUDE, shouldBeAvailable: true)
+                .AddSuggestedApp(APP_TO_EXCLUDE)
+                .Verify.IsAppChecked(APP_TO_EXCLUDE);
+            ConfirmationRobot
+                .PrimaryAction()
+                .Verify.IsOverlayClosed();
 
-        SettingRobot
-            .Reconnect();
+            SettingRobot
+                .Reconnect();
 
-        HomeRobot
-            .Verify.IsConnected();
-        string? ipAddressToCompare = HomeRobot.GetVpnServerIp();
+            HomeRobot
+                .Verify.IsConnected();
 
-        BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, true, ipAddressToCompare);
-        BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_EXCLUDE, false, ipAddressToCompare);
-        BrowserUtils.KillAllBrowsers();
+            string? ipAddressToCompare = HomeRobot.GetVpnServerIp();
 
-        HomeRobot
-            .Disconnect()
-            .Verify.IsDisconnected();
+            BrowserUtils.KillAllBrowsers();
+            BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, hasVpn: true, ipAddressToCompare);
+            BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_EXCLUDE, hasVpn: false, ipAddressToCompare);
 
-        BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, false, ipAddressToCompare);
-        BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_EXCLUDE, false, ipAddressToCompare);
+            HomeRobot
+                .Disconnect()
+                .Verify.IsDisconnected();
+
+            BrowserUtils.KillAllBrowsers();
+            BrowserUtils.VerifyBrowserIpWithRetry(OTHER_APP, hasVpn: false, ipAddressToCompare);
+            BrowserUtils.VerifyBrowserIpWithRetry(APP_TO_EXCLUDE, hasVpn: false, ipAddressToCompare);
+        }
+        finally
+        {
+            SettingRobot
+                .OpenSettings()
+                .OpenSplitTunnelingSettings();
+            SplitTunnelingRobot
+                .DisableSplitTunnelingToggle();
+            SettingRobot
+                .ApplySettings()
+                .CloseSettings();
+        }
     }
 
     [OneTimeTearDown]

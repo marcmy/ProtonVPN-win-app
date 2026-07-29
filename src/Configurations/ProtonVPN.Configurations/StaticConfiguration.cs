@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.Configurations.Contracts.Entities;
@@ -35,6 +36,7 @@ public class StaticConfiguration : IStaticConfiguration
     public string InstallActionsPath { get; } = DefaultConfiguration.InstallActionsPath;
     public string ClientExePath { get; } = DefaultConfiguration.ClientExePath;
     public string ServiceExePath { get; } = DefaultConfiguration.ServiceExePath;
+    public string NrptWatchdogExePath { get; } = DefaultConfiguration.NrptWatchdogExePath;
 
     public string ProtocolActivationScheme { get; } = DefaultConfiguration.ProtocolActivationScheme;
     public string LegacyProtocolActivationScheme { get; } = DefaultConfiguration.LegacyProtocolActivationScheme;
@@ -59,19 +61,31 @@ public class StaticConfiguration : IStaticConfiguration
     public string IPv6PrefixTreeFilePath { get; } = DefaultConfiguration.IPv6PrefixTreeFilePath;
     public string IPv6PersistedDataFilePath { get; } = DefaultConfiguration.IPv6PersistedDataFilePath;
 
-    public IOpenVpnConfigurations OpenVpn { get; } = DefaultConfiguration.OpenVpn;
+    public IProTunConfigurations ProTun { get; } = DefaultConfiguration.ProTun;
     public IWireGuardConfigurations WireGuard { get; } = DefaultConfiguration.WireGuard;
+    public IOpenVpnConfigurations OpenVpn { get; } = DefaultConfiguration.OpenVpn;
 
     public string WintunDriverPath { get; } = DefaultConfiguration.WintunDriverPath;
     public string WintunAdapterName { get; } = DefaultConfiguration.WintunAdapterName;
 
-    public string GetHardwareId(OpenVpnAdapter openVpnAdapter)
+    // This method is bad because we shouldn't be able to receive Smart as a protocol and we are returning ProTUN for it
+    public string GetHardwareId(VpnProtocol vpnProtocol, OpenVpnAdapter openVpnAdapter)
     {
-        return openVpnAdapter switch
+        if (vpnProtocol.IsOpenVpn())
         {
-            OpenVpnAdapter.Tap => OpenVpn.TapAdapterId,
-            OpenVpnAdapter.Tun => OpenVpn.TunAdapterId,
-            _ => WireGuard.WintunAdapterHardwareId
-        };
+            return openVpnAdapter switch
+            {
+                OpenVpnAdapter.Tap => OpenVpn.TapAdapterId,
+                _ => OpenVpn.TunAdapterId,
+            };
+        }
+        return vpnProtocol.IsWireGuard()
+            ? WireGuard.WintunAdapterHardwareId
+            : ProTun.WintunAdapterHardwareId;
+    }
+
+    public string GetWireGuardHardwareId()
+    {
+        return WireGuard.WintunAdapterHardwareId;
     }
 }

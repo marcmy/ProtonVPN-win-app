@@ -123,6 +123,9 @@
   <data name="Automation_Properties_ConnectionDetails_Page">
     <value>Side med tilkoblingsdetaljer</value>
   </data>
+  <data name="Automation_Properties_ConnectionPreferences_Page">
+    <value>Side med tilkoblingspreferanser</value>
+  </data>
   <data name="Automation_Properties_Connection_Card_Component">
     <value>Tilkoblingskort</value>
   </data>
@@ -207,9 +210,6 @@
   <data name="Common_Actions_Connect">
     <value>Koble til</value>
   </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>Koble til</value>
-  </data>
   <data name="Common_Actions_ContactUs">
     <value>Kontakt oss</value>
   </data>
@@ -217,9 +217,6 @@
     <value>Slett</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>Koble fra</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
     <value>Koble fra</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -316,10 +313,16 @@
     <value>Oppdater Proton VPN</value>
   </data>
   <data name="Connection_Error_AllServersExcluded">
-    <value>Your preferences exclude all available servers. Adjust exclusions to connect.</value>
+    <value>Dine preferanser ekskluderer alle tilgjengelige servere. Juster ekskluderingene for å koble til.</value>
   </data>
   <data name="Connection_Error_AllServersExcluded_Action">
-    <value>Excluded locations</value>
+    <value>Ekskluderte plasseringer</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Description">
+    <value>For å fikse det, lukk eller avinstaller appen som er knyttet til:</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Title">
+    <value>En annen app kan hindre Proton VPN i å koble til</value>
   </data>
   <data name="Connection_Error_EditProfile">
     <value>Rediger profil</value>
@@ -380,6 +383,9 @@ Feilkode: {0}</value>
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
     <value>Enhetens WireGuard-adapter er i bruk. Koble fra alle andre VPN-er som kjører på enheten din, og prøv igjen.</value>
+  </data>
+  <data name="Connection_Feedback_Question">
+    <value>Hvordan er forbindelsen din?</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
     <value>Auto-valgt fra</value>
@@ -1934,28 +1940,28 @@ Feilkode: {0}</value>
     <value>Ny systemstatusfelt-app</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_ExcludeLocations">
-    <value>Exclude locations</value>
+    <value>Ekskluder plasseringer</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Message">
-    <value>If there are locations you don't want to be automatically connected to, you can exclude them from Fastest and Random country.</value>
+    <value>Hvis det finnes steder du ikke vil bli koblet til automatisk, kan du ekskludere dem fra Raskeste og Tilfeldige land.</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Skip">
-    <value>Skip</value>
+    <value>Hopp over</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Title">
-    <value>Not the country you wanted?</value>
+    <value>Ikke landet du ønsket?</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_ActionButton">
-    <value>Exclude locations</value>
+    <value>Ekskluder plasseringer</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_CloseButton">
-    <value>Maybe later</value>
+    <value>Kanskje senere</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_Subtitle">
-    <value>You can now exclude countries or cities from Fastest and Random connections.</value>
+    <value>Du kan nå ekskludere land eller byer fra Raskeste og Tilfeldige tilkoblinger.</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_Title">
-    <value>Avoid unwanted locations</value>
+    <value>Unngå uønskede steder</value>
   </data>
   <data name="Exit_Confirmation_Title">
     <value>Avslutte Proton VPN?</value>
@@ -2475,6 +2481,12 @@ Feilkode: {0}</value>
   </data>
   <data name="Login_Error_IncorrectTwoFactorCode">
     <value>Feil kode. Prøv på nytt.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Message">
+    <value>En fil som kreves for pålogging mangler i installasjonen din. Installer Proton VPN på nytt for å fikse dette problemet.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Title">
+    <value>Kan ikke logge på</value>
   </data>
   <data name="Login_Error_SessionExpired">
     <value>Økten er utløpt. Logg på nytt.</value>
@@ -3047,7 +3059,7 @@ En høy tjenerbelastning kan redusere tilkoblingen.</value>
     <value>Tilkoblingspreferanser</value>
   </data>
   <data name="Settings_Connection_ConnectionPreferences_Description">
-    <value>Default connection and excluded locations</value>
+    <value>Standardtilkobling og ekskluderte steder</value>
   </data>
   <data name="Settings_Connection_CustomDns_Conflict_Information_WhenDisabled">
     <value>Egendefinert DNS kan ikke slås på fordi du er koblet til en profil med NetShield aktivert.</value>
@@ -3080,25 +3092,25 @@ En høy tjenerbelastning kan redusere tilkoblingen.</value>
     <value>Nylige</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations">
-    <value>Excluded locations</value>
+    <value>Ekskluderte plasseringer</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Cities">
-    <value>Cities</value>
+    <value>Byer</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Countries">
-    <value>Countries</value>
+    <value>Land</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Description">
-    <value>The selected locations will never be used when you connect to Fastest or Random</value>
+    <value>De valgte stedene vil aldri bli brukt når du kobler til Raskest eller Tilfeldig</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_NoLocations">
-    <value>No locations available</value>
+    <value>Ingen steder tilgjengelig</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Search">
-    <value>Select...</value>
+    <value>Velg...</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_States">
-    <value>States</value>
+    <value>Stater</value>
   </data>
   <data name="Settings_Connection_KillSwitch">
     <value>Nødstopp</value>
@@ -3377,6 +3389,30 @@ En høy tjenerbelastning kan redusere tilkoblingen.</value>
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
+  <data name="Settings_Protocols_ProTunTcp_Description">
+    <value>Vårt nye WireGuard-baserte rammeverk for økt stabilitet, funksjonalitet og sensurmotstand.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTcp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Description">
+    <value>Vårt nye WireGuard-baserte rammeverk for økt stabilitet, funksjonalitet og sensurmotstand.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Title">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Description">
+    <value>Vårt nye WireGuard-baserte rammeverk for økt stabilitet, funksjonalitet og sensurmotstand.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Description">
+    <value>Bruk Proton VPN sin egen implementering av WireGuard. Dette er en eksperimentell funksjon, så du kan oppleve en viss ustabilitet.</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Title">
+    <value>Proton-protokoller</value>
+  </data>
   <data name="Settings_Protocols_Smart_Description">
     <value>Velger automatisk den beste protokollen for tilkoblingen din.</value>
   </data>
@@ -3430,6 +3466,15 @@ En høy tjenerbelastning kan redusere tilkoblingen.</value>
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnUdp">
     <value>OpenVPN (UDP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunUdp">
+    <value>Proton WireGuard (UDP)</value>
   </data>
   <data name="Settings_SelectedProtocol_Smart">
     <value>Smart</value>
@@ -3581,19 +3626,25 @@ En høy tjenerbelastning kan redusere tilkoblingen.</value>
   <data name="SystemNotification_StreamingWarning_Title">
     <value>Blokkert nettsted?</value>
   </data>
-  <data name="Tray_Actions_ExitApplication">
-    <value>Avslutt</value>
+  <data name="System_Tray_Actions_Connect">
+    <value>Koble til</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
+    <value>Koble fra</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
     <value>Avslutt</value>
   </data>
-  <data name="Tray_Actions_OpenApplication">
-    <value>Åpne {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
-  </data>
   <data name="System_Tray_Actions_OpenApplication">
     <value>Åpne {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="Tray_Actions_ExitApplication">
+    <value>Avslutt</value>
+  </data>
+  <data name="Tray_Actions_OpenApplication">
+    <value>Åpne {0}</value>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
     <value>Åpne appen for å logge på</value>
@@ -3822,6 +3873,24 @@ En høy tjenerbelastning kan redusere tilkoblingen.</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
     <value>Etablert, godt testet og sikkert</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp_Description">
+    <value>Toppmoderne protokoll for sikkerhet og ytelse</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls_Description">
+    <value>Overvinner VPN-blokkeringer ved å skjule tilkoblingen din for sensurer</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp">
+    <value>Proton WireGuard (UDP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp_Description">
+    <value>Toppmoderne protokoll for sikkerhet og ytelse</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>

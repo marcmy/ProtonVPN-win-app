@@ -33,6 +33,7 @@ public class SupportTests : FreshSessionSetUp
     private const string REPORT_THREE = "Weak or unstable connection";
 
     [Test]
+    [Property("TestCaseId", "602385")]
     [Retry(3)]
     public void SendBugReportViaLoginScreen()
     {
@@ -49,6 +50,7 @@ public class SupportTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602384")]
     [Retry(3)]
     public void SendBugReportViaKebabMenuFreeUser()
     {
@@ -66,7 +68,9 @@ public class SupportTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602386")]
     [Retry(3)]
+    [Category("SMOKE_1")]
     public void SendBugReportViaSettings()
     {
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
