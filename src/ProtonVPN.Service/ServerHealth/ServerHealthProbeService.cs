@@ -18,60 +18,62 @@
  */
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using ProtonVPN.Configurations.Contracts;
-using ProtonVPN.NetworkFilter;
 using ProtonVPN.OperatingSystems.Network.Contracts;
 using ProtonVPN.OperatingSystems.Network.Contracts.Routing;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.Settings;
-using FilterAction = ProtonVPN.NetworkFilter.Action;
-using FilterNetworkAddress = ProtonVPN.NetworkFilter.NetworkAddress;
 using NetworkAddress = ProtonVPN.Common.Core.Networking.NetworkAddress;
-using ServiceIpFilter = ProtonVPN.Service.Firewall.IpFilter;
 
 namespace ProtonVPN.Service.ServerHealth;
 
 internal sealed class ServerHealthProbeService : IServerHealthProbeService
 {
-    private const int PROBE_SAMPLE_COUNT = 4;
-    private const int PROBE_TIMEOUT_IN_MILLISECONDS = 500;
     private const int ROUTE_SETTLE_DELAY_IN_MILLISECONDS = 50;
-    private static readonly TimeSpan _delayBetweenSamples = TimeSpan.FromMilliseconds(100);
 
     private readonly IConfiguration _configuration;
     private readonly IServiceSettings _serviceSettings;
     private readonly ISystemNetworkInterfaces _networkInterfaces;
     private readonly IRoutingTableHelper _routingTableHelper;
-    private readonly ServiceIpFilter _ipFilter;
-    private readonly IpLayer _ipLayer;
+    private readonly IServerHealthPermitManager _permitManager;
+    private readonly IServerHealthPingProbe _pingProbe;
     private readonly IIpv6 _ipv6;
     private readonly SemaphoreSlim _probeSlots = new(8, 8);
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _addressLocks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _addressLocksSync = new();
+    private readonly Dictionary<string, AddressLock> _addressLocks = new(StringComparer.OrdinalIgnoreCase);
+
+    internal int ActiveAddressLockCount
+    {
+        get
+        {
+            lock (_addressLocksSync)
+            {
+                return _addressLocks.Count;
+            }
+        }
+    }
 
     public ServerHealthProbeService(
         IConfiguration configuration,
         IServiceSettings serviceSettings,
         ISystemNetworkInterfaces networkInterfaces,
         IRoutingTableHelper routingTableHelper,
-        ServiceIpFilter ipFilter,
-        IpLayer ipLayer,
+        IServerHealthPermitManager permitManager,
+        IServerHealthPingProbe pingProbe,
         IIpv6 ipv6)
     {
         _configuration = configuration;
         _serviceSettings = serviceSettings;
         _networkInterfaces = networkInterfaces;
         _routingTableHelper = routingTableHelper;
-        _ipFilter = ipFilter;
-        _ipLayer = ipLayer;
+        _permitManager = permitManager;
+        _pingProbe = pingProbe;
         _ipv6 = ipv6;
     }
 
@@ -85,11 +87,11 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
             return CreateUnavailableResult("Only IPv4 server endpoints can currently be probed directly.");
         }
 
+        using AddressLockLease addressLock =
+            await AcquireAddressLockAsync(ipAddress.ToString(), cancellationToken);
         await _probeSlots.WaitAsync(cancellationToken);
         try
         {
-            SemaphoreSlim addressLock = _addressLocks.GetOrAdd(ipAddress.ToString(), _ => new SemaphoreSlim(1, 1));
-            await addressLock.WaitAsync(cancellationToken);
             try
             {
                 return await ProbeThroughPhysicalAdapterAsync(ipAddress, cancellationToken);
@@ -101,10 +103,6 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
             catch
             {
                 return CreateUnavailableResult("The direct server health check could not be completed.");
-            }
-            finally
-            {
-                addressLock.Release();
             }
         }
         finally
@@ -136,28 +134,36 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
 
         bool routeAlreadyExisted = _routingTableHelper.RouteExists(directRoute);
         bool ownsRoute = false;
-        List<Guid> permitFilterIds = [];
-
+        IServerHealthPermitLease? permitLease = null;
         try
         {
-            permitFilterIds = CreatePermitFilters(ipAddress);
-            if (permitFilterIds.Count == 0)
+            permitLease = _permitManager.TryCreate(ipAddress);
+            if (permitLease is null)
             {
                 return CreateUnavailableResult("The firewall permit for the direct health check could not be created.");
             }
 
             if (!routeAlreadyExisted)
             {
-                _routingTableHelper.CreateRoute(directRoute);
-                ownsRoute = _routingTableHelper.RouteExists(directRoute);
-                if (!ownsRoute)
+                try
+                {
+                    _routingTableHelper.CreateRoute(directRoute);
+                    ownsRoute = true;
+                }
+                catch
+                {
+                    ownsRoute = TryRouteExists(directRoute);
+                    throw;
+                }
+
+                if (!_routingTableHelper.RouteExists(directRoute))
                 {
                     return CreateUnavailableResult("The direct route through the physical adapter could not be created.");
                 }
             }
 
             await Task.Delay(ROUTE_SETTLE_DELAY_IN_MILLISECONDS, cancellationToken);
-            return await MeasureAsync(ipAddress, cancellationToken);
+            return await _pingProbe.MeasureAsync(ipAddress, cancellationToken);
         }
         finally
         {
@@ -172,91 +178,69 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
                 }
             }
 
-            RemovePermitFilters(permitFilterIds);
+            permitLease?.Dispose();
         }
     }
 
-    private async Task<ServerHealthProbeResultIpcEntity> MeasureAsync(
-        IPAddress ipAddress,
-        CancellationToken cancellationToken)
+    private bool TryRouteExists(RouteConfiguration route)
     {
-        List<long> successfulRoundTrips = [];
-
-        using Ping ping = new();
-        for (int sampleIndex = 0; sampleIndex < PROBE_SAMPLE_COUNT; sampleIndex++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                PingReply reply = await ping.SendPingAsync(ipAddress, PROBE_TIMEOUT_IN_MILLISECONDS);
-                if (reply.Status == IPStatus.Success)
-                {
-                    successfulRoundTrips.Add(reply.RoundtripTime);
-                }
-            }
-            catch (Exception exception) when (exception is PingException or InvalidOperationException)
-            {
-            }
-
-            if (sampleIndex < PROBE_SAMPLE_COUNT - 1)
-            {
-                await Task.Delay(_delayBetweenSamples, cancellationToken);
-            }
-        }
-
-        return new ServerHealthProbeResultIpcEntity
-        {
-            AverageLatencyMilliseconds = successfulRoundTrips.Count > 0
-                ? successfulRoundTrips.Average()
-                : null,
-            PacketLossPercent = (PROBE_SAMPLE_COUNT - successfulRoundTrips.Count) * 100d / PROBE_SAMPLE_COUNT,
-            SuccessfulSamples = successfulRoundTrips.Count,
-            TotalSamples = PROBE_SAMPLE_COUNT,
-            CheckedAtUtc = DateTime.UtcNow,
-            UsedPhysicalRoute = true,
-            Error = successfulRoundTrips.Count == 0
-                ? "No ICMP replies were received. The server may block ping; this does not necessarily mean it is offline."
-                : null,
-        };
-    }
-
-    private List<Guid> CreatePermitFilters(IPAddress ipAddress)
-    {
-        List<Guid> filterIds = [];
-
         try
         {
-            _ipLayer.ApplyToIpv4(layer =>
-            {
-                Guid filterId = _ipFilter.DynamicSublayer.CreateRemoteNetworkIPFilter(
-                    new DisplayData("ProtonVPN server health direct probe", string.Empty),
-                    FilterAction.HardPermit,
-                    layer,
-                    14,
-                    FilterNetworkAddress.FromIpv4(ipAddress.ToString(), "255.255.255.255"));
-                filterIds.Add(filterId);
-            });
-
-            return filterIds;
+            return _routingTableHelper.RouteExists(route);
         }
         catch
         {
-            RemovePermitFilters(filterIds);
-            return [];
+            return false;
         }
     }
 
-    private void RemovePermitFilters(IEnumerable<Guid> filterIds)
+    private async Task<AddressLockLease> AcquireAddressLockAsync(
+        string address,
+        CancellationToken cancellationToken)
     {
-        foreach (Guid filterId in filterIds)
+        AddressLock addressLock;
+        lock (_addressLocksSync)
         {
-            try
+            if (!_addressLocks.TryGetValue(address, out addressLock!))
             {
-                _ipFilter.DynamicSublayer.DestroyFilter(filterId);
+                addressLock = new AddressLock();
+                _addressLocks.Add(address, addressLock);
             }
-            catch
+
+            addressLock.ReferenceCount++;
+        }
+
+        try
+        {
+            await addressLock.Semaphore.WaitAsync(cancellationToken);
+            return new AddressLockLease(this, address, addressLock);
+        }
+        catch
+        {
+            ReleaseAddressLockReference(address, addressLock, releaseSemaphore: false);
+            throw;
+        }
+    }
+
+    private void ReleaseAddressLockReference(
+        string address,
+        AddressLock addressLock,
+        bool releaseSemaphore)
+    {
+        if (releaseSemaphore)
+        {
+            addressLock.Semaphore.Release();
+        }
+
+        lock (_addressLocksSync)
+        {
+            addressLock.ReferenceCount--;
+            if (addressLock.ReferenceCount == 0 &&
+                _addressLocks.TryGetValue(address, out AddressLock? current) &&
+                ReferenceEquals(current, addressLock))
             {
+                _addressLocks.Remove(address);
+                addressLock.Semaphore.Dispose();
             }
         }
     }
@@ -277,10 +261,48 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
             AverageLatencyMilliseconds = null,
             PacketLossPercent = 100,
             SuccessfulSamples = 0,
-            TotalSamples = PROBE_SAMPLE_COUNT,
+            TotalSamples = ServerHealthPingProbe.ProbeSampleCount,
             CheckedAtUtc = DateTime.UtcNow,
             UsedPhysicalRoute = false,
             Error = error,
         };
+    }
+
+    private sealed class AddressLock
+    {
+        public SemaphoreSlim Semaphore { get; } = new(1, 1);
+        public int ReferenceCount { get; set; }
+    }
+
+    private sealed class AddressLockLease : IDisposable
+    {
+        private readonly ServerHealthProbeService _owner;
+        private readonly string _address;
+        private readonly AddressLock _addressLock;
+        private bool _isDisposed;
+
+        public AddressLockLease(
+            ServerHealthProbeService owner,
+            string address,
+            AddressLock addressLock)
+        {
+            _owner = owner;
+            _address = address;
+            _addressLock = addressLock;
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            _owner.ReleaseAddressLockReference(
+                _address,
+                _addressLock,
+                releaseSemaphore: true);
+        }
     }
 }

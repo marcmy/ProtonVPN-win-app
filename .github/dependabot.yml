@@ -20,4 +20,8 @@ updates:
       # Proton VPN 5.1.5 installs the strongly named log4net 3.2.0 assembly.
       # Ignore all updates until the fast-patch output can target a newer installed runtime.
       - dependency-name: "log4net"
+      # Major upgrades require an explicit compatibility review against the installed runtime.
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     open-pull-requests-limit: 3

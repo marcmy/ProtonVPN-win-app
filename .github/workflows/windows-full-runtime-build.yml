@@ -16,10 +16,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-full-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   runtime:
     name: Build GitHub runtime artifact
     runs-on: windows-latest
+    timeout-minutes: 90
 
     defaults:
       run:
@@ -30,6 +35,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -65,10 +71,12 @@ jobs:
 
       - name: Resolve target app version
         id: app-version
+        env:
+          REQUESTED_TARGET_VERSION: ${{ inputs.target_version }}
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $targetVersion = '${{ inputs.target_version }}'.Trim()
+          $targetVersion = $env:REQUESTED_TARGET_VERSION.Trim()
           $assemblyInfoPath = 'src/GlobalAssemblyInfo.cs'
 
           if ($targetVersion -eq '') {
@@ -155,6 +163,9 @@ jobs:
           }
 
       - name: Stage runtime artifact folder
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          TARGET_VERSION: ${{ steps.app-version.outputs.target_version }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -269,12 +280,35 @@ jobs:
               Write-Host ([System.IO.Path]::GetRelativePath($runtimeDir, $_.FullName))
             }
 
+          $runtimeManifestFiles = @(
+            Get-ChildItem -LiteralPath $runtimeDir -Recurse -File |
+              Sort-Object FullName |
+              ForEach-Object {
+                [ordered]@{
+                  path = [System.IO.Path]::GetRelativePath($runtimeDir, $_.FullName).Replace('\', '/')
+                  size = $_.Length
+                  sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+              }
+          )
+          $runtimeManifest = [ordered]@{
+            schemaVersion = 1
+            targetVersion = $env:TARGET_VERSION
+            sourceCommit = $env:SOURCE_COMMIT
+            builtAtUtc = [DateTime]::UtcNow.ToString('o')
+            files = $runtimeManifestFiles
+          }
+          $runtimeManifest |
+            ConvertTo-Json -Depth 6 |
+            Set-Content -LiteralPath (Join-Path $runtimeDir 'runtime-manifest.json') -Encoding utf8
+
       - name: Upload GitHub runtime artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: protonvpn-github-runtime
           path: artifacts/ProtonVPN.GitHubRuntime
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload build logs
         if: always()
@@ -283,3 +317,30 @@ jobs:
           name: protonvpn-github-runtime-logs
           path: artifacts/logs
           if-no-files-found: warn
+          retention-days: 7
+
+  attest:
+    name: Attest runtime artifact
+    needs: runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download runtime artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: protonvpn-github-runtime
+          path: artifacts-to-attest
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            artifacts-to-attest/runtime-manifest.json
+            artifacts-to-attest/**/ProtonVPN*.dll

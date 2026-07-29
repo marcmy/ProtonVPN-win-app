@@ -23,9 +23,11 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
     private static readonly TimeSpan _retention = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan _defaultMinimumProbeInterval = TimeSpan.FromSeconds(30);
 
     private readonly IServerHealthClock _clock;
     private readonly SemaphoreSlim _probeSlots;
+    private readonly TimeSpan _minimumProbeInterval;
     private readonly ConcurrentDictionary<ServerHealthHistoryKey, Entry> _entries = new();
     private readonly object _inFlightLock = new();
     private readonly Dictionary<ServerHealthHistoryKey, Task<ServerHealthSnapshot>> _inFlight = new();
@@ -38,11 +40,17 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
     public ServerHealthHistoryStore(
         IServerHealthClock? clock = null,
-        int maximumConcurrentProbes = 8)
+        int maximumConcurrentProbes = 8,
+        TimeSpan? minimumProbeInterval = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumConcurrentProbes, 1);
         _clock = clock ?? new SystemServerHealthClock();
         _probeSlots = new(maximumConcurrentProbes, maximumConcurrentProbes);
+        _minimumProbeInterval = minimumProbeInterval ?? _defaultMinimumProbeInterval;
+        if (_minimumProbeInterval < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minimumProbeInterval));
+        }
     }
 
     public ServerHealthSnapshot GetSnapshot(ServerHealthHistoryKey key)
@@ -90,6 +98,11 @@ public sealed class ServerHealthHistoryStore : IDisposable
             ObjectDisposedException.ThrowIf(_isDisposed, this);
             if (!_inFlight.TryGetValue(key, out pending!))
             {
+                if (TryGetRecentSnapshot(key, out ServerHealthSnapshot recentSnapshot))
+                {
+                    return recentSnapshot;
+                }
+
                 TaskCompletionSource<ServerHealthSnapshot> completion =
                     new(TaskCreationOptions.RunContinuationsAsynchronously);
                 pending = completion.Task;
@@ -99,6 +112,30 @@ public sealed class ServerHealthHistoryStore : IDisposable
         }
 
         return await pending.WaitAsync(cancellationToken);
+    }
+
+    private bool TryGetRecentSnapshot(
+        ServerHealthHistoryKey key,
+        out ServerHealthSnapshot snapshot)
+    {
+        snapshot = null!;
+        if (!_entries.TryGetValue(key, out Entry? entry))
+        {
+            return false;
+        }
+
+        lock (entry.SyncRoot)
+        {
+            Prune(entry);
+            if (entry.Measurements.Count == 0 ||
+                _clock.UtcNow - entry.LastRecordedAt >= _minimumProbeInterval)
+            {
+                return false;
+            }
+
+            snapshot = CreateSnapshot(key, entry);
+            return true;
+        }
     }
 
     private async Task RunProbeAndReleaseAsync(

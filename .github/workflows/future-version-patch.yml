@@ -29,12 +29,22 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: future-version-patch-${{ inputs.target_branch }}
+  cancel-in-progress: false
 
 jobs:
-  patch-build:
+  patch_build:
     name: Port complete fork and build versioned installer
     runs-on: windows-latest
+    timeout-minutes: 90
+
+    outputs:
+      target_branch: ${{ steps.apply_patch.outputs.target_branch }}
+      target_exists: ${{ steps.apply_patch.outputs.target_exists }}
+      target_version: ${{ steps.target-version.outputs.target_version }}
 
     defaults:
       run:
@@ -46,6 +56,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -248,21 +259,31 @@ jobs:
             -InstallerScriptPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.ps1') `
             -LauncherPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.cmd')
 
-      - name: Push patched target branch
+      - name: Create verified patched-branch bundle
         env:
-          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
+          TARGET_BRANCH: ${{ steps.apply_patch.outputs.target_branch }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $targetBranch = '${{ steps.apply_patch.outputs.target_branch }}'
-          $targetExists = [System.Convert]::ToBoolean('${{ steps.apply_patch.outputs.target_exists }}')
-          $forceResetTarget = [System.Convert]::ToBoolean($env:FORCE_RESET_TARGET)
+          $bundlePath = 'artifacts/patched-branch.bundle'
+          $targetRef = "refs/heads/$env:TARGET_BRANCH"
 
-          if ($targetExists -and $forceResetTarget) {
-            git push --force-with-lease origin "HEAD:refs/heads/$targetBranch"
+          git bundle create $bundlePath $targetRef
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to create patched branch bundle for $targetRef."
           }
-          else {
-            git push origin "HEAD:refs/heads/$targetBranch"
+
+          git bundle verify $bundlePath
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Patched branch bundle verification failed.'
           }
+
+      - name: Upload patched-branch bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: future-version-patched-branch
+          path: artifacts/patched-branch.bundle
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Upload raw patch artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -270,6 +291,7 @@ jobs:
           name: protonvpn-client-patch-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/ProtonVPN.Client.Patch
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -277,6 +299,7 @@ jobs:
           name: protonvpn-custom-patch-installer-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/Installer/*.exe
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload full bin artifact
         if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
@@ -285,6 +308,7 @@ jobs:
           name: protonvpn-client-bin-${{ steps.target-version.outputs.target_version }}-both
           path: src/bin
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload build logs
         if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
@@ -293,3 +317,101 @@ jobs:
           name: protonvpn-client-patch-logs-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/logs
           if-no-files-found: ignore
+          retention-days: 7
+
+  push_branch:
+    name: Push tested target branch
+    needs: patch_build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download patched-branch bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: future-version-patched-branch
+          path: branch-bundle
+
+      - name: Push tested commit
+        env:
+          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_BRANCH: ${{ needs.patch_build.outputs.target_branch }}
+          TARGET_EXISTS: ${{ needs.patch_build.outputs.target_exists }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git check-ref-format --branch "$TARGET_BRANCH" >/dev/null
+          case "$TARGET_BRANCH" in
+            main|master|marc/proton)
+              echo "Refusing to push protected target branch '$TARGET_BRANCH'." >&2
+              exit 1
+              ;;
+          esac
+
+          git init push-repository
+          git -C push-repository remote add origin "https://github.com/$REPOSITORY.git"
+          git -C push-repository fetch \
+            "$GITHUB_WORKSPACE/branch-bundle/patched-branch.bundle" \
+            "refs/heads/$TARGET_BRANCH:refs/remotes/bundle/patched"
+
+          basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          auth_header="AUTHORIZATION: basic $basic_auth"
+          target_ref="refs/heads/$TARGET_BRANCH"
+
+          if [[ "$TARGET_EXISTS" == "true" ]]; then
+            if [[ "$FORCE_RESET_TARGET" != "true" ]]; then
+              echo "Existing target branch requires force_reset_target=true." >&2
+              exit 1
+            fi
+
+            git -c "http.https://github.com/.extraheader=$auth_header" \
+              -C push-repository fetch origin \
+              "$target_ref:refs/remotes/origin/$TARGET_BRANCH"
+            git -c "http.https://github.com/.extraheader=$auth_header" \
+              -C push-repository push \
+              --force-with-lease="$target_ref" \
+              origin "refs/remotes/bundle/patched:$target_ref"
+          else
+            git -c "http.https://github.com/.extraheader=$auth_header" \
+              -C push-repository push \
+              origin "refs/remotes/bundle/patched:$target_ref"
+          fi
+
+  attest:
+    name: Attest future-version artifacts
+    needs: patch_build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download raw patch artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: protonvpn-client-patch-${{ needs.patch_build.outputs.target_version }}-both
+          path: artifacts-to-attest/raw-patch
+
+      - name: Download installer artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: protonvpn-custom-patch-installer-${{ needs.patch_build.outputs.target_version }}-both
+          path: artifacts-to-attest/installer
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            artifacts-to-attest/raw-patch/patch-manifest.json
+            artifacts-to-attest/installer/*.exe

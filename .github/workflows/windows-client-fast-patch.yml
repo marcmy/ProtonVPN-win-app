@@ -34,10 +34,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-fast-patch-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.build_mode || 'both' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   pipeline:
     name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Validate client and service changes' }}
     runs-on: windows-latest
+    timeout-minutes: 90
+
+    outputs:
+      build_mode: ${{ inputs.build_mode }}
+      target_version: ${{ steps.app-version.outputs.target_version }}
 
     defaults:
       run:
@@ -48,6 +57,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -238,6 +248,7 @@ jobs:
           name: protonvpn-client-patch-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/ProtonVPN.Client.Patch
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload installer artifact
         if: github.event_name == 'workflow_dispatch'
@@ -246,6 +257,7 @@ jobs:
           name: protonvpn-custom-patch-installer-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/Installer/*.exe
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload full bin artifact
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
@@ -254,6 +266,7 @@ jobs:
           name: protonvpn-client-bin-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: src/bin
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload build logs
         if: ${{ github.event_name == 'workflow_dispatch' && always() && hashFiles('artifacts/logs/**') != '' }}
@@ -262,3 +275,37 @@ jobs:
           name: protonvpn-client-patch-logs-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/logs
           if-no-files-found: ignore
+          retention-days: 7
+
+  attest:
+    name: Attest patch artifacts
+    if: github.event_name == 'workflow_dispatch'
+    needs: pipeline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download raw patch artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: protonvpn-client-patch-${{ needs.pipeline.outputs.target_version }}-${{ needs.pipeline.outputs.build_mode }}
+          path: artifacts-to-attest/raw-patch
+
+      - name: Download installer artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: protonvpn-custom-patch-installer-${{ needs.pipeline.outputs.target_version }}-${{ needs.pipeline.outputs.build_mode }}
+          path: artifacts-to-attest/installer
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            artifacts-to-attest/raw-patch/patch-manifest.json
+            artifacts-to-attest/installer/*.exe

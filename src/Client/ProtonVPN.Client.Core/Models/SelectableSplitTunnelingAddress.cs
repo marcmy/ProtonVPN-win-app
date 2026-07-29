@@ -64,9 +64,9 @@ public class SelectableSplitTunnelingAddress : Selectable<string>
             return true;
         }
 
-        if (IsValidHostname(normalized))
+        if (TryNormalizeHostname(normalized, out string hostname))
         {
-            address = new SelectableSplitTunnelingAddress(normalized.ToLowerInvariant(), isSelected);
+            address = new SelectableSplitTunnelingAddress(hostname, isSelected);
             return true;
         }
 
@@ -75,9 +75,24 @@ public class SelectableSplitTunnelingAddress : Selectable<string>
 
     public static bool IsValidHostname(string hostname)
     {
+        return TryNormalizeHostname(hostname, out _);
+    }
+
+    private static bool TryNormalizeHostname(string value, out string hostname)
+    {
+        hostname = value.Trim().TrimEnd('.').ToLowerInvariant();
+        if (hostname.StartsWith("*.", StringComparison.Ordinal))
+        {
+            hostname = hostname[2..];
+        }
+        else if (hostname.Contains('*'))
+        {
+            return false;
+        }
+
         return !string.IsNullOrWhiteSpace(hostname)
             && !hostname.Contains('/')
-            && !hostname.Contains('*')
+            && !hostname.Contains(':')
             && Uri.CheckHostName(hostname) == UriHostNameType.Dns;
     }
 

@@ -16,6 +16,8 @@ param(
 
     [switch] $RestartClient,
 
+    [switch] $ValidateOnly,
+
     [switch] $PauseBeforeExit
 )
 
@@ -231,6 +233,138 @@ function Resolve-PayloadRoot {
     return $candidateRoots[0]
 }
 
+function Test-PatchPayload {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $PayloadRoot,
+
+        [string] $ExpectedTargetVersion
+    )
+
+    $resolvedPayloadRoot = [System.IO.Path]::GetFullPath($PayloadRoot).TrimEnd('\', '/')
+    $reparsePoints = @(
+        @(
+            Get-Item -LiteralPath $resolvedPayloadRoot -Force
+            Get-ChildItem -LiteralPath $resolvedPayloadRoot -Recurse -Force |
+                Where-Object {
+                    ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+                }
+        ) | Where-Object {
+            ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+        }
+    )
+    if ($reparsePoints.Count -gt 0) {
+        throw "Patch payload must not contain symbolic links or other reparse points: $($reparsePoints[0].FullName)"
+    }
+
+    $manifestPath = Join-Path $resolvedPayloadRoot 'patch-manifest.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "Patch manifest was not found at the payload root: $manifestPath"
+    }
+
+    try {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        throw "Patch manifest is not valid JSON: $($_.Exception.Message)"
+    }
+
+    foreach ($requiredProperty in @('schemaVersion', 'targetVersion', 'buildMode', 'sourceCommit', 'files')) {
+        if ($null -eq $manifest.PSObject.Properties[$requiredProperty]) {
+            throw "Patch manifest is missing required property '$requiredProperty'."
+        }
+    }
+
+    if ([int] $manifest.schemaVersion -ne 1) {
+        throw "Unsupported patch manifest schema version: $($manifest.schemaVersion)"
+    }
+
+    if (([string] $manifest.buildMode) -notin @('client', 'service', 'both')) {
+        throw "Patch manifest buildMode is invalid: $($manifest.buildMode)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string] $manifest.sourceCommit)) {
+        throw 'Patch manifest sourceCommit cannot be empty.'
+    }
+
+    $manifestTargetVersion = ([string] $manifest.targetVersion).Trim().TrimStart([char[]] @('v', 'V'))
+    if ($manifestTargetVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') {
+        throw "Patch manifest targetVersion is invalid: $($manifest.targetVersion)"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedTargetVersion)) {
+        $normalizedExpectedVersion = $ExpectedTargetVersion.Trim().TrimStart([char[]] @('v', 'V'))
+        if (-not $manifestTargetVersion.Equals($normalizedExpectedVersion, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Patch targets Proton VPN $manifestTargetVersion, not the requested version $normalizedExpectedVersion."
+        }
+    }
+
+    $declaredPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $manifestFiles = @($manifest.files)
+    if ($manifestFiles.Count -eq 0) {
+        throw 'Patch manifest does not declare any payload files.'
+    }
+
+    foreach ($file in $manifestFiles) {
+        $relativePath = ([string] $file.path).Trim().Replace('/', '\')
+        $pathSegments = $relativePath.Split(
+            [char[]] @('\', '/'),
+            [System.StringSplitOptions]::RemoveEmptyEntries)
+
+        if ([string]::IsNullOrWhiteSpace($relativePath) -or
+            [System.IO.Path]::IsPathRooted($relativePath) -or
+            $relativePath.Contains(':') -or
+            $pathSegments -contains '..') {
+            throw "Patch manifest contains an unsafe payload path: $($file.path)"
+        }
+
+        if (-not $declaredPaths.Add($relativePath)) {
+            throw "Patch manifest declares the payload path more than once: $relativePath"
+        }
+
+        $payloadPath = [System.IO.Path]::GetFullPath((Join-Path $resolvedPayloadRoot $relativePath))
+        $payloadRootPrefix = $resolvedPayloadRoot + [System.IO.Path]::DirectorySeparatorChar
+        if (-not $payloadPath.StartsWith($payloadRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Patch manifest path escapes the payload root: $relativePath"
+        }
+
+        if (-not (Test-Path -LiteralPath $payloadPath -PathType Leaf)) {
+            throw "Patch payload file declared by the manifest is missing: $relativePath"
+        }
+
+        $payloadFile = Get-Item -LiteralPath $payloadPath
+        if ([long] $file.size -ne $payloadFile.Length) {
+            throw "Patch payload size mismatch for '$relativePath'. Expected $($file.size), found $($payloadFile.Length)."
+        }
+
+        $expectedHash = ([string] $file.sha256).Trim().ToLowerInvariant()
+        if ($expectedHash -notmatch '^[0-9a-f]{64}$') {
+            throw "Patch manifest contains an invalid SHA-256 value for '$relativePath'."
+        }
+
+        $actualHash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if (-not $actualHash.Equals($expectedHash, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Patch payload hash mismatch for '$relativePath'. Expected $expectedHash, found $actualHash."
+        }
+    }
+
+    $actualPayloadFiles = @(
+        Get-ChildItem -LiteralPath $resolvedPayloadRoot -Recurse -File |
+            Where-Object { -not $_.FullName.Equals($manifestPath, [StringComparison]::OrdinalIgnoreCase) }
+    )
+    foreach ($actualFile in $actualPayloadFiles) {
+        $relativePath = $actualFile.FullName.Substring($resolvedPayloadRoot.Length).TrimStart('\', '/')
+        if (-not $declaredPaths.Contains($relativePath)) {
+            throw "Patch payload contains a file that is not declared by the manifest: $relativePath"
+        }
+    }
+
+    if ($actualPayloadFiles.Count -ne $declaredPaths.Count) {
+        throw "Patch manifest file count does not match the payload. Declared $($declaredPaths.Count), found $($actualPayloadFiles.Count)."
+    }
+
+    return $manifest
+}
+
 function Invoke-Robocopy {
     param(
         [Parameter(Mandatory = $true)]
@@ -406,7 +540,24 @@ function Remove-OldBackups {
     }
 }
 
-if (-not (Test-IsAdministrator)) {
+if (-not $ValidateOnly -and -not (Test-IsAdministrator)) {
+    $preflightDirectory = Join-Path (
+        [System.IO.Path]::GetTempPath()
+    ) ("ProtonVPNPatchPreflight-{0}" -f [Guid]::NewGuid().ToString('N'))
+
+    try {
+        New-Item -ItemType Directory -Path $preflightDirectory -Force | Out-Null
+        $preflightPayloadRoot = Resolve-PatchSource -WorkingDirectory $preflightDirectory
+        $null = Test-PatchPayload `
+            -PayloadRoot $preflightPayloadRoot `
+            -ExpectedTargetVersion $TargetVersion
+        Write-Host 'Patch payload validation succeeded; requesting administrator access.'
+    } finally {
+        if (Test-Path -LiteralPath $preflightDirectory -PathType Container) {
+            Remove-Item -LiteralPath $preflightDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     Restart-Elevated
 }
 
@@ -446,14 +597,25 @@ try {
     }
 
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
-    $targetDirectory = Resolve-TargetDirectory
     $payloadRoot = Resolve-PatchSource -WorkingDirectory $workingDirectory
+    $manifest = Test-PatchPayload -PayloadRoot $payloadRoot -ExpectedTargetVersion $TargetVersion
 
-    $resolvedBackupRoot = if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
-        Split-Path -Path $targetDirectory -Parent
+    if ($ValidateOnly) {
+        Write-Host "Patch payload validation succeeded for Proton VPN $($manifest.targetVersion)." -ForegroundColor Green
+        $exitCode = 0
     } else {
-        [System.IO.Path]::GetFullPath($BackupRoot)
-    }
+        $targetDirectory = Resolve-TargetDirectory
+        $installedVersion = (Split-Path -Leaf $targetDirectory).TrimStart([char[]] @('v', 'V'))
+        $manifestVersion = ([string] $manifest.targetVersion).Trim().TrimStart([char[]] @('v', 'V'))
+        if (-not $installedVersion.Equals($manifestVersion, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Patch targets Proton VPN $manifestVersion, but the selected installation is $installedVersion."
+        }
+
+        $resolvedBackupRoot = if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+            Split-Path -Path $targetDirectory -Parent
+        } else {
+            [System.IO.Path]::GetFullPath($BackupRoot)
+        }
 
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $targetFolderName = Split-Path -Leaf $targetDirectory
@@ -503,7 +665,8 @@ try {
         Write-Host 'Patch installed successfully.' -ForegroundColor Green
     }
 
-    $exitCode = 0
+        $exitCode = 0
+    }
 } catch {
     Write-Error -Message $_.Exception.Message -ErrorAction Continue
 

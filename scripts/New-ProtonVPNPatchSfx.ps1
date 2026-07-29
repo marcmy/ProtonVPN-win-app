@@ -113,6 +113,18 @@ if ($isPatchDirectory) {
     }
 }
 
+$windowsPowerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+& $windowsPowerShellPath `
+    -NoProfile `
+    -NonInteractive `
+    -ExecutionPolicy Bypass `
+    -File $resolvedInstallerScriptPath `
+    -PatchPath $resolvedPatchPath `
+    -ValidateOnly
+if ($LASTEXITCODE -ne 0) {
+    throw "Patch payload validation failed with exit code $LASTEXITCODE."
+}
+
 $manifestJson = Get-PatchManifestJson -ResolvedPatchPath $resolvedPatchPath -IsPatchZip $isPatchZip
 try {
     $manifest = $manifestJson | ConvertFrom-Json -ErrorAction Stop

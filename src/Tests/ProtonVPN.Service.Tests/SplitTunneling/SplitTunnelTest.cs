@@ -35,6 +35,7 @@ using ProtonVPN.ProTun.Contracts.Adapters;
 using ProtonVPN.Service.Firewall;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Service.SplitTunneling;
+using ProtonVPN.Service.SplitTunneling.DomainSplitTunneling;
 using ProtonVPN.Vpn.Common;
 using ProtonVPN.Vpn.SplitTunnel;
 
@@ -53,6 +54,7 @@ public class SplitTunnelTest
     private IAppFilter _appFilter;
     private IPermittedRemoteAddress _permittedRemoteAddress;
     private IAdapterDetailsCache _proTunAdapterDetailsCache;
+    private ISplitTunnelDomainPoller _domainPoller;
 
     [TestInitialize]
     public void TestInitialize()
@@ -67,6 +69,7 @@ public class SplitTunnelTest
         _appFilter = Substitute.For<IAppFilter>();
         _permittedRemoteAddress = Substitute.For<IPermittedRemoteAddress>();
         _proTunAdapterDetailsCache = Substitute.For<IAdapterDetailsCache>();
+        _domainPoller = Substitute.For<ISplitTunnelDomainPoller>();
     }
 
     [TestMethod]
@@ -379,6 +382,92 @@ public class SplitTunnelTest
             Arg.Any<bool>());
     }
 
+    [TestMethod]
+    public void OnVpnConnected_WhenBlockModeWithDomainRule_StartsDomainPoller()
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [],
+            Ips = ["*.Example.com"],
+        });
+        SplitTunnel splitTunnel = GetSplitTunnel();
+
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        _domainPoller.Received(1).ReplaceRules(
+            Arg.Is<string[]>(rules => rules.SequenceEqual(new[] { "example.com" })));
+        _domainPoller.Received(1).Start();
+        _permittedRemoteAddress.DidNotReceive().Add(
+            Arg.Is<string[]>(addresses => addresses.Contains("example.com")),
+            Arg.Any<NetworkFilter.Action>());
+    }
+
+    [TestMethod]
+    public void OnVpnConnected_WhenBlockModeWithIpAndDomain_AppliesOnlyConfiguredIpImmediately()
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [],
+            Ips = ["8.8.8.8", "example.com"],
+        });
+        SplitTunnel splitTunnel = GetSplitTunnel();
+
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        _permittedRemoteAddress.Received(1).Add(
+            Arg.Is<string[]>(addresses => addresses.Length == 1 && addresses[0].StartsWith("8.8.8.8")),
+            NetworkFilter.Action.HardPermit);
+    }
+
+    [TestMethod]
+    public void DomainAddressesChanged_WhenConnected_ReplacesFiltersAndRoutesWithCombinedAddresses()
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [],
+            Ips = ["8.8.8.8", "example.com"],
+        });
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["8.8.8.8"]));
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        _domainPoller.AddressesChanged += Raise.Event<EventHandler<string[]>>(
+            _domainPoller,
+            new[] { "203.0.113.10" });
+
+        _permittedRemoteAddress.Received().Add(
+            Arg.Is<string[]>(addresses =>
+                addresses.Any(address => address.StartsWith("8.8.8.8")) &&
+                addresses.Contains("203.0.113.10")),
+            NetworkFilter.Action.HardPermit);
+        _splitTunnelRouting.Received().SetUpRoutingTable(
+            Arg.Is<VpnConfig>(config =>
+                config.SplitTunnelIPs.Any(address => address.StartsWith("8.8.8.8")) &&
+                config.SplitTunnelIPs.Contains("203.0.113.10")),
+            "1.1.1.1",
+            Arg.Any<bool>());
+    }
+
+    [TestMethod]
+    public void OnVpnDisconnected_StopsDomainPoller()
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [],
+            Ips = ["example.com"],
+        });
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true));
+
+        _domainPoller.Received().Stop();
+    }
+
     private SplitTunnel GetSplitTunnel(bool enabled = false, bool reverseEnabled = false)
     {
         return new SplitTunnel(
@@ -393,7 +482,8 @@ public class SplitTunnelTest
             _splitTunnelClient,
             _appFilter,
             _permittedRemoteAddress,
-            _proTunAdapterDetailsCache);
+            _proTunAdapterDetailsCache,
+            _domainPoller);
     }
 
     private VpnState GetConnectedVpnState()
