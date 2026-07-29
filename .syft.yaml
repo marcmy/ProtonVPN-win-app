@@ -2,4 +2,4 @@
 # These vendor artifacts cannot be independently rebuilt or replaced without
 # invalidating Proton's signatures. Trivy continues to scan Setup/Native.
 exclude:
-  - ./Setup/Native/
+  - ./Setup/Native/**
