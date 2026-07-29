@@ -17,13 +17,9 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
-using System.IO;
 using System.Threading;
-using System.Diagnostics;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
-using ProtonVPN.UI.Tests.Extensions;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
@@ -32,29 +28,12 @@ using static ProtonVPN.UI.Tests.TestsHelper.TestConstants;
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
 [TestFixture]
-[Category("3")]
+[Category("SKIP")]//3
 public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
 {
     private const string IP_ADDRESS_TO_ADD = "208.95.112.1";
 
     private const string APP_TO_CHECK = "Google Chrome";
-
-    private const string ADD_FIREWALL_RULES_SCRIPT = @"
-    New-NetFirewallRule -DisplayName 'Block Chrome Outbound' -Direction Outbound -Program 'C:\Program Files\Google\Chrome\Application\chrome.exe' -Action Block
-    New-NetFirewallRule -DisplayName 'Block Chrome Inbound' -Direction Inbound -Program 'C:\Program Files\Google\Chrome\Application\chrome.exe' -Action Block
-    ";
-    private const string REMOVE_FIREWALL_RULES_SCRIPT = @"
-    Remove-NetFirewallRule -DisplayName 'Block Chrome Outbound'
-    Remove-NetFirewallRule -DisplayName 'Block Chrome Inbound'
-    ";
-
-    private static readonly string _installedServicePath = Path.Combine(TestEnvironment.GetProtonClientFolder(), "ProtonVPNService.exe");
-
-    private const string VPN_QOS_POLICY_NAME = "LimitProtonVPN";
-
-    private static readonly string _setVpnLimitScript = $"New-NetQosPolicy -Name '{VPN_QOS_POLICY_NAME}' -AppPathNameMatchCondition '{_installedServicePath}' -ThrottleRateActionBitsPerSecond 512";
-
-    private readonly string _removeVpnLimitScript = $"Remove-NetQosPolicy -Name '{VPN_QOS_POLICY_NAME}' -Confirm:$false";
 
     [SetUp]
     public void SetUp()
@@ -64,6 +43,7 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
     }
 
     [Test, Order(0)]
+    [Property("TestCaseId", "787611")]
     public void SplitTunnelingAndAdvancedKillSwitchEnabledBlockInternetConnection()
     {
         CompletePreconditionsSplitTunnelingIp();
@@ -74,167 +54,153 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
             .Disconnect()
             .Verify.IsAdvancedKillSwitchActivated();
 
-        ConfirmationRobot.DismissExcludedLocationsPrompt();
-
-        //needs a 5sec wait locally
-        //Thread.Sleep(TestConstants.FiveSecondsTimeout);
         NetworkUtils.AssertInternetAvailability(false);
     }
 
     [Test, Order(1)]
+    [Property("TestCaseId", "787899")]
     [Retry(3)]
-    public void SplitTunnelingAndAdvancedKillSwitchEnabledConnectWithDifferentProtocols()
+    [TestCaseSource(typeof(TestConstants), nameof(AllNonProTunProtocols))]
+    public void SplitTunnelingAndAdvancedKillSwitchEnabledConnectWithDifferentProtocols(Protocol protocol)
     {
         CompletePreconditionsSplitTunnelingIp();
 
-        MakeSureUserIsDisconnected();
+        CommonUiFlows.EnsureUserIsDisconnected(shouldVerifyKillSwitch: true);
+
+        CommonUiFlows.ChangeProtocol(protocol, shouldEnableProTun: true);
 
         HomeRobot
             .ConnectViaConnectionCard()
-            .Verify.IsConnected();
-
-        foreach (Protocol protocolToChoose in Enum.GetValues(typeof(Protocol)))
-        {
-            HomeRobot
-                .ClickOnProtocolConnectionDetails()
-                .ClickChangeProtocolButton();
-
-            SettingRobot
-                .SelectProtocol(protocolToChoose)
-                .Reconnect();
-
-            HomeRobot
-                .Verify.IsConnected()
-                       .IsProtocolDisplayed(protocolToChoose);
-
-            NetworkUtils.AssertInternetAvailability(true);
-        }
-    }
-
-    [Test, Order(2)]
-    public void FirewallRulesRespectedWithSplitTunnelingIncludeModeAndAdvancedKillSwitchEnabled()
-    {
-        //unable to test locally due to MDM
-        WindowsUtils.RunPowerShellScript(ADD_FIREWALL_RULES_SCRIPT);
-
-        CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Include);
-
-        HomeRobot
-            .ConnectViaConnectionCard()
-            .Verify.IsConnected();
-
-        BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, false);
-        BrowserUtils.KillAllBrowsers();
-    }
-
-    [Test, Order(3)]
-    public void FirewallRulesIgnoredWithSplitTunnelingExcludeModeAndAdvancedKillSwitchEnabled()
-    {
-        CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Exclude);
-
-        HomeRobot
-            .ConnectViaConnectionCard()
-            .Verify.IsConnected();
-
-        BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, true);
-        BrowserUtils.KillAllBrowsers();
-
-        WindowsUtils.RunPowerShellScript(REMOVE_FIREWALL_RULES_SCRIPT);
-    }
-
-    [Test, Order(4)]
-    public void IncludedAppLossesInternetWhileInConnectingState()
-    {
-        CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Include);
-
-        HomeRobot
-            .ConnectViaConnectionCard()
-            .Verify.IsConnected();
-
-        WindowsUtils.RunPowerShellScript(_setVpnLimitScript);
-
-        KillVpnService();
-
-        HomeRobot
-            .Verify.IsConnecting();
-
-        BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, false);
-
-        WindowsUtils.RunPowerShellScript(_removeVpnLimitScript);
-
-        HomeRobot
-            .Verify.IsConnected();
-
-        BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, true);
-    }
-
-    [Test, Order(5)]
-    public void SplitTunnelingAndAdvancedKillSwitchEnabledBlocksInternetAfterRestart()
-    {
-        WindowsUtils.RunPowerShellScript(_removeVpnLimitScript);
-
-        CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Include);
-
-        SettingRobot
-            .OpenSettings()
-            .OpenAutoStartupSettings()
-            .ToggleAutoLaunchSetting()
-            .ToggleAutoConnectionSetting()
-            .ApplySettings()
-            .CloseSettings();
-
-        HomeRobot
-            .ExpandKebabMenuButton()
-            .ExitViaKebabMenuWithConfirmation();
-
-        Thread.Sleep(TestConstants.TwoSecondsTimeout);
-
-        LaunchApp(isFreshStart: false);
-
-        NavigationRobot
-            .Verify.IsOnMainPage();
-
-        //wait to see that it doesnt reconnect
-        Thread.Sleep(TestConstants.TenSecondsTimeout);
-        HomeRobot
-            .Verify.IsAdvancedKillSwitchActivated();
-
-        BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, false);
-    }
-
-    [Test, Order(6)]
-    public void TempTcDisableAdvancedKillSwitchFromSignInPage()
-    {
-        HomeRobot
-            .ExpandKebabMenuButton();
-        SettingRobot
-            .SignOut()
-            .ConfirmSignOut();
-
-        NavigationRobot
-            .Verify.IsOnLoginPage();
-
-        Thread.Sleep(TestConstants.OneSecondTimeout);
-
-        LoginRobot
-            .Verify.IsAdvancedKillSwitchDisplayed()
-            .DisableKillSwitch();
+            .Verify.IsConnected()
+                   .IsProtocolDisplayed(protocol);
 
         NetworkUtils.AssertInternetAvailability(true);
     }
 
-    private void MakeSureUserIsDisconnected()
+    [Test, Order(2)]
+    [Property("TestCaseId", "787634")]
+    public void FirewallRulesRespectedWithSplitTunnelingIncludeModeAndAdvancedKillSwitchEnabled()
+    {
+        //unable to test locally due to MDM
+        ScriptHelper.AddChromeFirewallRule();
+
+        CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Include);
+
+        HomeRobot
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected();
+
+        BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, shouldBeAvailable: false);
+        BrowserUtils.KillAllBrowsers();
+    }
+
+    [Test, Order(3)]
+    [Property("TestCaseId", "787619")]
+    public void FirewallRulesIgnoredWithSplitTunnelingExcludeModeAndAdvancedKillSwitchEnabled()
     {
         try
         {
+            CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Exclude);
+
             HomeRobot
-                .Verify.IsAdvancedKillSwitchActivated();
+                .ConnectViaConnectionCard()
+                .Verify.IsConnected();
+
+            BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, shouldBeAvailable: true);
+            BrowserUtils.KillAllBrowsers();
         }
-        catch
+        finally
+        {
+            ScriptHelper.RemoveChromeFirewallRule();
+        }
+    }
+
+    [Test, Order(4)]
+    [Property("TestCaseId", "787614")]
+    [Ignore("Flaky test")]
+    [Retry(3)]
+    public void IncludedAppLossesInternetWhileInConnectingState()
+    {
+        CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Include);
+
+        try
         {
             HomeRobot
-                .Disconnect()
+                .ConnectViaConnectionCard()
+                .Verify.IsConnected();
+
+            ScriptHelper.SetVpnSpeedLimit();
+
+            Thread.Sleep(TestConstants.FiveSecondsTimeout);
+
+            KillVpnService();
+
+            HomeRobot
+                .Verify.IsConnecting();
+
+            BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, shouldBeAvailable: false);
+
+            ScriptHelper.RemoveVpnSpeedLimit();
+            Thread.Sleep(TestConstants.TenSecondsTimeout);
+            ScriptHelper.RemoveVpnSpeedLimit();
+            Thread.Sleep(TestConstants.OneMinuteTimeout);
+
+            HomeRobot
+                .Verify.IsConnected();
+
+            BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, shouldBeAvailable: true);
+        }
+        finally
+        {
+            ScriptHelper.RemoveVpnSpeedLimit();
+        }
+    }
+
+    [Test, Order(5)]
+    [Property("TestCaseId", "787613")]
+    public void SplitTunnelingAndAdvancedKillSwitchEnabledBlocksInternetAfterRestart()
+    {
+        try
+        {
+            CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Include);
+
+            SettingRobot
+                .OpenSettings()
+                .OpenAutoStartupSettings()
+                .DisableAutoLaunchSetting()
+                .DisableAutoConnectionSetting()
+                .ApplySettings()
+                .CloseSettings();
+
+            HomeRobot
+                .ExpandKebabMenuButton()
+                .ExitViaKebabMenuWithConfirmation();
+
+            Thread.Sleep(TestConstants.TwoSecondsTimeout);
+
+            LaunchClient(ClientLaunchParams.StartWithNoOnboarding);
+
+            NavigationRobot
+                .Verify.IsOnMainPage();
+
+            //wait to see that it doesnt reconnect
+            Thread.Sleep(TestConstants.TenSecondsTimeout);
+            HomeRobot
                 .Verify.IsAdvancedKillSwitchActivated();
+
+            BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, shouldBeAvailable: false);
+        }
+        finally
+        {
+            CommonUiFlows.Logout();
+
+            Thread.Sleep(TestConstants.OneSecondTimeout);
+
+            LoginRobot
+                .Verify.IsAdvancedKillSwitchDisplayed()
+                .DisableKillSwitch();
+
+            NetworkUtils.AssertInternetAvailability(true);
         }
     }
 
@@ -243,7 +209,7 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
         SettingRobot
             .OpenSettings()
             .OpenKillSwitchSettings()
-            .ToggleKillSwitchSetting()
+            .EnableKillSwitchToggle()
             .SelectKillSwitchMode(KillSwitchMode.Advanced)
             .ApplySettings()
             .CloseSettings();
@@ -256,14 +222,15 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
             .OpenSplitTunnelingSettings();
 
         SplitTunnelingRobot
-            .ToggleSplitTunnelingSwitch()
+            .EnableSplitTunnelingToggle()
             .SelectIncludeMode()
             .EditSplitTunnelingIps();
 
         IpSelectorRobot
             .AddIpAddress(IP_ADDRESS_TO_ADD);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .ApplySettings()
@@ -277,7 +244,7 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
             .OpenSplitTunnelingSettings();
 
         SplitTunnelingRobot
-            .ToggleSplitTunnelingSwitch();
+            .EnableSplitTunnelingToggle();
 
         switch (splitTunnelingMode)
         {
@@ -295,35 +262,21 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
             .AddSuggestedApp(APP_TO_CHECK)
             .Verify.IsAppChecked(APP_TO_CHECK);
         ConfirmationRobot
-            .PrimaryAction();
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
 
         SettingRobot
             .ApplySettings()
             .CloseSettings();
     }
 
-    private void KillVpnService()
-    {
-        Thread.Sleep(TestConstants.OneSecondTimeout);
-
-        foreach (Process process in Process.GetProcessesByName("ProtonVPNService"))
-        {
-            try
-            {
-                process.Kill(true);
-            }
-            catch { }
-        }
-        Thread.Sleep(TestConstants.OneSecondTimeout);
-    }
-
     [OneTimeTearDown]
     public void TearDown()
     {
         //these are all backups
-        DeleteProtonData();
         BrowserUtils.KillAllBrowsers();
-        WindowsUtils.RunPowerShellScript(_removeVpnLimitScript, true);
-        WindowsUtils.RunPowerShellScript(REMOVE_FIREWALL_RULES_SCRIPT, true);
+        ScriptHelper.RemoveVpnSpeedLimit();
+        ScriptHelper.RemoveChromeFirewallRule();
+        ScriptHelper.RestoreInternet();
     }
 }

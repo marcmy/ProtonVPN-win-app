@@ -46,6 +46,12 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
     [FeatureFlag("U2FGatewayPortalUrl")]
     public string U2FGatewayPortalUrl => GetPayload();
 
+    [FeatureFlag("ProTunV1")]
+    public bool IsProTunEnabled => IsEnabled();    
+    
+    [FeatureFlag("IsConnectionFeedbackEnabled")]
+    public bool IsConnectionFeedbackEnabled => IsEnabled();  
+
     protected override TimeSpan PollingInterval => _config.FeatureFlagsUpdateInterval;
 
     private static PropertyInfo[] Properties { get; } = typeof(FeatureFlagsObserver).GetProperties();

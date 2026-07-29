@@ -25,12 +25,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Core.Helpers;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
 using ProtonVPN.Common.Legacy.PortForwarding;
 using ProtonVPN.IssueReporting.Contracts;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.ConnectionLogs;
-using ProtonVPN.Vpn.Common;
 using ProtonVPN.Vpn.Gateways;
 using ProtonVPN.Vpn.PortMapping.Messages;
 using ProtonVPN.Vpn.PortMapping.Serializers.Common;
@@ -54,15 +54,15 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
     private readonly IGatewayCache _gatewayCache;
     private readonly IIssueReporter _issueReporter;
 
-    private IPEndPoint _endpoint;
-    private HelloReplyMessage _helloReply;
-    private TemporaryMappedPort _mappedPort;
+    private IPEndPoint? _endpoint;
+    private HelloReplyMessage? _helloReply;
+    private TemporaryMappedPort? _mappedPort;
     private Lazy<CancellationTokenSource> _cancellationTokenSource = new(CancelledCancellationTokenSource.Create);
     private Lazy<CancellationTokenSource> _stopCancellationTokenSource = new(CancelledCancellationTokenSource.Create);
-    private PortForwardingState _lastState;
+    private PortForwardingState? _lastState;
     private VpnState _vpnState = VpnState.Default;
 
-    public event EventHandler<EventArgs<PortForwardingState>> StateChanged;
+    public event EventHandler<EventArgs<PortForwardingState>>? StateChanged;
 
     public PortMappingProtocolClient(ILogger logger,
         IUdpClientWrapper udpClientWrapper,
@@ -159,7 +159,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
 
     private async Task<byte[]> SendMessageWithTimeoutAsync(byte[] serializedMessage, CancellationToken cancellationToken)
     {
-        byte[] serializedReply = null;
+        byte[]? serializedReply = null;
         Exception exception = new("The serialized reply received is empty.");
         for (int timeoutInMilliseconds = MIN_TIMEOUT_MILLISECONDS; timeoutInMilliseconds <= MAX_TIMEOUT_MILLISECONDS; timeoutInMilliseconds *= 2)
         {
@@ -216,7 +216,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         return _udpClientWrapper.Receive();
     }
 
-    private async Task SendPortMappingMessagesAsync(CancellationToken cancellationToken, PortMappingQueryMessages queryMessages = null)
+    private async Task SendPortMappingMessagesAsync(CancellationToken cancellationToken, PortMappingQueryMessages? queryMessages = null)
     {
         ChangeState(PortMappingStatus.PortMappingCommunication);
 
@@ -392,25 +392,28 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
     {
         SetMappedPort(mappedPort);
 
-        try
-        {
-            Task.Delay(TimeSpan.FromSeconds(portDurationInSeconds), cancellationToken)
-                .ContinueWith(async t => await RenewPortMappingAsync(mappedPort.MappedPort, cancellationToken));
-        }
-        catch (Exception e)
-        {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                _logger.Info<ConnectionLog>("The scheduled renewal of port mapping was cancelled with an exception.", e);
-                return;
-            }
-
-            _logger.Error<ConnectionLog>("An error occurred on a NAT-PMP scheduled renewal.", e);
-        }
+        SchedulePortMappingRenewalAsync(mappedPort.MappedPort, portDurationInSeconds, cancellationToken).FireAndForget();
 
         if (!cancellationToken.IsCancellationRequested)
         {
             ChangeState(PortMappingStatus.SleepingUntilRefresh);
+        }
+    }
+
+    private async Task SchedulePortMappingRenewalAsync(MappedPort mappedPort, int portDurationInSeconds, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(portDurationInSeconds), cancellationToken);
+            await RenewPortMappingAsync(mappedPort, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Info<ConnectionLog>("The scheduled renewal of port mapping was cancelled.");
+        }
+        catch (Exception e)
+        {
+            _logger.Error<ConnectionLog>("An error occurred on a NAT-PMP scheduled renewal.", e);
         }
     }
 

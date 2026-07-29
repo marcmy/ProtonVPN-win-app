@@ -117,6 +117,12 @@ public class UserSettings : GlobalSettings, IUserSettings
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
+    public bool AreProtonProtocolsEnabled
+    {
+        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.AreProtonProtocolsEnabled;
+        set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
+    }
+
     public VpnProtocol VpnProtocol
     {
         get => _userCache.GetValueType<VpnProtocol>(SettingEncryption.Unencrypted) ?? DefaultSettings.VpnProtocol;
@@ -393,25 +399,25 @@ public class UserSettings : GlobalSettings, IUserSettings
 
     public bool WasWelcomeOverlayDisplayed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool WasWelcomePlusOverlayDisplayed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool WasWelcomeUnlimitedOverlayDisplayed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool WasWelcomeB2BOverlayDisplayed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
@@ -423,25 +429,25 @@ public class UserSettings : GlobalSettings, IUserSettings
 
     public bool IsP2PInfoBannerDismissed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsP2PInfoBannerDismissed;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsP2PInfoBannerDismissed);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool IsSecureCoreInfoBannerDismissed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsSecureCoreInfoBannerDismissed;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsSecureCoreInfoBannerDismissed);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool IsTorInfoBannerDismissed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsTorInfoBannerDismissed;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsTorInfoBannerDismissed);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool IsGatewayInfoBannerDismissed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsGatewayInfoBannerDismissed;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsGatewayInfoBannerDismissed);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
@@ -449,6 +455,11 @@ public class UserSettings : GlobalSettings, IUserSettings
     {
         get
         {
+            if (SkipOnboarding)
+            {
+                return DefaultSettings.WhatsNewOverlayVersion;
+            }
+
             int? version = _userCache.GetValueType<int>(SettingEncryption.Unencrypted);
             if (version is null)
             {
@@ -486,13 +497,13 @@ public class UserSettings : GlobalSettings, IUserSettings
 
     public bool WasExcludedLocationsSmartDiscoveryPromptDisplayed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool WasExcludedLocationsTeachingTipDisplayed
     {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 

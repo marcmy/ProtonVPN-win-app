@@ -24,6 +24,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
 using ProtonVPN.Common.Legacy.PortForwarding;
 using ProtonVPN.Common.Legacy.Vpn;
@@ -78,12 +79,12 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         await Task.CompletedTask;
     }
 
-    private void OnSettingsChanged(object sender, ProtonVPN.ProcessCommunication.Contracts.Entities.Settings.MainSettingsIpcEntity e)
+    private void OnSettingsChanged(object? sender, ProtonVPN.ProcessCommunication.Contracts.Entities.Settings.MainSettingsIpcEntity e)
     {
         ReconcileState();
     }
 
-    private void OnPortMappingStateChanged(object sender, EventArgs<PortForwardingState> e)
+    private void OnPortMappingStateChanged(object? sender, EventArgs<PortForwardingState> e)
     {
         lock (_sync)
         {
@@ -118,7 +119,7 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         }
     }
 
-    private string LocalIp
+    private string? LocalIp
     {
         get
         {
@@ -131,10 +132,11 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
 
     private void AddRouteIfNeeded()
     {
-        int interfaceIndex = GetInterfaceIndexForLocalIp(LocalIp);
+        string? localIp = LocalIp;
+        int interfaceIndex = GetInterfaceIndexForLocalIp(localIp);
         if (interfaceIndex <= 0)
         {
-            _logger.Error<ConnectionLog>($"Could not find Proton VPN interface index for local IP {LocalIp}.");
+            _logger.Error<ConnectionLog>($"Could not find Proton VPN interface index for local IP {localIp}.");
             return;
         }
 
@@ -195,9 +197,9 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         }
     }
 
-    private static int GetInterfaceIndexForLocalIp(string localIp)
+    private static int GetInterfaceIndexForLocalIp(string? localIp)
     {
-        if (!IPAddress.TryParse(localIp, out IPAddress address))
+        if (!IPAddress.TryParse(localIp, out IPAddress? address))
         {
             return 0;
         }
@@ -205,7 +207,7 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
         {
             IPInterfaceProperties properties = networkInterface.GetIPProperties();
-            UnicastIPAddressInformation match = properties.UnicastAddresses
+            UnicastIPAddressInformation? match = properties.UnicastAddresses
                 .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork &&
                                      a.Address.Equals(address));
 

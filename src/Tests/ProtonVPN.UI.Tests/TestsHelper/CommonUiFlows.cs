@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2024 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,14 +17,17 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
 using System.Threading;
+using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 
 namespace ProtonVPN.UI.Tests.TestsHelper;
+
 public class CommonUiFlows : BaseTest
 {
-    public static HomeRobot FullLogin(TestUserData testUser)
+    public static void FullLogin(TestUserData testUser, bool isProTunVersion = true)
     {
         LoginRobot
             .Login(testUser);
@@ -33,12 +36,74 @@ public class CommonUiFlows : BaseTest
             .Verify.IsOnMainPage()
                    .IsOnHomePage();
 
-        HomeRobot
-            .DismissWelcomeModal();
-
         // Remove when VPNWIN-2599 is implemented. 
         Thread.Sleep(TestConstants.AnimationDelay);
 
-        return new HomeRobot();
+        if (!isProTunVersion)
+        {
+            HomeRobot.DismissWelcomeModal();
+        }
+    }
+
+    public static void Logout()
+    {
+        HomeRobot
+            .ExpandKebabMenuButton();
+
+        SettingRobot
+            .SignOut()
+            .ConfirmSignOut();
+
+        LoginRobot
+            .Verify.IsLoginWindowDisplayed();
+    }
+
+    public static void EnsureUserIsDisconnected(bool shouldVerifyKillSwitch = false)
+    {
+        Action verifyDisconnectState = shouldVerifyKillSwitch
+            ? () => HomeRobot.Verify.IsAdvancedKillSwitchActivated()
+            : () => HomeRobot.Verify.IsDisconnected(TestConstants.TenSecondsTimeout);
+
+        try
+        {
+            verifyDisconnectState();
+        }
+        catch (TimeoutException)
+        {
+            HomeRobot
+                .Disconnect();
+            verifyDisconnectState();
+        }
+    }
+
+    public static void ChangeProtocol(Protocol protocol, bool shouldEnableProTun = false)
+    {
+        SettingRobot
+            .OpenSettings()
+            .OpenProtocolSettings();
+
+        HandleProtun(shouldEnableProTun);
+
+        SettingRobot
+            .SelectProtocol(protocol)
+            .ApplySettings()
+            .CloseSettings();
+    }
+
+    private static void HandleProtun(bool shouldEnableProTun)
+    {
+        if (TestConstants.IsProTunVersion)
+        {
+            if (shouldEnableProTun)
+            {
+                SettingRobot.EnableProtunToggle();
+            }
+            else
+            {
+                SettingRobot
+                    .DisableProtunToggle()
+                    .Verify.ProtonProtocolsAreHidden();
+            }
+        }
     }
 }

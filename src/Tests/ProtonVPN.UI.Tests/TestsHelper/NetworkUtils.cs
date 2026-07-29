@@ -24,8 +24,6 @@ using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using Newtonsoft.Json.Linq;
 using FlaUI.Core.Tools;
 using NUnit.Framework;
@@ -34,32 +32,11 @@ namespace ProtonVPN.UI.Tests.TestsHelper;
 
 public class NetworkUtils
 {
-    [DllImport("dnsapi.dll", EntryPoint = "DnsFlushResolverCache")]
-
-    public static extern uint DnsFlushResolverCache();
-
-    public static List<string> GetDnsAddresses(string adapterName)
-    {
-        RetryResult<List<string>> retry = Retry.WhileEmpty(
-            () =>
-            {
-                return GetDnsAddressesForAdapterByName(adapterName);
-            },
-            TestConstants.FiveSecondsTimeout, TestConstants.RetryInterval);
-
-        return retry.Result ?? [];
-    }
-
-    public static void FlushDns()
-    {
-        DnsFlushResolverCache();
-    }
-
-    public static void VerifyIfLocalNetworkingWorks()
+    public static void VerifyLocalNetworking(bool isLanEnabled)
     {
         IPAddress? ipAddress = GetDefaultGatewayAddress() ?? throw new Exception("Default gateway is null.");
         PingReply reply = new Ping().Send(ipAddress.ToString());
-        Assert.That(reply.Status == IPStatus.Success, Is.True);
+        Assert.That(reply.Status == IPStatus.Success, isLanEnabled ? Is.True : Is.False);
     }
 
     public static void AssertInternetAvailability(bool shouldBeAvailable)
@@ -75,7 +52,7 @@ public class NetworkUtils
         }
     }
 
-    public static bool IsInternetAvailable(bool shouldBeAvailable)
+    private static bool IsInternetAvailable(bool shouldBeAvailable)
     {
         Thread.Sleep(TestConstants.TenSecondsTimeout);
         JObject? connectionData = GetConnectionDataAsync(shouldBeAvailable).GetAwaiter().GetResult();
@@ -87,7 +64,7 @@ public class NetworkUtils
         RetryResult<string> retry = Retry.WhileEmpty(
             () =>
             {
-                FlushDns();
+                DnsHelper.FlushDns();
                 return GetIpAddressAsync().GetAwaiter().GetResult() ?? string.Empty;
             },
             TestConstants.ThirtySecondsTimeout, TestConstants.ApiRetryInterval, ignoreException: true);
@@ -99,7 +76,7 @@ public class NetworkUtils
         RetryResult<string> retry = Retry.WhileEmpty(
             () =>
             {
-                FlushDns();
+                DnsHelper.FlushDns();
                 return GetCountryNameAsync().Result ?? string.Empty;
             },
             TestConstants.ThirtySecondsTimeout, TestConstants.ApiRetryInterval, ignoreException: true);
@@ -116,11 +93,17 @@ public class NetworkUtils
 
     public static void VerifyIpAddressDoesNotMatchWithRetry(string? ipAddressToCompare)
     {
+        if (ipAddressToCompare is null)
+        {
+            Assert.Fail("ipAddressToCompare is null - was GetIpAddressWithRetry() called before network was ready?");
+            return;
+        }
+
         string? ipAddressFomAPI = null;
         RetryResult<bool> retry = Retry.WhileTrue(
            () =>
            {
-               FlushDns();
+               DnsHelper.FlushDns();
                ipAddressFomAPI = GetIpAddressWithRetry();
                return ipAddressFomAPI.Equals(ipAddressToCompare);
            },
@@ -136,11 +119,17 @@ public class NetworkUtils
 
     public static void VerifyIpAddressMatchesWithRetry(string? ipAddressToCompare)
     {
+        if (ipAddressToCompare is null)
+        {
+            Assert.Fail("ipAddressToCompare is null - was GetIpAddressWithRetry() called before network was ready?");
+            return;
+        }
+
         string? ipAddressFomAPI = null;
         RetryResult<bool> retry = Retry.WhileFalse(
            () =>
            {
-               FlushDns();
+               DnsHelper.FlushDns();
                ipAddressFomAPI = GetIpAddressWithRetry();
                return ipAddressFomAPI.Equals(ipAddressToCompare);
            },
@@ -152,6 +141,15 @@ public class NetworkUtils
                 $"API returned IP address: {ipAddressFomAPI}.\n" +
                 $"IP to compare: {ipAddressToCompare}");
         }
+    }
+
+    public static void AssertCorrectNetworkAdapter(string adapterName)
+    {
+        NetworkInterface[] adapters = NetworkInterface.GetAllNetworkInterfaces();
+        NetworkInterface? matchingAdapter = adapters.FirstOrDefault(a => a.Description.Contains(adapterName));
+
+        Assert.That(matchingAdapter, Is.Not.Null, $"No network adapter found with description containing '{adapterName}'");
+        Assert.That(matchingAdapter!.OperationalStatus, Is.EqualTo(OperationalStatus.Up), $"Adapter '{matchingAdapter.Description}' is not up");
     }
 
     private static IPAddress? GetDefaultGatewayAddress()
@@ -180,6 +178,57 @@ public class NetworkUtils
     {
         string endpoint = "http://ip-api.com/json/";
         // Make sure that fresh socket is created when requesting connection data
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+        try
+        {
+            string response = await client.GetStringAsync(endpoint);
+            JObject json = JObject.Parse(response);
+            return json;
+        }
+        catch (Exception e)
+        {
+            if (errorIsNotExpected)
+            {
+                TestContext.WriteLine($"GetIpAddressWithRetry failed. Result: {e.Message}");
+            }
+            return null;
+        }
+    }
+
+    public static void AssertTorStatus(bool shouldBeAvailable, string? vpnIp = null)
+    {
+        string? ip = null;
+        bool? isTor = null;
+
+        RetryResult<string> retry = Retry.WhileEmpty(
+            () =>
+            {
+                JObject? result = GetTorStatusAsync().GetAwaiter().GetResult();
+                ip = result?["IP"]?.Value<string>();
+                isTor = result?["IsTor"]?.Value<bool>();
+                // Returning only the IP, since IP and IsTor are always returned together
+                return ip ?? string.Empty;
+            },
+            TestConstants.ThirtySecondsTimeout, TestConstants.ApiRetryInterval);
+
+        Assert.That(retry.Success, Is.True, "Failed to retrieve Tor status within timeout.");
+
+        if (shouldBeAvailable)
+        {
+            Assert.That(isTor, Is.True);
+            Assert.That(ip, Does.Not.Contain(vpnIp));
+        }
+        else
+        {
+            Assert.That(isTor, Is.False);
+        }
+    }
+
+    private static async Task<JObject?> GetTorStatusAsync()
+    {
+        string endpoint = "https://check.torproject.org/api/ip";
+        // Make sure that fresh socket is created when requesting connection data
         using (HttpClient client = new())
         {
             try
@@ -190,32 +239,9 @@ public class NetworkUtils
             }
             catch (HttpRequestException e)
             {
-                if (errorIsNotExpected)
-                {
-                    TestContext.WriteLine($"GetIpAddressWithRetry failed. Result: {e.Message}");
-                }
+                TestContext.WriteLine($"GetTorStatusWithRetry failed. Result: {e.Message}");
                 return null;
             }
         }
-    }
-
-    private static List<string> GetDnsAddressesForAdapterByName(string adapterName)
-    {
-        List<string> dnsAddresses = new();
-        NetworkInterface[] adapters = NetworkInterface.GetAllNetworkInterfaces();
-        foreach (NetworkInterface adapter in adapters)
-        {
-            IPInterfaceProperties adapterProperties = adapter.GetIPProperties();
-            IPAddressCollection dnsServers = adapterProperties.DnsAddresses;
-            if (adapter.Name.Equals(adapterName))
-            {
-                foreach (IPAddress dns in dnsServers)
-                {
-                    dnsAddresses.Add(dns.ToString());
-                }
-            }
-        }
-
-        return dnsAddresses;
     }
 }

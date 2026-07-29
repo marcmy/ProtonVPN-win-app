@@ -84,10 +84,15 @@ public static class UiActions
         return desiredElement;
     }
 
-    public static bool IsToggled<T>(this T toggleElement) where T : Element
+    public static bool IsToggled<T>(this T toggleElement, bool checkParent = false) where T : Element
     {
         AutomationElement? elementToCheck = WaitUntilExists(toggleElement);
         elementToCheck.WaitUntilClickable(TestConstants.TenSecondsTimeout);
+
+        if (checkParent)
+        {
+            elementToCheck = elementToCheck?.Parent;
+        }
 
         ToggleButton? toggleButton = elementToCheck?.AsToggleButton();
         return toggleButton?.ToggleState == ToggleState.On;
@@ -155,6 +160,18 @@ public static class UiActions
             }
         }
         return desiredElement;
+    }
+
+    public static AutomationElement? TryGetElement<T>(this T desiredElement) where T : Element
+    {
+        try
+        {
+            return WaitUntilExists(desiredElement, TestConstants.FiveSecondsTimeout);
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
     }
 
     public static AutomationElement[] GetControlType<T>(this T desiredElement, ControlType controlType) where T : Element
@@ -265,6 +282,40 @@ public static class UiActions
         return desiredElement;
     }
 
+    public static void ResizeAndRepositionWindow()
+    {
+        Window appWindow = BaseTest.Window!;
+
+        ITransformPattern transformPattern = appWindow.Patterns.Transform.Pattern;
+        Rectangle rect = appWindow.BoundingRectangle;
+
+        Point start = new(rect.Right - 5, rect.Bottom - 5);
+        Point end = new(rect.Left + 50, rect.Top + 50);
+
+        Mouse.MoveTo(start);
+        Mouse.Down();
+        Mouse.MoveTo(end);
+        Thread.Sleep(100);
+        Mouse.Up();
+
+        transformPattern.Move(700, 10);
+    }
+
+    public static (Point Position, Size Size) GetWindowSizeAndPosition()
+    {
+        //give it time to stabilize the position
+        Thread.Sleep(TestConstants.TwoSecondsTimeout);
+
+        Window appWindow = BaseTest.Window!;
+
+        Rectangle windowBoundingRectangle = appWindow.BoundingRectangle;
+
+        Point windowPosition = new(windowBoundingRectangle.X, windowBoundingRectangle.Y);
+        Size windowSize = new(windowBoundingRectangle.Width, windowBoundingRectangle.Height);
+
+        return (windowPosition, windowSize);
+    }
+
     public static T ClearInput<T>(this T desiredElement) where T : Element
     {
         AutomationElement? element = WaitUntilExists(desiredElement);
@@ -329,7 +380,20 @@ public static class UiActions
     {
         AutomationElement? element = WaitUntilExists(desiredElement);
         string? elementText = element?.AsLabel().Text;
-        Assert.That(elementText?.Contains(text), Is.True, $"Expected string: {text} But was: {elementText}");
+
+        if (elementText?.Contains(text) != true)
+        {
+            throw new AssertionException($"Expected string: {text} But was: {elementText}");
+        }
+
+        return desiredElement;
+    }
+
+    public static Element TextContainsOneOf<T>(this T desiredElement, List<string> texts) where T : Element
+    {
+        AutomationElement? element = WaitUntilExists(desiredElement);
+        string? elementText = element?.AsLabel().Text;
+        Assert.That(texts.Any(oneOfText => elementText?.Contains(oneOfText) == true), Is.True, $"Expected string to contain at least one of: {string.Join(", ", texts)}, but was: {elementText}");
         return desiredElement;
     }
 
@@ -397,24 +461,11 @@ public static class UiActions
         }
     }
 
-    public static void AssertIsFocused<T>(this T desiredElement) where T : Element
+    public static void AssertIsFocused<T>(this T desiredElement, bool expected = true) where T : Element
     {
         AutomationElement? element = WaitUntilExists(desiredElement);
 
-        Assert.That(element?.Properties.HasKeyboardFocus.Value, Is.True);
-    }
-
-    public static void AssertIsToggled<T>(this T desiredElement, bool checkParent = false) where T : Element
-    {
-        WaitUntilExists(desiredElement);
-        AutomationElement? element = FindFirstDescendantUsingChildren(desiredElement.Condition);
-
-        if (checkParent)
-        {
-            element = element?.Parent;
-        }
-
-        Assert.That(element?.AsToggleButton().IsToggled, Is.True, $"Element {desiredElement.SelectorName} was not toggled.");
+        Assert.That(element?.Properties.HasKeyboardFocus.Value, expected ? Is.True : Is.False);
     }
 
     private static AutomationElement[] GetDescendantsByControlType<T>(this T desiredElement, ControlType controlType) where T : Element
@@ -443,7 +494,9 @@ public static class UiActions
                     BaseTest.RefreshWindow();
                     BaseTest.App?.WaitWhileBusy();
 
-                    elementToWaitFor = FindFirstDescendantUsingChildren(desiredElement.Condition);
+                    elementToWaitFor = Element.Root != null
+                        ? Element.Root.FindFirstDescendant(desiredElement.Condition)
+                        : FindFirstDescendantUsingChildren(desiredElement.Condition);
 
                     if (desiredElement.ChildElement != null && elementToWaitFor != null)
                     {
@@ -470,7 +523,7 @@ public static class UiActions
                     ? $"Failed to get child element {desiredElement.ChildElement.SelectorName} inside {desiredElement.SelectorName} element within {time?.TotalSeconds} seconds."
                     : $"Failed to get {desiredElement.SelectorName} element within {time?.TotalSeconds} seconds.");
 
-            Assert.Fail(errorMessage);
+            throw new TimeoutException(errorMessage);
         }
 
         return elementToWaitFor;
@@ -505,7 +558,7 @@ public static class UiActions
             return false;
         }
 
-        RadioButton radioButton = new RadioButton(element.FrameworkAutomationElement);
+        RadioButton radioButton = new(element.FrameworkAutomationElement);
         return radioButton.IsChecked;
     }
 

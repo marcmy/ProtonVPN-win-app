@@ -123,6 +123,9 @@
   <data name="Automation_Properties_ConnectionDetails_Page">
     <value>Pagină detalii conexiune</value>
   </data>
+  <data name="Automation_Properties_ConnectionPreferences_Page">
+    <value>Pagină preferințe conexiune</value>
+  </data>
   <data name="Automation_Properties_Connection_Card_Component">
     <value>Card conexiune</value>
   </data>
@@ -207,9 +210,6 @@
   <data name="Common_Actions_Connect">
     <value>Conectare</value>
   </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>Conectare</value>
-  </data>
   <data name="Common_Actions_ContactUs">
     <value>Contactați-ne</value>
   </data>
@@ -217,9 +217,6 @@
     <value>Ștergere</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>Deconectare</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
     <value>Deconectare</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -319,7 +316,13 @@
     <value>Preferințele alese exclud toate serverele disponibile. Ajustați excluderile pentru a vă conecta.</value>
   </data>
   <data name="Connection_Error_AllServersExcluded_Action">
-    <value>Locuri excluse</value>
+    <value>Țări excluse</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Description">
+    <value>Pentru a remedia problema, închideți sau dezinstalați aplicația asociată cu:</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Title">
+    <value>O altă aplicație ar putea să împiedice conectarea Proton VPN</value>
   </data>
   <data name="Connection_Error_EditProfile">
     <value>Editare profil</value>
@@ -380,6 +383,9 @@ Cod eroare: {0}</value>
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
     <value>Adaptorul WireGuard este deja accesat. Deconectați-vă de la orice alt VPN care rulează pe dispozitiv și reîncercați.</value>
+  </data>
+  <data name="Connection_Feedback_Question">
+    <value>Cum vă este conexiunea?</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
     <value>Autoselectare din</value>
@@ -1997,10 +2003,10 @@ Cod eroare: {0}</value>
     <value>Aplicație nouă în zona de notificare</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_ExcludeLocations">
-    <value>Excludere locuri</value>
+    <value>Excludere țări</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Message">
-    <value>Dacă există locuri la care nu doriți să vă conectați automat, le puteți exclude din „Țara cea mai rapidă” și „Țară aleatorie”.</value>
+    <value>Dacă există țări la care nu doriți să vă conectați automat, le puteți exclude din „Cea mai rapidă țară” și „Țară aleatorie”.</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Skip">
     <value>Omitere</value>
@@ -2009,7 +2015,7 @@ Cod eroare: {0}</value>
     <value>Nu este țara pe care o doriți?</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_ActionButton">
-    <value>Excludere locuri</value>
+    <value>Excludere țări</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_CloseButton">
     <value>Poate mai târziu</value>
@@ -2018,7 +2024,7 @@ Cod eroare: {0}</value>
     <value>Acum puteți exclude țări și orașe de la conexiunile cele mai rapide și aleatorii.</value>
   </data>
   <data name="ExcludedLocations_TeachingTip_Title">
-    <value>Evitați locurile nedorite</value>
+    <value>Evitați țările nedorite</value>
   </data>
   <data name="Exit_Confirmation_Title">
     <value>Închideți Proton VPN?</value>
@@ -2108,7 +2114,7 @@ Cod eroare: {0}</value>
     <value>Întrerupătorul avansat de conexiune se aplică chiar și când vă deconectați intenționat de la VPN.</value>
   </data>
   <data name="Flyouts_KillSwitch_Warning_Disconnected">
-    <value>Pentru reveni online, conectați-vă la VPN sau dezactivați întrerupătorul de conexiune.</value>
+    <value>Pentru a reveni online, conectați-vă la VPN sau dezactivați întrerupătorul de conexiune.</value>
   </data>
   <data name="Flyouts_NetShield_AdsMalwareTrackersAdultContent_Success">
     <value>Aveți protecție împotriva reclamelor, instrumentelor de urmărire, programelor malițioase și a conținutului pentru adulți.</value>
@@ -2571,6 +2577,12 @@ Cod eroare: {0}</value>
   </data>
   <data name="Login_Error_IncorrectTwoFactorCode">
     <value>Cod incorect. Reîncercați.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Message">
+    <value>Un fișier necesar pentru conectare lipsește din instalare. Reinstalați Proton VPN pentru a remedia această problemă.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Title">
+    <value>Nu se poate conecta</value>
   </data>
   <data name="Login_Error_SessionExpired">
     <value>Sesiunea a expirat. Reautentificați-vă.</value>
@@ -3143,7 +3155,7 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
     <value>Preferințe conexiune</value>
   </data>
   <data name="Settings_Connection_ConnectionPreferences_Description">
-    <value>Conexiune implicită și locuri excluse</value>
+    <value>Conexiune implicită și țări excluse</value>
   </data>
   <data name="Settings_Connection_CustomDns_Conflict_Information_WhenDisabled">
     <value>DNS-ul personal nu poate fi activat deoarece v-ați conectat la un profil cu NetShield activat.</value>
@@ -3176,7 +3188,7 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
     <value>Recente</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations">
-    <value>Locuri excluse</value>
+    <value>Țări excluse</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Cities">
     <value>Orașe</value>
@@ -3185,10 +3197,10 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
     <value>Țări</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Description">
-    <value>Locurile selectate nu vor fi folosite niciodată la conexiunea cea mai rapidă sau aleatorie.</value>
+    <value>Țările selectate nu vor fi folosite niciodată la conexiunea cea mai rapidă sau cea aleatorie.</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_NoLocations">
-    <value>Nu există locuri disponibile</value>
+    <value>Nu există țări disponibile</value>
   </data>
   <data name="Settings_Connection_ExcludedLocations_Search">
     <value>Selectare...</value>
@@ -3203,7 +3215,7 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
     <value>Avansat</value>
   </data>
   <data name="Settings_Connection_KillSwitch_Advanced_Description">
-    <value>Permitere accesare internet doar când există conexiune la Proton VPN. Întrerupătorul de conexiune avansat va rămâne activ chiar și după repornirea dispozitivului.</value>
+    <value>Permite accesul la internet doar când există conexiune la Proton VPN. Întrerupătorul de conexiune avansat va rămâne activ chiar și după repornirea dispozitivului.</value>
   </data>
   <data name="Settings_Connection_KillSwitch_Description">
     <value>Vă protejează adresa IP deconectându-vă de la internet dacă se pierde conexiunea prin VPN.</value>
@@ -3218,13 +3230,13 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
     <value>NetShield</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockAdsMalwareTrackers">
-    <value>Blocare reclamele, monitorizarea și programele malițioase</value>
+    <value>Blocare reclame, instrumente de urmărire și programe malițioase</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockAdsMalwareTrackersAdultContent">
-    <value>Blocare reclamele, monitorizarea și programele malițioase și conținutul pentru adulți</value>
+    <value>Blocare reclame, instrumente de urmărire, programe malițioase și conținut pentru adulți</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockMalwareOnly">
-    <value>Blocare doar malware</value>
+    <value>Blocare doar programe malițioase</value>
   </data>
   <data name="Settings_Connection_NetShield_Conflict_Description">
     <value>Nu vă veți putea conecta cu un server DNS personal atunci când NetShield este activat.</value>
@@ -3473,6 +3485,30 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
+  <data name="Settings_Protocols_ProTunTcp_Description">
+    <value>Noul noastră librărie bazată pe WireGuard pentru stabilitate, funcționalitate și rezistență la cenzură sporite.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTcp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Description">
+    <value>Noul noastră librărie bazată pe WireGuard pentru stabilitate, funcționalitate și rezistență la cenzură sporite.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Title">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Description">
+    <value>Noul noastră librărie bazată pe WireGuard pentru stabilitate, funcționalitate și rezistență la cenzură sporite.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Description">
+    <value>Utilizați propria implementare WireGuard de la Proton VPN. Aceasta este o funcționalitate experimentală, deci este posibil să întâmpinați unele instabilități.</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Title">
+    <value>Protocoale Proton</value>
+  </data>
   <data name="Settings_Protocols_Smart_Description">
     <value>Autoselectează cel mai bun protocol pentru conexiune.</value>
   </data>
@@ -3526,6 +3562,15 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnUdp">
     <value>OpenVPN (UDP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunUdp">
+    <value>Proton WireGuard (UDP)</value>
   </data>
   <data name="Settings_SelectedProtocol_Smart">
     <value>Smart</value>
@@ -3677,19 +3722,25 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
   <data name="SystemNotification_StreamingWarning_Title">
     <value>Site web blocat?</value>
   </data>
-  <data name="Tray_Actions_ExitApplication">
-    <value>Ieșire</value>
+  <data name="System_Tray_Actions_Connect">
+    <value>Conectare</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
+    <value>Deconectare</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
     <value>Ieșire</value>
   </data>
-  <data name="Tray_Actions_OpenApplication">
-    <value>Deschidere {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
-  </data>
   <data name="System_Tray_Actions_OpenApplication">
     <value>Deschidere {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="Tray_Actions_ExitApplication">
+    <value>Ieșire</value>
+  </data>
+  <data name="Tray_Actions_OpenApplication">
+    <value>Deschidere {0}</value>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
     <value>Deschideți aplicația pentru conectare</value>
@@ -3924,6 +3975,24 @@ O solicitare mare a serverului vă poate încetini conexiunea.</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
     <value>Recunoscut, bine testat și sigur</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp_Description">
+    <value>Protocol de ultimă generație pentru securitate și performanță</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls_Description">
+    <value>Depășește blocările VPN prin ascunderea conexiunii față de cenzori</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp">
+    <value>Proton WireGuard (UDP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp_Description">
+    <value>Protocol de ultimă generație pentru securitate și performanță</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>

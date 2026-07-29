@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Net;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
 using ProtonVPN.Common.Legacy.Vpn;
@@ -40,7 +41,7 @@ public class SplitTunnelRouting : ISplitTunnelRouting
     private readonly IRoutingTableHelper _routingTableHelper;
     private readonly INetworkUtilities _networkUtilities;
     private readonly ISystemNetworkInterfaces _networkInterfaces;
-    private readonly INetworkInterfaceLoader _networkInterfaceLoader;
+    private readonly INetworkInterfaceProvider _networkInterfaceProvider;
 
     public SplitTunnelRouting(
         ILogger logger,
@@ -50,7 +51,7 @@ public class SplitTunnelRouting : ISplitTunnelRouting
         IRoutingTableHelper routingTableHelper,
         INetworkUtilities networkUtilities,
         ISystemNetworkInterfaces networkInterfaces,
-        INetworkInterfaceLoader networkInterfaceLoader)
+        INetworkInterfaceProvider networkInterfaceProvider)
     {
         _logger = logger;
         _config = config;
@@ -59,12 +60,12 @@ public class SplitTunnelRouting : ISplitTunnelRouting
         _routingTableHelper = routingTableHelper;
         _networkUtilities = networkUtilities;
         _networkInterfaces = networkInterfaces;
-        _networkInterfaceLoader = networkInterfaceLoader;
+        _networkInterfaceProvider = networkInterfaceProvider;
     }
 
     public void SetUpRoutingTable(VpnConfig vpnConfig, string localIp, bool isIpv6Supported)
     {
-        INetworkInterface tunnelInterface = _networkInterfaceLoader.GetByVpnProtocol(vpnConfig.VpnProtocol, vpnConfig.OpenVpnAdapter);
+        INetworkInterface tunnelInterface = _networkInterfaceProvider.GetByVpnProtocol(vpnConfig.VpnProtocol, vpnConfig.OpenVpnAdapter);
         INetworkInterface[] networkInterfaces = _networkInterfaces.GetInterfaces();
 
         switch (vpnConfig.SplitTunnelMode)
@@ -85,10 +86,17 @@ public class SplitTunnelRouting : ISplitTunnelRouting
         INetworkInterface tunnelInterface,
         INetworkInterface[] networkInterfaces)
     {
+        IPAddress? gatewayAddress = _gatewayCache.Get();
+        if (gatewayAddress is null)
+        {
+            _logger.Error<NetworkLog>("Failed to configure IP split tunnel routes because the gateway address is missing.");
+            return;
+        }
+
         NetworkAddress.TryParse("0.0.0.0/0", out NetworkAddress defaultIpv4NetworkAddress);
         NetworkAddress.TryParse("::/0", out NetworkAddress defaultIpv6NetworkAddress);
         NetworkAddress.TryParse(localIpv4Address, out NetworkAddress localNetworkIpv4Address);
-        NetworkAddress serverGatewayIpv4Address = new(_gatewayCache.Get());
+        NetworkAddress serverGatewayIpv4Address = new(gatewayAddress);
 
         // Normally, this should only work for WireGuard, but seems to be working fine for OpenVPN as well
         NetworkAddress.TryParse(_config.WireGuard.DefaultServerGatewayIpv6Address, out NetworkAddress serverGatewayIpv6Address);
@@ -171,7 +179,7 @@ public class SplitTunnelRouting : ISplitTunnelRouting
         {
             Destination = destination,
             Gateway = null,
-            InterfaceIndex = _routingTableHelper.GetLoopbackInterfaceIndex().Value,
+            InterfaceIndex = _routingTableHelper.GetLoopbackInterfaceIndex() ?? 0,
             Metric = 0,
             IsIpv6 = true,
         };
@@ -180,8 +188,8 @@ public class SplitTunnelRouting : ISplitTunnelRouting
     private void SetUpBlockModeRoutes(VpnConfig vpnConfig, INetworkInterface tunnelInterface, INetworkInterface[] networkInterfaces)
     {
         if (!_ipv4GatewayResolver.TryGetBestIpv4Gateway(
-                _config.GetHardwareId(vpnConfig.OpenVpnAdapter),
-                out Ipv4GatewayInfo ipv4GatewayInfo))
+                _config.GetHardwareId(vpnConfig.VpnProtocol, vpnConfig.OpenVpnAdapter),
+                out Ipv4GatewayInfo? ipv4GatewayInfo) || ipv4GatewayInfo is null)
         {
             return;
         }
@@ -237,6 +245,14 @@ public class SplitTunnelRouting : ISplitTunnelRouting
                 }
                 break;
             case SplitTunnelMode.Permit:
+                foreach (string ip in vpnConfig.SplitTunnelIPs)
+                {
+                    if (NetworkAddress.TryParse(ip, out NetworkAddress address))
+                    {
+                        _routingTableHelper.DeleteRoute(address.Ip.ToString(), address.IsIpV6);
+                    }
+                }
+
                 if (NetworkAddress.TryParse("::/0", out NetworkAddress defaultIpv6NetworkAddress))
                 {
                     _routingTableHelper.DeleteRoute(GetIpv6LoopbackRoute(defaultIpv6NetworkAddress));

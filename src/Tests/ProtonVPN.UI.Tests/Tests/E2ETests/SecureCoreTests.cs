@@ -17,6 +17,7 @@
 * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+using System.Threading;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
@@ -39,11 +40,12 @@ public class SecureCoreTests : FreshSessionSetUp
     [SetUp]
     public void TestInitialize()
     {
-        _ipAddressNotConnected = NetworkUtils.GetIpAddressWithRetry();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
+        _ipAddressNotConnected = NetworkUtils.GetIpAddressWithRetry();
     }
 
     [Test]
+    [Property("TestCaseId", "602370")]
     public void ConnectToSecureCoreServerViaCountriesList()
     {
         SidebarRobot
@@ -71,6 +73,7 @@ public class SecureCoreTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602374")]
     public void DisconnectFromSecureCoreServerViaCountriesList()
     {
         SidebarRobot
@@ -92,6 +95,9 @@ public class SecureCoreTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602372,602373")]
+    [Category("ARM")]
+    [Category("SMOKE_1")]
     public void QuickConnectToSecureCoreServerAndDisconnect()
     {
         AddConnectionInRecents();
@@ -110,6 +116,8 @@ public class SecureCoreTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602430,602431")]
+    [Retry(3)]
     public void ConnectToSecureCoreServerViaProfilesAndDisconnect()
     {
         CreateSecureCoreProfile();
@@ -123,15 +131,17 @@ public class SecureCoreTests : FreshSessionSetUp
         NetworkUtils.VerifyUserIsConnectedToExpectedCountry(_countryName);
 
         SidebarRobot
-            .Verify.IsDisconnectBtnOnHoverDisplayed(PROFILE_NAME)
+            .Verify.IsDisconnectButtonOnHoverDisplayed(PROFILE_NAME)
                    .IsGreenDotDisplayed(PROFILE_NAME)
             .DisconnectViaProfile(PROFILE_NAME);
         HomeRobot
             .Verify.IsDisconnected();
+
         NetworkUtils.VerifyIpAddressMatchesWithRetry(_ipAddressNotConnected);
     }
 
     [Test]
+    [Property("TestCaseId", "602432,602433")]
     public void ConnectToSecureCoreServerViaRecentsAndDisconnect()
     {
         AddConnectionInRecents();
@@ -146,11 +156,12 @@ public class SecureCoreTests : FreshSessionSetUp
         NetworkUtils.VerifyUserIsConnectedToExpectedCountry(_countryName);
 
         SidebarRobot
-            .Verify.IsDisconnectBtnOnHoverDisplayed(_countryName)
+            .Verify.IsDisconnectButtonOnHoverDisplayed(_countryName)
                    .IsGreenDotDisplayed(_countryName)
             .DisconnectViaSecureCore(_countryName, _viaCountryIceland);
         HomeRobot
             .Verify.IsDisconnected();
+
         NetworkUtils.VerifyIpAddressMatchesWithRetry(_ipAddressNotConnected);
     }
 

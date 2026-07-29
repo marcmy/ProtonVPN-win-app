@@ -123,6 +123,9 @@
   <data name="Automation_Properties_ConnectionDetails_Page">
     <value>Bağlantı bilgileri sayfası</value>
   </data>
+  <data name="Automation_Properties_ConnectionPreferences_Page">
+    <value>Bağlantı ayarları sayfası</value>
+  </data>
   <data name="Automation_Properties_Connection_Card_Component">
     <value>Bağlantı kartı</value>
   </data>
@@ -207,9 +210,6 @@
   <data name="Common_Actions_Connect">
     <value>Bağlan</value>
   </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>Bağlan</value>
-  </data>
   <data name="Common_Actions_ContactUs">
     <value>Bizimle görüşün</value>
   </data>
@@ -217,9 +217,6 @@
     <value>Sil</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>Bağlantıyı kes</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
     <value>Bağlantıyı kes</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -321,6 +318,12 @@
   <data name="Connection_Error_AllServersExcluded_Action">
     <value>Katılmayacak konumlar</value>
   </data>
+  <data name="Connection_Error_ConflictingAdapter_Description">
+    <value>Sorunu düzeltmek için şununla ilişkili uygulamayı kapatın ya da kaldırın:</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Title">
+    <value>Başka bir uygulama Proton VPN bağlantısının kurulmasını engelliyor olabilir</value>
+  </data>
   <data name="Connection_Error_EditProfile">
     <value>Profili düzenle</value>
   </data>
@@ -380,6 +383,9 @@ Hata kodu: {0}</value>
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
     <value>Aygıtınızın WireGuard bağdaştırıcısı kullanılıyor. Aygıtınızda çalışan diğer VPN uygulamalarının bağlantısını kesip yeniden deneyin.</value>
+  </data>
+  <data name="Connection_Feedback_Question">
+    <value>Bağlantınız nasıldı?</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
     <value>Şuralardan otomatik seçildi</value>
@@ -2476,6 +2482,12 @@ Hata kodu: {0}</value>
   <data name="Login_Error_IncorrectTwoFactorCode">
     <value>Kod yanlış. Lütfen yeniden deneyin.</value>
   </data>
+  <data name="Login_Error_MissingSrpDll_Message">
+    <value>Kurulumunuzda oturum açmak için gerekli bir dosya eksik. Bu sorunu çözmek için Proton VPN uygulamasını yeniden kurun.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Title">
+    <value>Oturum açılamadı</value>
+  </data>
   <data name="Login_Error_SessionExpired">
     <value>Oturumunuzun geçerlilik süresi dolmuş. Lütfen yeniden oturum açın.</value>
     <comment>The message displayed in Login window when expired session is detected</comment>
@@ -3122,10 +3134,10 @@ Yükü yüksek olan sunucular bağlantınızı yavaşlatabilir.</value>
     <value>NetShield</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockAdsMalwareTrackers">
-    <value>Reklamları, etkinlik izleyicileri ve kötü amaçlı yazılımları engelleyin</value>
+    <value>Reklamlar, etkinlik izleyiciler ve kötü amaçlı yazılımlar engellensin</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockAdsMalwareTrackersAdultContent">
-    <value>Reklamları, etkinlik izleyicileri, kötü amaçlı yazılımları ve yetişkin içeriklerini engelleyin</value>
+    <value>Reklamlar, etkinlik izleyiciler, kötü amaçlı yazılımlar ve yetişkin içerikleri engellensin</value>
   </data>
   <data name="Settings_Connection_NetShield_BlockMalwareOnly">
     <value>Yalnızca kötü amaçlı yazılımlar engellensin</value>
@@ -3377,6 +3389,30 @@ Yükü yüksek olan sunucular bağlantınızı yavaşlatabilir.</value>
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
+  <data name="Settings_Protocols_ProTunTcp_Description">
+    <value>Artırılmış kararlılık, işlevsellik ve sansür direnci için yeni WireGuard temelli altyapımız.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTcp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Description">
+    <value>Artırılmış kararlılık, işlevsellik ve sansür direnci için yeni WireGuard temelli altyapımız.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Title">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Description">
+    <value>Artırılmış kararlılık, işlevsellik ve sansür direnci için yeni WireGuard temelli altyapımız.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Description">
+    <value>Proton VPN içindeki WireGuard uygulamasını kullanın. Bu özellik henüz deneme aşamasında olduğundan bazı kararsızlıklar ile karşılaşabilirsiniz.</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Title">
+    <value>Proton iletişim kuralları</value>
+  </data>
   <data name="Settings_Protocols_Smart_Description">
     <value>Bağlantınız için en iyi iletişim kuralını otomatik olarak seçer.</value>
   </data>
@@ -3430,6 +3466,15 @@ Yükü yüksek olan sunucular bağlantınızı yavaşlatabilir.</value>
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnUdp">
     <value>OpenVPN (UDP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunUdp">
+    <value>Proton WireGuard (UDP)</value>
   </data>
   <data name="Settings_SelectedProtocol_Smart">
     <value>Smart</value>
@@ -3581,19 +3626,25 @@ Yükü yüksek olan sunucular bağlantınızı yavaşlatabilir.</value>
   <data name="SystemNotification_StreamingWarning_Title">
     <value>Site engelleniyor mu?</value>
   </data>
-  <data name="Tray_Actions_ExitApplication">
-    <value>Çık</value>
+  <data name="System_Tray_Actions_Connect">
+    <value>Bağlan</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
+    <value>Bağlantıyı kes</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
     <value>Çık</value>
   </data>
-  <data name="Tray_Actions_OpenApplication">
-    <value>{0} aç</value>
+  <data name="System_Tray_Actions_OpenApplication">
+    <value>{0} uygulamasını aç</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
-  <data name="System_Tray_Actions_OpenApplication">
+  <data name="Tray_Actions_ExitApplication">
+    <value>Çık</value>
+  </data>
+  <data name="Tray_Actions_OpenApplication">
     <value>{0} aç</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
     <value>Oturum açmak için uygulamayı açın</value>
@@ -3822,6 +3873,24 @@ Yükü yüksek olan sunucular bağlantınızı yavaşlatabilir.</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
     <value>Sağlam, sıkı denenmiş ve güvenli</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp">
+    <value>Proton WireGuard (TCP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp_Description">
+    <value>Güvenlik ve başarım için son teknoloji iletişim kuralı</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls_Description">
+    <value>Bağlantınızı sansür uygulayıcılarından gizleyerek VPN engellemelerini aşar</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp">
+    <value>Proton WireGuard (UDP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp_Description">
+    <value>Güvenlik ve başarım için son teknoloji iletişim kuralı</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>

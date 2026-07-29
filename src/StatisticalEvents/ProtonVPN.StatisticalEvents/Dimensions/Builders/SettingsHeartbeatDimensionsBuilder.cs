@@ -20,6 +20,7 @@
 using System.Collections.Generic;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.Settings.Contracts.Models;
+using ProtonVPN.Client.Settings.Contracts.Observers;
 using ProtonVPN.StatisticalEvents.Dimensions.Extensions;
 using ProtonVPN.StatisticalEvents.Dimensions.Mappers;
 using ProtonVPN.StatisticalEvents.Dimensions.Mappers.Settings;
@@ -29,6 +30,7 @@ namespace ProtonVPN.StatisticalEvents.Dimensions.Builders;
 public class SettingsHeartbeatDimensionsBuilder : ISettingsHeartbeatDimensionsBuilder
 {
     private readonly ISettings _settings;
+    private readonly IFeatureFlagsObserver _featureFlagsObserver;
     private readonly IBooleanDimensionMapper _booleanDimensionMapper;
     private readonly IVpnPlanTierDimensionMapper _vpnPlanTierDimensionMapper;
     private readonly IDefaultConnectionTypeDimensionMapper _defaultConnectionTypeDimensionMapper;
@@ -45,6 +47,7 @@ public class SettingsHeartbeatDimensionsBuilder : ISettingsHeartbeatDimensionsBu
 
     public SettingsHeartbeatDimensionsBuilder(
         ISettings settings,
+        IFeatureFlagsObserver featureFlagsObserver,
         IBooleanDimensionMapper booleanDimensionMapper,
         IVpnPlanTierDimensionMapper vpnPlanTierDimensionMapper,
         IDefaultConnectionTypeDimensionMapper defaultConnectionTypeDimensionMapper,
@@ -60,6 +63,7 @@ public class SettingsHeartbeatDimensionsBuilder : ISettingsHeartbeatDimensionsBu
         IExcludedLocationsCountDimensionMapper excludedLocationsCountDimensionMapper)
     {
         _settings = settings;
+        _featureFlagsObserver = featureFlagsObserver;
         _booleanDimensionMapper = booleanDimensionMapper;
         _vpnPlanTierDimensionMapper = vpnPlanTierDimensionMapper;
         _defaultConnectionTypeDimensionMapper = defaultConnectionTypeDimensionMapper;
@@ -107,7 +111,8 @@ public class SettingsHeartbeatDimensionsBuilder : ISettingsHeartbeatDimensionsBu
             { "nat_type", _natTypeDimensionMapper.Map(_settings.NatType) },
             { "excluded_countries_count", _excludedLocationsCountDimensionMapper.MapCountries(excludedLocations) },
             { "excluded_cities_count", _excludedLocationsCountDimensionMapper.MapCitiesAndStates(excludedLocations) },
-        };
+            { "is_protun_enabled", _booleanDimensionMapper.Map(_featureFlagsObserver.IsProTunEnabled ? _settings.AreProtonProtocolsEnabled : null) }
+        }; 
 
         return dimensionDictionary;
     }

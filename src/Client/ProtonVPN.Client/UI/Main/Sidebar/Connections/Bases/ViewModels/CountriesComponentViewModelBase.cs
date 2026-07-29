@@ -51,10 +51,13 @@ public abstract partial class CountriesComponentViewModelBase : ActivatableViewM
     public abstract int SortIndex { get; }
     public abstract string Header { get; }
     public abstract string Description { get; }
+    public abstract string UpsellBannerTitle { get; }
+    public virtual string DismissButtonText => Localizer.Get("Common_Actions_Close");
     public abstract bool IsInfoBannerVisible { get; }
 
     public bool IsUpsellBannerVisible => IsRestricted;
     public bool IsRestricted => !Settings.VpnPlan.IsPaid;
+
     protected abstract ModalSource UpsellModalSource { get; }
 
     protected CountriesComponentViewModelBase(
@@ -112,11 +115,13 @@ public abstract partial class CountriesComponentViewModelBase : ActivatableViewM
 
         OnPropertyChanged(nameof(Header));
         OnPropertyChanged(nameof(Description));
+        OnPropertyChanged(nameof(UpsellBannerTitle));
+        OnPropertyChanged(nameof(DismissButtonText));
     }
 
     [RelayCommand]
     private async Task UpgradeAsync()
     {
-        await _accountUpgradeUrlLauncher.OpenAsync(UpsellModalSource);
+        await _accountUpgradeUrlLauncher.OpenAsync(new UpsellModalContext(UpsellModalSource, ModalTrigger.CountriesBanner));
     }
 }

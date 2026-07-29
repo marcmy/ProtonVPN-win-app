@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2024 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,63 +17,228 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ProtoBuf.Grpc.Server;
-using ProtonVPN.Logging.Contracts;
+using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Configurations.Contracts;
+using ProtonVPN.Logging.Contracts.Events.ProcessCommunicationLogs;
+using ProtonVPN.Crypto;
+using ProtonVPN.IssueReporting.Contracts;
+using ProtonVPN.OperatingSystems.Processes.Contracts;
+using ProtonVPN.OperatingSystems.Registries.Contracts;
 using ProtonVPN.ProcessCommunication.Common;
+using ProtonVPN.ProcessCommunication.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts.Controllers;
-using ProtonVPN.ProcessCommunication.Contracts.Registration;
-using static Grpc.Core.Server;
+using ILogger = ProtonVPN.Logging.Contracts.ILogger;
 
-namespace ProtonVPN.ProcessCommunication.Service
+namespace ProtonVPN.ProcessCommunication.Service;
+
+public class GrpcServer : IGrpcServer
 {
-    public class GrpcServer : GrpcServerBase
+    // AUTHENTICATED_USERS - A group that includes all users whose identities were authenticated
+    // when they logged on. Users authenticated as Guest or Anonymous are not members of this group.
+    private const string AUTHENTICATED_USERS_SID = "S-1-5-11";
+
+    private readonly RegistryUri _registryUri = RegistryUri.CreateLocalMachineUri(
+        NamedPipeConfiguration.REGISTRY_PATH, NamedPipeConfiguration.REGISTRY_KEY);
+
+    private readonly ILogger _logger;
+    private readonly IIssueReporter _issueReporter;
+    private readonly IClientController _clientController;
+    private readonly IUpdateController _updateController;
+    private readonly IVpnController _vpnController;
+    private readonly IPipeStreamProcessIdentifier _pipeStreamProcessIdentifier;
+    private readonly IConfiguration _config;
+    private readonly IRegistryEditor _registryEditor;
+
+    private WebApplication _app;
+    private CancellationTokenSource _cancellationTokenSource = new();
+
+    public event EventHandler InvokingServiceStop;
+
+    public GrpcServer(ILogger logger,
+        IIssueReporter issueReporter,
+        IClientController clientController,
+        IUpdateController updateController,
+        IVpnController vpnController,
+        IPipeStreamProcessIdentifier pipeStreamProcessIdentifier,
+        IConfiguration configuration,
+        IRegistryEditor registryEditor)
     {
-        private readonly IVpnController _vpnController;
-        private readonly IUpdateController _updateController;
-        private readonly IServiceServerPortRegister _serviceServerPortRegister;
-        private readonly IAppServerPortRegister _appServerPortRegister;
+        _logger = logger;
+        _issueReporter = issueReporter;
+        _clientController = clientController;
+        _updateController = updateController;
+        _vpnController = vpnController;
+        _pipeStreamProcessIdentifier = pipeStreamProcessIdentifier;
+        _config = configuration;
+        _registryEditor = registryEditor;
+    }
 
-        public GrpcServer(ILogger logger, 
-            IVpnController vpnController, 
-            IUpdateController updateController,
-            IServiceServerPortRegister serviceServerPortRegister,
-            IAppServerPortRegister appServerPortRegister)
-            : base(logger)
+    public void CreateAndStart()
+    {
+        if (!_cancellationTokenSource.Token.IsCancellationRequested)
         {
-            _vpnController = vpnController;
-            _updateController = updateController;
-            _serviceServerPortRegister = serviceServerPortRegister;
-            _appServerPortRegister = appServerPortRegister;
+            _app = Create();
+            RunAppAsync().FireAndForget();
+        }
+    }
+
+    private async Task RunAppAsync()
+    {
+        try
+        {
+            await _app.RunAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Info<ProcessCommunicationLog>("gRPC server stopped.");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error<ProcessCommunicationErrorLog>("gRPC server stopped unexpectedly.", ex);
         }
 
-        protected override void RegisterServices(ServiceDefinitionCollection services)
+        if (_cancellationTokenSource.Token.IsCancellationRequested)
         {
-            services.AddCodeFirst(_vpnController);
-            services.AddCodeFirst(_updateController);
+            await DisposeAppAsync();
+        }
+        else
+        {
+            await WaitAndRestartAppAsync();
+        }
+    }
+
+    private async Task WaitAndRestartAppAsync()
+    {
+        await DisposeAppAsync();
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3), _cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Info<ProcessCommunicationLog>("gRPC server restart cancelled.");
+            return;
         }
 
-        public override void CreateAndStart()
+        CreateAndStart();
+    }
+
+    private async Task DisposeAppAsync()
+    {
+        WebApplication app = _app;
+        if (app is not null)
         {
-            base.CreateAndStart();
-            int? serverPort = Port;
-            if (serverPort.HasValue && serverPort.Value > 0)
+            await app.DisposeAsync();
+        }
+    }
+
+    public async Task StopAsync()
+    {
+        _cancellationTokenSource.Cancel();
+        DeletePipeNameFromRegistry();
+
+        // The code below is kept commented to remind why it should not be done. Stopping the gRPC server gracefully
+        // leads to the client side Stream to take a long time to detect the server is down. When the gRPC server
+        // suddenly dies as in this case or if the service is killed, the client side Stream immediately detects it.
+        //await _app?.StopAsync();
+    }
+
+    private WebApplication Create()
+    {
+        DeletePipeNameFromRegistry();
+        string pipeName = GeneratePipeName();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
+        ConfigureKestrel(builder, pipeName);
+        PipeSecurity pipeSecurity = CreatePipeSecurity();
+        ConfigureNamedPipes(builder, pipeSecurity);
+
+        builder.Services.AddSingleton<IClientController>(_clientController);
+        builder.Services.AddSingleton<IUpdateController>(_updateController);
+        builder.Services.AddSingleton<IVpnController>(_vpnController);
+        builder.Services.AddCodeFirstGrpc();
+
+        builder.Services.AddGrpc(options =>
+        {
+            options.EnableDetailedErrors = true;
+        });
+
+        WebApplication app = builder.Build();
+
+        app.UseMiddleware<NamedPipeAuthorizationMiddleware>(_logger, _issueReporter, _config, _pipeStreamProcessIdentifier,
+            _registryEditor, InvokingServiceStop, (Func<Task>)WaitAndRestartAppAsync);
+        app.MapGrpcService<IClientController>();
+        app.MapGrpcService<IUpdateController>();
+        app.MapGrpcService<IVpnController>();
+
+        app.Lifetime.ApplicationStarted.Register(() => WritePipeNameToRegistry(pipeName));
+        app.Lifetime.ApplicationStopping.Register(DeletePipeNameFromRegistry);
+
+        return app;
+    }
+
+    private void ConfigureKestrel(WebApplicationBuilder builder, string pipeName)
+    {
+        builder.WebHost.ConfigureKestrel(serverOptions =>
+        {
+            serverOptions.Listen(new NamedPipeEndPoint(pipeName), listenOptions =>
             {
-                _serviceServerPortRegister.Write(serverPort.Value);
-            }
-        }
+                listenOptions.Protocols = HttpProtocols.Http2;
+            });
+        });
+    }
 
-        public override async Task ShutdownAsync()
-        {
-            _serviceServerPortRegister.Delete();
-            _appServerPortRegister.Delete();
-            await base.ShutdownAsync();
-        }
+    private string GeneratePipeName()
+    {
+        return $"ProtonVPN-{HashGenerator.GenerateRandomString(32)}";
+    }
 
-        public override async Task KillAsync()
+    private PipeSecurity CreatePipeSecurity()
+    {
+        SecurityIdentifier targetSid = new(AUTHENTICATED_USERS_SID);
+
+        PipeSecurity pipeSecurity = new();
+        pipeSecurity.AddAccessRule(
+            new PipeAccessRule(
+                targetSid,
+                PipeAccessRights.ReadWrite | PipeAccessRights.CreateNewInstance,
+                AccessControlType.Allow
+            )
+        );
+
+        return pipeSecurity;
+    }
+
+    private void ConfigureNamedPipes(WebApplicationBuilder builder, PipeSecurity pipeSecurity)
+    {
+        builder.WebHost.UseNamedPipes(serverOptions =>
         {
-            _serviceServerPortRegister.Delete();
-            _appServerPortRegister.Delete();
-            await base.KillAsync();
-        }
+            serverOptions.PipeSecurity = pipeSecurity;
+            serverOptions.CurrentUserOnly = false;
+            serverOptions.MaxWriteBufferSize = 100 * 1024 * 1024; // 100MB
+            serverOptions.MaxReadBufferSize = 100 * 1024 * 1024; // 100MB
+            serverOptions.ListenerQueueCount = 1;
+        });
+    }
+
+    private void WritePipeNameToRegistry(string pipeName)
+    {
+        _registryEditor.WriteString(_registryUri, pipeName);
+    }
+
+    private void DeletePipeNameFromRegistry()
+    {
+        _registryEditor.Delete(_registryUri);
     }
 }

@@ -42,6 +42,7 @@ using ProtonVPN.Client.UI.Dialogs.DebugTools.Models;
 using ProtonVPN.Client.UI.Main.Map;
 using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Core.Geographical;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Restrictions;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.StatisticalEvents.Contracts;
 
@@ -62,6 +63,7 @@ public partial class DebugToolsShellViewModel : ShellViewModelBase<IDebugToolsWi
     private readonly IEnumerable<IWindowActivator> _windowActivators;
     private readonly IVpnPlanUpdater _vpnPlanUpdater;
     private readonly ICoordinatesProvider _coordinatesProvider;
+    private readonly IConnectionCertificateManager _connectionCertificateManager;
 
     [ObservableProperty]
     private Overlay _selectedOverlay;
@@ -114,7 +116,8 @@ public partial class DebugToolsShellViewModel : ShellViewModelBase<IDebugToolsWi
         ISettingsHeartbeatReporter settingsHeartbeatReporter,
         IEnumerable<IWindowActivator> windowActivators,
         IVpnPlanUpdater vpnPlanUpdater,
-        ICoordinatesProvider coordinatesProvider)
+        ICoordinatesProvider coordinatesProvider,
+        IConnectionCertificateManager connectionCertificateManager)
         : base(windowActivator, viewModelHelper)
     {
         _serversUpdater = serversUpdater;
@@ -130,6 +133,7 @@ public partial class DebugToolsShellViewModel : ShellViewModelBase<IDebugToolsWi
         _windowActivators = windowActivators;
         _vpnPlanUpdater = vpnPlanUpdater;
         _coordinatesProvider = coordinatesProvider;
+        _connectionCertificateManager = connectionCertificateManager;
 
         OverlaysList =
         [
@@ -393,5 +397,33 @@ public partial class DebugToolsShellViewModel : ShellViewModelBase<IDebugToolsWi
     public void IncludeAllLocations()
     {
         _settings.ExcludedLocationsList = DefaultSettings.ExcludedLocationsList;
+    }
+
+    [RelayCommand]
+    public Task TriggerConnectionCertificateUpdateAsync()
+    {
+        return _connectionCertificateManager.ForceRequestNewCertificateAsync();
+    }
+
+    [RelayCommand]
+    public void SimulateP2PRestriction()
+    {
+        RestrictionListIpcEntity restrictionList = new()
+        {
+            Restrictions = [RestrictionIpcEntity.Bittorrenting]
+        };
+
+        _eventMessageSender.Send(restrictionList);
+    }
+
+    [RelayCommand]
+    public void SimulateStreamingRestriction()
+    {
+        RestrictionListIpcEntity restrictionList = new()
+        {
+            Restrictions = [RestrictionIpcEntity.Streaming]
+        };
+
+        _eventMessageSender.Send(restrictionList);
     }
 }

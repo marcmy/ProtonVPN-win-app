@@ -92,6 +92,9 @@ public static class DefaultConfiguration
     /// <returns>C:\Program Files\Proton\VPN\v4.0.0\ProtonVPNService.exe</returns>
     public static string ServiceExePath => Path.Combine(_baseVersionDirectory.Value, "ProtonVPNService.exe");
 
+    /// <returns>C:\Program Files\Proton\VPN\v4.0.0\ProtonVPN.NrptWatchdog.exe</returns>
+    public static string NrptWatchdogExePath => Path.Combine(_baseVersionDirectory.Value, "ProtonVPN.NrptWatchdog.exe");
+
     public static string ProtocolActivationScheme = "proton-vpn";
 
     public static string LegacyProtocolActivationScheme = "protonvpn";
@@ -203,13 +206,15 @@ public static class DefaultConfiguration
     public static TimeSpan StatisticalEventSendTriggerInterval => TimeSpan.FromMinutes(15);
     public static TimeSpan StatisticalEventMinimumWaitInterval => TimeSpan.FromMinutes(10);
     public static TimeSpan ServerSearchDelay => TimeSpan.FromSeconds(2.5);
+    public static TimeSpan ConflictingAdapterCheckerDelay => TimeSpan.FromSeconds(5);
 
+    public static IProTunConfigurations ProTun => DefaultProTunConfigurationsFactory.Create();
+    public static IWireGuardConfigurations WireGuard => DefaultWireGuardConfigurationsFactory.Create(
+        baseDirectory: _baseVersionDirectory.Value,
+        commonAppDataProtonVpnPath: _serviceDataPath.Value);
     public static IOpenVpnConfigurations OpenVpn => DefaultOpenVpnConfigurationsFactory.Create(
         baseFolder: _baseVersionDirectory.Value,
         resourcesFolderPath: _resourcesFolderPath.Value, 
-        commonAppDataProtonVpnPath: _serviceDataPath.Value);
-    public static IWireGuardConfigurations WireGuard => DefaultWireGuardConfigurationsFactory.Create(
-        baseDirectory: _baseVersionDirectory.Value,
         commonAppDataProtonVpnPath: _serviceDataPath.Value);
 
     public static IList<string> DohProviders => DefaultDohProvidersFactory.Create();

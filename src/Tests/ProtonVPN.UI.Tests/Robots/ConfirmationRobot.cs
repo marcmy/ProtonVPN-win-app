@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2024 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -55,6 +55,13 @@ public class ConfirmationRobot
         public Verifications IsOverlayDisplayed()
         {
             OverlayMessage.WaitUntilDisplayed();
+            return this;
+        }
+
+        public Verifications IsOverlayClosed()
+        {
+            Thread.Sleep(TestConstants.AnimationDelay);
+            OverlayMessage.DoesNotExist();
             return this;
         }
 

@@ -49,19 +49,20 @@ public class NavigationRobot
     protected Element AdvancedSettingsPage => Element.ByAutomationId("AdvancedSettingsPage");
     protected Element LocationDetailsPage => Element.ByAutomationId("LocationDetailsPage");
     protected Element ConnectionDetailsPage => Element.ByAutomationId("ConnectionDetailsPage");
+    protected Element ConnectionPreferencesPage => Element.ByAutomationId("ConnectionPreferencesPage");
 
-    protected Element NoServerRefreshBtn => Element.ByName("Refresh");
-    protected Element NoServerSignOutBtn => Element.ByName("Sign out");
+    protected Element NoServerRefreshButton => Element.ByName("Refresh");
+    protected Element NoServerSignOutButton => Element.ByName("Sign out");
 
     public NavigationRobot ClickRefreshButtonOnNoServersPage()
     {
-        NoServerRefreshBtn.Invoke();
+        NoServerRefreshButton.Invoke();
         return this;
     }
 
     public NavigationRobot ClickSignOutButtonOnNoServersPage()
     {
-        NoServerSignOutBtn.Invoke();
+        NoServerSignOutButton.Invoke();
         return this;
     }
 
@@ -99,6 +100,14 @@ public class NavigationRobot
 
         public Verifications IsOnSettingsPage() => IsOnPage(SettingsPage);
 
+        public Verifications IsOnNetShieldPage() => IsOnPage(NetShieldPage);
+
+        public Verifications IsOnKillSwitchPage() => IsOnPage(KillSwitchPage);
+
+        public Verifications IsOnPortForwardingPage() => IsOnPage(PortForwardingPage);
+
+        public Verifications IsOnSplitTunnelingPage() => IsOnPage(SplitTunnelingPage);
+
         public Verifications IsOnConnectionsPage() => IsOnPage(ConnectionsPage);
 
         public Verifications IsOnRecentsPage() => IsOnPage(RecentsPage);
@@ -115,6 +124,6 @@ public class NavigationRobot
 
         public Verifications IsOnConnectionDetailsPage() => IsOnPage(ConnectionDetailsPage);
 
-        public Verifications IsOnKillSwitchPage() => IsOnPage(KillSwitchPage);
+        public Verifications IsOnConnectionPreferencesPage() => IsOnPage(ConnectionPreferencesPage);
     }
 }

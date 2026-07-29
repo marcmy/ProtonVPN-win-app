@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,84 +17,83 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace ProtonVPN.Vpn.Management
+namespace ProtonVPN.Vpn.Management;
+
+/// <summary>
+/// Collection of predefined messages to be sent to the OpenVPN management interface.
+/// </summary>
+public class ManagementMessages
 {
-    /// <summary>
-    /// Collection of predefined messages to be send to OpenVPN management interface.
-    /// </summary>
-    internal class ManagementMessages
+    public ReceivedManagementMessage ReceivedMessage(string messageText)
     {
-        public ReceivedManagementMessage ReceivedMessage(string messageText)
-        {
-            return new ReceivedManagementMessage(messageText ?? "");
-        }
+        return new ReceivedManagementMessage(messageText ?? "");
+    }
 
-        public ManagementMessage EchoOn()
-        {
-            return ManagementMessage("echo on");
-        }
+    public ManagementMessage EchoOn()
+    {
+        return CreateMessage("echo on");
+    }
 
-        public ManagementMessage StateOn()
-        {
-            return ManagementMessage("state on");
-        }
+    public ManagementMessage StateOn()
+    {
+        return CreateMessage("state on");
+    }
 
-        public ManagementMessage Bytecount()
-        {
-            return ManagementMessage("bytecount 1");
-        }
+    public ManagementMessage Bytecount()
+    {
+        return CreateMessage("bytecount 1");
+    }
 
-        public ManagementMessage LogOn()
-        {
-            return ManagementMessage("log on");
-        }
+    public ManagementMessage LogOn()
+    {
+        return CreateMessage("log on");
+    }
 
-        public ManagementMessage HoldRelease()
-        {
-            return ManagementMessage("hold release");
-        }
+    public ManagementMessage HoldRelease()
+    {
+        return CreateMessage("hold release");
+    }
 
-        public ManagementMessage Username(string username)
-        {
-            return SensitiveManagementMessage(
-                $"username 'Auth' {EscapedString(username)}",
-                "username 'Auth' [...]");
-        }
+    public ManagementMessage Username(string username)
+    {
+        return CreateSensitiveMessage(
+            $"username 'Auth' {EscapedString(username)}",
+            "username 'Auth' [...]");
+    }
 
-        public ManagementMessage Password(string password)
-        {
-            return SensitiveManagementMessage(
-                $"password 'Auth' {EscapedString(password)}",
-                "password 'Auth' [...]");
-        }
+    public ManagementMessage Password(string password)
+    {
+        return CreateSensitiveMessage(
+            $"password 'Auth' {EscapedString(password)}",
+            "password 'Auth' [...]");
+    }
 
-        public ManagementMessage Disconnect()
-        {
-            return ManagementMessage("signal SIGTERM");
-        }
+    public ManagementMessage Disconnect()
+    {
+        return CreateMessage("signal SIGTERM");
+    }
 
-        public ManagementMessage Exit()
-        {
-            return ManagementMessage("exit");
-        }
+    public ManagementMessage Exit()
+    {
+        return CreateMessage("exit");
+    }
 
-        private static ManagementMessage ManagementMessage(string messageText)
-        {
-            return new ManagementMessage(messageText, messageText);
-        }
+    private static ManagementMessage CreateMessage(string messageText)
+    {
+        return new ManagementMessage(messageText, messageText);
+    }
 
-        private static ManagementMessage SensitiveManagementMessage(string messageText, string logText)
-        {
-            return new ManagementMessage(messageText, logText);
-        }
+    private static ManagementMessage CreateSensitiveMessage(string messageText, string logText)
+    {
+        return new ManagementMessage(messageText, logText);
+    }
 
-        private static string EscapedString(string value)
-        {
-            return "\"" + value
-                .Replace("\\", "\\\\")
-                .Replace("\"", "\\\"")
-                .Replace(" ", "\\ ")
-                + "\"";
-        }
+    private static string EscapedString(string value)
+    {
+        return "\"" + value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace(" ", "\\ ")
+            + "\"";
     }
 }

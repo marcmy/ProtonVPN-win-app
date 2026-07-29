@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -19,18 +19,17 @@
 
 using Newtonsoft.Json;
 
-namespace ProtonVPN.Vpn.LocalAgent.Contracts
+namespace ProtonVPN.Vpn.LocalAgent.Contracts;
+
+public class ConnectionDetailsContract
 {
-    public class ConnectionDetailsContract
-    {
-        public string DeviceIp { get; set;  }
+    public string DeviceIp { get; set; } = string.Empty;
 
-        public string DeviceCountry { get; set; }
+    public string DeviceCountry { get; set; } = string.Empty;
 
-        [JsonProperty("ServerIpv4")]
-        public string ServerIpv4Address { get; set; }
+    [JsonProperty("ServerIpv4")]
+    public string ServerIpv4Address { get; set; } = string.Empty;
 
-        [JsonProperty("ServerIpv6")]
-        public string ServerIpv6Address { get; set; }
-    }
+    [JsonProperty("ServerIpv6")]
+    public string ServerIpv6Address { get; set; } = string.Empty;
 }

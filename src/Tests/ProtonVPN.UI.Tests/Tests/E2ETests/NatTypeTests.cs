@@ -27,6 +27,8 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
 [TestFixture]
 [Category("2")]
+[Category("ARM")]
+[Category("SMOKE_4")]
 public class NatTypeTests : FreshSessionSetUp
 {
     private const string STRICT_NAT_TYPE = "\"randomized-nat\": true";
@@ -41,12 +43,14 @@ public class NatTypeTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602445")]
     public void NatTypeSetToModerate()
     {
         VerifyNatType(NatType.Moderate, MODERATE_NAT_TYPE);
     }
 
     [Test]
+    [Property("TestCaseId", "602444")]
     public void NatTypeSetToStrict()
     {
         VerifyNatType(NatType.Strict, STRICT_NAT_TYPE);
@@ -56,7 +60,8 @@ public class NatTypeTests : FreshSessionSetUp
     {
         SettingRobot
             .OpenSettings()
-            .OpenAdvancedSettings()
+            .OpenAdvancedSettings();
+        AdvancedSettingsRobot
             .SelectNatType(natType);
 
         if (natType == NatType.Moderate)

@@ -31,6 +31,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [TestFixture]
 [Category("2")]
 [Category("ARM")]
+[Category("SMOKE_1")]
 public class NavigationTests : FreshSessionSetUp
 {
     [SetUp]
@@ -40,6 +41,7 @@ public class NavigationTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602397")]
     public void NavigateToSettingsViaKebabMenu()
     {
         HomeRobot.ExpandKebabMenuButton()
@@ -49,6 +51,28 @@ public class NavigationTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602429")]
+    public void NavigateToFeatureSettingsPageFromHome()
+    {
+        FeaturesRobot.ClickNetShieldWidget();
+        NavigationRobot.Verify.IsOnNetShieldPage();
+        SettingRobot.CloseSettings();
+
+        FeaturesRobot.ClickKillSwitchWidget();
+        NavigationRobot.Verify.IsOnKillSwitchPage();
+        SettingRobot.CloseSettings();
+
+        FeaturesRobot.ClickPortForwardingWidget();
+        NavigationRobot.Verify.IsOnPortForwardingPage();
+        SettingRobot.CloseSettings();
+
+        FeaturesRobot.ClickSplitTunnelingWidget();
+        NavigationRobot.Verify.IsOnSplitTunnelingPage();
+        SettingRobot.CloseSettings();
+    }
+
+    [Test]
+    [Property("TestCaseId", "602394")]
     public void AppExitViaKebabMenu()
     {
         HomeRobot.ExpandKebabMenuButton()
@@ -61,6 +85,7 @@ public class NavigationTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602393")]
     public void AppExitViaAccountDropDown()
     {
         SettingRobot
@@ -75,6 +100,7 @@ public class NavigationTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602395")]
     public void ClickingOnSidebarClosesSettings()
     {
         SettingRobot.OpenSettings()
@@ -84,6 +110,7 @@ public class NavigationTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602396")]
     public void KeyboardShortcutsNavigateToRelevantComponents()
     {
         SidebarRobot
@@ -127,6 +154,7 @@ public class NavigationTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602392")]
     public void AboutPageIsOpened()
     {
         SettingRobot

@@ -97,7 +97,7 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
             DnsBlockMode = _settings.IsLocalAreaNetworkAccessEnabled && _settings.IsLocalDnsEnabled
                 ? DnsBlockModeIpcEntity.Callout
                 : DnsBlockModeIpcEntity.Nrpt,
-            ShouldDisableWeakHostSetting = true,
+            ShouldDisableWeakHostSetting = DefaultSettings.ShouldDisableWeakHostSetting,
         };
     }
 

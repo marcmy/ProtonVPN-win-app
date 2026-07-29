@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2025 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -20,18 +20,19 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Diagnostics;
 using System.ComponentModel;
-using System.ServiceProcess;
-using System.Threading.Tasks;
-using FlaUI.Core;
 using FlaUI.UIA3;
+using FlaUI.Core;
 using FlaUI.Core.Tools;
 using FlaUI.Core.AutomationElements;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.UiTools;
+using static ProtonVPN.UI.Tests.Robots.TrayRobot;
 using TimeoutException = System.TimeoutException;
 
 namespace ProtonVPN.UI.Tests.TestBase;
@@ -47,16 +48,19 @@ public class BaseTest
     protected static NavigationRobot NavigationRobot { get; } = new();
     protected static ProfileRobot ProfileRobot { get; } = new();
     protected static SidebarRobot SidebarRobot { get; } = new();
+    protected static FeaturesRobot FeaturesRobot { get; } = new();
     protected static SettingRobot SettingRobot { get; } = new();
     protected static DesktopRobot DesktopRobot { get; } = new();
+    protected static TrayRobot TrayRobot { get; } = new();
+    protected static TrayAppWindow TrayApp => new();
     protected static SupportRobot SupportRobot { get; } = new(() => Window);
     protected static AdvancedSettingsRobot AdvancedSettingsRobot { get; } = new();
     protected static UpsellCarrouselRobot UpsellCarrouselRobot { get; } = new();
     protected static SplitTunnelingRobot SplitTunnelingRobot { get; } = new();
     protected static IpSelectorRobot IpSelectorRobot { get; } = new();
     protected static AppSelectorRobot AppSelectorRobot { get; } = new();
-
     protected static ConfirmationRobot ConfirmationRobot { get; } = new();
+    protected static TeachingTipRobot TeachingTipRobot { get; } = new();
 
     private const string CLIENT_NAME = "ProtonVPN.Client.exe";
 
@@ -139,8 +143,23 @@ public class BaseTest
 
         try
         {
-            HomeRobot.CloseClientViaCloseButton();
+            AutomationElement? KebabMenu = Element.ByAutomationId("TitleBarMenuButton").TryGetElement();
+            if (KebabMenu == null)
+            {
+                HomeRobot.CloseClientViaCloseButton();
+            }
+            else
+            {
+                HomeRobot
+                    .ExpandKebabMenuButton()
+                    .ExitViaKebabMenuWithConfirmation();
+            }
+
             Thread.Sleep(TestConstants.OneSecondTimeout);
+        }
+        catch (TimeoutException)
+        {
+            //Ignore
         }
         catch { }
 
@@ -154,33 +173,29 @@ public class BaseTest
         {
             App?.Dispose();
             Thread.Sleep(TestConstants.OneSecondTimeout);
-            StopVpnCalloutService();
         }
     }
 
-    protected static void StopVpnCalloutService()
+    public void KillVpnService()
     {
-        try
-        {
-            using ServiceController protonService = new ServiceController("ProtonVPNCallout");
+        Thread.Sleep(TestConstants.OneSecondTimeout);
 
-            if (protonService.Status != ServiceControllerStatus.Stopped)
+        foreach (Process process in Process.GetProcessesByName("ProtonVPNService"))
+        {
+            try
             {
-                TestContext.WriteLine($"WARNING: The ProtonVPNCallout service is still running after app close - possible bug or unclean shutdown.");
-
-                protonService.Stop();
-                protonService.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+                process.Kill(true);
             }
+            catch { }
         }
-        catch (Exception)
-        {
-            Assert.Fail("ProtonVPNCallout service failed to stop");
-        }
+        Thread.Sleep(TestConstants.OneSecondTimeout);
     }
 
-    protected static void LaunchApp(bool isFreshStart = true)
+    protected static void LaunchClient(ClientLaunchParams? parameters = null)
     {
-        if (isFreshStart)
+        parameters ??= ClientLaunchParams.FreshStartWithNoOnboarding;
+
+        if (parameters.IsFreshStart)
         {
             DeleteProtonData();
         }
@@ -191,10 +206,11 @@ public class BaseTest
                 : TestEnvironment.GetProtonClientFolder(),
             CLIENT_NAME);
 
-        ProcessStartInfo startInfo = new ProcessStartInfo(installedClientPath)
+        ProcessStartInfo startInfo = new(installedClientPath)
         {
-            Arguments = "-ExitAppOnClose -DisableAutoUpdate"
+            Arguments = parameters.BuildArguments()
         };
+
         App = Application.Launch(startInfo);
 
         RetryResult<bool> result = WaitUntilAppIsRunning();
@@ -204,8 +220,29 @@ public class BaseTest
             App = Application.Launch(installedClientPath);
         }
 
-        RefreshWindow(TestConstants.OneMinuteTimeout);
-        Window?.Focus();
+        if (parameters.ShouldRefreshWindow)
+        {
+            RefreshWindow(TestConstants.OneMinuteTimeout);
+            Window?.Focus();
+        }
+    }
+
+    protected static void RestartApp(bool shouldRefreshWindow = true)
+    {
+        App?.Close();
+        App?.Dispose();
+
+        ClientLaunchParams parameters = shouldRefreshWindow
+            ? ClientLaunchParams.StartWithNoOnboarding
+            : ClientLaunchParams.StartWithNoOnboardingNoRefresh;
+
+        LaunchClient(parameters);
+
+        if (!shouldRefreshWindow)
+        {
+            //give it time to start
+            Thread.Sleep(TestConstants.TenSecondsTimeout);
+        }
     }
 
     protected static void SaveScreenshotAndLogsIfFailed()

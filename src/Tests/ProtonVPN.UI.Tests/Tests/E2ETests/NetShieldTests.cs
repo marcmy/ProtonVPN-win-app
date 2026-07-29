@@ -28,6 +28,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [TestFixture]
 [Category("3")]
 [Category("ARM")]
+[Category("SMOKE_4")]
 public class NetShieldTests : FreshSessionSetUp
 {
     private const string ENABLE_NET_SHIELD_TITLE = "Enable NetShield?";
@@ -41,6 +42,7 @@ public class NetShieldTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602409")]
     public void NetshieldOnLevelTwo()
     {
         ConnectAndVerifyIsConnected();
@@ -50,6 +52,7 @@ public class NetShieldTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "789802")]
     public void NetshieldOnLevelThree()
     {
         SettingRobot
@@ -66,6 +69,7 @@ public class NetShieldTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602410")]
     public void NetshieldOnLevelOne()
     {
         SettingRobot
@@ -82,12 +86,13 @@ public class NetShieldTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602408")]
     public void NetshieldOff()
     {
         SettingRobot
             .OpenSettings()
             .OpenNetShieldSettings()
-            .ToggleNetShieldSetting()
+            .DisableNetShieldToggle()
             .ApplySettings()
             .CloseSettings();
 
@@ -98,6 +103,7 @@ public class NetShieldTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "602411")]
     public void PaidSettingsAreNotTransferedOnPaidToFreeUserSwitch()
     {
         SettingRobot
@@ -113,10 +119,7 @@ public class NetShieldTests : FreshSessionSetUp
         SettingRobot
             .Verify.IsNetshieldBlocking(NetShieldMode.BlockMalwareOnly);
 
-        SettingRobot.OpenSettings()
-            .ExpandAccountDropdown()
-            .SignOut()
-            .ConfirmSignOut();
+        CommonUiFlows.Logout();
 
         CommonUiFlows.FullLogin(TestUserData.FreeUser);
 
@@ -129,6 +132,7 @@ public class NetShieldTests : FreshSessionSetUp
     }
 
     [Test]
+    [Property("TestCaseId", "610991")]
     public void CustomDnsIsDisabledWhenNetshieldIsEnabled()
     {
         TurnOnDns();
@@ -165,7 +169,7 @@ public class NetShieldTests : FreshSessionSetUp
             .OpenAdvancedSettings();
         AdvancedSettingsRobot
             .NavigateToCustomDns()
-            .ToggleCustomDnsSetting();
+            .EnableCustomDnsToggle();
         ConfirmationRobot
             .PrimaryAction();
         SettingRobot
@@ -176,7 +180,7 @@ public class NetShieldTests : FreshSessionSetUp
     {
         SettingRobot
             .OpenNetShieldSettings()
-            .ToggleNetShieldSetting();
+            .EnableNetShieldToggle();
         ConfirmationRobot
             .Verify.IsOverlayDisplayed()
                    .OverlayTextContains(ENABLE_NET_SHIELD_TITLE)

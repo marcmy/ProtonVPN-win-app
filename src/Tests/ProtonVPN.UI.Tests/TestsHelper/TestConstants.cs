@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -20,6 +20,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
+using ProtonVPN.UI.Tests.Enums;
 
 namespace ProtonVPN.UI.Tests.TestsHelper;
 
@@ -47,22 +49,30 @@ public static class TestConstants
     public static string LauncherPath = @"C:\Program Files\Proton\VPN\ProtonVPN.Launcher.exe";
     public static string MapCountry = "CA";
     public static string ClientLogsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Proton\Proton VPN\Logs\client-logs.txt");
-    public static string UserStoragePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Proton\Proton VPN");    
+    public static string UserStoragePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Proton\Proton VPN");
     public static string? ServerStoragePath => Directory.GetFiles(Path.Combine(UserStoragePath, "Storage"), "Servers.*.bin").OrderByDescending(File.GetLastWriteTime).FirstOrDefault();
 
-    public enum Protocol
+    public static bool IsProTunVersion = Version.TryParse(TestEnvironment.GetAppVersion(), out Version? v) && v.Major >= 5;
+
+    // These 4 countries are all available options in the All, Secure Core, P2P, and Tor tabs.
+    // United States is first as it has the most servers available and there are less chances for all of them to be under maintenance at the same time
+    public static readonly List<string> AvailableCountries = ["United States", "France", "Germany", "Hong Kong"];
+
+    private const string PROTUN_PROTOCOL_PREFIX = "ProTun";
+    private const string WIREGUARD_PROTOCOL_PREFIX = "WireGuard";
+
+    public static IEnumerable<Protocol> AllNonProTunProtocols()
     {
-        WireGuardUdp,
-        OpenVpnUdp,
-        WireGuardTcp,
-        OpenVpnTcp,
-        WireGuardTls,
-        Smart,
+        return Enum.GetValues<Protocol>().Where(p => p != Protocol.Smart && !p.ToString().StartsWith(PROTUN_PROTOCOL_PREFIX));
     }
 
-    public enum SplitTunnelingMode
+    public static IEnumerable<Protocol> WireGuardProtocols()
     {
-        Exclude,
-        Include,
+        return AllNonProTunProtocols().Where(p => p.ToString().StartsWith(WIREGUARD_PROTOCOL_PREFIX));
+    }
+
+    public static IEnumerable<Protocol> ProTunProtocols()
+    {
+        return Enum.GetValues<Protocol>().Where(p => p.ToString().StartsWith(PROTUN_PROTOCOL_PREFIX));
     }
 }

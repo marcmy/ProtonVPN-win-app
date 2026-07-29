@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2024 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -18,11 +18,10 @@
  */
 
 using System;
-using System.Linq;
-using FlaUI.Core.Tools;
+using System.Collections.Generic;
 using NUnit.Framework;
+using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.UiTools;
-using ProtonVPN.UI.Tests.TestsHelper;
 
 namespace ProtonVPN.UI.Tests.Robots;
 
@@ -33,9 +32,20 @@ public class AdvancedSettingsRobot
     protected Element EnableButton = Element.ByName("Enable");
     protected Element DnsServersSelectorSettingsCard = Element.ByAutomationId("DnsServersSelectorSettingsCard");
     protected Element NatTypeCard = Element.ByAutomationId("NatTypeSettingsCard");
+    protected Element LanConnectionsSettingsCard = Element.ByAutomationId("LanConnectionsSettingsCard");
+    protected Element AllowLanToggle = Element.ByAutomationId("AllowLanConnectionsToggleSwitch");
 
-    private string? WireguardDnsAddress => NetworkUtils.GetDnsAddresses("ProtonVPN").FirstOrDefault();
-    private string? OpenVpnDnsAddress => NetworkUtils.GetDnsAddresses("ProtonVPN TUN").FirstOrDefault();
+    protected Element NatTypeStrictRadioButton = Element.ByAutomationId("StrictNatTypeRadioButton");
+    protected Element NatTypeModerateRadioButton = Element.ByAutomationId("ModerateNatTypeRadioButton");
+
+    protected Element OpenVpnTapAdapterRadioButton = Element.ByAutomationId("TapAdapterRadioButton");
+    protected Element OpenVpnTunAdapterRadioButton = Element.ByAutomationId("TunAdapterRadioButton");
+
+    public AdvancedSettingsRobot NavigateToLan()
+    {
+        LanConnectionsSettingsCard.Click();
+        return this;
+    }
 
     public AdvancedSettingsRobot NavigateToCustomDns()
     {
@@ -49,9 +59,39 @@ public class AdvancedSettingsRobot
         return this;
     }
 
-    public AdvancedSettingsRobot ToggleCustomDnsSetting()
+    public AdvancedSettingsRobot EnableLanToggle()
     {
-        CustomDnsToggle.Click();
+        if (!AllowLanToggle.IsToggled())
+        {
+            AllowLanToggle.Toggle();
+        }
+        return this;
+    }
+
+    public AdvancedSettingsRobot DisableLanToggle()
+    {
+        if (AllowLanToggle.IsToggled())
+        {
+            AllowLanToggle.Toggle();
+        }
+        return this;
+    }
+
+    public AdvancedSettingsRobot EnableCustomDnsToggle()
+    {
+        if (!CustomDnsToggle.IsToggled())
+        {
+            CustomDnsToggle.Toggle();
+        }
+        return this;
+    }
+
+    public AdvancedSettingsRobot DisableCustomDnsToggle()
+    {
+        if (CustomDnsToggle.IsToggled())
+        {
+            CustomDnsToggle.Toggle();
+        }
         return this;
     }
 
@@ -67,8 +107,32 @@ public class AdvancedSettingsRobot
         return this;
     }
 
+    public AdvancedSettingsRobot SelectNatType(NatType natType)
+    {
+        GetNatTypeRadioButton(natType).Click();
+        return this;
+    }
+
+    public AdvancedSettingsRobot SelectOpenVpnAdapter(OpenVpnAdapter openVpnAdapter)
+    {
+        GetOpenVpnAdapterRadioButton(openVpnAdapter).Click();
+        return this;
+    }
+
     public class Verifications : AdvancedSettingsRobot
     {
+        public Verifications IsLanEnabled()
+        {
+            Assert.That(AllowLanToggle.IsToggled(), Is.True);
+            return this;
+        }
+
+        public Verifications IsLanDisabled()
+        {
+            Assert.That(AllowLanToggle.IsToggled(), Is.False);
+            return this;
+        }
+
         public Verifications IsCustomDnsEnabled()
         {
             Assert.That(CustomDnsToggle.IsToggled(), Is.True);
@@ -81,46 +145,56 @@ public class AdvancedSettingsRobot
             return this;
         }
 
-        public Verifications IsCustomDnsAddressSet(string dnsAddress)
+        public Verifications IsCorrectNatTypeChecked(NatType natType)
         {
-            RetryResult<bool> retry = Retry.WhileFalse(
-                () =>
-                {
-                    return DoesContainDnsAddress(dnsAddress);
-                },
-                TestConstants.FiveSecondsTimeout, TestConstants.RetryInterval);
-
-            if (!retry.Success)
-            {
-                throw new Exception(DnsAdressErrorMessage(dnsAddress));
-            }
+            Assert.That(GetNatTypeRadioButton(natType).IsChecked(), Is.True);
             return this;
         }
 
-        public Verifications IsCustomDnsAddressNotSet(string dnsAddress)
+        public Verifications IsCorrectOpenVpnChecked(OpenVpnAdapter openVpnAdapter)
         {
-            RetryResult<bool> retry = Retry.WhileTrue(
-                () =>
-                {
-                    return DoesContainDnsAddress(dnsAddress);
-                },
-                TestConstants.FiveSecondsTimeout, TestConstants.RetryInterval);
-
-            if (!retry.Success)
-            {
-                throw new Exception(DnsAdressErrorMessage(dnsAddress));
-            }
+            Assert.That(GetOpenVpnAdapterRadioButton(openVpnAdapter).IsChecked(), Is.True);
             return this;
         }
 
-        private string DnsAdressErrorMessage(string expectedDnsAddress)
+        public Verifications CustomDnsContainsIpAddress(string ip)
         {
-            return $"Wireguard dns address: {WireguardDnsAddress}. OpenVPN dns address: {OpenVpnDnsAddress}. Expected dns value: {expectedDnsAddress}";
+            List<string> allChildren = DnsServersSelectorSettingsCard.GetAllChildrenNames();
+            Assert.That(allChildren, Does.Contain(ip));
+            return this;
         }
 
-        private bool DoesContainDnsAddress(string expectedDnsAddress)
+        public Verifications CustomDnsDoesNotContainIpAddress(string ip)
         {
-            return WireguardDnsAddress == expectedDnsAddress || OpenVpnDnsAddress == expectedDnsAddress;
+            List<string> allChildren = DnsServersSelectorSettingsCard.GetAllChildrenNames();
+            Assert.That(allChildren, Does.Not.Contain(ip));
+            return this;
+        }
+    }
+
+    private Element GetNatTypeRadioButton(NatType natType)
+    {
+        switch (natType)
+        {
+            case NatType.Strict:
+                return NatTypeStrictRadioButton;
+            case NatType.Moderate:
+                return NatTypeModerateRadioButton;
+            default:
+                throw new ArgumentException($"Unknown NAT type: {natType}");
+        }
+    }
+
+    private Element GetOpenVpnAdapterRadioButton(OpenVpnAdapter openVpnAdapter)
+    {
+        switch (openVpnAdapter)
+        {
+            case OpenVpnAdapter.TAP:
+                return OpenVpnTapAdapterRadioButton.ScrollIntoView();
+            case OpenVpnAdapter.TUN:
+                return OpenVpnTunAdapterRadioButton.ScrollIntoView();
+            default:
+                throw new ArgumentException($"Unknown Open VPN Adapter: {openVpnAdapter}");
         }
     }
 

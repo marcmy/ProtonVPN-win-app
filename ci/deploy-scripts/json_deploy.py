@@ -245,7 +245,6 @@ def generate_v2_release_json(version: str) -> str:
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    sha1 = compute_checksum(file_path, "sha1")
     sha256 = compute_checksum(file_path, "sha256")
     sha512 = compute_checksum(file_path, "sha512")
 
@@ -256,7 +255,6 @@ def generate_v2_release_json(version: str) -> str:
         f'    "Version": "{version}",\n'
          '    "File": {\n'
         f'        "Url": "https://vpn.protondownload.com/download/ProtonVPN_v{version}_x64.exe",\n'
-        f'        "SHA1CheckSum": "{sha1}",\n'
         f'        "SHA256CheckSum": "{sha256}",\n'
         f'        "SHA512CheckSum": "{sha512}",\n'
          '        "Arguments": "/silent"\n'
@@ -280,7 +278,7 @@ def validate_v2_release_object(release: dict) -> None:
         print(f"ERROR: Release object is missing required keys: {missing}")
         sys.exit(1)
 
-    required_file_keys = ["Url", "SHA1CheckSum", "SHA256CheckSum", "SHA512CheckSum", "Arguments"]
+    required_file_keys = ["Url", "SHA256CheckSum", "SHA512CheckSum", "Arguments"]
     missing = [k for k in required_file_keys if k not in release.get("File", {})]
     if missing:
         print(f"ERROR: Release object File is missing required keys: {missing}")

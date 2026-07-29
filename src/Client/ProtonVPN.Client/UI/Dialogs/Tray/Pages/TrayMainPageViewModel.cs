@@ -18,6 +18,7 @@
  */
 
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Bases.ViewModels;
 using ProtonVPN.Client.Core.Services.Navigation;
@@ -49,6 +50,8 @@ public partial class TrayMainPageViewModel : PageViewModelBase<ITrayAppViewNavig
 
     public bool IsUpsellBannerVisible => !IsPaidUser
                                      && (!_connectionManager.IsConnected || _changeServerModerator.CanChangeServer());
+
+    public VerticalAlignment ConnectionErrorVerticalAlignment => IsPaidUser ? VerticalAlignment.Top : VerticalAlignment.Center;
 
     public string UpsellBannerTagline
         => Localizer.GetFormat("Upsell_Carousel_WorldwideCoverage",
@@ -122,6 +125,6 @@ public partial class TrayMainPageViewModel : PageViewModelBase<ITrayAppViewNavig
     [RelayCommand]
     private async Task UpgradeAsync()
     {
-        await _accountUpgradeUrlLauncher.OpenAsync(ModalSource.Tray);
+        await _accountUpgradeUrlLauncher.OpenAsync(new UpsellModalContext(ModalSource.Countries, ModalTrigger.Tray));
     }
 }

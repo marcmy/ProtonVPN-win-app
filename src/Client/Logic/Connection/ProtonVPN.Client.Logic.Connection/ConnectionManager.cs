@@ -36,7 +36,6 @@ using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
-using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Crypto.Contracts;
 using ProtonVPN.EntityMapping.Contracts;
 using ProtonVPN.Logging.Contracts;
@@ -49,6 +48,7 @@ using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
 using ConnectionDetails = ProtonVPN.Client.Logic.Connection.Contracts.Models.ConnectionDetails;
 using IpAddressInfo = ProtonVPN.Common.Core.Vpn.IpAddressInfo;
+using VpnProtocol = ProtonVPN.Common.Core.Networking.VpnProtocol;
 
 namespace ProtonVPN.Client.Logic.Connection;
 
@@ -94,7 +94,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
     public bool IsDisconnected => ConnectionStatus == ConnectionStatus.Disconnected;
     public bool IsConnecting => ConnectionStatus == ConnectionStatus.Connecting;
     public bool IsConnected => ConnectionStatus == ConnectionStatus.Connected;
-    public bool HasError => _currentError.HasError();
+    public bool IsConnectAllowed => _currentError != VpnErrorTypeIpcEntity.BaseFilteringEngineServiceNotRunning;
     public bool IsNetworkBlocked => _isNetworkBlocked;
     public bool IsTwoFactorError => !IsDisconnected && _currentError.IsTwoFactorError();
     public bool IsMobileHotspotError => _currentError == VpnErrorTypeIpcEntity.InterfaceHasForwardingEnabled;
@@ -369,7 +369,9 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
 
         _eventMessageSender.Send(new ConnectionStatusChangedMessage(ConnectionStatus));
 
-        _logger.Info<ConnectTriggerLog>($"[CONNECTION_PROCESS] Status updated to {ConnectionStatus}{(_isGuestHoleActive ? " (Guest hole)" : string.Empty)}.{(IsConnected ? $" Connected to server {CurrentConnectionDetails?.ServerName}" : string.Empty)}");
+        _logger.Info<ConnectTriggerLog>($"[CONNECTION_PROCESS] Status updated to {ConnectionStatus}" +
+            $"{(_isGuestHoleActive ? " (Guest hole)" : string.Empty)}." +
+            $"{(IsConnected ? $" Connected to server {CurrentConnectionDetails?.ServerName}" : string.Empty)}");
 
         _statisticalEventManager.OnVpnStateChanged(status, error, CurrentConnectionDetails);
     }

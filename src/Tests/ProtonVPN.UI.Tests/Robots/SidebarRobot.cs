@@ -20,11 +20,11 @@
 using System;
 using System.Threading;
 using System.Collections.Generic;
-using NUnit.Framework;
 using FlaUI.Core.Input;
 using FlaUI.Core.Tools;
 using FlaUI.Core.WindowsAPI;
 using FlaUI.Core.AutomationElements;
+using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.UiTools;
 using ProtonVPN.UI.Tests.TestBase;
@@ -40,6 +40,12 @@ public class SidebarRobot
     private const int TOR_COUNTRIES_TAB_INDEX = 3;
     private const int MINIMUM_EXPECTED_COUNTRY_COUNT = 80;
     private const string FASTEST_PROFILE = "Fastest";
+
+    private const string SERVER_LOAD_INFO = "Server load shows how close a server is to its maximum capacity.\r\n\r\nA high server load can slow down your connection.";
+    private const string PROFILES_INFO = "Profiles are custom VPN connections that you can tailor to your needs and save for quick access.\r\n\r\nSet your preferred location and optimize your settings for security, performance, gaming, or any other scenario.";
+    private const string SECURE_CORE_INFO = "Secure Core connects you to your destination server via a second, maximum security VPN server.\r\n\r\nThis higher level of protection may cause higher latency and slower speeds.";
+    private const string P2P_INFO = "P2P networks allow two devices to connect and transfer data without passing through a central server. ";
+    private const string TOR_INFO = "Connect to a Tor server to access hidden services and onion sites using any browser.";
 
     protected Element SidebarComponent = Element.ByAutomationId("SidebarComponent");
     protected Element ConnectionsPage = Element.ByAutomationId("ConnectionsPage");
@@ -72,6 +78,12 @@ public class SidebarRobot
     protected Element PortForwardingButton = Element.ByName("Port forwarding");
     protected Element SplitTunnelingButton = Element.ByName("Split tunneling");
 
+    protected Element CountryInfoBanner => Element.ByAutomationId("ProminentBannerDescription");
+    protected Element TabInfoButton = Element.ByAutomationId("TabInfoButton");
+    protected Element ServerLoadInfoButton = Element.ByAutomationId("ServerLoadInfoButton");
+    protected Element CloseContentDialogButton = Element.ByAutomationId("CloseContentDialogButton");
+    protected Element OverlayMessage = Element.ByAutomationId("OverlayMessage");
+
     protected Element WorldWideCoverageLabel = Element.ByName("Get worldwide coverage with VPN Plus");
     protected Element ProfileSidebarUpsellLabel = Element.ByName("Configure your own VPN settings and connect in one click");
     protected Element SecureCoreSidebarUpsellLabel = Element.ByName("Add another layer of encryption to your VPN connection");
@@ -84,14 +96,12 @@ public class SidebarRobot
     protected Element DuplicateProfileLabel = Element.ByAutomationId("DuplicateMenuItem");
     protected Element DeleteMenuItem = Element.ByAutomationId("DeleteMenuItem");
 
-    protected Element ConnectToSpecificServer = Element.ByAutomationId("Connect_to_Specific_Server");
+    protected Element ConnectToSpecificServer => Element.ByAutomationId("Connect_to_Specific_Server");
     protected Element DisconnectFromSpecificServer = Element.ByAutomationId("Disconnect_from_Specific_Server");
 
     protected Element CountriesListGroup = Element.ByClassName("ListViewHeaderItem");
     protected Element ConnectionItemsHeader = Element.ByAutomationId("ConnectionItemsHeader");
-    protected Element CountryItem = Element.ByClassName("ListViewItem");
-
-    protected Element DisconnectBtnOnHover = Element.ByAutomationId("ConnectionRowAction").And(Element.ByName("Disconnect"));
+    protected Element DisconnectButtonOnHover = Element.ByAutomationId("ConnectionRowAction").And(Element.ByName("Disconnect"));
 
     public SidebarRobot NavigateToCountries()
     {
@@ -102,24 +112,6 @@ public class SidebarRobot
     public SidebarRobot NavigateToRecents()
     {
         RecentsLabel.Click();
-        return this;
-    }
-
-    public SidebarRobot ClickOnNetshieldSetting()
-    {
-        NetshieldButton.Click();
-        return this;
-    }
-
-    public SidebarRobot ClickOnPortForwardingButton()
-    {
-        PortForwardingButton.Click();
-        return this;
-    }
-
-    public SidebarRobot ClickOnSplitTunnelingButton()
-    {
-        SplitTunnelingButton.Click();
         return this;
     }
 
@@ -229,6 +221,7 @@ public class SidebarRobot
 
     public SidebarRobot DisconnectViaCity(string city)
     {
+        Thread.Sleep(TestConstants.UserInputSimulationDelay);
         DisconnectViaSidebarButton(city);
         return this;
     }
@@ -257,13 +250,13 @@ public class SidebarRobot
         return this;
     }
 
-    public SidebarRobot ClickXBtnInSearchBox()
+    public SidebarRobot ClickXButtonInSearchBox()
     {
         SearchTextBox.ClearSearch();
         return this;
     }
 
-    public SidebarRobot ClickBackBtnInSearchBox()
+    public SidebarRobot ClickBackButtonInSearchBox()
     {
         SearchTextBox.FindChild(SearchBackButton).Click();
         return this;
@@ -273,6 +266,24 @@ public class SidebarRobot
     {
         ClickSearchBox();
         SearchTextBox.SetText(query);
+        return this;
+    }
+
+    public SidebarRobot ClickServerLoadInfoButton()
+    {
+        ServerLoadInfoButton.Click();
+        return this;
+    }
+
+    public SidebarRobot ClickTabInfoButton()
+    {
+        TabInfoButton.Click();
+        return this;
+    }
+
+    public SidebarRobot CloseTabInfoModal()
+    {
+        CloseContentDialogButton.Click();
         return this;
     }
 
@@ -417,7 +428,7 @@ public class SidebarRobot
             Element countryButton = Element.ByAutomationId($"Actions_for_{connectionValue}");
             Element secondaryActionsButton = countryButton.FindChild(Element.ByAutomationId("SecondaryButton"));
             secondaryActionsButton.Invoke(TestConstants.OneSecondTimeout);
-            FlaUI.Core.AutomationElements.AutomationElement? descendant = BaseTest.Window?.FindFirstDescendant(elementToWaitFor.Condition);
+            AutomationElement? descendant = BaseTest.Window?.FindFirstDescendant(elementToWaitFor.Condition);
             return descendant != null && !descendant.IsOffscreen;
         }, TestConstants.TenSecondsTimeout, ignoreException: true, interval: TestConstants.OneSecondTimeout);
 
@@ -440,19 +451,54 @@ public class SidebarRobot
 
     public class Verifications : SidebarRobot
     {
+        public Verifications IsServerLoadInfoShown()
+        {
+            List<string> allChildren = GetOverlayMessageChildren();
+            Assert.That(allChildren, Does.Contain(SERVER_LOAD_INFO));
+            return this;
+        }
+
+        public Verifications IsProfilesInfoShown()
+        {
+            List<string> allChildren = GetOverlayMessageChildren();
+            Assert.That(allChildren, Does.Contain(PROFILES_INFO));
+            return this;
+        }
+
+        public Verifications IsSecureCoreInfoShown()
+        {
+            List<string> allChildren = GetOverlayMessageChildren();
+            Assert.That(allChildren, Does.Contain(SECURE_CORE_INFO));
+            return this;
+        }
+
+        public Verifications IsP2PInfoShown()
+        {
+            List<string> allChildren = GetOverlayMessageChildren();
+            Assert.That(allChildren, Does.Contain(P2P_INFO));
+            return this;
+        }
+
+        public Verifications IsTorInfoShown()
+        {
+            List<string> allChildren = GetOverlayMessageChildren();
+            Assert.That(allChildren, Does.Contain(TOR_INFO));
+            return this;
+        }
+
         public Verifications AreAllServersDisplayed()
         {
             string totalCountries = ConnectionItemsHeader.GetAutomationElementName()!;
             int totalCountriesCount = int.Parse(totalCountries.Split('(', ')')[1]);
             Assert.That(totalCountriesCount, Is.GreaterThan(MINIMUM_EXPECTED_COUNTRY_COUNT));
-            CountryItem.WaitUntilItemDisplayed(0);
+            CountriesListGroup.WaitUntilItemDisplayed(0);
             ConnectionItemsList.Scroll(verticalPercent: 50);
             ConnectionItemsList.Scroll(verticalPercent: 100);
-            CountryItem.WaitUntilItemDisplayed(-1);
+            CountriesListGroup.WaitUntilItemDisplayed(-1);
             return this;
         }
 
-        public SidebarRobot IsBackBtnInSearchBoxDisplayed()
+        public SidebarRobot IsBackButtonInSearchBoxDisplayed()
         {
             SearchTextBox.FindChild(SearchBackButton).WaitUntilDisplayed();
             return this;
@@ -481,9 +527,9 @@ public class SidebarRobot
             return this;
         }
 
-        public Verifications IsDisconnectBtnOnHoverDisplayed(string connectionValue)
+        public Verifications IsDisconnectButtonOnHoverDisplayed(string connectionValue)
         {
-            DisconnectBtnOnHover.WaitUntilDisplayed();
+            DisconnectButtonOnHover.WaitUntilDisplayed();
             return this;
         }
 
@@ -561,6 +607,14 @@ public class SidebarRobot
             return this;
         }
 
+        public Verifications IsCountryInfoBannerDisplayed(string description)
+        {
+            AutomationElement? banner = CountryInfoBanner.WaitUntilDisplayed();
+            Assert.That(banner, Is.Not.Null);
+            Assert.That(banner?.Name, Does.Contain(description));
+            return this;
+        }
+
         public Verifications IsAllCountriesUpsellDisplayed()
         {
             WorldWideCoverageLabel.WaitUntilDisplayed();
@@ -627,7 +681,13 @@ public class SidebarRobot
             ProfileExplanationLabel.WaitUntilDisplayed();
             return this;
         }
+
+        private List<string> GetOverlayMessageChildren()
+        {
+            OverlayMessage.WaitUntilDisplayed();
+            return OverlayMessage.GetAllChildrenNames();
+        }
     }
 
-    public Verifications Verify => new Verifications();
+    public Verifications Verify => new();
 }

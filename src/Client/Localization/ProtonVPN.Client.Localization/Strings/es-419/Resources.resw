@@ -123,6 +123,9 @@
   <data name="Automation_Properties_ConnectionDetails_Page">
     <value>Página de detalles de la conexión</value>
   </data>
+  <data name="Automation_Properties_ConnectionPreferences_Page">
+    <value>Página de preferencias de conexión</value>
+  </data>
   <data name="Automation_Properties_Connection_Card_Component">
     <value>Tarjeta de conexión</value>
   </data>
@@ -207,9 +210,6 @@
   <data name="Common_Actions_Connect">
     <value>Conectar</value>
   </data>
-  <data name="System_Tray_Actions_Connect">
-    <value>Conectar</value>
-  </data>
   <data name="Common_Actions_ContactUs">
     <value>Contáctenos</value>
   </data>
@@ -217,9 +217,6 @@
     <value>Eliminar</value>
   </data>
   <data name="Common_Actions_Disconnect">
-    <value>Desconectar</value>
-  </data>
-  <data name="System_Tray_Actions_Disconnect">
     <value>Desconectar</value>
   </data>
   <data name="Common_Actions_Duplicate">
@@ -321,6 +318,12 @@
   <data name="Connection_Error_AllServersExcluded_Action">
     <value>Ubicaciones excluidas</value>
   </data>
+  <data name="Connection_Error_ConflictingAdapter_Description">
+    <value>Para arreglarlo, cierre o desinstale la aplicación vinculada:</value>
+  </data>
+  <data name="Connection_Error_ConflictingAdapter_Title">
+    <value>Otra aplicación puede impedir la conexión de Proton VPN</value>
+  </data>
   <data name="Connection_Error_EditProfile">
     <value>Editar el perfil</value>
   </data>
@@ -380,6 +383,9 @@ Código de error: {0}</value>
   </data>
   <data name="Connection_Error_WireGuardAdapterInUse">
     <value>El adaptador WireGuard de su dispositivo está en uso. Desconéctese de cualquier otra VPN que esté funcionando en su dispositivo y vuelva a intentarlo.</value>
+  </data>
+  <data name="Connection_Feedback_Question">
+    <value>¿Cómo es su conexión?</value>
   </data>
   <data name="Connection_Intent_AutoSelected">
     <value>Selección automática de</value>
@@ -2476,6 +2482,12 @@ Código de error: {0}</value>
   <data name="Login_Error_IncorrectTwoFactorCode">
     <value>Código incorrecto. Inténtelo nuevamente.</value>
   </data>
+  <data name="Login_Error_MissingSrpDll_Message">
+    <value>Falta un archivo necesario para iniciar sesión en la instalación. Reinstale Proton VPN para solucionar este problema.</value>
+  </data>
+  <data name="Login_Error_MissingSrpDll_Title">
+    <value>No se puede iniciar sesión</value>
+  </data>
   <data name="Login_Error_SessionExpired">
     <value>La sesión expiró. Inicie sesión nuevamente.</value>
     <comment>The message displayed in Login window when expired session is detected</comment>
@@ -3377,6 +3389,30 @@ Una carga alta del servidor puede ralentizar la conexión.</value>
   <data name="Settings_Protocols_OpenVpnUdp_Title">
     <value>OpenVPN</value>
   </data>
+  <data name="Settings_Protocols_ProTunTcp_Description">
+    <value>Nuestra estructura nueva basada en WireGuard para una mejor estabilidad, funcionalidad y resistencia a la censura.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTcp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Description">
+    <value>Nuestra estructura nueva basada en WireGuard para una mejor estabilidad, funcionalidad y resistencia a la censura.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunTls_Title">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Description">
+    <value>Nuestra estructura nueva basada en WireGuard para una mejor estabilidad, funcionalidad y resistencia a la censura.</value>
+  </data>
+  <data name="Settings_Protocols_ProTunUdp_Title">
+    <value>Proton WireGuard</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Description">
+    <value>Use la implementación propia de WireGuard de Proton VPN. Esta es una función experimental, por lo que podría notar algo de inestabilidad al probarla.</value>
+  </data>
+  <data name="Settings_Protocols_ProtonProtocols_Title">
+    <value>Protocolos de Proton</value>
+  </data>
   <data name="Settings_Protocols_Smart_Description">
     <value>Selecciona automáticamente el mejor protocolo para su conexión.</value>
   </data>
@@ -3430,6 +3466,15 @@ Una carga alta del servidor puede ralentizar la conexión.</value>
   </data>
   <data name="Settings_SelectedProtocol_OpenVpnUdp">
     <value>OpenVPN (UDP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTcp">
+    <value>WireGuard de Proton (TCP)</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunTls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="Settings_SelectedProtocol_ProTunUdp">
+    <value>WireGuard de Proton (UDP)</value>
   </data>
   <data name="Settings_SelectedProtocol_Smart">
     <value>Smart</value>
@@ -3581,19 +3626,25 @@ Una carga alta del servidor puede ralentizar la conexión.</value>
   <data name="SystemNotification_StreamingWarning_Title">
     <value>¿Sitio web bloqueado?</value>
   </data>
-  <data name="Tray_Actions_ExitApplication">
-    <value>Salir</value>
+  <data name="System_Tray_Actions_Connect">
+    <value>Conectar</value>
+  </data>
+  <data name="System_Tray_Actions_Disconnect">
+    <value>Desconectar</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
     <value>Salir</value>
   </data>
-  <data name="Tray_Actions_OpenApplication">
-    <value>Abrir {0}</value>
-    <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
-  </data>
   <data name="System_Tray_Actions_OpenApplication">
     <value>Abrir {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
+  </data>
+  <data name="Tray_Actions_ExitApplication">
+    <value>Salir</value>
+  </data>
+  <data name="Tray_Actions_OpenApplication">
+    <value>Abrir {0}</value>
+    <comment>Button displayed in the tray window to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_OpenApplicationToSignIn">
     <value>Abrir la aplicación para iniciar sesión</value>
@@ -3822,6 +3873,24 @@ Una carga alta del servidor puede ralentizar la conexión.</value>
   </data>
   <data name="VpnProtocol_OpenVPN_Udp_Description">
     <value>De eficacia demostrada, sometido a numerosas pruebas y seguro</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp">
+    <value>WireGuard de Proton (TCP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tcp_Description">
+    <value>Protocolo de última generación para seguridad y desempeño</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls">
+    <value>Proton Stealth</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Tls_Description">
+    <value>Supere los bloqueos de VPN ocultando su conexión a los censuradores</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp">
+    <value>WireGuard de Proton (UDP)</value>
+  </data>
+  <data name="VpnProtocol_ProTun_Udp_Description">
+    <value>Protocolo de última generación para seguridad y desempeño</value>
   </data>
   <data name="VpnProtocol_Smart">
     <value>Smart</value>

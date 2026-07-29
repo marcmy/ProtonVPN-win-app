@@ -17,14 +17,14 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
+using System.Collections.Generic;
 using System.Threading;
 using NUnit.Framework;
+using ProtonVPN.UI.Tests.Annotations;
+using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
-using ProtonVPN.UI.Tests.Annotations;
-using static ProtonVPN.UI.Tests.TestsHelper.TestConstants;
 
 namespace ProtonVPN.UI.Tests.Tests.SliTests;
 
@@ -33,19 +33,24 @@ namespace ProtonVPN.UI.Tests.Tests.SliTests;
 [Workflow("protocol_performance")]
 public class ProtocolSLIs : SliSetUp
 {
-    private readonly bool _isProtun = Version.TryParse(TestEnvironment.GetAppVersion(), out Version? v) && v.Major >= 5;
+    private static readonly Dictionary<Protocol, Protocol> _proTunProtocolMapping = new()
+    {
+        { Protocol.WireGuardUdp, Protocol.ProTunUdp },
+        { Protocol.WireGuardTcp, Protocol.ProTunTcp },
+        { Protocol.WireGuardTls, Protocol.ProTunTls },
+    };
 
     [SetUp]
     public void TestInitialize()
     {
-        LaunchApp();
-        CommonUiFlows.FullLogin(TestUserData.PlusUser);
+        LaunchClient();
+        CommonUiFlows.FullLogin(TestUserData.PlusUser, TestConstants.IsProTunVersion);
     }
 
     [Test]
     [Duration, TestStatus]
     [Sli("wireguard_udp")]
-    public void WireguardUdpConnectionSpeed()
+    public void WireGuardUdpConnectionSpeed()
     {
         PerformProtocolTest(Protocol.WireGuardUdp);
     }
@@ -61,7 +66,7 @@ public class ProtocolSLIs : SliSetUp
     [Test]
     [Duration, TestStatus]
     [Sli("wireguard_tcp")]
-    public void WireguardTcpConnectionSpeed()
+    public void WireGuardTcpConnectionSpeed()
     {
         PerformProtocolTest(Protocol.WireGuardTcp);
     }
@@ -77,38 +82,35 @@ public class ProtocolSLIs : SliSetUp
     [Test]
     [Duration, TestStatus]
     [Sli("wireguard_tls")]
-    public void WireguardTlsConnectionSpeed()
+    public void WireGuardTlsConnectionSpeed()
     {
         PerformProtocolTest(Protocol.WireGuardTls);
     }
 
     private void PerformProtocolTest(Protocol protocol)
     {
-        bool isProtunWireguard = _isProtun && SliHelper.SliName?.StartsWith("wireguard") == true;
+        bool isProTunWireGuard = TestConstants.IsProTunVersion && SliHelper.SliName?.StartsWith("wireguard") == true;
+        
+        string? protunPrefix = isProTunWireGuard ? "protun_" : null;
+        SliHelper.SliName = protunPrefix + SliHelper.SliName;
 
-        SettingRobot
-            .OpenSettings()
-            .OpenProtocolSettings();
+        protocol = isProTunWireGuard && _proTunProtocolMapping.TryGetValue(protocol, out Protocol proTunValue)
+             ? proTunValue
+             : protocol;
 
-        if (isProtunWireguard)
-        {
-            SliHelper.SliName = "protun_" + SliHelper.SliName;
-
-            SettingRobot
-                .ToggleProtun()
-                .Verify.IsProtunEnabled();
-        }
-
-        SettingRobot
-            .SelectProtocol(protocol)
-            .ApplySettings()
-            .CloseSettings();
+        CommonUiFlows.ChangeProtocol(protocol, isProTunWireGuard);
 
         // Two time connection is needed to test real conditions, when everything was setup.
         HomeRobot
             .ConnectViaConnectionCard()
             .Verify.IsConnected()
             .Disconnect();
+
+        if (!TestConstants.IsProTunVersion)
+        {
+            ConfirmationRobot
+                .CancelAction();
+        }
 
         // Imitate users delay
         Thread.Sleep(TestConstants.TenSecondsTimeout);
@@ -121,7 +123,7 @@ public class ProtocolSLIs : SliSetUp
         });
         SliHelper.MeasureTestStatus(() =>
         {
-            HomeRobot.Verify.IsProtocolDisplayed(protocol, isProtunWireguard);
+            HomeRobot.Verify.IsProtocolDisplayed(protocol);
         });
 
         HomeRobot
