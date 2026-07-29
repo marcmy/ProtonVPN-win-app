@@ -19,6 +19,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using ProtonVPN.Common.Core.Dns;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy.Helpers;
@@ -33,10 +34,10 @@ public class ServiceSettings : IServiceSettings
 {
     private readonly ISettingsFileStorage _storage;
 
-    private MainSettingsIpcEntity _settings;
-    private IpFilter _ipFilter;
+    private readonly IpFilter _ipFilter;
+    private MainSettingsIpcEntity? _settings;
 
-    public event EventHandler<MainSettingsIpcEntity> SettingsChanged;
+    public event EventHandler<MainSettingsIpcEntity>? SettingsChanged;
 
     public ServiceSettings(ISettingsFileStorage storage, IpFilter ipFilter)
     {
@@ -148,11 +149,12 @@ public class ServiceSettings : IServiceSettings
         Ensure.NotNull(settings, nameof(settings));
 
         _settings = settings;
-        Save();
+        Save(settings);
 
         SettingsChanged?.Invoke(this, settings);
     }
 
+    [MemberNotNull(nameof(_settings))]
     private void Load()
     {
         if (_settings == null)
@@ -165,8 +167,8 @@ public class ServiceSettings : IServiceSettings
         }
     }
 
-    private void Save()
+    private void Save(MainSettingsIpcEntity settings)
     {
-        _storage.Set(_settings);
+        _storage.Set(settings);
     }
 }

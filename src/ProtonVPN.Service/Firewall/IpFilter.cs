@@ -47,11 +47,11 @@ public class IpFilter : IStartable
         CreatePermanentSession();
     }
 
-    public NetworkFilter.IpFilter PermanentInstance { get; private set; }
-    public NetworkFilter.IpFilter DynamicInstance { get; private set; }
+    public NetworkFilter.IpFilter PermanentInstance { get; private set; } = null!;
+    public NetworkFilter.IpFilter DynamicInstance { get; private set; } = null!;
 
-    public Sublayer PermanentSublayer { get; private set; }
-    public Sublayer DynamicSublayer { get; private set; }
+    public Sublayer PermanentSublayer { get; private set; } = null!;
+    public Sublayer DynamicSublayer { get; private set; } = null!;
 
     public Sublayer GetSublayer(SessionType type)
     {

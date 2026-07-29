@@ -143,7 +143,7 @@ public class GrpcServer : IGrpcServer
         }
     }
 
-    public async Task StopAsync()
+    public Task StopAsync()
     {
         _cancellationTokenSource.Cancel();
         DeletePipeNameFromRegistry();
@@ -152,6 +152,8 @@ public class GrpcServer : IGrpcServer
         // leads to the client side Stream to take a long time to detect the server is down. When the gRPC server
         // suddenly dies as in this case or if the service is killed, the client side Stream immediately detects it.
         //await _app?.StopAsync();
+
+        return Task.CompletedTask;
     }
 
     private WebApplication Create()

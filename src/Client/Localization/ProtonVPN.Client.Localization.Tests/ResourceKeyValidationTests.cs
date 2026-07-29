@@ -19,6 +19,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -72,6 +73,27 @@ public class ResourceKeyValidationTests
         unusedKeys.Should().BeEmpty(
             $"Found {unusedKeys.Count} unused key(s):\n" +
             string.Join("\n", unusedKeys.Select(k => $"  • {k}")));
+    }
+
+    [TestMethod]
+    public void EnUsResw_ShouldContainEveryLocalizedPluralVariant()
+    {
+        HashSet<string> enUsKeys = ReswFileParser.GetResourceKeys(SourcePathResolver.EnUsReswPath);
+        HashSet<string> localizedPluralKeys = Directory
+            .EnumerateFiles(SourcePathResolver.LocalizationStringsRoot, "Resources.resw", SearchOption.AllDirectories)
+            .Where(path => !string.Equals(path, SourcePathResolver.EnUsReswPath, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(ReswFileParser.GetResourceKeys)
+            .Where(PluralKeyHelper.IsPluralKey)
+            .ToHashSet();
+
+        List<string> missingFallbacks = localizedPluralKeys
+            .Except(enUsKeys)
+            .OrderBy(key => key)
+            .ToList();
+
+        missingFallbacks.Should().BeEmpty(
+            $"Found {missingFallbacks.Count} localized plural key(s) without an en-US fallback:\n" +
+            string.Join("\n", missingFallbacks.Select(key => $"  • {key}")));
     }
 
     private static bool IsKeyReferencedOrDynamic(string key, HashSet<string> referencedKeys)

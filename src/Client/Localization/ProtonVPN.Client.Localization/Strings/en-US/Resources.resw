@@ -1426,17 +1426,49 @@
     <value>Current traffic ({0})</value>
     <comment>This string is used to format speed measurements in various units. The placeholder {0} will be replaced by the appropriate unit of measurement, such as B/s (Bytes per second), kB/s (Kilobytes per second), MB/s (Megabytes per second), and so on.</comment>
   </data>
+  <data name="Format_Time_Day_Zero" xml:space="preserve">
+    <value>{0} days</value>
+    <comment>Format a time as a number of days. {0} is a placeholder for the number of days (eg. 3 days).</comment>
+  </data>
   <data name="Format_Time_Day_One" xml:space="preserve">
     <value>{0} day</value>
     <comment>Format a time as a number of day. {0} is a placeholder for the number of day (eg. 1 day).</comment>
+  </data>
+  <data name="Format_Time_Day_Two" xml:space="preserve">
+    <value>{0} days</value>
+    <comment>Format a time as a number of days. {0} is a placeholder for the number of days (eg. 3 days).</comment>
+  </data>
+  <data name="Format_Time_Day_Few" xml:space="preserve">
+    <value>{0} days</value>
+    <comment>Format a time as a number of days. {0} is a placeholder for the number of days (eg. 3 days).</comment>
+  </data>
+  <data name="Format_Time_Day_Many" xml:space="preserve">
+    <value>{0} days</value>
+    <comment>Format a time as a number of days. {0} is a placeholder for the number of days (eg. 3 days).</comment>
   </data>
   <data name="Format_Time_Day_Other" xml:space="preserve">
     <value>{0} days</value>
     <comment>Format a time as a number of days. {0} is a placeholder for the number of days (eg. 3 days).</comment>
   </data>
+  <data name="Format_Time_DayHour_Zero" xml:space="preserve">
+    <value>{0} days {1} hr</value>
+    <comment>Format a time as a number of days and hours. {0} is a placeholder for the number of days and {1} for the number of hours (eg. 2 days 4 hr or 7 days 1 hr). For hours, use abbreviation, no pluralization.</comment>
+  </data>
   <data name="Format_Time_DayHour_One" xml:space="preserve">
     <value>{0} day {1} hr</value>
     <comment>Format a time as a number of day and hours. {0} is a placeholder for the number of day and {1} for the number of hours (eg. 1 day 4 hr or 1 day 1 hr). For hours, use abbreviation, no pluralization.</comment>
+  </data>
+  <data name="Format_Time_DayHour_Two" xml:space="preserve">
+    <value>{0} days {1} hr</value>
+    <comment>Format a time as a number of days and hours. {0} is a placeholder for the number of days and {1} for the number of hours (eg. 2 days 4 hr or 7 days 1 hr). For hours, use abbreviation, no pluralization.</comment>
+  </data>
+  <data name="Format_Time_DayHour_Few" xml:space="preserve">
+    <value>{0} days {1} hr</value>
+    <comment>Format a time as a number of days and hours. {0} is a placeholder for the number of days and {1} for the number of hours (eg. 2 days 4 hr or 7 days 1 hr). For hours, use abbreviation, no pluralization.</comment>
+  </data>
+  <data name="Format_Time_DayHour_Many" xml:space="preserve">
+    <value>{0} days {1} hr</value>
+    <comment>Format a time as a number of days and hours. {0} is a placeholder for the number of days and {1} for the number of hours (eg. 2 days 4 hr or 7 days 1 hr). For hours, use abbreviation, no pluralization.</comment>
   </data>
   <data name="Format_Time_DayHour_Other" xml:space="preserve">
     <value>{0} days {1} hr</value>
@@ -1470,25 +1502,73 @@
     <value>hh\:mm\:ss</value>
     <comment>Format a time as a number of hours, minutes and seconds in a short format. 'hh' is a placeholder for the number of hours, 'mm' is a placeholder for the number of minutes and 'ss' for the number of seconds. The separator (if any) needs to be escaped using '\' character (eg. hh\:mm\:ss gives 01:05:36).</comment>
   </data>
+  <data name="Format_Time_Seconds_Ago_Zero" xml:space="preserve">
+    <value>{0} seconds ago</value>
+    <comment>Format a time as a number of seconds elapsed. {0} is a placeholder for the number of seconds (eg. 10 seconds ago).</comment>
+  </data>
   <data name="Format_Time_Seconds_Ago_One" xml:space="preserve">
     <value>{0} second ago</value>
     <comment>Format a time as a number of seconds elapsed. {0} is a placeholder for the number of seconds (eg. 1 second ago).</comment>
+  </data>
+  <data name="Format_Time_Seconds_Ago_Two" xml:space="preserve">
+    <value>{0} seconds ago</value>
+    <comment>Format a time as a number of seconds elapsed. {0} is a placeholder for the number of seconds (eg. 10 seconds ago).</comment>
+  </data>
+  <data name="Format_Time_Seconds_Ago_Few" xml:space="preserve">
+    <value>{0} seconds ago</value>
+    <comment>Format a time as a number of seconds elapsed. {0} is a placeholder for the number of seconds (eg. 10 seconds ago).</comment>
+  </data>
+  <data name="Format_Time_Seconds_Ago_Many" xml:space="preserve">
+    <value>{0} seconds ago</value>
+    <comment>Format a time as a number of seconds elapsed. {0} is a placeholder for the number of seconds (eg. 10 seconds ago).</comment>
   </data>
   <data name="Format_Time_Seconds_Ago_Other" xml:space="preserve">
     <value>{0} seconds ago</value>
     <comment>Format a time as a number of seconds elapsed. {0} is a placeholder for the number of seconds (eg. 10 seconds ago).</comment>
   </data>
+  <data name="Format_Time_Minutes_Ago_Zero" xml:space="preserve">
+    <value>{0} minutes ago</value>
+    <comment>Format a time as a number of minutes elapsed. {0} is a placeholder for the number of minutes (eg. 10 minutes ago).</comment>
+  </data>
   <data name="Format_Time_Minutes_Ago_One" xml:space="preserve">
     <value>{0} minute ago</value>
     <comment>Format a time as a number of minutes elapsed. {0} is a placeholder for the number of minutes (eg. 1 minute ago).</comment>
+  </data>
+  <data name="Format_Time_Minutes_Ago_Two" xml:space="preserve">
+    <value>{0} minutes ago</value>
+    <comment>Format a time as a number of minutes elapsed. {0} is a placeholder for the number of minutes (eg. 10 minutes ago).</comment>
+  </data>
+  <data name="Format_Time_Minutes_Ago_Few" xml:space="preserve">
+    <value>{0} minutes ago</value>
+    <comment>Format a time as a number of minutes elapsed. {0} is a placeholder for the number of minutes (eg. 10 minutes ago).</comment>
+  </data>
+  <data name="Format_Time_Minutes_Ago_Many" xml:space="preserve">
+    <value>{0} minutes ago</value>
+    <comment>Format a time as a number of minutes elapsed. {0} is a placeholder for the number of minutes (eg. 10 minutes ago).</comment>
   </data>
   <data name="Format_Time_Minutes_Ago_Other" xml:space="preserve">
     <value>{0} minutes ago</value>
     <comment>Format a time as a number of minutes elapsed. {0} is a placeholder for the number of minutes (eg. 10 minutes ago).</comment>
   </data>
+  <data name="Format_Time_Hours_Ago_Zero" xml:space="preserve">
+    <value>{0} hours ago</value>
+    <comment>Format a time as a number of hours elapsed. {0} is a placeholder for the number of hours (eg. 10 hours ago).</comment>
+  </data>
   <data name="Format_Time_Hours_Ago_One" xml:space="preserve">
     <value>{0} hour ago</value>
     <comment>Format a time as a number of hours elapsed. {0} is a placeholder for the number of hours (eg. 1 hour ago).</comment>
+  </data>
+  <data name="Format_Time_Hours_Ago_Two" xml:space="preserve">
+    <value>{0} hours ago</value>
+    <comment>Format a time as a number of hours elapsed. {0} is a placeholder for the number of hours (eg. 10 hours ago).</comment>
+  </data>
+  <data name="Format_Time_Hours_Ago_Few" xml:space="preserve">
+    <value>{0} hours ago</value>
+    <comment>Format a time as a number of hours elapsed. {0} is a placeholder for the number of hours (eg. 10 hours ago).</comment>
+  </data>
+  <data name="Format_Time_Hours_Ago_Many" xml:space="preserve">
+    <value>{0} hours ago</value>
+    <comment>Format a time as a number of hours elapsed. {0} is a placeholder for the number of hours (eg. 10 hours ago).</comment>
   </data>
   <data name="Format_Time_Hours_Ago_Other" xml:space="preserve">
     <value>{0} hours ago</value>
@@ -1548,8 +1628,20 @@
     <data name="Home_ConnectionDetails_TwoFactorRequired_Description" xml:space="preserve">
     <value>Re-authenticate in your organization's 2FA portal to continue.</value>
   </data>
+  <data name="Home_NetShield_AdsBlocked_Zero" xml:space="preserve">
+    <value>Ads blocked</value>
+  </data>
   <data name="Home_NetShield_AdsBlocked_One" xml:space="preserve">
     <value>Ad blocked</value>
+  </data>
+  <data name="Home_NetShield_AdsBlocked_Two" xml:space="preserve">
+    <value>Ads blocked</value>
+  </data>
+  <data name="Home_NetShield_AdsBlocked_Few" xml:space="preserve">
+    <value>Ads blocked</value>
+  </data>
+  <data name="Home_NetShield_AdsBlocked_Many" xml:space="preserve">
+    <value>Ads blocked</value>
   </data>
   <data name="Home_NetShield_AdsBlocked_Other" xml:space="preserve">
     <value>Ads blocked</value>
@@ -1563,8 +1655,20 @@
   <data name="Home_NetShield_DataSaved_Description" xml:space="preserve">
     <value>Estimated data saved by blocking unwanted ads, trackers, and malware.</value>
   </data>
+  <data name="Home_NetShield_TrackersStopped_Zero" xml:space="preserve">
+    <value>Trackers stopped</value>
+  </data>
   <data name="Home_NetShield_TrackersStopped_One" xml:space="preserve">
     <value>Tracker stopped</value>
+  </data>
+  <data name="Home_NetShield_TrackersStopped_Two" xml:space="preserve">
+    <value>Trackers stopped</value>
+  </data>
+  <data name="Home_NetShield_TrackersStopped_Few" xml:space="preserve">
+    <value>Trackers stopped</value>
+  </data>
+  <data name="Home_NetShield_TrackersStopped_Many" xml:space="preserve">
+    <value>Trackers stopped</value>
   </data>
   <data name="Home_NetShield_TrackersStopped_Other" xml:space="preserve">
     <value>Trackers stopped</value>
@@ -2886,17 +2990,49 @@
   <data name="Home_ConnectionCard_ChangeServer" xml:space="preserve">
     <value>Change server</value>
   </data>
+  <data name="Dialogs_FreeConnections_Description_Zero" xml:space="preserve">
+    <value>Proton Free automatically connects you to the fastest available free server from our {0} free countries. This will normally be the closest server to your location.</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. 5 free countries).This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Dialogs_FreeConnections_Description_One" xml:space="preserve">
     <value>Proton Free automatically connects you to the fastest available free server from our {0} free country. This will normally be the closest server to your location.</value>
     <comment>{0} is a placeholder for the number of free countries available (eg. 1 free country). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Dialogs_FreeConnections_Description_Two" xml:space="preserve">
+    <value>Proton Free automatically connects you to the fastest available free server from our {0} free countries. This will normally be the closest server to your location.</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. 5 free countries).This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Dialogs_FreeConnections_Description_Few" xml:space="preserve">
+    <value>Proton Free automatically connects you to the fastest available free server from our {0} free countries. This will normally be the closest server to your location.</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. 5 free countries).This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Dialogs_FreeConnections_Description_Many" xml:space="preserve">
+    <value>Proton Free automatically connects you to the fastest available free server from our {0} free countries. This will normally be the closest server to your location.</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. 5 free countries).This string is used when the number is different than 1.</comment>
   </data>
   <data name="Dialogs_FreeConnections_Description_Other" xml:space="preserve">
     <value>Proton Free automatically connects you to the fastest available free server from our {0} free countries. This will normally be the closest server to your location.</value>
     <comment>{0} is a placeholder for the number of free countries available (eg. 5 free countries).This string is used when the number is different than 1.</comment>
   </data>
+  <data name="Dialogs_FreeConnections_Header_Zero" xml:space="preserve">
+    <value>Free server countries ({0})</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. Free server countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Dialogs_FreeConnections_Header_One" xml:space="preserve">
     <value>Free server country ({0})</value>
     <comment>{0} is a placeholder for the number of free countries available (eg. Free server country (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Dialogs_FreeConnections_Header_Two" xml:space="preserve">
+    <value>Free server countries ({0})</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. Free server countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Dialogs_FreeConnections_Header_Few" xml:space="preserve">
+    <value>Free server countries ({0})</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. Free server countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Dialogs_FreeConnections_Header_Many" xml:space="preserve">
+    <value>Free server countries ({0})</value>
+    <comment>{0} is a placeholder for the number of free countries available (eg. Free server countries (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Dialogs_FreeConnections_Header_Other" xml:space="preserve">
     <value>Free server countries ({0})</value>
@@ -3161,14 +3297,38 @@
   <data name="Upsell_Carousel_WorldwideCoverage_Features" xml:space="preserve">
     <value>Secure streaming, torrenting, and more</value>
   </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Countries_Zero" xml:space="preserve">
+    <value>{0} countries</value>
+  </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Countries_One" xml:space="preserve">
     <value>{0} country</value>
+  </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Countries_Two" xml:space="preserve">
+    <value>{0} countries</value>
+  </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Countries_Few" xml:space="preserve">
+    <value>{0} countries</value>
+  </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Countries_Many" xml:space="preserve">
+    <value>{0} countries</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Countries_Other" xml:space="preserve">
     <value>{0} countries</value>
   </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Servers_Zero" xml:space="preserve">
+    <value>{0} secure servers</value>
+  </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Servers_One" xml:space="preserve">
     <value>{0} secure server</value>
+  </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Servers_Two" xml:space="preserve">
+    <value>{0} secure servers</value>
+  </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Servers_Few" xml:space="preserve">
+    <value>{0} secure servers</value>
+  </data>
+  <data name="Upsell_Carousel_WorldwideCoverage_Servers_Many" xml:space="preserve">
+    <value>{0} secure servers</value>
   </data>
   <data name="Upsell_Carousel_WorldwideCoverage_Servers_Other" xml:space="preserve">
     <value>{0} secure servers</value>
@@ -3221,9 +3381,25 @@
   <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely" xml:space="preserve">
     <value>Browse freely from anywhere</value>
   </data>
+  <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_Zero" xml:space="preserve">
+    <value>Hide your virtual location and experience the internet from any one of our {0} available countries.</value>
+    <comment>Description for welcome to VPN Plus popup. {0} is a placeholder for the number of countries (eg. one of our 80 available countries).</comment>
+  </data>
   <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_One" xml:space="preserve">
     <value>Hide your virtual location and experience the internet from any one of our {0} available country.</value>
     <comment>Description for welcome to VPN Plus popup. {0} is a placeholder for the number of countries (eg. one of our 1 available country).</comment>
+  </data>
+  <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_Two" xml:space="preserve">
+    <value>Hide your virtual location and experience the internet from any one of our {0} available countries.</value>
+    <comment>Description for welcome to VPN Plus popup. {0} is a placeholder for the number of countries (eg. one of our 80 available countries).</comment>
+  </data>
+  <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_Few" xml:space="preserve">
+    <value>Hide your virtual location and experience the internet from any one of our {0} available countries.</value>
+    <comment>Description for welcome to VPN Plus popup. {0} is a placeholder for the number of countries (eg. one of our 80 available countries).</comment>
+  </data>
+  <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_Many" xml:space="preserve">
+    <value>Hide your virtual location and experience the internet from any one of our {0} available countries.</value>
+    <comment>Description for welcome to VPN Plus popup. {0} is a placeholder for the number of countries (eg. one of our 80 available countries).</comment>
   </data>
   <data name="Dialogs_WelcomeToVpnPlus_BrowseFreely_Description_Other" xml:space="preserve">
     <value>Hide your virtual location and experience the internet from any one of our {0} available countries.</value>
@@ -3343,9 +3519,25 @@
   <data name="Connections_Profiles_Empty_Description" xml:space="preserve">
     <value>Profiles are saved connections with your choice of location, server, and protocol.</value>
   </data>
+  <data name="Connections_Profiles_Zero" xml:space="preserve">
+    <value>Profiles ({0})</value>
+    <comment>{0} is a placeholder for the number of profiles (eg. Profiles (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Profiles_One" xml:space="preserve">
     <value>Profile ({0})</value>
     <comment>{0} is a placeholder for the number of profiles (eg. Profile (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Connections_Profiles_Two" xml:space="preserve">
+    <value>Profiles ({0})</value>
+    <comment>{0} is a placeholder for the number of profiles (eg. Profiles (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Profiles_Few" xml:space="preserve">
+    <value>Profiles ({0})</value>
+    <comment>{0} is a placeholder for the number of profiles (eg. Profiles (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Profiles_Many" xml:space="preserve">
+    <value>Profiles ({0})</value>
+    <comment>{0} is a placeholder for the number of profiles (eg. Profiles (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Profiles_Other" xml:space="preserve">
     <value>Profiles ({0})</value>
@@ -3364,17 +3556,49 @@
   <data name="Connections_Recents_Empty_Description" xml:space="preserve">
     <value>View your connection history here.</value>
   </data>
+  <data name="Connections_Recents_Zero" xml:space="preserve">
+    <value>Recents ({0})</value>
+    <comment>{0} is a placeholder for the number of recent connections (eg. Recents (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Recents_One" xml:space="preserve">
     <value>Recent ({0})</value>
     <comment>{0} is a placeholder for the number of recent connections (eg. Recent (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Connections_Recents_Two" xml:space="preserve">
+    <value>Recents ({0})</value>
+    <comment>{0} is a placeholder for the number of recent connections (eg. Recents (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Recents_Few" xml:space="preserve">
+    <value>Recents ({0})</value>
+    <comment>{0} is a placeholder for the number of recent connections (eg. Recents (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Recents_Many" xml:space="preserve">
+    <value>Recents ({0})</value>
+    <comment>{0} is a placeholder for the number of recent connections (eg. Recents (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Recents_Other" xml:space="preserve">
     <value>Recents ({0})</value>
     <comment>{0} is a placeholder for the number of recent connections (eg. Recents (5)). This string is used when the number is different than 1.</comment>
   </data>
+  <data name="Connections_Recents_Pinned_Zero" xml:space="preserve">
+    <value>Pinned ({0})</value>
+    <comment>{0} is a placeholder for the number of recent pinned connections (eg. Pinned (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Recents_Pinned_One" xml:space="preserve">
     <value>Pinned ({0})</value>
     <comment>{0} is a placeholder for the number of recent pinned connections (eg. Pinned (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Connections_Recents_Pinned_Two" xml:space="preserve">
+    <value>Pinned ({0})</value>
+    <comment>{0} is a placeholder for the number of recent pinned connections (eg. Pinned (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Recents_Pinned_Few" xml:space="preserve">
+    <value>Pinned ({0})</value>
+    <comment>{0} is a placeholder for the number of recent pinned connections (eg. Pinned (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Recents_Pinned_Many" xml:space="preserve">
+    <value>Pinned ({0})</value>
+    <comment>{0} is a placeholder for the number of recent pinned connections (eg. Pinned (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Recents_Pinned_Other" xml:space="preserve">
     <value>Pinned ({0})</value>
@@ -3386,9 +3610,25 @@
   <data name="Connections_Country_Middle" xml:space="preserve">
     <value>Middle country</value>
   </data>
+  <data name="Connections_Countries_Zero" xml:space="preserve">
+    <value>Countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Countries_One" xml:space="preserve">
     <value>Country ({0})</value>
     <comment>{0} is a placeholder for the number of countries (eg. Country (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Connections_Countries_Two" xml:space="preserve">
+    <value>Countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Countries_Few" xml:space="preserve">
+    <value>Countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Countries_Many" xml:space="preserve">
+    <value>Countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Countries (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Countries_Other" xml:space="preserve">
     <value>Countries ({0})</value>
@@ -3397,9 +3637,25 @@
   <data name="Connections_State" xml:space="preserve">
     <value>State</value>
   </data>
+  <data name="Connections_States_Zero" xml:space="preserve">
+    <value>States ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. States (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
   <data name="Connections_States_One" xml:space="preserve">
     <value>State ({0})</value>
     <comment>{0} is a placeholder for the number of states (eg. State (1)). This string is used when the number is 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
+  <data name="Connections_States_Two" xml:space="preserve">
+    <value>States ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. States (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
+  <data name="Connections_States_Few" xml:space="preserve">
+    <value>States ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. States (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
+  <data name="Connections_States_Many" xml:space="preserve">
+    <value>States ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. States (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
   </data>
   <data name="Connections_States_Other" xml:space="preserve">
     <value>States ({0})</value>
@@ -3408,80 +3664,236 @@
   <data name="Connections_City" xml:space="preserve">
     <value>City</value>
   </data>
+  <data name="Connections_Cities_Zero" xml:space="preserve">
+    <value>Cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. Cities (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Cities_One" xml:space="preserve">
     <value>City ({0})</value>
     <comment>{0} is a placeholder for the number of cities (eg. City (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Connections_Cities_Two" xml:space="preserve">
+    <value>Cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. Cities (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Cities_Few" xml:space="preserve">
+    <value>Cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. Cities (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Cities_Many" xml:space="preserve">
+    <value>Cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. Cities (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Cities_Other" xml:space="preserve">
     <value>Cities ({0})</value>
     <comment>{0} is a placeholder for the number of cities (eg. Cities (5)). This string is used when the number is different than 1.</comment>
   </data>
+  <data name="Connections_Servers_Zero" xml:space="preserve">
+    <value>Servers</value>
+  </data>
   <data name="Connections_Servers_One" xml:space="preserve">
     <value>Server</value>
+  </data>
+  <data name="Connections_Servers_Two" xml:space="preserve">
+    <value>Servers</value>
+  </data>
+  <data name="Connections_Servers_Few" xml:space="preserve">
+    <value>Servers</value>
+  </data>
+  <data name="Connections_Servers_Many" xml:space="preserve">
+    <value>Servers</value>
   </data>
   <data name="Connections_Servers_Other" xml:space="preserve">
     <value>Servers</value>
   </data>
+  <data name="Connections_Free_Servers_Zero" xml:space="preserve">
+    <value>Free servers</value>
+  </data>
   <data name="Connections_Free_Servers_One" xml:space="preserve">
     <value>Free server</value>
   </data>
+  <data name="Connections_Free_Servers_Two" xml:space="preserve">
+    <value>Free servers</value>
+  </data>
+  <data name="Connections_Free_Servers_Few" xml:space="preserve">
+    <value>Free servers</value>
+  </data>
+  <data name="Connections_Free_Servers_Many" xml:space="preserve">
+    <value>Free servers</value>
+  </data>
   <data name="Connections_Free_Servers_Other" xml:space="preserve">
     <value>Free servers</value>
+  </data>
+  <data name="Connections_P2P_Countries_Zero" xml:space="preserve">
+    <value>P2P countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. P2P countries (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_P2P_Countries_One" xml:space="preserve">
     <value>P2P country ({0})</value>
     <comment>{0} is a placeholder for the number of countries (eg. P2P country (1)). This string is used when the number is 1.</comment>
   </data>
+  <data name="Connections_P2P_Countries_Two" xml:space="preserve">
+    <value>P2P countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. P2P countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_P2P_Countries_Few" xml:space="preserve">
+    <value>P2P countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. P2P countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_P2P_Countries_Many" xml:space="preserve">
+    <value>P2P countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. P2P countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_P2P_Countries_Other" xml:space="preserve">
     <value>P2P countries ({0})</value>
     <comment>{0} is a placeholder for the number of countries (eg. P2P countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_P2P_States_Zero" xml:space="preserve">
+    <value>P2P states ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. P2P states (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
   </data>
   <data name="Connections_P2P_States_One" xml:space="preserve">
     <value>P2P state ({0})</value>
     <comment>{0} is a placeholder for the number of states (eg. P2P state (1)). This string is used when the number is 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
   </data>
+  <data name="Connections_P2P_States_Two" xml:space="preserve">
+    <value>P2P states ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. P2P states (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
+  <data name="Connections_P2P_States_Few" xml:space="preserve">
+    <value>P2P states ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. P2P states (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
+  <data name="Connections_P2P_States_Many" xml:space="preserve">
+    <value>P2P states ({0})</value>
+    <comment>{0} is a placeholder for the number of states (eg. P2P states (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
   <data name="Connections_P2P_States_Other" xml:space="preserve">
     <value>P2P states ({0})</value>
     <comment>{0} is a placeholder for the number of states (eg. P2P states (5)). This string is used when the number is different than 1. In this context, States refers to Country states (eg. Arizona, California... for USA)</comment>
+  </data>
+  <data name="Connections_P2P_Cities_Zero" xml:space="preserve">
+    <value>P2P cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. P2P cities (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_P2P_Cities_One" xml:space="preserve">
     <value>P2P city ({0})</value>
     <comment>{0} is a placeholder for the number of cities (eg. P2P city (1)). This string is used when the number is 1.</comment>
   </data>
+  <data name="Connections_P2P_Cities_Two" xml:space="preserve">
+    <value>P2P cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. P2P cities (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_P2P_Cities_Few" xml:space="preserve">
+    <value>P2P cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. P2P cities (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_P2P_Cities_Many" xml:space="preserve">
+    <value>P2P cities ({0})</value>
+    <comment>{0} is a placeholder for the number of cities (eg. P2P cities (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_P2P_Cities_Other" xml:space="preserve">
     <value>P2P cities ({0})</value>
     <comment>{0} is a placeholder for the number of cities (eg. P2P cities (5)). This string is used when the number is different than 1.</comment>
   </data>
+  <data name="Connections_P2P_Servers_Zero" xml:space="preserve">
+    <value>P2P servers</value>
+  </data>
   <data name="Connections_P2P_Servers_One" xml:space="preserve">
     <value>P2P server</value>
   </data>
+  <data name="Connections_P2P_Servers_Two" xml:space="preserve">
+    <value>P2P servers</value>
+  </data>
+  <data name="Connections_P2P_Servers_Few" xml:space="preserve">
+    <value>P2P servers</value>
+  </data>
+  <data name="Connections_P2P_Servers_Many" xml:space="preserve">
+    <value>P2P servers</value>
+  </data>
   <data name="Connections_P2P_Servers_Other" xml:space="preserve">
     <value>P2P servers</value>
+  </data>
+  <data name="Connections_SecureCore_Countries_Zero" xml:space="preserve">
+    <value>Secure Core countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Secure Core countries (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_SecureCore_Countries_One" xml:space="preserve">
     <value>Secure Core country ({0})</value>
     <comment>{0} is a placeholder for the number of countries (eg. Secure Core country (1)). This string is used when the number is 1.</comment>
   </data>
+  <data name="Connections_SecureCore_Countries_Two" xml:space="preserve">
+    <value>Secure Core countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Secure Core countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_SecureCore_Countries_Few" xml:space="preserve">
+    <value>Secure Core countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Secure Core countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_SecureCore_Countries_Many" xml:space="preserve">
+    <value>Secure Core countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Secure Core countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_SecureCore_Countries_Other" xml:space="preserve">
     <value>Secure Core countries ({0})</value>
     <comment>{0} is a placeholder for the number of countries (eg. Secure Core countries (5)). This string is used when the number is different than 1.</comment>
   </data>
+  <data name="Connections_SecureCore_Servers_Zero" xml:space="preserve">
+    <value>Secure Core servers</value>
+  </data>
   <data name="Connections_SecureCore_Servers_One" xml:space="preserve">
     <value>Secure Core server</value>
   </data>
+  <data name="Connections_SecureCore_Servers_Two" xml:space="preserve">
+    <value>Secure Core servers</value>
+  </data>
+  <data name="Connections_SecureCore_Servers_Few" xml:space="preserve">
+    <value>Secure Core servers</value>
+  </data>
+  <data name="Connections_SecureCore_Servers_Many" xml:space="preserve">
+    <value>Secure Core servers</value>
+  </data>
   <data name="Connections_SecureCore_Servers_Other" xml:space="preserve">
     <value>Secure Core servers</value>
+  </data>
+  <data name="Connections_Tor_Countries_Zero" xml:space="preserve">
+    <value>Tor countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Tor countries (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Tor_Countries_One" xml:space="preserve">
     <value>Tor country ({0})</value>
     <comment>{0} is a placeholder for the number of countries (eg. Tor country (1)). This string is used when the number is 1.</comment>
   </data>
+  <data name="Connections_Tor_Countries_Two" xml:space="preserve">
+    <value>Tor countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Tor countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Tor_Countries_Few" xml:space="preserve">
+    <value>Tor countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Tor countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Tor_Countries_Many" xml:space="preserve">
+    <value>Tor countries ({0})</value>
+    <comment>{0} is a placeholder for the number of countries (eg. Tor countries (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Tor_Countries_Other" xml:space="preserve">
     <value>Tor countries ({0})</value>
     <comment>{0} is a placeholder for the number of countries (eg. Tor countries (5)). This string is used when the number is different than 1.</comment>
   </data>
+  <data name="Connections_Tor_Servers_Zero" xml:space="preserve">
+    <value>Tor servers</value>
+  </data>
   <data name="Connections_Tor_Servers_One" xml:space="preserve">
     <value>Tor server</value>
+  </data>
+  <data name="Connections_Tor_Servers_Two" xml:space="preserve">
+    <value>Tor servers</value>
+  </data>
+  <data name="Connections_Tor_Servers_Few" xml:space="preserve">
+    <value>Tor servers</value>
+  </data>
+  <data name="Connections_Tor_Servers_Many" xml:space="preserve">
+    <value>Tor servers</value>
   </data>
   <data name="Connections_Tor_Servers_Other" xml:space="preserve">
     <value>Tor servers</value>
@@ -3489,9 +3901,25 @@
   <data name="Connections_Gateway" xml:space="preserve">
     <value>Gateway</value>
   </data>
+  <data name="Connections_Gateways_Zero" xml:space="preserve">
+    <value>Gateways ({0})</value>
+    <comment>{0} is a placeholder for the number of gateways (eg. Gateways (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Gateways_One" xml:space="preserve">
     <value>Gateway ({0})</value>
     <comment>{0} is a placeholder for the number of gateways (eg. Gateway (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Connections_Gateways_Two" xml:space="preserve">
+    <value>Gateways ({0})</value>
+    <comment>{0} is a placeholder for the number of gateways (eg. Gateways (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Gateways_Few" xml:space="preserve">
+    <value>Gateways ({0})</value>
+    <comment>{0} is a placeholder for the number of gateways (eg. Gateways (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Gateways_Many" xml:space="preserve">
+    <value>Gateways ({0})</value>
+    <comment>{0} is a placeholder for the number of gateways (eg. Gateways (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Gateways_Other" xml:space="preserve">
     <value>Gateways ({0})</value>
@@ -3500,9 +3928,25 @@
   <data name="Connections_Gateways_Server" xml:space="preserve">
     <value>Dedicated server</value>
   </data>
+  <data name="Connections_Gateways_Servers_Zero" xml:space="preserve">
+    <value>Dedicated servers ({0})</value>
+    <comment>{0} is a placeholder for the number of servers (eg. Dedicated servers (5)). This string is used when the number is different than 1.</comment>
+  </data>
   <data name="Connections_Gateways_Servers_One" xml:space="preserve">
     <value>Dedicated server ({0})</value>
     <comment>{0} is a placeholder for the number of servers (eg. Dedicated server (1)). This string is used when the number is 1.</comment>
+  </data>
+  <data name="Connections_Gateways_Servers_Two" xml:space="preserve">
+    <value>Dedicated servers ({0})</value>
+    <comment>{0} is a placeholder for the number of servers (eg. Dedicated servers (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Gateways_Servers_Few" xml:space="preserve">
+    <value>Dedicated servers ({0})</value>
+    <comment>{0} is a placeholder for the number of servers (eg. Dedicated servers (5)). This string is used when the number is different than 1.</comment>
+  </data>
+  <data name="Connections_Gateways_Servers_Many" xml:space="preserve">
+    <value>Dedicated servers ({0})</value>
+    <comment>{0} is a placeholder for the number of servers (eg. Dedicated servers (5)). This string is used when the number is different than 1.</comment>
   </data>
   <data name="Connections_Gateways_Servers_Other" xml:space="preserve">
     <value>Dedicated servers ({0})</value>
@@ -3865,33 +4309,97 @@
   <data name="Flyouts_SplitTunneling_Upsell_Description" xml:space="preserve">
     <value>Divide your traffic into VPN and non-VPN tunnels with VPN Plus.</value>
   </data>
+  <data name="Flyouts_SplitTunneling_Protected_Apps_Zero" xml:space="preserve">
+    <value>Protected apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of protected apps in the list. (eg. "Protected apps (2)")</comment>
+  </data>
   <data name="Flyouts_SplitTunneling_Protected_Apps_One" xml:space="preserve">
     <value>Protected app ({0})</value>
     <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of protected apps in the list. (eg. "Protected app (1)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Protected_Apps_Two" xml:space="preserve">
+    <value>Protected apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of protected apps in the list. (eg. "Protected apps (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Protected_Apps_Few" xml:space="preserve">
+    <value>Protected apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of protected apps in the list. (eg. "Protected apps (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Protected_Apps_Many" xml:space="preserve">
+    <value>Protected apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of protected apps in the list. (eg. "Protected apps (2)")</comment>
   </data>
   <data name="Flyouts_SplitTunneling_Protected_Apps_Other" xml:space="preserve">
     <value>Protected apps ({0})</value>
     <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of protected apps in the list. (eg. "Protected apps (2)")</comment>
   </data>
+  <data name="Flyouts_SplitTunneling_Protected_Ips_Zero" xml:space="preserve">
+    <value>Protected IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of protected IP addresses in the list. (eg. "Protected IP addresses (2)")</comment>
+  </data>
   <data name="Flyouts_SplitTunneling_Protected_Ips_One" xml:space="preserve">
     <value>Protected IP address ({0})</value>
     <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of protected IP addresses in the list. (eg. "Protected IP address (1)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Protected_Ips_Two" xml:space="preserve">
+    <value>Protected IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of protected IP addresses in the list. (eg. "Protected IP addresses (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Protected_Ips_Few" xml:space="preserve">
+    <value>Protected IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of protected IP addresses in the list. (eg. "Protected IP addresses (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Protected_Ips_Many" xml:space="preserve">
+    <value>Protected IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of protected IP addresses in the list. (eg. "Protected IP addresses (2)")</comment>
   </data>
   <data name="Flyouts_SplitTunneling_Protected_Ips_Other" xml:space="preserve">
     <value>Protected IP addresses ({0})</value>
     <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of protected IP addresses in the list. (eg. "Protected IP addresses (2)")</comment>
   </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Apps_Zero" xml:space="preserve">
+    <value>Excluded apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of excluded apps in the list. (eg. "Excluded apps (2)")</comment>
+  </data>
   <data name="Flyouts_SplitTunneling_Excluded_Apps_One" xml:space="preserve">
     <value>Excluded app ({0})</value>
     <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of excluded apps in the list. (eg. "Excluded app (1)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Apps_Two" xml:space="preserve">
+    <value>Excluded apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of excluded apps in the list. (eg. "Excluded apps (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Apps_Few" xml:space="preserve">
+    <value>Excluded apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of excluded apps in the list. (eg. "Excluded apps (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Apps_Many" xml:space="preserve">
+    <value>Excluded apps ({0})</value>
+    <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of excluded apps in the list. (eg. "Excluded apps (2)")</comment>
   </data>
   <data name="Flyouts_SplitTunneling_Excluded_Apps_Other" xml:space="preserve">
     <value>Excluded apps ({0})</value>
     <comment>Header for the list of Apps defined for Split Tunneling. {0} is a placeholder for the number of excluded apps in the list. (eg. "Excluded apps (2)")</comment>
   </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Ips_Zero" xml:space="preserve">
+    <value>Excluded IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of excluded IP addresses in the list. (eg. "Excluded IP addresses (2)")</comment>
+  </data>
   <data name="Flyouts_SplitTunneling_Excluded_Ips_One" xml:space="preserve">
     <value>Excluded IP address ({0})</value>
     <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of excluded IP addresses in the list. (eg. "Excluded IP address (1)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Ips_Two" xml:space="preserve">
+    <value>Excluded IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of excluded IP addresses in the list. (eg. "Excluded IP addresses (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Ips_Few" xml:space="preserve">
+    <value>Excluded IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of excluded IP addresses in the list. (eg. "Excluded IP addresses (2)")</comment>
+  </data>
+  <data name="Flyouts_SplitTunneling_Excluded_Ips_Many" xml:space="preserve">
+    <value>Excluded IP addresses ({0})</value>
+    <comment>Header for the list of IP addresses defined for Split Tunneling. {0} is a placeholder for the number of excluded IP addresses in the list. (eg. "Excluded IP addresses (2)")</comment>
   </data>
   <data name="Flyouts_SplitTunneling_Excluded_Ips_Other" xml:space="preserve">
     <value>Excluded IP addresses ({0})</value>

@@ -46,8 +46,8 @@ namespace ProtonVPN.Service.Start;
 
 internal class Bootstrapper
 {
-    private IContainer _container;
-    private T Resolve<T>() => _container.Resolve<T>();
+    private IContainer _container = null!;
+    private T Resolve<T>() where T : notnull => _container.Resolve<T>();
 
     public Bootstrapper()
     {
@@ -88,7 +88,7 @@ internal class Bootstrapper
 
     private void Start()
     {
-        AppDomain.CurrentDomain.UnhandledException += OnUnhandledExceptionOccurredAsync;
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledExceptionOccurred;
 
         RegisterEvents();
 
@@ -115,7 +115,7 @@ internal class Bootstrapper
         };
     }
 
-    private async void OnUnhandledExceptionOccurredAsync(object sender, UnhandledExceptionEventArgs e)
+    private void OnUnhandledExceptionOccurred(object? sender, UnhandledExceptionEventArgs e)
     {
         IStaticConfiguration config = Resolve<IStaticConfiguration>();
         IOsProcesses processes = Resolve<IOsProcesses>();

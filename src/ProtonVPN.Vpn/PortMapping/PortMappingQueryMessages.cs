@@ -23,6 +23,6 @@ namespace ProtonVPN.Vpn.PortMapping;
 
 public class PortMappingQueryMessages
 {
-    public PortMappingQueryMessage TcpQuery { get; set; }
-    public PortMappingQueryMessage UdpQuery { get; set; }
+    public PortMappingQueryMessage? TcpQuery { get; set; }
+    public PortMappingQueryMessage? UdpQuery { get; set; }
 }

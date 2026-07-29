@@ -59,6 +59,11 @@ public static class PluralKeyHelper
             .ToHashSet();
     }
 
+    public static bool IsPluralKey(string key)
+    {
+        return _pluralSuffixes.Any(suffix => key.EndsWith(suffix, StringComparison.Ordinal));
+    }
+
     public static bool IsPluralVariantOfReferencedKey(string key, HashSet<string> referencedKeys)
     {
         foreach (string suffix in _pluralSuffixes)

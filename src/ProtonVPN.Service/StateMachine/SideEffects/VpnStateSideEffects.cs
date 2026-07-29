@@ -61,7 +61,7 @@ internal sealed class VpnStateSideEffects : IVpnStateSideEffects
     public async Task ApplyAsync(VpnState state, State stateMachineState)
     {
         _portForwardingForAppsRouteShim.SetVpnState(state);
-        await HandlePortForwardingAsync(state);
+        HandlePortForwarding(state);
 
         if (_vpnStatus == state.Status && _state == stateMachineState)
         {
@@ -102,7 +102,7 @@ internal sealed class VpnStateSideEffects : IVpnStateSideEffects
         _splitTunnel.UpdateContext(context);
     }
 
-    private async Task HandlePortForwardingAsync(VpnState state)
+    private void HandlePortForwarding(VpnState state)
     {
         _portMappingProtocolClient.SetVpnState(state);
 
