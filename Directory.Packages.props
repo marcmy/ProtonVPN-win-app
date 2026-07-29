@@ -26,7 +26,7 @@
     <PackageVersion Include="DotNetSeleniumExtras.WaitHelpers" Version="3.11.0" />
     <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
-    <PackageVersion Include="Grpc.Net.Client" Version="2.76.0" />
+    <PackageVersion Include="Grpc.Net.Client" Version="2.80.0" />
     <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.0.124" />
     <PackageVersion Include="log4net" Version="3.2.0" />
     <PackageVersion Include="JunitXml.TestLogger" Version="8.0.0" />
