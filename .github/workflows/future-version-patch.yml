@@ -15,7 +15,7 @@ on:
         description: New branch to create for the patched version
         required: true
       target_version:
-        description: Proton VPN release version to patch, for example 4.4.2
+        description: Proton VPN release version to patch
         required: true
       include_updater_skip:
         description: Also port updater/beta skip behavior from source_patch_branch
