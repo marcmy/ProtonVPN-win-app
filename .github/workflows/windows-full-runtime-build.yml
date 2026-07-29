@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       target_version:
-        description: Optional app version override to stamp before building, for example 4.4.1.1-marcmy-split-tunnel
+        description: Optional app version override to stamp before building, for example 5.1.5-marcmy
         type: string
         required: false
         default: ''
