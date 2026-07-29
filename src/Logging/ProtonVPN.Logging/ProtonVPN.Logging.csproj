@@ -19,6 +19,11 @@
         <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
+        <!-- This app uses PatternLayout, not the XML layouts affected by GHSA-4f7c-pmjv-c25w.
+             Keep log4net 3.2.0 for binary compatibility with installed patch targets. -->
+        <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-4f7c-pmjv-c25w" />
+    </ItemGroup>
+    <ItemGroup>
         <ProjectReference Include="..\..\ProtonVPN.Common.Legacy\ProtonVPN.Common.Legacy.csproj" />
         <ProjectReference Include="..\ProtonVPN.Logging.Contracts\ProtonVPN.Logging.Contracts.csproj" />
     </ItemGroup>
