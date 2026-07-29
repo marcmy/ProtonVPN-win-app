@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       target_version:
-        description: Optional app version override to stamp before building, for example 5.1.5-marcmy
+        description: Optional app version override to stamp before building
         type: string
         required: false
         default: ''
