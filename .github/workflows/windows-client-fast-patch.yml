@@ -18,7 +18,7 @@ on:
         required: true
         default: false
       target_version:
-        description: Optional Proton VPN release version, for example 5.1.5
+        description: Optional Proton VPN release version
         type: string
         required: false
         default: ''
