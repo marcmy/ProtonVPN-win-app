@@ -24,6 +24,8 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using ProtonVPN.Common.Core.Networking;
+using ProtonVPN.OperatingSystems.Network.Contracts.Routing;
 
 namespace ProtonVPN.Service.PortMapping;
 
@@ -32,6 +34,13 @@ internal sealed class PortForwardingRouteOperations : IPortForwardingRouteOperat
     private const string PROTON_NAT_PMP_GATEWAY_IP = "10.2.0.1";
     private const string DEFAULT_ROUTE_PREFIX = "0.0.0.0/0";
     private const int NETSH_TIMEOUT_IN_MILLISECONDS = 5000;
+
+    private readonly IRoutingTableHelper _routingTableHelper;
+
+    public PortForwardingRouteOperations(IRoutingTableHelper routingTableHelper)
+    {
+        _routingTableHelper = routingTableHelper;
+    }
 
     public int GetInterfaceIndexForLocalIp(string? localIp)
     {
@@ -69,6 +78,23 @@ internal sealed class PortForwardingRouteOperations : IPortForwardingRouteOperat
         RunNetsh(
             $"interface ipv4 delete route prefix={DEFAULT_ROUTE_PREFIX} interface={interfaceIndex} " +
             $"nexthop={PROTON_NAT_PMP_GATEWAY_IP} store=active");
+    }
+
+    public bool RouteExists(int interfaceIndex)
+    {
+        return _routingTableHelper.RouteExists(CreateRouteConfiguration(interfaceIndex));
+    }
+
+    private static RouteConfiguration CreateRouteConfiguration(int interfaceIndex)
+    {
+        return new()
+        {
+            Destination = new NetworkAddress(IPAddress.Any),
+            Gateway = new NetworkAddress(IPAddress.Parse(PROTON_NAT_PMP_GATEWAY_IP)),
+            InterfaceIndex = (uint)interfaceIndex,
+            Metric = 1,
+            IsIpv6 = false,
+        };
     }
 
     private static void RunNetsh(string arguments)
