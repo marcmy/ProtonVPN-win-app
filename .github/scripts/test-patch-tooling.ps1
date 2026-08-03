@@ -16,6 +16,8 @@ $packageScript = Join-Path $PSScriptRoot 'package-patch-artifacts.ps1'
 $setVersionScript = Join-Path $PSScriptRoot 'set-assembly-version.ps1'
 $stageClientScript = Join-Path $PSScriptRoot 'stage-client-patch-output.ps1'
 $installerScript = Join-Path $repositoryRoot 'scripts/Install-ProtonVPNPatch.ps1'
+$installerLauncher = Join-Path $repositoryRoot 'scripts/Install-ProtonVPNPatch.cmd'
+$sfxBuilderScript = Join-Path $repositoryRoot 'scripts/New-ProtonVPNPatchSfx.ps1'
 
 $ownsWorkingDirectory = [string]::IsNullOrWhiteSpace($WorkingDirectory)
 $testRoot = if ($ownsWorkingDirectory) {
@@ -307,6 +309,17 @@ function Test-PackageComposition {
         -ValidateOnly
     Assert-Condition ($LASTEXITCODE -eq 0) `
         'Installer rejected an untampered patch payload.'
+
+    $realInstallerPath = Join-Path $fixture.Root 'real-installer/ProtonVPN-Custom-Patch-5.1.5.exe'
+    & $sfxBuilderScript `
+        -PatchPath $patchDir `
+        -OutputPath $realInstallerPath `
+        -InstallerScriptPath $installerScript `
+        -LauncherPath $installerLauncher
+    $realInstallerBytes = [System.IO.File]::ReadAllBytes($realInstallerPath)
+    Assert-Condition (
+        [Text.Encoding]::ASCII.GetString($realInstallerBytes).Contains('MSCF')
+    ) 'IExpress packaging returned an executable without an embedded cabinet payload.'
 
     $runtimeDataPatchDir = Join-Path $fixture.Root 'patch-runtime-data'
     Copy-Item -LiteralPath $patchDir -Destination $runtimeDataPatchDir -Recurse

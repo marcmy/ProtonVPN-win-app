@@ -113,6 +113,20 @@ if ($isPatchDirectory) {
     }
 }
 
+function Test-IExpressCabinetPayload {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path
+    )
+
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        return [Text.Encoding]::ASCII.GetString($bytes).Contains('MSCF')
+    } catch {
+        return $false
+    }
+}
+
 $windowsPowerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 & $windowsPowerShellPath `
     -NoProfile `
@@ -224,6 +238,7 @@ try {
             -CompressionLevel Optimal `
             -Force
     }
+    $payloadLength = (Get-Item -LiteralPath $payloadPath).Length
 
     $sourceDirectoryForSed = $workingDirectory.TrimEnd('\') + '\'
     $escapedFriendlyName = ("$FriendlyName $manifestTargetVersion").Replace('"', '')
@@ -286,6 +301,7 @@ FILE2="$launcherFileName"
     $deadline = [DateTime]::UtcNow.AddSeconds(120)
     $lastObservedLength = -1L
     $stableLengthChecks = 0
+    $cabinetPayloadPresent = $false
 
     while ([DateTime]::UtcNow -lt $deadline) {
         if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
@@ -297,8 +313,18 @@ FILE2="$launcherFileName"
                 $stableLengthChecks = 0
             }
 
-            if ($stableLengthChecks -ge 3) {
-                break
+            # IExpress can leave a stable WEXTRACT stub while it builds the CAB asynchronously.
+            # Do not treat the output as complete until the embedded cabinet exists and the
+            # IExpress process that was started for this build has exited.
+            if ($stableLengthChecks -ge 3 -and $currentLength -gt $payloadLength) {
+                $cabinetPayloadPresent = Test-IExpressCabinetPayload -Path $resolvedOutputPath
+                $newIExpressProcesses = @(
+                    Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
+                        Where-Object { $existingIExpressIds -notcontains $_.Id }
+                )
+                if ($cabinetPayloadPresent -and $newIExpressProcesses.Count -eq 0) {
+                    break
+                }
             }
         }
 
@@ -312,7 +338,14 @@ FILE2="$launcherFileName"
         0L
     }
 
-    if (-not $outputExists -or $outputLength -le 0 -or $stableLengthChecks -lt 3) {
+    if ($outputExists) {
+        $cabinetPayloadPresent = Test-IExpressCabinetPayload -Path $resolvedOutputPath
+    }
+
+    if (-not $outputExists -or
+        $outputLength -le $payloadLength -or
+        $stableLengthChecks -lt 3 -or
+        -not $cabinetPayloadPresent) {
         $newIExpressProcesses = @(
             Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
                 Where-Object { $existingIExpressIds -notcontains $_.Id }
@@ -323,7 +356,7 @@ FILE2="$launcherFileName"
             'No newly started IExpress process is still running'
         }
 
-        throw "IExpress did not create a stable installer within 120 seconds. $processStatus. Expected output: $resolvedOutputPath"
+        throw "IExpress did not create a complete installer containing payload.zip within 120 seconds. $processStatus. Expected output: $resolvedOutputPath"
     }
 
     $buildSucceeded = $true
