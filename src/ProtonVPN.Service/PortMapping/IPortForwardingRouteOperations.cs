@@ -26,4 +26,6 @@ internal interface IPortForwardingRouteOperations
     void AddRoute(int interfaceIndex);
 
     void DeleteRoute(int interfaceIndex);
+
+    bool RouteExists(int interfaceIndex);
 }

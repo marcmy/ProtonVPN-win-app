@@ -146,12 +146,28 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
             return;
         }
 
+        bool isTrackedOnInterface;
         lock (_sync)
         {
-            if (_routeInterfaceIndex == interfaceIndex)
+            isTrackedOnInterface = _routeInterfaceIndex == interfaceIndex;
+        }
+
+        if (isTrackedOnInterface && IsRoutePresent(interfaceIndex))
+        {
+            return;
+        }
+
+        if (isTrackedOnInterface)
+        {
+            lock (_sync)
             {
-                return;
+                if (_routeInterfaceIndex == interfaceIndex)
+                {
+                    _routeInterfaceIndex = null;
+                }
             }
+
+            _logger.Warn<ConnectionLog>($"Tracked app port forwarding NAT-PMP route shim is missing and will be recreated. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}.");
         }
 
         RemoveRouteIfNeeded();
@@ -215,6 +231,19 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         catch (Exception e)
         {
             _logger.Warn<ConnectionLog>($"App port forwarding NAT-PMP route shim was not present or could not be removed. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}. {e.Message}");
+            return false;
+        }
+    }
+
+    private bool IsRoutePresent(int interfaceIndex)
+    {
+        try
+        {
+            return _routeOperations.RouteExists(interfaceIndex);
+        }
+        catch (Exception e)
+        {
+            _logger.Warn<ConnectionLog>($"Could not verify the app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}. {e.Message}");
             return false;
         }
     }

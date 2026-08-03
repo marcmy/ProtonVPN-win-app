@@ -34,6 +34,7 @@ public class PortForwardingForAppsRouteShimTest
         _portMappingProtocolClient = Substitute.For<IPortMappingProtocolClient>();
         _routeOperations = Substitute.For<IPortForwardingRouteOperations>();
         _routeOperations.GetInterfaceIndexForLocalIp("10.2.0.2").Returns(42);
+        _routeOperations.RouteExists(42).Returns(true);
     }
 
     [TestMethod]
@@ -87,6 +88,24 @@ public class PortForwardingForAppsRouteShimTest
         _routeOperations.Received(2).DeleteRoute(42);
     }
 
+    [TestMethod]
+    public void MissingTrackedRoute_AfterDeleteFailure_IsRecreated()
+    {
+        using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
+        shim.SetVpnState(ConnectedState());
+        RaisePortForwardingState(ReadyMapping());
+
+        _routeOperations.RouteExists(42).Returns(false);
+        _routeOperations
+            .When(operations => operations.DeleteRoute(42))
+            .Do(_ => throw new InvalidOperationException("route not found"));
+
+        RaisePortForwardingState(RefreshingMapping());
+        RaisePortForwardingState(ReadyMapping());
+
+        _routeOperations.Received(2).AddRoute(42);
+    }
+
     private PortForwardingForAppsRouteShim CreateShim(
         IPortForwardingRouteOperations routeOperations)
     {
@@ -119,9 +138,19 @@ public class PortForwardingForAppsRouteShimTest
 
     private static PortForwardingState ReadyMapping()
     {
+        return Mapping(PortMappingStatus.SleepingUntilRefresh);
+    }
+
+    private static PortForwardingState RefreshingMapping()
+    {
+        return Mapping(PortMappingStatus.PortMappingCommunication);
+    }
+
+    private static PortForwardingState Mapping(PortMappingStatus status)
+    {
         return new()
         {
-            Status = PortMappingStatus.SleepingUntilRefresh,
+            Status = status,
             MappedPort = new TemporaryMappedPort
             {
                 MappedPort = new MappedPort(54321, 54321),
@@ -154,6 +183,11 @@ public class PortForwardingForAppsRouteShimTest
         public void DeleteRoute(int interfaceIndex)
         {
             Operations.Enqueue($"delete:{interfaceIndex}");
+        }
+
+        public bool RouteExists(int interfaceIndex)
+        {
+            return true;
         }
     }
 }
