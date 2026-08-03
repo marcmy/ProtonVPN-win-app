@@ -29,12 +29,14 @@ using ProtonVPN.Logging.Contracts.Events.ConnectionLogs;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Vpn.Common;
 using ProtonVPN.Vpn.PortMapping;
+using Timer = System.Timers.Timer;
 
 namespace ProtonVPN.Service.PortMapping;
 
 internal sealed class PortForwardingForAppsRouteShim : IDisposable
 {
     private const string ProtonNatPmpGatewayIp = "10.2.0.1";
+    private static readonly TimeSpan RouteReconciliationInterval = TimeSpan.FromMinutes(1);
 
     private readonly object _sync = new();
     private readonly object _reconcileSync = new();
@@ -42,24 +44,48 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
     private readonly IServiceSettings _serviceSettings;
     private readonly IPortMappingProtocolClient _portMappingProtocolClient;
     private readonly IPortForwardingRouteOperations _routeOperations;
+    private readonly Timer _reconciliationTimer;
 
     private VpnState _vpnState = VpnState.Default;
-    private PortForwardingState _portForwardingState = PortForwardingState.Default;
     private int? _routeInterfaceIndex;
+    private bool _isStopped;
+    private bool _isDisposed;
 
     public PortForwardingForAppsRouteShim(
         ILogger logger,
         IServiceSettings serviceSettings,
         IPortMappingProtocolClient portMappingProtocolClient,
         IPortForwardingRouteOperations routeOperations)
+        : this(
+            logger,
+            serviceSettings,
+            portMappingProtocolClient,
+            routeOperations,
+            RouteReconciliationInterval)
+    {
+    }
+
+    internal PortForwardingForAppsRouteShim(
+        ILogger logger,
+        IServiceSettings serviceSettings,
+        IPortMappingProtocolClient portMappingProtocolClient,
+        IPortForwardingRouteOperations routeOperations,
+        TimeSpan reconciliationInterval)
     {
         _logger = logger;
         _serviceSettings = serviceSettings;
         _portMappingProtocolClient = portMappingProtocolClient;
         _routeOperations = routeOperations;
 
+        _reconciliationTimer = new(reconciliationInterval)
+        {
+            AutoReset = true,
+        };
+        _reconciliationTimer.Elapsed += OnReconciliationTimerElapsed;
+
         _serviceSettings.SettingsChanged += OnSettingsChanged;
         _portMappingProtocolClient.StateChanged += OnPortMappingStateChanged;
+        _reconciliationTimer.Start();
     }
 
     public void SetVpnState(VpnState vpnState)
@@ -74,6 +100,13 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
 
     public async Task StopAsync()
     {
+        lock (_sync)
+        {
+            _isStopped = true;
+        }
+
+        _reconciliationTimer.Stop();
+
         lock (_reconcileSync)
         {
             RemoveRouteIfNeeded();
@@ -89,11 +122,11 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
 
     private void OnPortMappingStateChanged(object? sender, EventArgs<PortForwardingState> e)
     {
-        lock (_sync)
-        {
-            _portForwardingState = e.Data ?? PortForwardingState.Default;
-        }
+        ReconcileState();
+    }
 
+    private void OnReconciliationTimerElapsed(object? sender, EventArgs e)
+    {
         ReconcileState();
     }
 
@@ -101,7 +134,7 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
     {
         lock (_reconcileSync)
         {
-            if (ShouldRun())
+            if (ShouldKeepRouteInstalled())
             {
                 AddRouteIfNeeded();
             }
@@ -112,16 +145,18 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
         }
     }
 
-    private bool ShouldRun()
+    private bool ShouldKeepRouteInstalled()
     {
         lock (_sync)
         {
+            // NAT-PMP clients need this route while creating and renewing mappings, so the
+            // transient PortMappingStatus must not control the route lifetime.
             return _serviceSettings.IsPortForwardingForAppsEnabled &&
+                   !_isStopped &&
+                   !_isDisposed &&
                    _vpnState.Status == VpnStatus.Connected &&
                    _vpnState.PortForwarding &&
-                   IPAddress.TryParse(_vpnState.LocalIp, out _) &&
-                   _portForwardingState.Status == PortMappingStatus.SleepingUntilRefresh &&
-                   _portForwardingState.MappedPort?.MappedPort?.ExternalPort > 0;
+                   IPAddress.TryParse(_vpnState.LocalIp, out _);
         }
     }
 
@@ -183,7 +218,7 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
 
             _logger.Info<ConnectionLog>($"Added app port forwarding NAT-PMP route shim. InterfaceIndex={interfaceIndex}, NextHop={ProtonNatPmpGatewayIp}.");
 
-            if (!ShouldRun())
+            if (!ShouldKeepRouteInstalled())
             {
                 RemoveRouteIfNeeded();
             }
@@ -250,6 +285,20 @@ internal sealed class PortForwardingForAppsRouteShim : IDisposable
 
     public void Dispose()
     {
+        lock (_sync)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            _isStopped = true;
+        }
+
+        _reconciliationTimer.Stop();
+        _reconciliationTimer.Elapsed -= OnReconciliationTimerElapsed;
+        _reconciliationTimer.Dispose();
         _serviceSettings.SettingsChanged -= OnSettingsChanged;
         _portMappingProtocolClient.StateChanged -= OnPortMappingStateChanged;
         lock (_reconcileSync)

@@ -11,6 +11,7 @@ using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
 using ProtonVPN.Common.Legacy.PortForwarding;
 using ProtonVPN.Logging.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 using ProtonVPN.Service.PortMapping;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Vpn.PortMapping;
@@ -38,12 +39,10 @@ public class PortForwardingForAppsRouteShimTest
     }
 
     [TestMethod]
-    public void ReadyMapping_WhenVpnIsConnected_AddsAndThenRemovesRoute()
+    public void PortForwardingVpn_WhenConnected_AddsAndThenRemovesRoute()
     {
         using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
         shim.SetVpnState(ConnectedState());
-
-        RaisePortForwardingState(ReadyMapping());
 
         _routeOperations.Received(1).AddRoute(42);
 
@@ -57,9 +56,8 @@ public class PortForwardingForAppsRouteShimTest
     {
         BlockingRouteOperations routeOperations = new();
         using PortForwardingForAppsRouteShim shim = CreateShim(routeOperations);
-        shim.SetVpnState(ConnectedState());
 
-        Task addTask = Task.Run(() => RaisePortForwardingState(ReadyMapping()));
+        Task addTask = Task.Run(() => shim.SetVpnState(ConnectedState()));
         Assert.IsTrue(routeOperations.AddStarted.Wait(TimeSpan.FromSeconds(2)));
 
         Task disconnectTask = Task.Run(() => shim.SetVpnState(VpnState.Default));
@@ -80,20 +78,48 @@ public class PortForwardingForAppsRouteShimTest
             .When(operations => operations.AddRoute(42))
             .Do(_ => throw new InvalidOperationException("simulated add failure"));
         using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
-        shim.SetVpnState(ConnectedState());
 
-        RaisePortForwardingState(ReadyMapping());
+        shim.SetVpnState(ConnectedState());
 
         _routeOperations.Received(1).AddRoute(42);
         _routeOperations.Received(2).DeleteRoute(42);
     }
 
     [TestMethod]
-    public void MissingTrackedRoute_AfterDeleteFailure_IsRecreated()
+    public void PortMappingRenewal_KeepsRouteInstalled()
     {
         using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
         shim.SetVpnState(ConnectedState());
-        RaisePortForwardingState(ReadyMapping());
+
+        _routeOperations.ClearReceivedCalls();
+
+        RaisePortForwardingState(RefreshingMapping());
+
+        _routeOperations.Received(1).RouteExists(42);
+        _routeOperations.DidNotReceive().AddRoute(Arg.Any<int>());
+        _routeOperations.DidNotReceive().DeleteRoute(Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public void PortMappingError_KeepsRouteInstalled()
+    {
+        using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
+        shim.SetVpnState(ConnectedState());
+
+        _routeOperations.ClearReceivedCalls();
+
+        RaisePortForwardingState(Mapping(PortMappingStatus.Error));
+
+        _routeOperations.Received(1).RouteExists(42);
+        _routeOperations.DidNotReceive().AddRoute(Arg.Any<int>());
+        _routeOperations.DidNotReceive().DeleteRoute(Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public void MissingTrackedRoute_OnStateChange_IsRecreated()
+    {
+        using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
+        shim.SetVpnState(ConnectedState());
 
         _routeOperations.RouteExists(42).Returns(false);
         _routeOperations
@@ -101,19 +127,68 @@ public class PortForwardingForAppsRouteShimTest
             .Do(_ => throw new InvalidOperationException("route not found"));
 
         RaisePortForwardingState(RefreshingMapping());
-        RaisePortForwardingState(ReadyMapping());
 
         _routeOperations.Received(2).AddRoute(42);
     }
 
-    private PortForwardingForAppsRouteShim CreateShim(
-        IPortForwardingRouteOperations routeOperations)
+    [TestMethod]
+    public void MissingTrackedRoute_IsRecreatedByPeriodicHealthCheck()
     {
-        return new(
-            _logger,
-            _serviceSettings,
-            _portMappingProtocolClient,
-            routeOperations);
+        ReconciledRouteOperations routeOperations = new();
+        using PortForwardingForAppsRouteShim shim = CreateShim(
+            routeOperations,
+            TimeSpan.FromMilliseconds(10));
+        shim.SetVpnState(ConnectedState());
+
+        routeOperations.SimulateRouteLoss();
+
+        Assert.IsTrue(routeOperations.RouteRecreated.Wait(TimeSpan.FromSeconds(2)));
+        Assert.AreEqual(2, routeOperations.AddCount);
+    }
+
+    [TestMethod]
+    public void ConnectedVpnWithoutPortForwarding_DoesNotAddRoute()
+    {
+        using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
+
+        shim.SetVpnState(ConnectedState(portForwarding: false));
+
+        _routeOperations.DidNotReceive().AddRoute(Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public void DisablingPortForwardingForApps_RemovesRoute()
+    {
+        using PortForwardingForAppsRouteShim shim = CreateShim(_routeOperations);
+        shim.SetVpnState(ConnectedState());
+
+        _routeOperations.ClearReceivedCalls();
+        _serviceSettings.IsPortForwardingForAppsEnabled.Returns(false);
+
+        _serviceSettings.SettingsChanged +=
+            Raise.Event<EventHandler<MainSettingsIpcEntity>>(
+                _serviceSettings,
+                new MainSettingsIpcEntity());
+
+        _routeOperations.Received(1).DeleteRoute(42);
+    }
+
+    private PortForwardingForAppsRouteShim CreateShim(
+        IPortForwardingRouteOperations routeOperations,
+        TimeSpan? reconciliationInterval = null)
+    {
+        return reconciliationInterval is null
+            ? new(
+                _logger,
+                _serviceSettings,
+                _portMappingProtocolClient,
+                routeOperations)
+            : new(
+                _logger,
+                _serviceSettings,
+                _portMappingProtocolClient,
+                routeOperations,
+                reconciliationInterval.Value);
     }
 
     private void RaisePortForwardingState(PortForwardingState state)
@@ -124,7 +199,7 @@ public class PortForwardingForAppsRouteShimTest
                 new EventArgs<PortForwardingState>(state));
     }
 
-    private static VpnState ConnectedState()
+    private static VpnState ConnectedState(bool portForwarding = true)
     {
         return new(
             VpnStatus.Connected,
@@ -133,12 +208,7 @@ public class PortForwardingForAppsRouteShimTest
             "198.51.100.1",
             443,
             VpnProtocol.WireGuardUdp,
-            portForwarding: true);
-    }
-
-    private static PortForwardingState ReadyMapping()
-    {
-        return Mapping(PortMappingStatus.SleepingUntilRefresh);
+            portForwarding: portForwarding);
     }
 
     private static PortForwardingState RefreshingMapping()
@@ -188,6 +258,45 @@ public class PortForwardingForAppsRouteShimTest
         public bool RouteExists(int interfaceIndex)
         {
             return true;
+        }
+    }
+
+    private sealed class ReconciledRouteOperations : IPortForwardingRouteOperations
+    {
+        private int _addCount;
+        private int _routePresent;
+
+        public ManualResetEventSlim RouteRecreated { get; } = new();
+        public int AddCount => Volatile.Read(ref _addCount);
+
+        public int GetInterfaceIndexForLocalIp(string? localIp)
+        {
+            return 42;
+        }
+
+        public void AddRoute(int interfaceIndex)
+        {
+            int addCount = Interlocked.Increment(ref _addCount);
+            Volatile.Write(ref _routePresent, 1);
+            if (addCount == 2)
+            {
+                RouteRecreated.Set();
+            }
+        }
+
+        public void DeleteRoute(int interfaceIndex)
+        {
+            Volatile.Write(ref _routePresent, 0);
+        }
+
+        public bool RouteExists(int interfaceIndex)
+        {
+            return Volatile.Read(ref _routePresent) == 1;
+        }
+
+        public void SimulateRouteLoss()
+        {
+            Volatile.Write(ref _routePresent, 0);
         }
     }
 }
