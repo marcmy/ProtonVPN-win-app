@@ -308,6 +308,37 @@ function Test-PackageComposition {
     Assert-Condition ($LASTEXITCODE -eq 0) `
         'Installer rejected an untampered patch payload.'
 
+    $runtimeDataPatchDir = Join-Path $fixture.Root 'patch-runtime-data'
+    Copy-Item -LiteralPath $patchDir -Destination $runtimeDataPatchDir -Recurse
+    $runtimeDataPath = Join-Path $runtimeDataPatchDir 'ServiceData/ServiceSettings.json'
+    Write-TestText $runtimeDataPath 'must-not-be-patched'
+    $runtimeDataManifestPath = Join-Path $runtimeDataPatchDir 'patch-manifest.json'
+    $runtimeDataManifest = Get-Content -LiteralPath $runtimeDataManifestPath -Raw | ConvertFrom-Json
+    $runtimeDataManifest.files = @($runtimeDataManifest.files) + [pscustomobject]@{
+        path = 'ServiceData\ServiceSettings.json'
+        size = (Get-Item -LiteralPath $runtimeDataPath).Length
+        sha256 = (Get-FileHash -LiteralPath $runtimeDataPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    $runtimeDataManifest |
+        ConvertTo-Json -Depth 6 |
+        Set-Content -LiteralPath $runtimeDataManifestPath -Encoding utf8
+
+    $runtimeDataValidationOutput = @(& powershell.exe `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
+        -File $installerScript `
+        -PatchPath $runtimeDataPatchDir `
+        -TargetVersion '5.1.5' `
+        -ValidateOnly 2>&1)
+    $runtimeDataValidationExitCode = $LASTEXITCODE
+    Assert-Condition ($runtimeDataValidationExitCode -ne 0) `
+        'Installer accepted a patch payload that targets runtime ServiceData.'
+    Assert-Condition (
+        ($runtimeDataValidationOutput -join "`n") -match
+            'Patch payload must not modify\s+runtime\s+ServiceData'
+    ) 'Installer rejected a ServiceData payload for an unexpected reason.'
+
     Write-TestText (Join-Path $patchDir 'ProtonVPN.Client.dll') 'tampered-client'
     & powershell.exe `
         -NoProfile `
@@ -335,6 +366,84 @@ function Test-PackageComposition {
 
     Assert-Condition $collisionDetected `
         'Packaging did not reject conflicting client and service assemblies with the same install path.'
+}
+
+function Test-InstallerRuntimeDataPreservation {
+    $fixtureRoot = Join-Path $testRoot 'installer-runtime-data'
+    $targetDirectory = Join-Path $fixtureRoot 'v5.1.5'
+    $backupDirectory = Join-Path $fixtureRoot 'v5.1.5-backup'
+    $serviceDataDirectory = Join-Path $targetDirectory 'ServiceData'
+    $wireGuardDirectory = Join-Path $serviceDataDirectory 'WireGuard'
+
+    Write-TestText (Join-Path $targetDirectory 'ProtonVPN.Client.dll') 'official-client'
+    Write-TestText (Join-Path $serviceDataDirectory 'ServiceSettings.json') 'live-settings'
+    Write-TestText (Join-Path $wireGuardDirectory 'ProtonVPN.conf') 'private-runtime-state'
+
+    $tokens = $null
+    $parseErrors = $null
+    $installerAst = [System.Management.Automation.Language.Parser]::ParseFile(
+        $installerScript,
+        [ref] $tokens,
+        [ref] $parseErrors)
+    Assert-Condition ($parseErrors.Count -eq 0) `
+        'Installer script could not be parsed for runtime-data preservation testing.'
+
+    $robocopyFunctionAst = $installerAst.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq 'Invoke-Robocopy'
+    }, $true)
+    Assert-Condition ($null -ne $robocopyFunctionAst) `
+        'Installer does not define Invoke-Robocopy.'
+    . ([ScriptBlock]::Create($robocopyFunctionAst.Extent.Text))
+
+    $mirrorInvocations = @($installerAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.CommandAst] -and
+            $node.GetCommandName() -eq 'Invoke-Robocopy' -and
+            $node.Extent.Text -match '(?m)-Mirror(?:\s|$)'
+    }, $true))
+    Assert-Condition ($mirrorInvocations.Count -eq 2) `
+        'Installer must have one mirrored backup and one mirrored rollback operation.'
+    foreach ($invocation in $mirrorInvocations) {
+        Assert-Condition ($invocation.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")) `
+            'Installer backup and rollback must both preserve runtime ServiceData.'
+    }
+
+    New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+    Invoke-Robocopy `
+        -Source $targetDirectory `
+        -Destination $backupDirectory `
+        -Mirror `
+        -ExcludedDirectories @('ServiceData')
+
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $backupDirectory 'ProtonVPN.Client.dll')) `
+        'Installer backup omitted an installed program file.'
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $backupDirectory 'ServiceData'))) `
+        'Installer backup copied runtime ServiceData.'
+
+    Write-TestText (Join-Path $targetDirectory 'ProtonVPN.Client.dll') 'patched-client'
+    Write-TestText (Join-Path $targetDirectory 'CustomPatchOnly.dll') 'patch-only'
+    Write-TestText (Join-Path $serviceDataDirectory 'ServiceSettings.json') 'updated-live-settings'
+
+    Invoke-Robocopy `
+        -Source $backupDirectory `
+        -Destination $targetDirectory `
+        -Mirror `
+        -ExcludedDirectories @('ServiceData')
+
+    Assert-Condition (
+        (Get-Content -LiteralPath (Join-Path $targetDirectory 'ProtonVPN.Client.dll') -Raw) -eq
+            'official-client'
+    ) 'Installer rollback did not restore an installed program file.'
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $targetDirectory 'CustomPatchOnly.dll'))) `
+        'Installer rollback retained a patch-only program file.'
+    Assert-Condition (
+        (Get-Content -LiteralPath (Join-Path $serviceDataDirectory 'ServiceSettings.json') -Raw) -eq
+            'updated-live-settings'
+    ) 'Installer rollback changed live ServiceData.'
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $wireGuardDirectory 'ProtonVPN.conf')) `
+        'Installer rollback removed the WireGuard runtime configuration.'
 }
 
 function Test-CompleteForkPort {
@@ -440,6 +549,7 @@ New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 try {
     Test-VersionStamping
     Test-PackageComposition
+    Test-InstallerRuntimeDataPreservation
     Test-CompleteForkPort
     Write-Host 'Patch tooling regression tests passed.'
 }

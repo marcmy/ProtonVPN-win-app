@@ -317,6 +317,10 @@ function Test-PatchPayload {
             throw "Patch manifest contains an unsafe payload path: $($file.path)"
         }
 
+        if ($relativePath.StartsWith('ServiceData\', [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Patch payload must not modify runtime ServiceData: $relativePath"
+        }
+
         if (-not $declaredPaths.Add($relativePath)) {
             throw "Patch manifest declares the payload path more than once: $relativePath"
         }
@@ -375,7 +379,9 @@ function Invoke-Robocopy {
 
         [switch] $Mirror,
 
-        [string[]] $ExcludedFiles = @()
+        [string[]] $ExcludedFiles = @(),
+
+        [string[]] $ExcludedDirectories = @()
     )
 
     $copyMode = if ($Mirror) { '/MIR' } else { '/E' }
@@ -396,6 +402,11 @@ function Invoke-Robocopy {
     if ($ExcludedFiles.Count -gt 0) {
         $arguments += '/XF'
         $arguments += $ExcludedFiles
+    }
+
+    if ($ExcludedDirectories.Count -gt 0) {
+        $arguments += '/XD'
+        $arguments += $ExcludedDirectories
     }
 
     & robocopy.exe @arguments
@@ -651,8 +662,14 @@ try {
         Write-Host 'Stopping Proton VPN services...'
         Stop-ProtonServices -Services $services
 
-        Write-Host 'Backing up the complete official version folder...'
-        Invoke-Robocopy -Source $targetDirectory -Destination $backupDirectory -Mirror
+        # ServiceData contains live settings and access-restricted WireGuard key material.
+        # Patch payloads cannot target it, so preserve it in place across backup and rollback.
+        Write-Host 'Backing up installed program files while preserving runtime ServiceData...'
+        Invoke-Robocopy `
+            -Source $targetDirectory `
+            -Destination $backupDirectory `
+            -Mirror `
+            -ExcludedDirectories @('ServiceData')
         $backupCompleted = $true
 
         Write-Host 'Applying patch files...'
@@ -673,12 +690,26 @@ try {
     if ($backupCompleted -and -not $installCompleted -and $targetDirectory -and $backupDirectory) {
         Write-Warning 'Patch installation failed. Restoring the backup automatically...'
         try {
-            Invoke-Robocopy -Source $backupDirectory -Destination $targetDirectory -Mirror
+            Invoke-Robocopy `
+                -Source $backupDirectory `
+                -Destination $targetDirectory `
+                -Mirror `
+                -ExcludedDirectories @('ServiceData')
             Write-Host 'Backup restored successfully.' -ForegroundColor Yellow
         } catch {
             Write-Error `
                 -Message "Automatic rollback failed. The backup remains at '$backupDirectory'. $($_.Exception.Message)" `
                 -ErrorAction Continue
+        }
+    }
+
+    if (-not $backupCompleted -and $backupDirectory -and
+        (Test-Path -LiteralPath $backupDirectory -PathType Container)) {
+        try {
+            Remove-Item -LiteralPath $backupDirectory -Recurse -Force -ErrorAction Stop
+            Write-Host 'Removed incomplete backup.' -ForegroundColor Yellow
+        } catch {
+            Write-Warning "Could not remove incomplete backup '$backupDirectory': $($_.Exception.Message)"
         }
     }
 
