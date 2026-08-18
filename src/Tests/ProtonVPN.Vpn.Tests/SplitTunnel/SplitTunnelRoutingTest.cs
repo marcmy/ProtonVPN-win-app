@@ -74,16 +74,21 @@ public class SplitTunnelRoutingTest
         INetworkInterface tunnelInterface = Substitute.For<INetworkInterface>();
         tunnelInterface.Index.Returns(99u);
 
-        _config.GetHardwareId(VpnProtocol.WireGuard, openVpnAdapter).Returns(excludedHardwareId);
+        _config.GetHardwareId(VpnProtocol.WireGuardUdp, openVpnAdapter).Returns(excludedHardwareId);
         _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId).Returns(physicalInterface);
         _networkInterfaces.GetInterfaces().Returns([physicalInterface, tunnelInterface]);
-        _networkInterfaceProvider.GetByVpnProtocol(VpnProtocol.WireGuard, openVpnAdapter).Returns(tunnelInterface);
+        _networkInterfaceProvider.GetByVpnProtocol(VpnProtocol.WireGuardUdp, openVpnAdapter).Returns(tunnelInterface);
+
+        RouteConfiguration? createdRoute = null;
+        _routingTableHelper
+            .When(helper => helper.CreateRoute(Arg.Any<RouteConfiguration>()))
+            .Do(callInfo => createdRoute = (RouteConfiguration)callInfo[0]);
 
         VpnConfig vpnConfig = new(new VpnConfigParameters
         {
             SplitTunnelMode = SplitTunnelMode.Block,
             SplitTunnelIPs = [excludedAddress.ToString()],
-            VpnProtocol = VpnProtocol.WireGuard,
+            VpnProtocol = VpnProtocol.WireGuardUdp,
             OpenVpnAdapter = openVpnAdapter,
             PreferredProtocols = [],
         });
@@ -102,12 +107,15 @@ public class SplitTunnelRoutingTest
         sut.SetUpRoutingTable(vpnConfig, "10.2.0.2", isIpv6Supported: false);
 
         // Assert
-        _routingTableHelper.Received(1).CreateRoute(Arg.Is<RouteConfiguration>(route =>
-            route.Destination.Ip.Equals(excludedAddress) &&
-            route.Gateway != null &&
-            route.Gateway.Ip.Equals(physicalGateway) &&
-            route.InterfaceIndex == physicalInterfaceIndex &&
-            route.Metric == 1 &&
-            !route.IsIpv6));
+        _routingTableHelper.Received(1).CreateRoute(Arg.Any<RouteConfiguration>());
+        Assert.IsNotNull(createdRoute);
+
+        RouteConfiguration route = createdRoute;
+        Assert.AreEqual(excludedAddress, route.Destination.Ip);
+        Assert.IsTrue(route.Gateway.HasValue);
+        Assert.AreEqual(physicalGateway, route.Gateway.Value.Ip);
+        Assert.AreEqual(physicalInterfaceIndex, route.InterfaceIndex);
+        Assert.AreEqual(1u, route.Metric);
+        Assert.IsFalse(route.IsIpv6);
     }
 }
