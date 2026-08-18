@@ -84,24 +84,9 @@ public class SplitTunnelRoutingTest
             .When(helper => helper.CreateRoute(Arg.Any<RouteConfiguration>()))
             .Do(callInfo => createdRoute = (RouteConfiguration)callInfo[0]);
 
-        VpnConfig vpnConfig = new(new VpnConfigParameters
-        {
-            SplitTunnelMode = SplitTunnelMode.Block,
-            SplitTunnelIPs = [excludedAddress.ToString()],
-            VpnProtocol = VpnProtocol.WireGuardUdp,
-            OpenVpnAdapter = openVpnAdapter,
-            PreferredProtocols = [],
-        });
+        VpnConfig vpnConfig = CreateBlockModeConfig(excludedAddress.ToString(), openVpnAdapter);
 
-        SplitTunnelRouting sut = new(
-            _logger,
-            _config,
-            _gatewayCache,
-            _ipv4GatewayResolver,
-            _routingTableHelper,
-            _networkUtilities,
-            _networkInterfaces,
-            _networkInterfaceProvider);
+        using SplitTunnelRouting sut = CreateSut();
 
         // Act
         sut.SetUpRoutingTable(vpnConfig, "10.2.0.2", isIpv6Supported: false);
@@ -117,5 +102,113 @@ public class SplitTunnelRoutingTest
         Assert.AreEqual(physicalInterfaceIndex, route.InterfaceIndex);
         Assert.AreEqual(1u, route.Metric);
         Assert.IsFalse(route.IsIpv6);
+    }
+
+    [TestMethod]
+    public void ReconcileTrackedRoutes_WhenOwnedRouteDisappears_RecreatesOnlyMissingRoute()
+    {
+        // Arrange
+        IPAddress excludedAddress = IPAddress.Parse("203.0.113.10");
+        ConfigurePhysicalGatewayFallback();
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(false);
+
+        using SplitTunnelRouting sut = CreateSut();
+        sut.SetUpRoutingTable(CreateBlockModeConfig(excludedAddress.ToString()), "10.2.0.2", isIpv6Supported: false);
+        _routingTableHelper.ClearReceivedCalls();
+
+        // Act
+        sut.ReconcileTrackedRoutes();
+
+        // Assert
+        _routingTableHelper.Received(1).RouteExists(
+            Arg.Is<RouteConfiguration>(route => route.Destination.Ip.Equals(excludedAddress)));
+        _routingTableHelper.Received(1).CreateRoute(
+            Arg.Is<RouteConfiguration>(route => route.Destination.Ip.Equals(excludedAddress)));
+    }
+
+    [TestMethod]
+    public void ReconcileTrackedRoutes_WhenOwnedRouteStillExists_DoesNotRecreateRoute()
+    {
+        // Arrange
+        IPAddress excludedAddress = IPAddress.Parse("198.51.100.20");
+        ConfigurePhysicalGatewayFallback();
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(true);
+
+        using SplitTunnelRouting sut = CreateSut();
+        sut.SetUpRoutingTable(CreateBlockModeConfig(excludedAddress.ToString()), "10.2.0.2", isIpv6Supported: false);
+        _routingTableHelper.ClearReceivedCalls();
+
+        // Act
+        sut.ReconcileTrackedRoutes();
+
+        // Assert
+        _routingTableHelper.Received(1).RouteExists(
+            Arg.Is<RouteConfiguration>(route => route.Destination.Ip.Equals(excludedAddress)));
+        _routingTableHelper.DidNotReceive().CreateRoute(Arg.Any<RouteConfiguration>());
+    }
+
+    [TestMethod]
+    public void DeleteRoutes_AfterTrackingRoute_PreventsReconciliationFromRecreatingIt()
+    {
+        // Arrange
+        IPAddress excludedAddress = IPAddress.Parse("192.0.2.25");
+        ConfigurePhysicalGatewayFallback();
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(false);
+
+        VpnConfig vpnConfig = CreateBlockModeConfig(excludedAddress.ToString());
+        using SplitTunnelRouting sut = CreateSut();
+        sut.SetUpRoutingTable(vpnConfig, "10.2.0.2", isIpv6Supported: false);
+        sut.DeleteRoutes(vpnConfig);
+        _routingTableHelper.ClearReceivedCalls();
+
+        // Act
+        sut.ReconcileTrackedRoutes();
+
+        // Assert
+        _routingTableHelper.DidNotReceive().RouteExists(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.DidNotReceive().CreateRoute(Arg.Any<RouteConfiguration>());
+    }
+
+    private void ConfigurePhysicalGatewayFallback()
+    {
+        const string excludedHardwareId = "vpn-hardware-id";
+        OpenVpnAdapter openVpnAdapter = default;
+
+        INetworkInterface physicalInterface = Substitute.For<INetworkInterface>();
+        physicalInterface.Index.Returns(12u);
+        physicalInterface.DefaultGateway.Returns(IPAddress.Parse("192.168.1.1"));
+
+        INetworkInterface tunnelInterface = Substitute.For<INetworkInterface>();
+        tunnelInterface.Index.Returns(99u);
+
+        _config.GetHardwareId(VpnProtocol.WireGuardUdp, openVpnAdapter).Returns(excludedHardwareId);
+        _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId).Returns(physicalInterface);
+        _networkInterfaces.GetInterfaces().Returns([physicalInterface, tunnelInterface]);
+        _networkInterfaceProvider.GetByVpnProtocol(VpnProtocol.WireGuardUdp, openVpnAdapter).Returns(tunnelInterface);
+    }
+
+    private static VpnConfig CreateBlockModeConfig(string excludedAddress, OpenVpnAdapter openVpnAdapter = default)
+    {
+        return new(new VpnConfigParameters
+        {
+            SplitTunnelMode = SplitTunnelMode.Block,
+            SplitTunnelIPs = [excludedAddress],
+            VpnProtocol = VpnProtocol.WireGuardUdp,
+            OpenVpnAdapter = openVpnAdapter,
+            PreferredProtocols = [],
+        });
+    }
+
+    private SplitTunnelRouting CreateSut()
+    {
+        return new(
+            _logger,
+            _config,
+            _gatewayCache,
+            _ipv4GatewayResolver,
+            _routingTableHelper,
+            _networkUtilities,
+            _networkInterfaces,
+            _networkInterfaceProvider);
     }
 }
