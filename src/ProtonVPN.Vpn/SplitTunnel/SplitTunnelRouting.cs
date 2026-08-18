@@ -210,7 +210,7 @@ public class SplitTunnelRouting : ISplitTunnelRouting
 
                 uint? interfaceIndex = gateway is null
                     ? loopbackInterfaceIndex
-                    : bestIpv4Interface.Index;
+                    : bestIpv4Interface!.Index;
 
                 if (interfaceIndex is null)
                 {
