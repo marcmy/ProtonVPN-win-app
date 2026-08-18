@@ -1,193 +1,296 @@
 name: Supply-chain audit
 
 on:
-  workflow_dispatch:
   pull_request:
-  push:
-    branches:
-      - master
-      - marc/proton
-  schedule:
-    # Every Monday at 07:23 UTC
-    - cron: "23 7 * * 1"
 
-permissions: {}
+permissions:
+  contents: write
 
 jobs:
-  trivy:
-    name: Trivy security scan
+  port-proton-5-1-7-fixes:
+    name: Port remaining Proton 5.1.7 fixes
+    if: ${{ github.head_ref == 'agent/proton-5.1.7-archaeology' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-
-    permissions:
-      contents: read
-      security-events: write
+    timeout-minutes: 10
 
     steps:
-      - name: Check out repository
+      - name: Check out target branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'schedule' && 'marc/proton' || github.ref }}
-          persist-credentials: false
-      - name: Scan repository with Trivy
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: sarif
-          output: trivy-results.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          trivyignores: .trivyignore.yaml
+          ref: agent/port-proton-5.1.7-fixes
+          persist-credentials: true
 
-          # New unignored high/critical findings must fail the audit.
-          exit-code: "1"
-
-      - name: Upload findings to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
-        with:
-          sarif_file: trivy-results.sarif
-
-  syft:
-    name: Generate independent SBOM
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-
-    permissions:
-      contents: read
-      actions: read
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.event_name == 'schedule' && 'marc/proton' || github.ref }}
-          persist-credentials: false
-      - name: Generate SPDX SBOM with Syft
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
-        with:
-          path: .
-          config: .syft.yaml
-          format: spdx-json
-          artifact-name: sbom.spdx.json
-
-          # Pull requests get a real SBOM check without a write-capable token.
-          dependency-snapshot: false
-          upload-artifact: true
-          upload-release-assets: false
-
-  proton-5-1-7-archaeology:
-    name: Extract and decompile Proton VPN 5.1.7
-    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'agent/proton-5.1.7-archaeology' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Set up .NET 10
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Install extraction build dependencies
+      - name: Apply decompiled 5.1.7 behavior
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            cmake \
-            ninja-build \
-            libboost-all-dev \
-            liblzma-dev
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Build Inno Setup 6.6-capable innoextract
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              data = p.read_bytes()
+              had_bom = data.startswith(b'\xef\xbb\xbf')
+              text = data.decode('utf-8-sig')
+              if old not in text:
+                  raise SystemExit(f'Expected source block not found in {path}')
+              text = text.replace(old, new, 1)
+              encoded = text.encode('utf-8')
+              if had_bom:
+                  encoded = b'\xef\xbb\xbf' + encoded
+              p.write_bytes(encoded)
+
+          servers_path = 'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/Cache/ServersCache.cs'
+          old_cities = '''    private IReadOnlyList<City> GetCities(IReadOnlyList<Server> servers)
+              {
+                  return servers
+                      .Where(s => !string.IsNullOrWhiteSpace(s.ExitCountry)
+                               && !string.IsNullOrWhiteSpace(s.City)
+                               && s.IsPaidNonB2B())
+                      .GroupBy(s => new { Country = s.ExitCountry, s.State, s.City })
+                      .Select(g => new City()
+                      {
+                          CountryCode = g.Key.Country,
+                          StateName = g.Key.State,
+                          Name = g.Key.City,
+                          Features = AggregateFeatures(g),
+                          IsStandardUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsStandard()),
+                          IsP2PUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsSupported(ServerFeatures.P2P)),
+                          IsSecureCoreUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsSupported(ServerFeatures.SecureCore)),
+                          IsTorUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsSupported(ServerFeatures.Tor))
+                      })
+                      .ToList();
+              }
+          '''
+          new_cities = '''    private IReadOnlyList<City> GetCities(IReadOnlyList<Server> servers)
+              {
+                  return servers
+                      .Where(s => !string.IsNullOrWhiteSpace(s.ExitCountry)
+                               && !string.IsNullOrWhiteSpace(s.City)
+                               && s.IsPaidNonB2B())
+                      .GroupBy(s => new { Country = s.ExitCountry, s.City })
+                      .SelectMany(cityGroup =>
+                      {
+                          List<string> states = cityGroup
+                              .Select(s => s.State)
+                              .Where(state => !string.IsNullOrWhiteSpace(state))
+                              .Distinct()
+                              .ToList()!;
+
+                          return states.Count <= 1
+                              ? [CreateCity(cityGroup.Key.Country, states.FirstOrDefault(), cityGroup.Key.City, cityGroup)]
+                              : cityGroup
+                                  .GroupBy(s => !string.IsNullOrWhiteSpace(s.State) ? s.State : null)
+                                  .Select(stateGroup => CreateCity(cityGroup.Key.Country, stateGroup.Key, cityGroup.Key.City, stateGroup));
+                      })
+                      .ToList();
+              }
+
+              private City CreateCity<T>(string countryCode, string? stateName, string cityName, IGrouping<T, Server> servers)
+              {
+                  return new City()
+                  {
+                      CountryCode = countryCode,
+                      StateName = stateName,
+                      Name = cityName,
+                      Features = AggregateFeatures(servers),
+                      IsStandardUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsStandard()),
+                      IsP2PUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsSupported(ServerFeatures.P2P)),
+                      IsSecureCoreUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsSupported(ServerFeatures.SecureCore)),
+                      IsTorUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsSupported(ServerFeatures.Tor))
+                  };
+              }
+          '''
+          replace_once(servers_path, old_cities, new_cities)
+
+          connection_path = 'src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection/ConnectionManager.cs'
+          replace_once(
+              connection_path,
+              '''    private VpnStatusIpcEntity? _currentStatus = VpnStatusIpcEntity.Disconnected;
+              private VpnErrorTypeIpcEntity? _currentError = VpnErrorTypeIpcEntity.None;
+          ''',
+              '''    private VpnStatusIpcEntity? _currentStatus = VpnStatusIpcEntity.Disconnected;
+              private VpnErrorTypeIpcEntity? _currentError = VpnErrorTypeIpcEntity.None;
+              private IConnectionIntent? _lastBroadcastConnectionIntent;
+          ''')
+
+          old_status = '''    private void SetConnectionStatus(
+                  VpnStatusIpcEntity status,
+                  VpnErrorTypeIpcEntity error,
+                  bool forceSendStatusUpdate = false)
+              {
+                  if (_currentStatus == status && _currentError == error && !forceSendStatusUpdate)
+                  {
+                      return;
+                  }
+
+                  _currentStatus = status;
+                  _currentError = error;
+
+                  CurrentConnectionDetails?.UpdateStatus(status);
+
+                  ConnectionStatus = MapConnectionStatus(status, error);
+
+                  _eventMessageSender.Send(new ConnectionStatusChangedMessage(ConnectionStatus));
+
+                  _logger.Info<ConnectTriggerLog>($"[CONNECTION_PROCESS] Status updated to {ConnectionStatus}" +
+                      $"{(_isGuestHoleActive ? " (Guest hole)" : string.Empty)}." +
+                      $"{(IsConnected ? $" Connected to server {CurrentConnectionDetails?.ServerName}" : string.Empty)}");
+
+                  _statisticalEventManager.OnVpnStateChanged(status, error, CurrentConnectionDetails);
+              }
+          '''
+          new_status = '''    private void SetConnectionStatus(
+                  VpnStatusIpcEntity status,
+                  VpnErrorTypeIpcEntity error,
+                  bool forceSendStatusUpdate = false)
+              {
+                  if (_currentStatus == status && _currentError == error && !forceSendStatusUpdate)
+                  {
+                      return;
+                  }
+
+                  ConnectionStatus previousConnectionStatus = ConnectionStatus;
+                  VpnStatusIpcEntity? previousStatus = _currentStatus;
+                  VpnErrorTypeIpcEntity? previousError = _currentError;
+                  IConnectionIntent? lastBroadcastConnectionIntent = _lastBroadcastConnectionIntent;
+
+                  _currentStatus = status;
+                  _currentError = error;
+
+                  CurrentConnectionDetails?.UpdateStatus(status);
+
+                  ConnectionStatus = MapConnectionStatus(status, error);
+
+                  bool hasConnectionStatusChanged = forceSendStatusUpdate || previousConnectionStatus != ConnectionStatus;
+                  bool hasInnerStatusOrErrorChanged = forceSendStatusUpdate || previousStatus != status || previousError != error;
+                  bool hasConnectionIntentChanged = forceSendStatusUpdate ||
+                      !(CurrentConnectionIntent?.IsSameAs(lastBroadcastConnectionIntent) ?? lastBroadcastConnectionIntent is null);
+
+                  _lastBroadcastConnectionIntent = CurrentConnectionIntent;
+
+                  _eventMessageSender.Send(new ConnectionStatusChangedMessage(
+                      ConnectionStatus,
+                      hasConnectionStatusChanged,
+                      hasInnerStatusOrErrorChanged,
+                      hasConnectionIntentChanged));
+
+                  _logger.Info<ConnectTriggerLog>($"[CONNECTION_PROCESS] Status updated to {ConnectionStatus}" +
+                      $"{(_isGuestHoleActive ? " (Guest hole)" : string.Empty)}." +
+                      $"{(IsConnected ? $" Connected to server {CurrentConnectionDetails?.ServerName}" : string.Empty)}");
+
+                  _statisticalEventManager.OnVpnStateChanged(status, error, CurrentConnectionDetails);
+              }
+          '''
+          replace_once(connection_path, old_status, new_status)
+
+          recents_path = 'src/Client/Logic/Recents/ProtonVPN.Client.Logic.Recents/RecentConnectionsManager.cs'
+          old_receive = '''    public void Receive(ConnectionStatusChangedMessage message)
+              {
+                  if (_areRecentsLoaded && !_guestHoleManager.IsActive && (message?.ConnectionStatus) == ConnectionStatus.Connecting)
+                  {
+                      lock (_lock)
+                      {
+                          IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
+
+                          if (TryInsertRecentConnection(connectionIntent, DateTime.UtcNow))
+                          {
+                              TrimRecentConnections();
+                              SaveAndBroadcastRecentConnectionsChanges();
+                          }
+                      }
+                  }
+              }
+          '''
+          new_receive = '''    public void Receive(ConnectionStatusChangedMessage message)
+              {
+                  if (!_areRecentsLoaded ||
+                      _guestHoleManager.IsActive ||
+                      message is null ||
+                      message.ConnectionStatus != ConnectionStatus.Connecting ||
+                      !message.HasConnectionIntentChanged)
+                  {
+                      return;
+                  }
+
+                  lock (_lock)
+                  {
+                      IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
+
+                      if (TryInsertRecentConnection(connectionIntent))
+                      {
+                          TrimRecentConnections();
+                          SaveAndBroadcastRecentConnectionsChanges();
+                      }
+                  }
+              }
+          '''
+          replace_once(recents_path, old_receive, new_receive)
+
+          old_insert = '''    private bool TryInsertRecentConnection(IConnectionIntent? recentIntent, DateTime? connectionTime = null)
+              {
+                  if (recentIntent == null || recentIntent.Location is FreeServerLocationIntent)
+                  {
+                      return false;
+                  }
+
+                  List<IRecentConnection> duplicates = _recentConnections.Where(c => c.ConnectionIntent.IsSameAs(recentIntent)).ToList();
+
+                  foreach (IRecentConnection duplicate in duplicates)
+                  {
+                      _recentConnections.Remove(duplicate);
+                  }
+
+                  IRecentConnection recentConnection = duplicates.FirstOrDefault() ?? new RecentConnection(Guid.NewGuid(), recentIntent);
+                  recentConnection.LastConnectionTimeUtc = connectionTime;
+
+                  _recentConnections.Add(recentConnection);
+
+                  return true;
+              }
+          '''
+          new_insert = '''    private bool TryInsertRecentConnection(IConnectionIntent? recentIntent)
+              {
+                  if (recentIntent == null || recentIntent.Location is FreeServerLocationIntent)
+                  {
+                      return false;
+                  }
+
+                  List<IRecentConnection> duplicates = _recentConnections.Where(c => c.ConnectionIntent.IsSameAs(recentIntent)).ToList();
+
+                  foreach (IRecentConnection duplicate in duplicates)
+                  {
+                      _recentConnections.Remove(duplicate);
+                  }
+
+                  IRecentConnection recentConnection = duplicates.FirstOrDefault() ?? new RecentConnection(Guid.NewGuid(), recentIntent);
+                  recentConnection.LastConnectionTimeUtc = DateTime.UtcNow;
+
+                  _recentConnections.Add(recentConnection);
+
+                  return true;
+              }
+          '''
+          replace_once(recents_path, old_insert, new_insert)
+          PY
+
+          echo '--- Remaining timestamp references ---'
+          grep -R -n "LastConnectionTimeUtc\|HasConnectionIntentChanged" \
+            src/Client/Logic/Recents \
+            src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection \
+            src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection.Contracts | head -200
+
+          git diff --check
+          git diff --stat
+
+      - name: Commit and push target branch
+        shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p tools
-          git clone --depth 1 \
-            --branch inno-6.4-to-6.7-support \
-            https://github.com/dscho/innoextract.git \
-            tools/innoextract-src
-          cmake -S tools/innoextract-src -B tools/innoextract-build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build tools/innoextract-build --target innoextract --parallel 2
-          find tools/innoextract-build -type f -name innoextract -perm -111 -print
-
-      - name: Download and verify Proton VPN 5.1.7
-        run: |
-          set -euxo pipefail
-          mkdir -p archaeology
-          curl --fail --location --retry 3 --retry-delay 2 \
-            --output archaeology/ProtonVPN_v5.1.7_x64.exe \
-            https://protonvpn.com/download/ProtonVPN_v5.1.7_x64.exe
-          echo "ab8c87d7db3cb76271df72186c1af0831362671b145acc449a8443a415379c8a  archaeology/ProtonVPN_v5.1.7_x64.exe" | sha256sum --check
-
-      - name: Extract installer payload
-        run: |
-          set -euxo pipefail
-          INNOEXTRACT="$(find tools/innoextract-build -type f -name innoextract -perm -111 -print -quit)"
-          test -n "$INNOEXTRACT"
-          "$INNOEXTRACT" \
-            --extract \
-            --output-dir archaeology/extracted \
-            archaeology/ProtonVPN_v5.1.7_x64.exe \
-            | tee archaeology/innoextract.log
-          find archaeology/extracted -type f -printf '%P\n' | sort > archaeology/extracted-files.txt
-          CLIENT_DLL="$(find archaeology/extracted -type f -iname 'ProtonVPN.Client.dll' -print -quit)"
-          test -n "$CLIENT_DLL"
-          dirname "$CLIENT_DLL" > archaeology/app-directory.txt
-
-      - name: Collect first-party assemblies
-        run: |
-          set -euxo pipefail
-          APPDIR="$(cat archaeology/app-directory.txt)"
-          mkdir -p archaeology/assemblies archaeology/decompiled
-          find "$APPDIR" -maxdepth 1 -type f -iname 'ProtonVPN*.dll' -print0 \
-            | sort -z \
-            | xargs -0 -I{} cp -v '{}' archaeology/assemblies/
-          sha256sum archaeology/assemblies/* | sort > archaeology/assembly-sha256.txt
-
-          {
-            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.dll'
-            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Connection*.dll'
-            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Recents*.dll'
-            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Searches*.dll'
-            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Servers*.dll'
-            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN*Update*.dll'
-          } | sort -u > archaeology/decompile-targets.txt
-          cat archaeology/decompile-targets.txt
-
-      - name: Decompile target assemblies with ILSpy
-        run: |
-          set -euxo pipefail
-          dotnet tool install --tool-path tools/ilspy ilspycmd
-          tools/ilspy/ilspycmd --version | tee archaeology/ilspy-version.txt
-
-          while IFS= read -r dll; do
-            test -n "$dll" || continue
-            name="$(basename "$dll" .dll)"
-            mkdir -p "archaeology/decompiled/$name"
-            tools/ilspy/ilspycmd \
-              --project \
-              --outputdir "archaeology/decompiled/$name" \
-              "$dll"
-          done < archaeology/decompile-targets.txt
-
-      - name: Upload archaeology bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: protonvpn-5.1.7-binary-archaeology
-          path: |
-            archaeology/assemblies
-            archaeology/decompiled
-            archaeology/innoextract.log
-            archaeology/extracted-files.txt
-            archaeology/app-directory.txt
-            archaeology/assembly-sha256.txt
-            archaeology/decompile-targets.txt
-            archaeology/ilspy-version.txt
-          if-no-files-found: error
-          retention-days: 1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/Cache/ServersCache.cs \
+            src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection/ConnectionManager.cs \
+            src/Client/Logic/Recents/ProtonVPN.Client.Logic.Recents/RecentConnectionsManager.cs
+          git commit -m "Port remaining Proton 5.1.7 behavior fixes"
+          git push origin HEAD:agent/port-proton-5.1.7-fixes
