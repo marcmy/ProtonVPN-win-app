@@ -76,3 +76,118 @@ jobs:
           dependency-snapshot: false
           upload-artifact: true
           upload-release-assets: false
+
+  proton-5-1-7-archaeology:
+    name: Extract and decompile Proton VPN 5.1.7
+    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'agent/proton-5.1.7-archaeology' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install extraction build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            libboost-all-dev \
+            liblzma-dev
+
+      - name: Build Inno Setup 6.6-capable innoextract
+        run: |
+          set -euxo pipefail
+          mkdir -p tools
+          git clone --depth 1 \
+            --branch inno-6.4-to-6.7-support \
+            https://github.com/dscho/innoextract.git \
+            tools/innoextract-src
+          cmake -S tools/innoextract-src -B tools/innoextract-build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build tools/innoextract-build --target innoextract --parallel 2
+          find tools/innoextract-build -type f -name innoextract -perm -111 -print
+
+      - name: Download and verify Proton VPN 5.1.7
+        run: |
+          set -euxo pipefail
+          mkdir -p archaeology
+          curl --fail --location --retry 3 --retry-delay 2 \
+            --output archaeology/ProtonVPN_v5.1.7_x64.exe \
+            https://protonvpn.com/download/ProtonVPN_v5.1.7_x64.exe
+          echo "ab8c87d7db3cb76271df72186c1af0831362671b145acc449a8443a415379c8a  archaeology/ProtonVPN_v5.1.7_x64.exe" | sha256sum --check
+
+      - name: Extract installer payload
+        run: |
+          set -euxo pipefail
+          INNOEXTRACT="$(find tools/innoextract-build -type f -name innoextract -perm -111 -print -quit)"
+          test -n "$INNOEXTRACT"
+          "$INNOEXTRACT" \
+            --extract \
+            --output-dir archaeology/extracted \
+            archaeology/ProtonVPN_v5.1.7_x64.exe \
+            | tee archaeology/innoextract.log
+          find archaeology/extracted -type f -printf '%P\n' | sort > archaeology/extracted-files.txt
+          CLIENT_DLL="$(find archaeology/extracted -type f -iname 'ProtonVPN.Client.dll' -print -quit)"
+          test -n "$CLIENT_DLL"
+          dirname "$CLIENT_DLL" > archaeology/app-directory.txt
+
+      - name: Collect first-party assemblies
+        run: |
+          set -euxo pipefail
+          APPDIR="$(cat archaeology/app-directory.txt)"
+          mkdir -p archaeology/assemblies archaeology/decompiled
+          find "$APPDIR" -maxdepth 1 -type f -iname 'ProtonVPN*.dll' -print0 \
+            | sort -z \
+            | xargs -0 -I{} cp -v '{}' archaeology/assemblies/
+          sha256sum archaeology/assemblies/* | sort > archaeology/assembly-sha256.txt
+
+          {
+            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.dll'
+            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Connection*.dll'
+            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Recents*.dll'
+            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Searches*.dll'
+            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN.Client.Logic.Servers*.dll'
+            find archaeology/assemblies -maxdepth 1 -type f -iname 'ProtonVPN*Update*.dll'
+          } | sort -u > archaeology/decompile-targets.txt
+          cat archaeology/decompile-targets.txt
+
+      - name: Decompile target assemblies with ILSpy
+        run: |
+          set -euxo pipefail
+          dotnet tool install --tool-path tools/ilspy ilspycmd
+          tools/ilspy/ilspycmd --version | tee archaeology/ilspy-version.txt
+
+          while IFS= read -r dll; do
+            test -n "$dll" || continue
+            name="$(basename "$dll" .dll)"
+            mkdir -p "archaeology/decompiled/$name"
+            tools/ilspy/ilspycmd \
+              --project \
+              --outputdir "archaeology/decompiled/$name" \
+              "$dll"
+          done < archaeology/decompile-targets.txt
+
+      - name: Upload archaeology bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-5.1.7-binary-archaeology
+          path: |
+            archaeology/assemblies
+            archaeology/decompiled
+            archaeology/innoextract.log
+            archaeology/extracted-files.txt
+            archaeology/app-directory.txt
+            archaeology/assembly-sha256.txt
+            archaeology/decompile-targets.txt
+            archaeology/ilspy-version.txt
+          if-no-files-found: error
+          retention-days: 1
