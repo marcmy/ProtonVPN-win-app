@@ -223,17 +223,23 @@ public class RecentConnectionsManager : IRecentConnectionsManager,
 
     public void Receive(ConnectionStatusChangedMessage message)
     {
-        if (_areRecentsLoaded && !_guestHoleManager.IsActive && (message?.ConnectionStatus) == ConnectionStatus.Connecting)
+        if (!_areRecentsLoaded ||
+            _guestHoleManager.IsActive ||
+            message is null ||
+            message.ConnectionStatus != ConnectionStatus.Connecting ||
+            !message.HasConnectionIntentChanged)
         {
-            lock (_lock)
-            {
-                IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
+            return;
+        }
 
-                if (TryInsertRecentConnection(connectionIntent, DateTime.UtcNow))
-                {
-                    TrimRecentConnections();
-                    SaveAndBroadcastRecentConnectionsChanges();
-                }
+        lock (_lock)
+        {
+            IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
+
+            if (TryInsertRecentConnection(connectionIntent))
+            {
+                TrimRecentConnections();
+                SaveAndBroadcastRecentConnectionsChanges();
             }
         }
     }
@@ -278,7 +284,7 @@ public class RecentConnectionsManager : IRecentConnectionsManager,
         _connectionManager.InitializeAsync(recentConnection?.ConnectionIntent);
     }
 
-    private bool TryInsertRecentConnection(IConnectionIntent? recentIntent, DateTime? connectionTime = null)
+    private bool TryInsertRecentConnection(IConnectionIntent? recentIntent)
     {
         if (recentIntent == null || recentIntent.Location is FreeServerLocationIntent)
         {
@@ -293,7 +299,7 @@ public class RecentConnectionsManager : IRecentConnectionsManager,
         }
 
         IRecentConnection recentConnection = duplicates.FirstOrDefault() ?? new RecentConnection(Guid.NewGuid(), recentIntent);
-        recentConnection.LastConnectionTimeUtc = connectionTime;
+        recentConnection.LastConnectionTimeUtc = DateTime.UtcNow;
 
         _recentConnections.Add(recentConnection);
 
