@@ -35,11 +35,11 @@ public class RequiredReconnectionSettings : IRequiredReconnectionSettings
         {
             {nameof(ISettings.IsSplitTunnelingEnabled), () => true},
             {nameof(ISettings.SplitTunnelingMode), () => settings.IsSplitTunnelingEnabled},
-            // App redirect filters are installed at WFP connect/bind layers. Updating the list live
-            // does not move already-established app sockets, so require a reconnect to make the new
-            // app selection deterministic. IP/domain exclusions can still be updated live.
-            {nameof(ISettings.SplitTunnelingStandardAppsList), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingInverseAppsList), () => settings.IsSplitTunnelingEnabled},
+            // The fork applies app and IP/domain list changes to the running service. Existing app
+            // sockets may need to reconnect naturally, but rebuilding the WFP filters does not
+            // require reconnecting the VPN tunnel itself.
+            {nameof(ISettings.SplitTunnelingStandardAppsList), () => false},
+            {nameof(ISettings.SplitTunnelingInverseAppsList), () => false},
             {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => false},
             {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => false},
 
