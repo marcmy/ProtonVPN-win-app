@@ -1,0 +1,208 @@
+name: Proton release watch
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: proton-release-watch
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    name: Check Proton Windows release feed
+    runs-on: ubuntu-24.04
+    outputs:
+      is_new: ${{ steps.detect.outputs.is_new }}
+      version: ${{ steps.detect.outputs.version }}
+      category: ${{ steps.detect.outputs.category }}
+      release_date: ${{ steps.detect.outputs.release_date }}
+      rollout: ${{ steps.detect.outputs.rollout }}
+      installer_url: ${{ steps.detect.outputs.installer_url }}
+      sha256: ${{ steps.detect.outputs.sha256 }}
+      comparison_version: ${{ steps.detect.outputs.comparison_version }}
+      comparison_url: ${{ steps.detect.outputs.comparison_url }}
+      comparison_sha256: ${{ steps.detect.outputs.comparison_sha256 }}
+      release_notes_b64: ${{ steps.detect.outputs.release_notes_b64 }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42bcdcab4d3d0720f5bc306e619517734d4f # v4.2.2
+
+      - name: Detect unhandled Proton release
+        id: detect
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HANDLED_THROUGH_VERSION: '5.1.7'
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64
+          import json
+          import os
+          import subprocess
+          import urllib.request
+
+          feed_url = "https://protonvpn.com/download/windows/x64/v1/version.json"
+          with urllib.request.urlopen(feed_url, timeout=30) as response:
+              feed = json.load(response)
+
+          releases = feed.get("Releases", [])
+          if not releases:
+              raise SystemExit("Proton's x64 update feed contained no releases")
+
+          def version_key(value):
+              return tuple(int(part) for part in value.split("."))
+
+          versions = sorted({release["Version"] for release in releases}, key=version_key, reverse=True)
+          newest_version = versions[0]
+          handled_version = os.environ["HANDLED_THROUGH_VERSION"]
+
+          def choose(version):
+              candidates = [release for release in releases if release.get("Version") == version]
+              candidates.sort(
+                  key=lambda release: (
+                      release.get("CategoryName") == "Stable",
+                      float(release.get("RolloutProportion") or 0),
+                  ),
+                  reverse=True,
+              )
+              return candidates[0]
+
+          newest = choose(newest_version)
+          lower_versions = [version for version in versions if version_key(version) < version_key(newest_version)]
+          comparison_version = lower_versions[0] if lower_versions else ""
+          comparison = choose(comparison_version) if comparison_version else None
+
+          title = f"Proton VPN Windows {newest_version} detected"
+          existing_titles = subprocess.check_output(
+              [
+                  "gh", "issue", "list",
+                  "--repo", os.environ["GH_REPO"],
+                  "--state", "all",
+                  "--search", f'"{title}" in:title',
+                  "--json", "title",
+                  "--limit", "100",
+              ],
+              text=True,
+          )
+          already_reported = any(item.get("title") == title for item in json.loads(existing_titles))
+          is_new = version_key(newest_version) > version_key(handled_version) and not already_reported
+
+          notes = [
+              note
+              for group in newest.get("ReleaseNotes", [])
+              for note in group.get("Notes", [])
+          ]
+          notes_b64 = base64.b64encode(json.dumps(notes).encode("utf-8")).decode("ascii")
+
+          file_info = newest.get("File") or {}
+          comparison_file = (comparison or {}).get("File") or {}
+
+          values = {
+              "is_new": str(is_new).lower(),
+              "version": newest_version,
+              "category": newest.get("CategoryName") or "",
+              "release_date": newest.get("ReleaseDate") or "",
+              "rollout": str(newest.get("RolloutProportion") or ""),
+              "installer_url": file_info.get("Url") or "",
+              "sha256": (file_info.get("SHA256CheckSum") or "").lower(),
+              "comparison_version": comparison_version,
+              "comparison_url": comparison_file.get("Url") or "",
+              "comparison_sha256": (comparison_file.get("SHA256CheckSum") or "").lower(),
+              "release_notes_b64": notes_b64,
+          }
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              for key, value in values.items():
+                  handle.write(f"{key}={value}\n")
+
+          print(f"Newest Proton VPN Windows version: {newest_version} ({newest.get('CategoryName')})")
+          print(f"Handled through: {handled_version}")
+          print(f"Already reported: {already_reported}")
+          print(f"New release to analyze: {is_new}")
+          PY
+
+  archaeology:
+    name: Analyze new release
+    needs: detect
+    if: needs.detect.outputs.is_new == 'true'
+    uses: ./.github/workflows/proton-release-archaeology.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      installer_url: ${{ needs.detect.outputs.installer_url }}
+      expected_sha256: ${{ needs.detect.outputs.sha256 }}
+      comparison_version: ${{ needs.detect.outputs.comparison_version }}
+      comparison_url: ${{ needs.detect.outputs.comparison_url }}
+      comparison_sha256: ${{ needs.detect.outputs.comparison_sha256 }}
+
+  announce:
+    name: Open release archaeology issue
+    needs:
+      - detect
+      - archaeology
+    if: always() && needs.detect.outputs.is_new == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create release issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.detect.outputs.version }}
+          CATEGORY: ${{ needs.detect.outputs.category }}
+          RELEASE_DATE: ${{ needs.detect.outputs.release_date }}
+          ROLLOUT: ${{ needs.detect.outputs.rollout }}
+          INSTALLER_URL: ${{ needs.detect.outputs.installer_url }}
+          SHA256: ${{ needs.detect.outputs.sha256 }}
+          COMPARISON_VERSION: ${{ needs.detect.outputs.comparison_version }}
+          RELEASE_NOTES_B64: ${{ needs.detect.outputs.release_notes_b64 }}
+          ARCHAEOLOGY_RESULT: ${{ needs.archaeology.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          notes = json.loads(base64.b64decode(os.environ["RELEASE_NOTES_B64"]).decode("utf-8"))
+          lines = [
+              f"Proton's official Windows x64 update feed reports **{os.environ['VERSION']}**.",
+              "",
+              f"- Channel/category: `{os.environ['CATEGORY']}`",
+              f"- Release date: `{os.environ['RELEASE_DATE']}`",
+              f"- Rollout proportion: `{os.environ['ROLLOUT']}`",
+              f"- Installer: {os.environ['INSTALLER_URL']}",
+              f"- SHA-256: `{os.environ['SHA256']}`",
+          ]
+          if os.environ.get("COMPARISON_VERSION"):
+              lines.append(f"- Binary archaeology comparison baseline: `{os.environ['COMPARISON_VERSION']}`")
+          lines += [
+              f"- Archaeology workflow result: **{os.environ['ARCHAEOLOGY_RESULT']}**",
+              f"- Workflow run: {os.environ['RUN_URL']}",
+              "",
+              "## Release notes",
+              "",
+          ]
+          lines.extend([f"- {note}" for note in notes] or ["- No release notes were present in the feed."])
+          lines += [
+              "",
+              "## Next step",
+              "",
+              "Download the `protonvpn-<version>-archaeology` artifact from the linked workflow run and review the changed first-party assemblies/decompiled source before porting any unpublished fixes.",
+          ]
+          Path("issue.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+          gh issue create \
+            --repo "$GH_REPO" \
+            --title "Proton VPN Windows ${VERSION} detected" \
+            --body-file issue.md
