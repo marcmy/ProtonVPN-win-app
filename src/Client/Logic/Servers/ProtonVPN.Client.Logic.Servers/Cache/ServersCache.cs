@@ -476,6 +476,7 @@ public class ServersCache : IServersCache
                 List<string> states = cityGroup
                     .Select(s => s.State)
                     .Where(state => !string.IsNullOrWhiteSpace(state))
+                    .Select(state => state!)
                     .Distinct()
                     .ToList()!;
 
