@@ -27,13 +27,20 @@ namespace ProtonVPN.Client.Logic.Connection;
 
 public class VpnServiceSettingsUpdater : IVpnServiceSettingsUpdater
 {
+    private static readonly TimeSpan SettingsCoalesceDelay = TimeSpan.FromMilliseconds(20);
+
     private readonly IVpnServiceCaller _vpnServiceCaller;
     private readonly IMainSettingsRequestCreator _mainSettingsRequestCreator;
     private readonly IConnectionManager _connectionManager;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
+    private readonly object _sendRequestSync = new();
+
+    private bool _sendRequested;
+    private bool _sendWorkerRunning;
+    private Task _sendWorkerTask = Task.CompletedTask;
 
     public VpnServiceSettingsUpdater(
-        IVpnServiceCaller vpnServiceCaller, 
+        IVpnServiceCaller vpnServiceCaller,
         IMainSettingsRequestCreator mainSettingsRequestCreator,
         IConnectionManager connectionManager)
     {
@@ -42,16 +49,59 @@ public class VpnServiceSettingsUpdater : IVpnServiceSettingsUpdater
         _connectionManager = connectionManager;
     }
 
-    public async Task SendAsync()
+    public Task SendAsync()
     {
-        await _sendLock.WaitAsync();
+        lock (_sendRequestSync)
+        {
+            _sendRequested = true;
+
+            if (!_sendWorkerRunning)
+            {
+                _sendWorkerRunning = true;
+                _sendWorkerTask = RunSendWorkerAsync();
+            }
+
+            return _sendWorkerTask;
+        }
+    }
+
+    private async Task RunSendWorkerAsync()
+    {
+        while (true)
+        {
+            // Settings pages persist changed properties one at a time and emit a message for each
+            // setter. Give that synchronous burst a very small window to collapse into one full
+            // settings snapshot instead of rebuilding the service state once per property.
+            await Task.Delay(SettingsCoalesceDelay).ConfigureAwait(false);
+
+            lock (_sendRequestSync)
+            {
+                _sendRequested = false;
+            }
+
+            await SendLatestSettingsSnapshotAsync().ConfigureAwait(false);
+
+            lock (_sendRequestSync)
+            {
+                if (!_sendRequested)
+                {
+                    _sendWorkerRunning = false;
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task SendLatestSettingsSnapshotAsync()
+    {
+        await _sendLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            // Build the snapshot only after acquiring the lock. Settings-page changes emit one
-            // event per property, so concurrent sends can otherwise finish out of order and leave
-            // the service with an older, partially-applied split-tunneling configuration.
+            // Build the snapshot only after acquiring the lock. If settings changed while another
+            // service RPC was in flight, this guarantees the next snapshot observes the latest
+            // values rather than allowing an older partial snapshot to win last-write-wins.
             MainSettingsIpcEntity settings = _mainSettingsRequestCreator.Create(_connectionManager.CurrentConnectionIntent);
-            await _vpnServiceCaller.ApplySettingsAsync(settings);
+            await _vpnServiceCaller.ApplySettingsAsync(settings).ConfigureAwait(false);
         }
         finally
         {
@@ -61,12 +111,12 @@ public class VpnServiceSettingsUpdater : IVpnServiceSettingsUpdater
 
     public async Task SendAsync(KillSwitchModeIpcEntity killSwitchMode)
     {
-        await _sendLock.WaitAsync();
+        await _sendLock.WaitAsync().ConfigureAwait(false);
         try
         {
             MainSettingsIpcEntity settings = _mainSettingsRequestCreator.Create(_connectionManager.CurrentConnectionIntent);
             settings.KillSwitchMode = killSwitchMode;
-            await _vpnServiceCaller.ApplySettingsAsync(settings);
+            await _vpnServiceCaller.ApplySettingsAsync(settings).ConfigureAwait(false);
         }
         finally
         {
