@@ -30,6 +30,7 @@ public class VpnServiceSettingsUpdater : IVpnServiceSettingsUpdater
     private readonly IVpnServiceCaller _vpnServiceCaller;
     private readonly IMainSettingsRequestCreator _mainSettingsRequestCreator;
     private readonly IConnectionManager _connectionManager;
+    private readonly SemaphoreSlim _sendLock = new(1, 1);
 
     public VpnServiceSettingsUpdater(
         IVpnServiceCaller vpnServiceCaller, 
@@ -43,14 +44,33 @@ public class VpnServiceSettingsUpdater : IVpnServiceSettingsUpdater
 
     public async Task SendAsync()
     {
-        MainSettingsIpcEntity settings = _mainSettingsRequestCreator.Create(_connectionManager.CurrentConnectionIntent);
-        await _vpnServiceCaller.ApplySettingsAsync(settings);
+        await _sendLock.WaitAsync();
+        try
+        {
+            // Build the snapshot only after acquiring the lock. Settings-page changes emit one
+            // event per property, so concurrent sends can otherwise finish out of order and leave
+            // the service with an older, partially-applied split-tunneling configuration.
+            MainSettingsIpcEntity settings = _mainSettingsRequestCreator.Create(_connectionManager.CurrentConnectionIntent);
+            await _vpnServiceCaller.ApplySettingsAsync(settings);
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
     }
 
     public async Task SendAsync(KillSwitchModeIpcEntity killSwitchMode)
     {
-        MainSettingsIpcEntity settings = _mainSettingsRequestCreator.Create(_connectionManager.CurrentConnectionIntent);
-        settings.KillSwitchMode = killSwitchMode;
-        await _vpnServiceCaller.ApplySettingsAsync(settings);
+        await _sendLock.WaitAsync();
+        try
+        {
+            MainSettingsIpcEntity settings = _mainSettingsRequestCreator.Create(_connectionManager.CurrentConnectionIntent);
+            settings.KillSwitchMode = killSwitchMode;
+            await _vpnServiceCaller.ApplySettingsAsync(settings);
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
     }
 }
