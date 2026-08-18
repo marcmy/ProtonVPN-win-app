@@ -40,12 +40,12 @@ concurrency:
 
 jobs:
   pipeline:
-    name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Validate client and service changes' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Validate and package client and service changes' }}
     runs-on: windows-latest
     timeout-minutes: 90
 
     outputs:
-      build_mode: ${{ inputs.build_mode }}
+      build_mode: ${{ github.event_name == 'workflow_dispatch' && inputs.build_mode || 'both' }}
       target_version: ${{ steps.app-version.outputs.target_version }}
 
     defaults:
@@ -95,10 +95,9 @@ jobs:
           Remove-Item -LiteralPath artifacts/client-build-output -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Resolve target app version
-        if: github.event_name == 'workflow_dispatch'
         id: app-version
         env:
-          REQUESTED_TARGET_VERSION: ${{ inputs.target_version }}
+          REQUESTED_TARGET_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.target_version || '' }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -205,7 +204,7 @@ jobs:
           }
 
       - name: Stage client patch build output
-        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_mode == 'client' || inputs.build_mode == 'both') }}
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
           .\.github\scripts\stage-client-patch-output.ps1
 
@@ -225,13 +224,12 @@ jobs:
           }
 
       - name: Package versioned patch artifacts
-        if: github.event_name == 'workflow_dispatch'
         id: package
         env:
-          BUILD_MODE: ${{ inputs.build_mode }}
+          BUILD_MODE: ${{ github.event_name == 'pull_request' && 'both' || inputs.build_mode }}
           TARGET_VERSION: ${{ steps.app-version.outputs.target_version }}
           SOURCE_COMMIT: ${{ github.sha }}
-          SOURCE_REF: ${{ github.ref_name }}
+          SOURCE_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
           .\.github\scripts\package-patch-artifacts.ps1 `
@@ -240,6 +238,24 @@ jobs:
             -SourceCommit $env:SOURCE_COMMIT `
             -SourceRef $env:SOURCE_REF `
             -WorkflowRunId $env:WORKFLOW_RUN_ID
+
+      - name: Upload PR raw patch artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-client-patch-${{ steps.app-version.outputs.target_version }}-pr-${{ github.event.pull_request.number }}
+          path: artifacts/ProtonVPN.Client.Patch
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload PR installer artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-custom-patch-installer-${{ steps.app-version.outputs.target_version }}-pr-${{ github.event.pull_request.number }}
+          path: artifacts/Installer/*.exe
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Upload raw patch artifact
         if: github.event_name == 'workflow_dispatch'
