@@ -65,9 +65,6 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42bcdcab4d3d0720f5bc306e619517734d4f # v4.2.2
-
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -103,13 +100,13 @@ jobs:
               return tuple(int(part) for part in value.split("."))
 
           def choose(version):
-              candidates = [r for r in releases if r.get("Version") == version]
+              candidates = [release for release in releases if release.get("Version") == version]
               if not candidates:
                   raise SystemExit(f"Version {version} was not found in Proton's x64 update feed")
               candidates.sort(
-                  key=lambda r: (
-                      r.get("CategoryName") == "Stable",
-                      float(r.get("RolloutProportion") or 0),
+                  key=lambda release: (
+                      release.get("CategoryName") == "Stable",
+                      float(release.get("RolloutProportion") or 0),
                   ),
                   reverse=True,
               )
@@ -123,19 +120,21 @@ jobs:
                   raise SystemExit("A target version is required")
 
           target = choose(target_version)
-          distinct_versions = sorted({r["Version"] for r in releases}, key=version_key, reverse=True)
+          versions = sorted({release["Version"] for release in releases}, key=version_key, reverse=True)
 
           comparison_version = os.environ.get("INPUT_COMPARISON_VERSION", "").strip()
           if not comparison_version:
-              lower = [v for v in distinct_versions if version_key(v) < version_key(target_version)]
-              comparison_version = lower[0] if lower else ""
+              older = [version for version in versions if version_key(version) < version_key(target_version)]
+              comparison_version = older[0] if older else ""
 
           comparison = choose(comparison_version) if comparison_version else None
+          target_file = target["File"]
+          comparison_file = comparison["File"] if comparison else {}
 
-          target_url = os.environ.get("INPUT_URL", "").strip() or target["File"]["Url"]
-          target_sha = os.environ.get("INPUT_SHA256", "").strip().lower() or target["File"]["SHA256CheckSum"].lower()
-          comparison_url = os.environ.get("INPUT_COMPARISON_URL", "").strip() or (comparison["File"]["Url"] if comparison else "")
-          comparison_sha = os.environ.get("INPUT_COMPARISON_SHA256", "").strip().lower() or (comparison["File"]["SHA256CheckSum"].lower() if comparison else "")
+          target_url = os.environ.get("INPUT_URL", "").strip() or target_file["Url"]
+          target_sha = os.environ.get("INPUT_SHA256", "").strip().lower() or target_file["SHA256CheckSum"].lower()
+          comparison_url = os.environ.get("INPUT_COMPARISON_URL", "").strip() or comparison_file.get("Url", "")
+          comparison_sha = os.environ.get("INPUT_COMPARISON_SHA256", "").strip().lower() or comparison_file.get("SHA256CheckSum", "").lower()
 
           metadata = {
               "feed_url": feed_url,
@@ -159,8 +158,7 @@ jobs:
           }
           Path("archaeology/release-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
 
-          outputs = Path(os.environ["GITHUB_OUTPUT"])
-          with outputs.open("a", encoding="utf-8") as handle:
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
               handle.write(f"target_version={target_version}\n")
               handle.write(f"target_url={target_url}\n")
               handle.write(f"target_sha256={target_sha}\n")
@@ -174,14 +172,9 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            cmake \
-            ninja-build \
-            libboost-all-dev \
-            liblzma-dev
+          sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build libboost-all-dev liblzma-dev
 
-      - name: Build Inno Setup 6.6-capable extractor
+      - name: Build pinned Inno Setup extractor
         shell: bash
         run: |
           set -euo pipefail
@@ -190,9 +183,7 @@ jobs:
           git -C tools/innoextract-src remote add origin https://github.com/dscho/innoextract.git
           git -C tools/innoextract-src fetch --depth 1 origin 376a13e7c41cc5528b6088d0dd16ec1b323a8d37
           git -C tools/innoextract-src checkout --detach FETCH_HEAD
-          cmake -S tools/innoextract-src -B tools/innoextract-build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+          cmake -S tools/innoextract-src -B tools/innoextract-build -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build tools/innoextract-build --target innoextract --parallel 2
           find tools/innoextract-build -type f -name innoextract -perm -111 -print
 
@@ -207,21 +198,13 @@ jobs:
           COMPARISON_SHA256: ${{ steps.release.outputs.comparison_sha256 }}
         run: |
           set -euo pipefail
-
           download_release() {
-            local label="$1"
-            local version="$2"
-            local url="$3"
-            local expected="$4"
-            local dir="archaeology/$label"
+            local label="$1" version="$2" url="$3" expected="$4" dir="archaeology/$1"
             mkdir -p "$dir"
-            curl --fail --location --retry 3 --retry-delay 2 \
-              --output "$dir/ProtonVPN_v${version}_x64.exe" \
-              "$url"
+            curl --fail --location --retry 3 --retry-delay 2 --output "$dir/ProtonVPN_v${version}_x64.exe" "$url"
             printf '%s  %s\n' "$expected" "$dir/ProtonVPN_v${version}_x64.exe" | sha256sum --check --strict
             sha256sum "$dir/ProtonVPN_v${version}_x64.exe" > "$dir/installer-sha256.txt"
           }
-
           download_release target "$TARGET_VERSION" "$TARGET_URL" "$TARGET_SHA256"
           if [[ -n "$COMPARISON_VERSION" ]]; then
             download_release comparison "$COMPARISON_VERSION" "$COMPARISON_URL" "$COMPARISON_SHA256"
@@ -238,25 +221,17 @@ jobs:
           test -n "$INNOEXTRACT"
 
           extract_release() {
-            local label="$1"
-            local version="$2"
-            local dir="archaeology/$label"
-            "$INNOEXTRACT" \
-              --extract \
-              --output-dir "$dir/extracted" \
-              "$dir/ProtonVPN_v${version}_x64.exe" \
-              | tee "$dir/innoextract.log"
+            local label="$1" version="$2" dir="archaeology/$1"
+            "$INNOEXTRACT" --extract --output-dir "$dir/extracted" "$dir/ProtonVPN_v${version}_x64.exe" | tee "$dir/innoextract.log"
             find "$dir/extracted" -type f -printf '%P\n' | sort > "$dir/extracted-files.txt"
-            local client_dll
+            local client_dll appdir
             client_dll="$(find "$dir/extracted" -type f -iname 'ProtonVPN.Client.dll' -print -quit)"
             test -n "$client_dll"
-            local appdir
             appdir="$(dirname "$client_dll")"
             printf '%s\n' "$appdir" > "$dir/app-directory.txt"
             mkdir -p "$dir/assemblies"
             find "$appdir" -maxdepth 1 -type f \( -iname 'ProtonVPN*.dll' -o -iname 'ProtonVPNService.dll' \) -print0 \
-              | sort -z \
-              | xargs -0 -r -I{} cp '{}' "$dir/assemblies/"
+              | sort -z | xargs -0 -r -I{} cp '{}' "$dir/assemblies/"
             sha256sum "$dir"/assemblies/* | sed "s#$dir/assemblies/##" | sort > "$dir/assembly-sha256.txt"
           }
 
@@ -272,11 +247,8 @@ jobs:
           dotnet tool install --tool-path tools/ilspy ilspycmd
           tools/ilspy/ilspycmd --version | tee archaeology/ilspy-version.txt
 
-      - name: Compare assemblies and decompile high-value changes
+      - name: Compare assemblies and decompile changed high-value code
         shell: bash
-        env:
-          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
-          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
         run: |
           set -euo pipefail
           python3 <<'PY'
@@ -285,17 +257,16 @@ jobs:
           from pathlib import Path
 
           def hashes(root):
-              result = {}
-              for path in sorted(Path(root).glob("*")):
-                  if path.is_file():
-                      result[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
-              return result
+              return {
+                  path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in sorted(Path(root).glob("*"))
+                  if path.is_file()
+              }
 
           target = hashes("archaeology/target/assemblies")
           comparison = hashes("archaeology/comparison/assemblies") if Path("archaeology/comparison/assemblies").exists() else {}
-          names = sorted(set(target) | set(comparison))
           changes = []
-          for name in names:
+          for name in sorted(set(target) | set(comparison)):
               if name not in comparison:
                   status = "added"
               elif name not in target:
@@ -307,18 +278,17 @@ jobs:
               changes.append({"assembly": name, "status": status, "target_sha256": target.get(name), "comparison_sha256": comparison.get(name)})
 
           Path("archaeology/assembly-diff.json").write_text(json.dumps(changes, indent=2) + "\n", encoding="utf-8")
+          prefixes = (
+              "protonvpn.client",
+              "protonvpn.service",
+              "protonvpn.update",
+              "protonvpn.operatingsystems.network",
+          )
           with Path("archaeology/decompile-targets.txt").open("w", encoding="utf-8") as handle:
               for item in changes:
-                  if item["status"] not in {"added", "changed"}:
-                      continue
                   name = item["assembly"].lower()
-                  if (
-                      name == "protonvpn.vpn.dll"
-                      or name == "protonvpnservice.dll"
-                      or name.startswith("protonvpn.service")
-                      or name.startswith("protonvpn.client")
-                      or name.startswith("protonvpn.update")
-                      or name.startswith("protonvpn.operatingsystems.network")
+                  if item["status"] in {"added", "changed"} and (
+                      name == "protonvpn.vpn.dll" or name == "protonvpnservice.dll" or name.startswith(prefixes)
                   ):
                       handle.write(item["assembly"] + "\n")
           PY
@@ -328,19 +298,16 @@ jobs:
             [[ -n "$assembly" ]] || continue
             name="${assembly%.dll}"
             target_dll="archaeology/target/assemblies/$assembly"
+            comparison_dll="archaeology/comparison/assemblies/$assembly"
             if [[ -f "$target_dll" ]]; then
               mkdir -p "archaeology/target/decompiled/$name"
               tools/ilspy/ilspycmd --project --outputdir "archaeology/target/decompiled/$name" "$target_dll"
             fi
-            comparison_dll="archaeology/comparison/assemblies/$assembly"
             if [[ -f "$comparison_dll" ]]; then
               mkdir -p "archaeology/comparison/decompiled/$name"
               tools/ilspy/ilspycmd --project --outputdir "archaeology/comparison/decompiled/$name" "$comparison_dll"
-              diff -qr \
-                --exclude='AssemblyInfo.cs' \
-                --exclude='*.csproj' \
-                "archaeology/comparison/decompiled/$name" \
-                "archaeology/target/decompiled/$name" \
+              diff -qr --exclude='AssemblyInfo.cs' --exclude='*.csproj' \
+                "archaeology/comparison/decompiled/$name" "archaeology/target/decompiled/$name" \
                 > "archaeology/source-diffs/$name.txt" || true
             fi
           done < archaeology/decompile-targets.txt
@@ -348,8 +315,6 @@ jobs:
       - name: Build archaeology report
         shell: bash
         env:
-          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
-          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -374,38 +339,35 @@ jobs:
           ]
           if comparison:
               lines.append(f"- Compared with: `{comparison['version']}` ({comparison.get('category')})")
+
           lines += ["", "## Release notes", ""]
-          notes = target.get("release_notes") or []
-          lines.extend([f"- {note}" for note in notes] or ["- No release notes in feed."])
+          lines.extend([f"- {note}" for note in target.get("release_notes", [])] or ["- No release notes in feed."])
 
           changed = [item for item in assembly_diff if item["status"] != "unchanged"]
           lines += ["", "## First-party assembly changes", ""]
           lines.extend([f"- `{item['assembly']}` — **{item['status']}**" for item in changed] or ["- None."])
 
-          diff_files = sorted(Path("archaeology/source-diffs").glob("*.txt"))
           lines += ["", "## Decompiled source changes", ""]
           any_source = False
-          for path in diff_files:
-              changes = [line.strip() for line in path.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
-              if not changes:
+          for path in sorted(Path("archaeology/source-diffs").glob("*.txt")):
+              differences = [line.strip() for line in path.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
+              if not differences:
                   continue
               any_source = True
-              lines.append(f"### {path.stem}")
-              lines.append("")
-              for change in changes[:250]:
-                  lines.append(f"- `{change}`")
-              if len(changes) > 250:
-                  lines.append(f"- … {len(changes) - 250} additional differences; see `{path.as_posix()}` in the artifact.")
+              lines += [f"### {path.stem}", ""]
+              lines.extend([f"- `{difference}`" for difference in differences[:250]])
+              if len(differences) > 250:
+                  lines.append(f"- … {len(differences) - 250} additional differences; see `{path.as_posix()}` in the artifact.")
               lines.append("")
           if not any_source:
-              lines.append("- No non-assembly-metadata source differences found in the decompiled target set.")
+              lines.append("- No non-metadata source differences found in the decompiled target set.")
 
           Path("archaeology/report.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
           PY
           cat archaeology/report.md
 
       - name: Upload archaeology bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: protonvpn-${{ steps.release.outputs.target_version }}-archaeology
           path: |
