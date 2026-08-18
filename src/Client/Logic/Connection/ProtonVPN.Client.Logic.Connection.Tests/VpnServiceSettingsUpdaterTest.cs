@@ -30,7 +30,42 @@ namespace ProtonVPN.Client.Logic.Connection.Tests;
 public class VpnServiceSettingsUpdaterTest
 {
     [TestMethod]
-    public async Task SendAsync_WhenCallsOverlap_SerializesAndBuildsLatestSnapshotAfterPreviousSendCompletes()
+    public async Task SendAsync_WhenRequestsArriveInBurst_CoalescesIntoSingleSnapshot()
+    {
+        // Arrange
+        IVpnServiceCaller vpnServiceCaller = Substitute.For<IVpnServiceCaller>();
+        IMainSettingsRequestCreator mainSettingsRequestCreator = Substitute.For<IMainSettingsRequestCreator>();
+        IConnectionManager connectionManager = Substitute.For<IConnectionManager>();
+        IConnectionIntent connectionIntent = Substitute.For<IConnectionIntent>();
+        MainSettingsIpcEntity settings = new();
+        int createCount = 0;
+
+        connectionManager.CurrentConnectionIntent.Returns(connectionIntent);
+        mainSettingsRequestCreator.Create(connectionIntent).Returns(_ =>
+        {
+            Interlocked.Increment(ref createCount);
+            return settings;
+        });
+        vpnServiceCaller.ApplySettingsAsync(settings).Returns(Task.CompletedTask);
+
+        VpnServiceSettingsUpdater updater = new(
+            vpnServiceCaller,
+            mainSettingsRequestCreator,
+            connectionManager);
+
+        // Act
+        Task firstSend = updater.SendAsync();
+        Task secondSend = updater.SendAsync();
+        Task thirdSend = updater.SendAsync();
+        await Task.WhenAll(firstSend, secondSend, thirdSend);
+
+        // Assert
+        Assert.AreEqual(1, Volatile.Read(ref createCount));
+        await vpnServiceCaller.Received(1).ApplySettingsAsync(settings);
+    }
+
+    [TestMethod]
+    public async Task SendAsync_WhenRequestsArriveDuringApply_SendsOneLatestFollowUpSnapshot()
     {
         // Arrange
         IVpnServiceCaller vpnServiceCaller = Substitute.For<IVpnServiceCaller>();
@@ -69,16 +104,21 @@ public class VpnServiceSettingsUpdaterTest
         // Act
         Task firstSend = updater.SendAsync();
         await firstApplyStarted.Task;
-        Task secondSend = updater.SendAsync();
 
-        // Assert: the second request must not snapshot settings while the first RPC is in flight.
+        Task secondSend = updater.SendAsync();
+        Task thirdSend = updater.SendAsync();
+        Task fourthSend = updater.SendAsync();
+
+        // The follow-up requests must not snapshot settings while the first RPC is in flight.
         Assert.AreEqual(1, Volatile.Read(ref createCount));
         await vpnServiceCaller.Received(1).ApplySettingsAsync(firstSettings);
 
         releaseFirstApply.SetResult(true);
-        await Task.WhenAll(firstSend, secondSend);
+        await Task.WhenAll(firstSend, secondSend, thirdSend, fourthSend);
 
+        // All requests that accumulated while the first RPC was active collapse into one latest snapshot.
         Assert.AreEqual(2, Volatile.Read(ref createCount));
         await vpnServiceCaller.Received(1).ApplySettingsAsync(secondSettings);
+        await vpnServiceCaller.Received(2).ApplySettingsAsync(Arg.Any<MainSettingsIpcEntity>());
     }
 }
