@@ -256,6 +256,8 @@ public class MainWindowActivator : WindowActivatorBase<MainWindow>, IMainWindowA
     {
         base.OnWindowClosed();
 
+        Host?.DisposeTrayIcon();
+
         SaveWindowPosition();
 
         _eventMessageSender.Send(new ApplicationStoppedMessage());
