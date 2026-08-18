@@ -61,7 +61,7 @@ public static class AppInstanceHelper
             RedirectActivationTo(instance, args);
         }
 
-        // Bring the window to the foreground even if AppInstance lookup races after an update.
+        // Fall back to process-window discovery if AppInstance lookup races after an update.
         BringToForeground();
     }
 
