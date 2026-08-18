@@ -25,20 +25,22 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/Cache/ServersCache.cs')
           data = p.read_bytes()
           bom = data.startswith(b'\xef\xbb\xbf')
           text = data.decode('utf-8-sig')
-          old = '''                    .Where(state => !string.IsNullOrWhiteSpace(state))
-                      .Distinct()
-                      .ToList()!;'''
-          new = '''                    .Where(state => !string.IsNullOrWhiteSpace(state))
-                      .Select(state => state!)
-                      .Distinct()
-                      .ToList();'''
-          if old not in text:
-              raise SystemExit('Expected city state projection not found')
-          text = text.replace(old, new, 1)
+          pattern = re.compile(
+              r'(\.Where\(state => !string\.IsNullOrWhiteSpace\(state\)\)\n)'
+              r'(\s*)'
+              r'(\.Distinct\(\)\n\s*\.ToList\(\)!;)')
+          text, count = pattern.subn(
+              lambda m: m.group(1) + m.group(2) + '.Select(state => state!)\n' + m.group(2) + m.group(3),
+              text,
+              count=1)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one nullable city projection, found {count}')
           out = text.encode('utf-8')
           if bom:
               out = b'\xef\xbb\xbf' + out
