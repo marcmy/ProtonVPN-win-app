@@ -1,0 +1,426 @@
+name: Proton release archaeology
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Proton VPN Windows version to analyze
+        required: true
+        type: string
+      installer_url:
+        description: Optional installer URL override
+        required: false
+        type: string
+      expected_sha256:
+        description: Optional expected SHA-256 override
+        required: false
+        type: string
+      comparison_version:
+        description: Optional previous version to compare against
+        required: false
+        type: string
+      comparison_url:
+        description: Optional comparison installer URL override
+        required: false
+        type: string
+      comparison_sha256:
+        description: Optional comparison SHA-256 override
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      installer_url:
+        required: false
+        type: string
+      expected_sha256:
+        required: false
+        type: string
+      comparison_version:
+        required: false
+        type: string
+      comparison_url:
+        required: false
+        type: string
+      comparison_sha256:
+        required: false
+        type: string
+  pull_request:
+    paths:
+      - .github/workflows/proton-release-archaeology.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proton-archaeology-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  archaeology:
+    name: Extract and compare Proton release binaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42bcdcab4d3d0720f5bc306e619517734d4f # v4.2.2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_URL: ${{ inputs.installer_url }}
+          INPUT_SHA256: ${{ inputs.expected_sha256 }}
+          INPUT_COMPARISON_VERSION: ${{ inputs.comparison_version }}
+          INPUT_COMPARISON_URL: ${{ inputs.comparison_url }}
+          INPUT_COMPARISON_SHA256: ${{ inputs.comparison_sha256 }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p archaeology
+          python3 <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          feed_url = "https://protonvpn.com/download/windows/x64/v1/version.json"
+          with urllib.request.urlopen(feed_url, timeout=30) as response:
+              feed = json.load(response)
+
+          releases = feed.get("Releases", [])
+
+          def version_key(value):
+              return tuple(int(part) for part in value.split("."))
+
+          def choose(version):
+              candidates = [r for r in releases if r.get("Version") == version]
+              if not candidates:
+                  raise SystemExit(f"Version {version} was not found in Proton's x64 update feed")
+              candidates.sort(
+                  key=lambda r: (
+                      r.get("CategoryName") == "Stable",
+                      float(r.get("RolloutProportion") or 0),
+                  ),
+                  reverse=True,
+              )
+              return candidates[0]
+
+          target_version = os.environ.get("INPUT_VERSION", "").strip()
+          if not target_version:
+              if os.environ.get("EVENT_NAME") == "pull_request":
+                  target_version = "5.1.7"
+              else:
+                  raise SystemExit("A target version is required")
+
+          target = choose(target_version)
+          distinct_versions = sorted({r["Version"] for r in releases}, key=version_key, reverse=True)
+
+          comparison_version = os.environ.get("INPUT_COMPARISON_VERSION", "").strip()
+          if not comparison_version:
+              lower = [v for v in distinct_versions if version_key(v) < version_key(target_version)]
+              comparison_version = lower[0] if lower else ""
+
+          comparison = choose(comparison_version) if comparison_version else None
+
+          target_url = os.environ.get("INPUT_URL", "").strip() or target["File"]["Url"]
+          target_sha = os.environ.get("INPUT_SHA256", "").strip().lower() or target["File"]["SHA256CheckSum"].lower()
+          comparison_url = os.environ.get("INPUT_COMPARISON_URL", "").strip() or (comparison["File"]["Url"] if comparison else "")
+          comparison_sha = os.environ.get("INPUT_COMPARISON_SHA256", "").strip().lower() or (comparison["File"]["SHA256CheckSum"].lower() if comparison else "")
+
+          metadata = {
+              "feed_url": feed_url,
+              "target": {
+                  "version": target_version,
+                  "category": target.get("CategoryName"),
+                  "rollout": target.get("RolloutProportion"),
+                  "release_date": target.get("ReleaseDate"),
+                  "url": target_url,
+                  "sha256": target_sha,
+                  "release_notes": [note for group in target.get("ReleaseNotes", []) for note in group.get("Notes", [])],
+              },
+              "comparison": None if comparison is None else {
+                  "version": comparison_version,
+                  "category": comparison.get("CategoryName"),
+                  "rollout": comparison.get("RolloutProportion"),
+                  "release_date": comparison.get("ReleaseDate"),
+                  "url": comparison_url,
+                  "sha256": comparison_sha,
+              },
+          }
+          Path("archaeology/release-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+
+          outputs = Path(os.environ["GITHUB_OUTPUT"])
+          with outputs.open("a", encoding="utf-8") as handle:
+              handle.write(f"target_version={target_version}\n")
+              handle.write(f"target_url={target_url}\n")
+              handle.write(f"target_sha256={target_sha}\n")
+              handle.write(f"comparison_version={comparison_version}\n")
+              handle.write(f"comparison_url={comparison_url}\n")
+              handle.write(f"comparison_sha256={comparison_sha}\n")
+          PY
+
+      - name: Install extraction build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            libboost-all-dev \
+            liblzma-dev
+
+      - name: Build Inno Setup 6.6-capable extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools/innoextract-src
+          git -C tools/innoextract-src init
+          git -C tools/innoextract-src remote add origin https://github.com/dscho/innoextract.git
+          git -C tools/innoextract-src fetch --depth 1 origin 376a13e7c41cc5528b6088d0dd16ec1b323a8d37
+          git -C tools/innoextract-src checkout --detach FETCH_HEAD
+          cmake -S tools/innoextract-src -B tools/innoextract-build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build tools/innoextract-build --target innoextract --parallel 2
+          find tools/innoextract-build -type f -name innoextract -perm -111 -print
+
+      - name: Download and verify installers
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
+          TARGET_URL: ${{ steps.release.outputs.target_url }}
+          TARGET_SHA256: ${{ steps.release.outputs.target_sha256 }}
+          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
+          COMPARISON_URL: ${{ steps.release.outputs.comparison_url }}
+          COMPARISON_SHA256: ${{ steps.release.outputs.comparison_sha256 }}
+        run: |
+          set -euo pipefail
+
+          download_release() {
+            local label="$1"
+            local version="$2"
+            local url="$3"
+            local expected="$4"
+            local dir="archaeology/$label"
+            mkdir -p "$dir"
+            curl --fail --location --retry 3 --retry-delay 2 \
+              --output "$dir/ProtonVPN_v${version}_x64.exe" \
+              "$url"
+            printf '%s  %s\n' "$expected" "$dir/ProtonVPN_v${version}_x64.exe" | sha256sum --check --strict
+            sha256sum "$dir/ProtonVPN_v${version}_x64.exe" > "$dir/installer-sha256.txt"
+          }
+
+          download_release target "$TARGET_VERSION" "$TARGET_URL" "$TARGET_SHA256"
+          if [[ -n "$COMPARISON_VERSION" ]]; then
+            download_release comparison "$COMPARISON_VERSION" "$COMPARISON_URL" "$COMPARISON_SHA256"
+          fi
+
+      - name: Extract installers and collect first-party assemblies
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
+          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
+        run: |
+          set -euo pipefail
+          INNOEXTRACT="$(find tools/innoextract-build -type f -name innoextract -perm -111 -print -quit)"
+          test -n "$INNOEXTRACT"
+
+          extract_release() {
+            local label="$1"
+            local version="$2"
+            local dir="archaeology/$label"
+            "$INNOEXTRACT" \
+              --extract \
+              --output-dir "$dir/extracted" \
+              "$dir/ProtonVPN_v${version}_x64.exe" \
+              | tee "$dir/innoextract.log"
+            find "$dir/extracted" -type f -printf '%P\n' | sort > "$dir/extracted-files.txt"
+            local client_dll
+            client_dll="$(find "$dir/extracted" -type f -iname 'ProtonVPN.Client.dll' -print -quit)"
+            test -n "$client_dll"
+            local appdir
+            appdir="$(dirname "$client_dll")"
+            printf '%s\n' "$appdir" > "$dir/app-directory.txt"
+            mkdir -p "$dir/assemblies"
+            find "$appdir" -maxdepth 1 -type f \( -iname 'ProtonVPN*.dll' -o -iname 'ProtonVPNService.dll' \) -print0 \
+              | sort -z \
+              | xargs -0 -r -I{} cp '{}' "$dir/assemblies/"
+            sha256sum "$dir"/assemblies/* | sed "s#$dir/assemblies/##" | sort > "$dir/assembly-sha256.txt"
+          }
+
+          extract_release target "$TARGET_VERSION"
+          if [[ -n "$COMPARISON_VERSION" ]]; then
+            extract_release comparison "$COMPARISON_VERSION"
+          fi
+
+      - name: Install ILSpy command line decompiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet tool install --tool-path tools/ilspy ilspycmd
+          tools/ilspy/ilspycmd --version | tee archaeology/ilspy-version.txt
+
+      - name: Compare assemblies and decompile high-value changes
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
+          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def hashes(root):
+              result = {}
+              for path in sorted(Path(root).glob("*")):
+                  if path.is_file():
+                      result[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+              return result
+
+          target = hashes("archaeology/target/assemblies")
+          comparison = hashes("archaeology/comparison/assemblies") if Path("archaeology/comparison/assemblies").exists() else {}
+          names = sorted(set(target) | set(comparison))
+          changes = []
+          for name in names:
+              if name not in comparison:
+                  status = "added"
+              elif name not in target:
+                  status = "removed"
+              elif target[name] != comparison[name]:
+                  status = "changed"
+              else:
+                  status = "unchanged"
+              changes.append({"assembly": name, "status": status, "target_sha256": target.get(name), "comparison_sha256": comparison.get(name)})
+
+          Path("archaeology/assembly-diff.json").write_text(json.dumps(changes, indent=2) + "\n", encoding="utf-8")
+          with Path("archaeology/decompile-targets.txt").open("w", encoding="utf-8") as handle:
+              for item in changes:
+                  if item["status"] not in {"added", "changed"}:
+                      continue
+                  name = item["assembly"].lower()
+                  if (
+                      name == "protonvpn.vpn.dll"
+                      or name == "protonvpnservice.dll"
+                      or name.startswith("protonvpn.service")
+                      or name.startswith("protonvpn.client")
+                      or name.startswith("protonvpn.update")
+                      or name.startswith("protonvpn.operatingsystems.network")
+                  ):
+                      handle.write(item["assembly"] + "\n")
+          PY
+
+          mkdir -p archaeology/target/decompiled archaeology/comparison/decompiled archaeology/source-diffs
+          while IFS= read -r assembly; do
+            [[ -n "$assembly" ]] || continue
+            name="${assembly%.dll}"
+            target_dll="archaeology/target/assemblies/$assembly"
+            if [[ -f "$target_dll" ]]; then
+              mkdir -p "archaeology/target/decompiled/$name"
+              tools/ilspy/ilspycmd --project --outputdir "archaeology/target/decompiled/$name" "$target_dll"
+            fi
+            comparison_dll="archaeology/comparison/assemblies/$assembly"
+            if [[ -f "$comparison_dll" ]]; then
+              mkdir -p "archaeology/comparison/decompiled/$name"
+              tools/ilspy/ilspycmd --project --outputdir "archaeology/comparison/decompiled/$name" "$comparison_dll"
+              diff -qr \
+                --exclude='AssemblyInfo.cs' \
+                --exclude='*.csproj' \
+                "archaeology/comparison/decompiled/$name" \
+                "archaeology/target/decompiled/$name" \
+                > "archaeology/source-diffs/$name.txt" || true
+            fi
+          done < archaeology/decompile-targets.txt
+
+      - name: Build archaeology report
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
+          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(Path("archaeology/release-metadata.json").read_text(encoding="utf-8"))
+          assembly_diff = json.loads(Path("archaeology/assembly-diff.json").read_text(encoding="utf-8"))
+          target = metadata["target"]
+          comparison = metadata.get("comparison")
+
+          lines = [
+              f"# Proton VPN Windows {target['version']} binary archaeology",
+              "",
+              f"- Category: `{target.get('category')}`",
+              f"- Release date: `{target.get('release_date')}`",
+              f"- Rollout: `{target.get('rollout')}`",
+              f"- Installer SHA-256: `{target['sha256']}`",
+              f"- Repository commit: `{os.environ['SOURCE_COMMIT']}`",
+          ]
+          if comparison:
+              lines.append(f"- Compared with: `{comparison['version']}` ({comparison.get('category')})")
+          lines += ["", "## Release notes", ""]
+          notes = target.get("release_notes") or []
+          lines.extend([f"- {note}" for note in notes] or ["- No release notes in feed."])
+
+          changed = [item for item in assembly_diff if item["status"] != "unchanged"]
+          lines += ["", "## First-party assembly changes", ""]
+          lines.extend([f"- `{item['assembly']}` — **{item['status']}**" for item in changed] or ["- None."])
+
+          diff_files = sorted(Path("archaeology/source-diffs").glob("*.txt"))
+          lines += ["", "## Decompiled source changes", ""]
+          any_source = False
+          for path in diff_files:
+              changes = [line.strip() for line in path.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
+              if not changes:
+                  continue
+              any_source = True
+              lines.append(f"### {path.stem}")
+              lines.append("")
+              for change in changes[:250]:
+                  lines.append(f"- `{change}`")
+              if len(changes) > 250:
+                  lines.append(f"- … {len(changes) - 250} additional differences; see `{path.as_posix()}` in the artifact.")
+              lines.append("")
+          if not any_source:
+              lines.append("- No non-assembly-metadata source differences found in the decompiled target set.")
+
+          Path("archaeology/report.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+          PY
+          cat archaeology/report.md
+
+      - name: Upload archaeology bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: protonvpn-${{ steps.release.outputs.target_version }}-archaeology
+          path: |
+            archaeology/report.md
+            archaeology/release-metadata.json
+            archaeology/assembly-diff.json
+            archaeology/decompile-targets.txt
+            archaeology/ilspy-version.txt
+            archaeology/target/installer-sha256.txt
+            archaeology/target/assembly-sha256.txt
+            archaeology/target/extracted-files.txt
+            archaeology/target/decompiled
+            archaeology/comparison/installer-sha256.txt
+            archaeology/comparison/assembly-sha256.txt
+            archaeology/comparison/decompiled
+            archaeology/source-diffs
+          if-no-files-found: error
+          retention-days: 3
