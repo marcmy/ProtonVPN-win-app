@@ -29,19 +29,13 @@ jobs:
           data = p.read_bytes()
           bom = data.startswith(b'\xef\xbb\xbf')
           text = data.decode('utf-8-sig')
-          old = '''                List<string> states = cityGroup
-                      .Select(s => s.State)
-                      .Where(state => !string.IsNullOrWhiteSpace(state))
+          old = '''                    .Where(state => !string.IsNullOrWhiteSpace(state))
                       .Distinct()
-                      .ToList()!;
-          '''
-          new = '''                List<string> states = cityGroup
-                      .Select(s => s.State)
-                      .Where(state => !string.IsNullOrWhiteSpace(state))
+                      .ToList()!;'''
+          new = '''                    .Where(state => !string.IsNullOrWhiteSpace(state))
                       .Select(state => state!)
                       .Distinct()
-                      .ToList();
-          '''
+                      .ToList();'''
           if old not in text:
               raise SystemExit('Expected city state projection not found')
           text = text.replace(old, new, 1)
