@@ -31,5 +31,5 @@ public interface IRecentConnection
 
     DateTime? PinTime { get; set; }
 
-    DateTime? LastConnectionTimeUtc { get; set; }
+    DateTime LastConnectionTimeUtc { get; set; }
 }

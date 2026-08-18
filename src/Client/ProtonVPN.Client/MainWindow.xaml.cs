@@ -172,4 +172,9 @@ public sealed partial class MainWindow : IFocusAware
     {
         InvalidateTitleDragArea();
     }
+
+    public void DisposeTrayIcon()
+    {
+        TrayIcon.DisposeTrayIcon();
+    }
 }

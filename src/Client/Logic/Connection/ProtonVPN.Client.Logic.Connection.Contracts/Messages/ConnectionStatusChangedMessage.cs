@@ -24,9 +24,19 @@ namespace ProtonVPN.Client.Logic.Connection.Contracts.Messages;
 public class ConnectionStatusChangedMessage
 {
     public ConnectionStatus ConnectionStatus { get; }
+    public bool HasConnectionStatusChanged { get; }
+    public bool HasInnerStatusOrErrorChanged { get; }
+    public bool HasConnectionIntentChanged { get; }
 
-    public ConnectionStatusChangedMessage(ConnectionStatus connectionStatus)
+    public ConnectionStatusChangedMessage(
+        ConnectionStatus connectionStatus,
+        bool hasConnectionStatusChanged = true,
+        bool hasInnerStatusOrErrorChanged = true,
+        bool hasConnectionIntentChanged = true)
     {
         ConnectionStatus = connectionStatus;
+        HasConnectionStatusChanged = hasConnectionStatusChanged;
+        HasInnerStatusOrErrorChanged = hasInnerStatusOrErrorChanged;
+        HasConnectionIntentChanged = hasConnectionIntentChanged;
     }
 }

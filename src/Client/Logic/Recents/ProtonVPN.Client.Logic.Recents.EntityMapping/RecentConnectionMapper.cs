@@ -64,6 +64,7 @@ public class RecentConnectionMapper : IMapper<IRecentConnection, SerializableRec
             ProfileId = leftEntity.ConnectionIntent is IConnectionProfile cnp ? cnp.Id : null,
             IsPinned = leftEntity.IsPinned,
             PinTime = leftEntity.PinTime,
+            LastConnectionTime = leftEntity.LastConnectionTimeUtc,
         };
     }
 
@@ -86,6 +87,7 @@ public class RecentConnectionMapper : IMapper<IRecentConnection, SerializableRec
                 {
                     IsPinned = rightEntity.IsPinned,
                     PinTime = rightEntity.PinTime,
+                    LastConnectionTimeUtc = rightEntity.LastConnectionTime ?? DateTime.MinValue,
                 };
         }
         catch (Exception ex)
