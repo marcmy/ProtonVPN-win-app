@@ -79,7 +79,7 @@ public class SplitTunnelRoutingTest
         _networkInterfaces.GetInterfaces().Returns([physicalInterface, tunnelInterface]);
         _networkInterfaceProvider.GetByVpnProtocol(VpnProtocol.WireGuardUdp, openVpnAdapter).Returns(tunnelInterface);
 
-        RouteConfiguration? createdRoute = null;
+        RouteConfiguration createdRoute = null;
         _routingTableHelper
             .When(helper => helper.CreateRoute(Arg.Any<RouteConfiguration>()))
             .Do(callInfo => createdRoute = (RouteConfiguration)callInfo[0]);
