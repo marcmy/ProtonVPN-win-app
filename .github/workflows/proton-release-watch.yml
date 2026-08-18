@@ -30,9 +30,6 @@ jobs:
       comparison_sha256: ${{ steps.detect.outputs.comparison_sha256 }}
       release_notes_b64: ${{ steps.detect.outputs.release_notes_b64 }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42bcdcab4d3d0720f5bc306e619517734d4f # v4.2.2
-
       - name: Detect unhandled Proton release
         id: detect
         shell: bash
@@ -60,10 +57,6 @@ jobs:
           def version_key(value):
               return tuple(int(part) for part in value.split("."))
 
-          versions = sorted({release["Version"] for release in releases}, key=version_key, reverse=True)
-          newest_version = versions[0]
-          handled_version = os.environ["HANDLED_THROUGH_VERSION"]
-
           def choose(version):
               candidates = [release for release in releases if release.get("Version") == version]
               candidates.sort(
@@ -75,9 +68,13 @@ jobs:
               )
               return candidates[0]
 
+          versions = sorted({release["Version"] for release in releases}, key=version_key, reverse=True)
+          newest_version = versions[0]
+          handled_version = os.environ["HANDLED_THROUGH_VERSION"]
           newest = choose(newest_version)
-          lower_versions = [version for version in versions if version_key(version) < version_key(newest_version)]
-          comparison_version = lower_versions[0] if lower_versions else ""
+
+          older_versions = [version for version in versions if version_key(version) < version_key(newest_version)]
+          comparison_version = older_versions[0] if older_versions else ""
           comparison = choose(comparison_version) if comparison_version else None
 
           title = f"Proton VPN Windows {newest_version} detected"
@@ -104,7 +101,6 @@ jobs:
 
           file_info = newest.get("File") or {}
           comparison_file = (comparison or {}).get("File") or {}
-
           values = {
               "is_new": str(is_new).lower(),
               "version": newest_version,
