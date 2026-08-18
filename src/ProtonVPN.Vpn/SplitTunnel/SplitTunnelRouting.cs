@@ -33,6 +33,7 @@ namespace ProtonVPN.Vpn.SplitTunnel;
 public class SplitTunnelRouting : ISplitTunnelRouting
 {
     private const int PERMIT_ROUTE_METRIC = 32000;
+    private const uint FALLBACK_EXCLUDE_ROUTE_METRIC = 1;
 
     private readonly ILogger _logger;
     private readonly IStaticConfiguration _config;
@@ -187,16 +188,14 @@ public class SplitTunnelRouting : ISplitTunnelRouting
 
     private void SetUpBlockModeRoutes(VpnConfig vpnConfig, INetworkInterface tunnelInterface, INetworkInterface[] networkInterfaces)
     {
-        if (!_ipv4GatewayResolver.TryGetBestIpv4Gateway(
-                _config.GetHardwareId(vpnConfig.VpnProtocol, vpnConfig.OpenVpnAdapter),
-                out Ipv4GatewayInfo? ipv4GatewayInfo) || ipv4GatewayInfo is null)
+        if (!TryGetBlockModeIpv4Gateway(
+                vpnConfig,
+                out INetworkInterface? bestIpv4Interface,
+                out NetworkAddress? ipv4GatewayAddress,
+                out uint ipv4RouteMetric))
         {
             return;
         }
-
-        INetworkInterface bestIpv4Interface = ipv4GatewayInfo.Interface;
-        NetworkAddress ipv4GatewayAddress = ipv4GatewayInfo.GatewayAddress;
-        uint ipv4InterfaceMetric = ipv4GatewayInfo.InterfaceMetric;
 
         NetworkAddress? ipv6GatewayAddress = _networkUtilities.GetDefaultIpv6Gateway(tunnelInterface, networkInterfaces);
         uint? loopbackInterfaceIndex = _routingTableHelper.GetLoopbackInterfaceIndex();
@@ -211,7 +210,7 @@ public class SplitTunnelRouting : ISplitTunnelRouting
 
                 uint? interfaceIndex = gateway is null
                     ? loopbackInterfaceIndex
-                    : bestIpv4Interface.Index;
+                    : bestIpv4Interface!.Index;
 
                 if (interfaceIndex is null)
                 {
@@ -224,11 +223,56 @@ public class SplitTunnelRouting : ISplitTunnelRouting
                     Destination = address,
                     Gateway = gateway,
                     InterfaceIndex = interfaceIndex.Value,
-                    Metric = ipv4InterfaceMetric,
+                    Metric = ipv4RouteMetric,
                     IsIpv6 = address.IsIpV6,
                 });
             }
         }
+    }
+
+    private bool TryGetBlockModeIpv4Gateway(
+        VpnConfig vpnConfig,
+        out INetworkInterface? bestIpv4Interface,
+        out NetworkAddress? ipv4GatewayAddress,
+        out uint ipv4RouteMetric)
+    {
+        string excludedHardwareId = _config.GetHardwareId(vpnConfig.VpnProtocol, vpnConfig.OpenVpnAdapter);
+
+        if (_ipv4GatewayResolver.TryGetBestIpv4Gateway(excludedHardwareId, out Ipv4GatewayInfo? ipv4GatewayInfo) &&
+            ipv4GatewayInfo is not null)
+        {
+            bestIpv4Interface = ipv4GatewayInfo.Interface;
+            ipv4GatewayAddress = ipv4GatewayInfo.GatewayAddress;
+            ipv4RouteMetric = ipv4GatewayInfo.InterfaceMetric;
+            return true;
+        }
+
+        // The fork used to create exclusion routes directly through the physical gateway with
+        // metric 1. The upstream resolver additionally requires GetIpInterfaceEntry to return an
+        // interface metric; if that lookup fails, it otherwise drops every exclusion route even
+        // though the physical interface and gateway are still usable.
+        bestIpv4Interface = _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId);
+        IPAddress? defaultGateway = bestIpv4Interface?.DefaultGateway;
+
+        if (bestIpv4Interface is null ||
+            bestIpv4Interface.Index == 0 ||
+            defaultGateway is null ||
+            defaultGateway.Equals(IPAddress.Any) ||
+            defaultGateway.Equals(IPAddress.None) ||
+            !NetworkAddress.TryParse(defaultGateway.ToString(), out NetworkAddress fallbackGatewayAddress))
+        {
+            _logger.Error<NetworkLog>("Failed to configure split tunnel exclusion routes because no usable physical IPv4 gateway was found.");
+            ipv4GatewayAddress = null;
+            ipv4RouteMetric = 0;
+            return false;
+        }
+
+        ipv4GatewayAddress = fallbackGatewayAddress;
+        ipv4RouteMetric = FALLBACK_EXCLUDE_ROUTE_METRIC;
+        _logger.Warn<NetworkLog>(
+            $"IPv4 gateway metric lookup failed for interface {bestIpv4Interface.Index}; " +
+            $"using the physical gateway {defaultGateway} with split tunnel route metric {FALLBACK_EXCLUDE_ROUTE_METRIC}.");
+        return true;
     }
 
     public void DeleteRoutes(VpnConfig vpnConfig)

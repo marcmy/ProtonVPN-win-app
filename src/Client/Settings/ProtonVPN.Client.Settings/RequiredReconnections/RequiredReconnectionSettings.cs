@@ -35,8 +35,11 @@ public class RequiredReconnectionSettings : IRequiredReconnectionSettings
         {
             {nameof(ISettings.IsSplitTunnelingEnabled), () => true},
             {nameof(ISettings.SplitTunnelingMode), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingStandardAppsList), () => false},
-            {nameof(ISettings.SplitTunnelingInverseAppsList), () => false},
+            // App redirect filters are installed at WFP connect/bind layers. Updating the list live
+            // does not move already-established app sockets, so require a reconnect to make the new
+            // app selection deterministic. IP/domain exclusions can still be updated live.
+            {nameof(ISettings.SplitTunnelingStandardAppsList), () => settings.IsSplitTunnelingEnabled},
+            {nameof(ISettings.SplitTunnelingInverseAppsList), () => settings.IsSplitTunnelingEnabled},
             {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => false},
             {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => false},
 
