@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
+using System.Collections.Generic;
 using System.Net;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
@@ -80,8 +82,6 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
 
     public void SetUpRoutingTable(VpnConfig vpnConfig, string localIp, bool isIpv6Supported)
     {
-        // SplitTunnel owns one active routing configuration at a time. Stop healing the previous
-        // configuration before installing and tracking the replacement.
         ClearTrackedRoutes();
 
         INetworkInterface tunnelInterface = _networkInterfaceProvider.GetByVpnProtocol(vpnConfig.VpnProtocol, vpnConfig.OpenVpnAdapter);
@@ -117,11 +117,8 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
         NetworkAddress.TryParse(localIpv4Address, out NetworkAddress localNetworkIpv4Address);
         NetworkAddress serverGatewayIpv4Address = new(gatewayAddress);
 
-        // Normally, this should only work for WireGuard, but seems to be working fine for OpenVPN as well
         NetworkAddress.TryParse(_config.WireGuard.DefaultServerGatewayIpv6Address, out NetworkAddress serverGatewayIpv6Address);
 
-        //Remove default WireGuard route as it has metric 0, but instead we add the same route with low priority
-        //so that we still have the route for include mode apps to be routed through the tunnel.
         _routingTableHelper.DeleteRoute(new()
         {
             Destination = defaultIpv4NetworkAddress,
@@ -170,8 +167,6 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
             NetworkAddress? ipv6GatewayAddress = _networkUtilities.GetDefaultIpv6Gateway(tunnelInterface, networkInterfaces);
             if (ipv6GatewayAddress is null)
             {
-                // If we cannot find a default gateway, we add a route to the loopback interface
-                // to prevent not included traffic from being routed via the tunnel.
                 CreateTrackedRoute(GetIpv6LoopbackRoute(defaultIpv6NetworkAddress));
             }
         }
@@ -206,11 +201,7 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
 
     private void SetUpBlockModeRoutes(VpnConfig vpnConfig, INetworkInterface tunnelInterface, INetworkInterface[] networkInterfaces)
     {
-        if (!TryGetBlockModeIpv4Gateway(
-                vpnConfig,
-                out INetworkInterface? bestIpv4Interface,
-                out NetworkAddress? ipv4GatewayAddress,
-                out uint ipv4RouteMetric))
+        if (!TryGetBlockModeIpv4Gateway(vpnConfig, out INetworkInterface? bestIpv4Interface, out NetworkAddress? ipv4GatewayAddress, out uint ipv4RouteMetric))
         {
             return;
         }
@@ -222,13 +213,8 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
         {
             if (NetworkAddress.TryParse(ip, out NetworkAddress address))
             {
-                NetworkAddress? gateway = address.IsIpV6
-                    ? ipv6GatewayAddress
-                    : ipv4GatewayAddress;
-
-                uint? interfaceIndex = gateway is null
-                    ? loopbackInterfaceIndex
-                    : bestIpv4Interface!.Index;
+                NetworkAddress? gateway = address.IsIpV6 ? ipv6GatewayAddress : ipv4GatewayAddress;
+                uint? interfaceIndex = gateway is null ? loopbackInterfaceIndex : bestIpv4Interface!.Index;
 
                 if (interfaceIndex is null)
                 {
@@ -256,8 +242,7 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
     {
         string excludedHardwareId = _config.GetHardwareId(vpnConfig.VpnProtocol, vpnConfig.OpenVpnAdapter);
 
-        if (_ipv4GatewayResolver.TryGetBestIpv4Gateway(excludedHardwareId, out Ipv4GatewayInfo? ipv4GatewayInfo) &&
-            ipv4GatewayInfo is not null)
+        if (_ipv4GatewayResolver.TryGetBestIpv4Gateway(excludedHardwareId, out Ipv4GatewayInfo? ipv4GatewayInfo) && ipv4GatewayInfo is not null)
         {
             bestIpv4Interface = ipv4GatewayInfo.Interface;
             ipv4GatewayAddress = ipv4GatewayInfo.GatewayAddress;
@@ -265,10 +250,6 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
             return true;
         }
 
-        // The fork used to create exclusion routes directly through the physical gateway with
-        // metric 1. The upstream resolver additionally requires GetIpInterfaceEntry to return an
-        // interface metric; if that lookup fails, it otherwise drops every exclusion route even
-        // though the physical interface and gateway are still usable.
         bestIpv4Interface = _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId);
         IPAddress? defaultGateway = bestIpv4Interface?.DefaultGateway;
 
@@ -356,9 +337,6 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
 
     public void DeleteRoutes(VpnConfig vpnConfig)
     {
-        // Stop the health check from recreating routes while this configuration is intentionally
-        // being removed. Reconciliation either completes before this lock clears the set, or sees
-        // an empty set afterwards.
         ClearTrackedRoutes();
 
         switch (vpnConfig.SplitTunnelMode)
