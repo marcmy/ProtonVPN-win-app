@@ -7,8 +7,8 @@ permissions:
   contents: write
 
 jobs:
-  port-proton-5-1-7-fixes:
-    name: Port remaining Proton 5.1.7 fixes
+  patch-target:
+    name: Patch target branch
     if: ${{ github.head_ref == 'agent/proton-5.1.7-archaeology' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -20,267 +20,38 @@ jobs:
           ref: agent/port-proton-5.1.7-fixes
           persist-credentials: true
 
-      - name: Apply decompiled 5.1.7 behavior
+      - name: Fix nullable state projection
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
-          def replace_once(path: str, old: str, new: str) -> None:
-              p = Path(path)
-              data = p.read_bytes()
-              had_bom = data.startswith(b'\xef\xbb\xbf')
-              text = data.decode('utf-8-sig')
-              if old not in text:
-                  raise SystemExit(f'Expected source block not found in {path}')
-              text = text.replace(old, new, 1)
-              encoded = text.encode('utf-8')
-              if had_bom:
-                  encoded = b'\xef\xbb\xbf' + encoded
-              p.write_bytes(encoded)
-
-          servers_path = 'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/Cache/ServersCache.cs'
-          old_cities = '''    private IReadOnlyList<City> GetCities(IReadOnlyList<Server> servers)
-              {
-                  return servers
-                      .Where(s => !string.IsNullOrWhiteSpace(s.ExitCountry)
-                               && !string.IsNullOrWhiteSpace(s.City)
-                               && s.IsPaidNonB2B())
-                      .GroupBy(s => new { Country = s.ExitCountry, s.State, s.City })
-                      .Select(g => new City()
-                      {
-                          CountryCode = g.Key.Country,
-                          StateName = g.Key.State,
-                          Name = g.Key.City,
-                          Features = AggregateFeatures(g),
-                          IsStandardUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsStandard()),
-                          IsP2PUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsSupported(ServerFeatures.P2P)),
-                          IsSecureCoreUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsSupported(ServerFeatures.SecureCore)),
-                          IsTorUnderMaintenance = IsUnderMaintenance(g, s => s.Features.IsSupported(ServerFeatures.Tor))
-                      })
+          p = Path('src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/Cache/ServersCache.cs')
+          data = p.read_bytes()
+          bom = data.startswith(b'\xef\xbb\xbf')
+          text = data.decode('utf-8-sig')
+          old = '''                List<string> states = cityGroup
+                      .Select(s => s.State)
+                      .Where(state => !string.IsNullOrWhiteSpace(state))
+                      .Distinct()
+                      .ToList()!;
+          '''
+          new = '''                List<string> states = cityGroup
+                      .Select(s => s.State)
+                      .Where(state => !string.IsNullOrWhiteSpace(state))
+                      .Select(state => state!)
+                      .Distinct()
                       .ToList();
-              }
           '''
-          new_cities = '''    private IReadOnlyList<City> GetCities(IReadOnlyList<Server> servers)
-              {
-                  return servers
-                      .Where(s => !string.IsNullOrWhiteSpace(s.ExitCountry)
-                               && !string.IsNullOrWhiteSpace(s.City)
-                               && s.IsPaidNonB2B())
-                      .GroupBy(s => new { Country = s.ExitCountry, s.City })
-                      .SelectMany(cityGroup =>
-                      {
-                          List<string> states = cityGroup
-                              .Select(s => s.State)
-                              .Where(state => !string.IsNullOrWhiteSpace(state))
-                              .Distinct()
-                              .ToList()!;
-
-                          return states.Count <= 1
-                              ? [CreateCity(cityGroup.Key.Country, states.FirstOrDefault(), cityGroup.Key.City, cityGroup)]
-                              : cityGroup
-                                  .GroupBy(s => !string.IsNullOrWhiteSpace(s.State) ? s.State : null)
-                                  .Select(stateGroup => CreateCity(cityGroup.Key.Country, stateGroup.Key, cityGroup.Key.City, stateGroup));
-                      })
-                      .ToList();
-              }
-
-              private City CreateCity<T>(string countryCode, string? stateName, string cityName, IGrouping<T, Server> servers)
-              {
-                  return new City()
-                  {
-                      CountryCode = countryCode,
-                      StateName = stateName,
-                      Name = cityName,
-                      Features = AggregateFeatures(servers),
-                      IsStandardUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsStandard()),
-                      IsP2PUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsSupported(ServerFeatures.P2P)),
-                      IsSecureCoreUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsSupported(ServerFeatures.SecureCore)),
-                      IsTorUnderMaintenance = IsUnderMaintenance(servers, s => s.Features.IsSupported(ServerFeatures.Tor))
-                  };
-              }
-          '''
-          replace_once(servers_path, old_cities, new_cities)
-
-          connection_path = 'src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection/ConnectionManager.cs'
-          replace_once(
-              connection_path,
-              '''    private VpnStatusIpcEntity? _currentStatus = VpnStatusIpcEntity.Disconnected;
-              private VpnErrorTypeIpcEntity? _currentError = VpnErrorTypeIpcEntity.None;
-          ''',
-              '''    private VpnStatusIpcEntity? _currentStatus = VpnStatusIpcEntity.Disconnected;
-              private VpnErrorTypeIpcEntity? _currentError = VpnErrorTypeIpcEntity.None;
-              private IConnectionIntent? _lastBroadcastConnectionIntent;
-          ''')
-
-          old_status = '''    private void SetConnectionStatus(
-                  VpnStatusIpcEntity status,
-                  VpnErrorTypeIpcEntity error,
-                  bool forceSendStatusUpdate = false)
-              {
-                  if (_currentStatus == status && _currentError == error && !forceSendStatusUpdate)
-                  {
-                      return;
-                  }
-
-                  _currentStatus = status;
-                  _currentError = error;
-
-                  CurrentConnectionDetails?.UpdateStatus(status);
-
-                  ConnectionStatus = MapConnectionStatus(status, error);
-
-                  _eventMessageSender.Send(new ConnectionStatusChangedMessage(ConnectionStatus));
-
-                  _logger.Info<ConnectTriggerLog>($"[CONNECTION_PROCESS] Status updated to {ConnectionStatus}" +
-                      $"{(_isGuestHoleActive ? " (Guest hole)" : string.Empty)}." +
-                      $"{(IsConnected ? $" Connected to server {CurrentConnectionDetails?.ServerName}" : string.Empty)}");
-
-                  _statisticalEventManager.OnVpnStateChanged(status, error, CurrentConnectionDetails);
-              }
-          '''
-          new_status = '''    private void SetConnectionStatus(
-                  VpnStatusIpcEntity status,
-                  VpnErrorTypeIpcEntity error,
-                  bool forceSendStatusUpdate = false)
-              {
-                  if (_currentStatus == status && _currentError == error && !forceSendStatusUpdate)
-                  {
-                      return;
-                  }
-
-                  ConnectionStatus previousConnectionStatus = ConnectionStatus;
-                  VpnStatusIpcEntity? previousStatus = _currentStatus;
-                  VpnErrorTypeIpcEntity? previousError = _currentError;
-                  IConnectionIntent? lastBroadcastConnectionIntent = _lastBroadcastConnectionIntent;
-
-                  _currentStatus = status;
-                  _currentError = error;
-
-                  CurrentConnectionDetails?.UpdateStatus(status);
-
-                  ConnectionStatus = MapConnectionStatus(status, error);
-
-                  bool hasConnectionStatusChanged = forceSendStatusUpdate || previousConnectionStatus != ConnectionStatus;
-                  bool hasInnerStatusOrErrorChanged = forceSendStatusUpdate || previousStatus != status || previousError != error;
-                  bool hasConnectionIntentChanged = forceSendStatusUpdate ||
-                      !(CurrentConnectionIntent?.IsSameAs(lastBroadcastConnectionIntent) ?? lastBroadcastConnectionIntent is null);
-
-                  _lastBroadcastConnectionIntent = CurrentConnectionIntent;
-
-                  _eventMessageSender.Send(new ConnectionStatusChangedMessage(
-                      ConnectionStatus,
-                      hasConnectionStatusChanged,
-                      hasInnerStatusOrErrorChanged,
-                      hasConnectionIntentChanged));
-
-                  _logger.Info<ConnectTriggerLog>($"[CONNECTION_PROCESS] Status updated to {ConnectionStatus}" +
-                      $"{(_isGuestHoleActive ? " (Guest hole)" : string.Empty)}." +
-                      $"{(IsConnected ? $" Connected to server {CurrentConnectionDetails?.ServerName}" : string.Empty)}");
-
-                  _statisticalEventManager.OnVpnStateChanged(status, error, CurrentConnectionDetails);
-              }
-          '''
-          replace_once(connection_path, old_status, new_status)
-
-          recents_path = 'src/Client/Logic/Recents/ProtonVPN.Client.Logic.Recents/RecentConnectionsManager.cs'
-          old_receive = '''    public void Receive(ConnectionStatusChangedMessage message)
-              {
-                  if (_areRecentsLoaded && !_guestHoleManager.IsActive && (message?.ConnectionStatus) == ConnectionStatus.Connecting)
-                  {
-                      lock (_lock)
-                      {
-                          IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
-
-                          if (TryInsertRecentConnection(connectionIntent, DateTime.UtcNow))
-                          {
-                              TrimRecentConnections();
-                              SaveAndBroadcastRecentConnectionsChanges();
-                          }
-                      }
-                  }
-              }
-          '''
-          new_receive = '''    public void Receive(ConnectionStatusChangedMessage message)
-              {
-                  if (!_areRecentsLoaded ||
-                      _guestHoleManager.IsActive ||
-                      message is null ||
-                      message.ConnectionStatus != ConnectionStatus.Connecting ||
-                      !message.HasConnectionIntentChanged)
-                  {
-                      return;
-                  }
-
-                  lock (_lock)
-                  {
-                      IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
-
-                      if (TryInsertRecentConnection(connectionIntent))
-                      {
-                          TrimRecentConnections();
-                          SaveAndBroadcastRecentConnectionsChanges();
-                      }
-                  }
-              }
-          '''
-          replace_once(recents_path, old_receive, new_receive)
-
-          old_insert = '''    private bool TryInsertRecentConnection(IConnectionIntent? recentIntent, DateTime? connectionTime = null)
-              {
-                  if (recentIntent == null || recentIntent.Location is FreeServerLocationIntent)
-                  {
-                      return false;
-                  }
-
-                  List<IRecentConnection> duplicates = _recentConnections.Where(c => c.ConnectionIntent.IsSameAs(recentIntent)).ToList();
-
-                  foreach (IRecentConnection duplicate in duplicates)
-                  {
-                      _recentConnections.Remove(duplicate);
-                  }
-
-                  IRecentConnection recentConnection = duplicates.FirstOrDefault() ?? new RecentConnection(Guid.NewGuid(), recentIntent);
-                  recentConnection.LastConnectionTimeUtc = connectionTime;
-
-                  _recentConnections.Add(recentConnection);
-
-                  return true;
-              }
-          '''
-          new_insert = '''    private bool TryInsertRecentConnection(IConnectionIntent? recentIntent)
-              {
-                  if (recentIntent == null || recentIntent.Location is FreeServerLocationIntent)
-                  {
-                      return false;
-                  }
-
-                  List<IRecentConnection> duplicates = _recentConnections.Where(c => c.ConnectionIntent.IsSameAs(recentIntent)).ToList();
-
-                  foreach (IRecentConnection duplicate in duplicates)
-                  {
-                      _recentConnections.Remove(duplicate);
-                  }
-
-                  IRecentConnection recentConnection = duplicates.FirstOrDefault() ?? new RecentConnection(Guid.NewGuid(), recentIntent);
-                  recentConnection.LastConnectionTimeUtc = DateTime.UtcNow;
-
-                  _recentConnections.Add(recentConnection);
-
-                  return true;
-              }
-          '''
-          replace_once(recents_path, old_insert, new_insert)
+          if old not in text:
+              raise SystemExit('Expected city state projection not found')
+          text = text.replace(old, new, 1)
+          out = text.encode('utf-8')
+          if bom:
+              out = b'\xef\xbb\xbf' + out
+          p.write_bytes(out)
           PY
-
-          echo '--- Remaining timestamp references ---'
-          grep -R -n "LastConnectionTimeUtc\|HasConnectionIntentChanged" \
-            src/Client/Logic/Recents \
-            src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection \
-            src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection.Contracts | head -200
-
           git diff --check
-          git diff --stat
+          git diff
 
       - name: Commit and push target branch
         shell: bash
@@ -288,9 +59,6 @@ jobs:
           set -euxo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/Cache/ServersCache.cs \
-            src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection/ConnectionManager.cs \
-            src/Client/Logic/Recents/ProtonVPN.Client.Logic.Recents/RecentConnectionsManager.cs
-          git commit -m "Port remaining Proton 5.1.7 behavior fixes"
+          git add src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/Cache/ServersCache.cs
+          git commit -m "Fix city state nullability"
           git push origin HEAD:agent/port-proton-5.1.7-fixes
