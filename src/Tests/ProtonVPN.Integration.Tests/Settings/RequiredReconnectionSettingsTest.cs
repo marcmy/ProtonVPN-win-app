@@ -31,45 +31,9 @@ public class RequiredReconnectionSettingsTest
     [TestMethod]
     [DataRow(nameof(ISettings.SplitTunnelingStandardAppsList))]
     [DataRow(nameof(ISettings.SplitTunnelingInverseAppsList))]
-    public void IsReconnectionRequired_WhenSplitTunnelingAppListChanges_ReturnsTrue(string settingName)
-    {
-        // Arrange
-        ISettings settings = Substitute.For<ISettings>();
-        settings.IsSplitTunnelingEnabled.Returns(true);
-        RequiredReconnectionSettings requiredReconnectionSettings = new(
-            Substitute.For<IConnectionManager>(),
-            settings);
-
-        // Act
-        bool result = requiredReconnectionSettings.IsReconnectionRequired(settingName);
-
-        // Assert
-        Assert.IsTrue(result);
-    }
-
-    [TestMethod]
-    [DataRow(nameof(ISettings.SplitTunnelingStandardAppsList))]
-    [DataRow(nameof(ISettings.SplitTunnelingInverseAppsList))]
-    public void IsReconnectionRequired_WhenSplitTunnelingIsDisabledAndAppListChanges_ReturnsFalse(string settingName)
-    {
-        // Arrange
-        ISettings settings = Substitute.For<ISettings>();
-        settings.IsSplitTunnelingEnabled.Returns(false);
-        RequiredReconnectionSettings requiredReconnectionSettings = new(
-            Substitute.For<IConnectionManager>(),
-            settings);
-
-        // Act
-        bool result = requiredReconnectionSettings.IsReconnectionRequired(settingName);
-
-        // Assert
-        Assert.IsFalse(result);
-    }
-
-    [TestMethod]
     [DataRow(nameof(ISettings.SplitTunnelingStandardIpAddressesList))]
     [DataRow(nameof(ISettings.SplitTunnelingInverseIpAddressesList))]
-    public void IsReconnectionRequired_WhenSplitTunnelingIpListChanges_ReturnsFalse(string settingName)
+    public void IsReconnectionRequired_WhenSplitTunnelingListChanges_ReturnsFalse(string settingName)
     {
         // Arrange
         ISettings settings = Substitute.For<ISettings>();
