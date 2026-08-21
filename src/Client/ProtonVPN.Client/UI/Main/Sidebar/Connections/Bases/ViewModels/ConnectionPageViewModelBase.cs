@@ -116,7 +116,25 @@ public abstract class ConnectionPageViewModelBase : ConnectionListViewModelBase<
 
     protected virtual void OnServerListChanged()
     {
+        HashSet<string> expandedCountryCodes = Items
+            .OfType<CountryLocationItemBase>()
+            .Where(country => country.IsCountryExpanded)
+            .Select(country => country.ExitCountryCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         FetchItems();
+
+        if (IsActive && expandedCountryCodes.Count > 0)
+        {
+            foreach (CountryLocationItemBase country in Items.OfType<CountryLocationItemBase>())
+            {
+                if (expandedCountryCodes.Contains(country.ExitCountryCode))
+                {
+                    country.IsCountryExpanded = true;
+                }
+            }
+        }
+
         OnPropertyChanged(nameof(IsAvailable));
     }
 
