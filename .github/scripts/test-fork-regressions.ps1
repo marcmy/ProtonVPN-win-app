@@ -91,6 +91,20 @@ if ($normalizedTestOutputRoot.StartsWith(
 New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $testOutputRoot | Out-Null
 
+if ($Scope -in @('Client', 'All')) {
+    $sidebarSearchPath = Resolve-RepositoryPath 'src/Client/ProtonVPN.Client/UI/Main/Sidebar/SidebarComponentViewModel.cs'
+    $sidebarSearchContent = Get-Content -LiteralPath $sidebarSearchPath -Raw
+    if ($sidebarSearchContent.Contains('.Wait()')) {
+        throw 'Sidebar search must not synchronously wait on async work; this can deadlock the WinUI synchronization context.'
+    }
+
+    $globalSearchPath = Resolve-RepositoryPath 'src/Client/Logic/Searches/ProtonVPN.Client.Logic.Searches/GlobalSearch.cs'
+    $globalSearchContent = Get-Content -LiteralPath $globalSearchPath -Raw
+    if ($globalSearchContent.Contains('Task.WaitAll(')) {
+        throw 'GlobalSearch must not block on Task.WaitAll; await the search tasks asynchronously instead.'
+    }
+}
+
 $clientProjects = @(
     'src/Client/Localization/ProtonVPN.Client.Localization.Tests/ProtonVPN.Client.Localization.Tests.csproj',
     'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj',
