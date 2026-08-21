@@ -82,7 +82,7 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
 
     partial void OnSearchTextChanged(string value)
     {
-        _searchInputReceiver.SearchAsync(value).Wait();
+        _ = _searchInputReceiver.SearchAsync(value);
     }
 
     public void ClearSearch()
@@ -92,7 +92,7 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
 
         if (wasAlreadyEmpty)
         {
-            _searchInputReceiver.SearchAsync(string.Empty).Wait();
+            _ = _searchInputReceiver.SearchAsync(string.Empty);
         }
     }
 
