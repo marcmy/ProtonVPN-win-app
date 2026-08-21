@@ -58,6 +58,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private string _input = string.Empty;
     private long _resultsGeneration;
+    private CancellationTokenSource? _resultsCancellationTokenSource;
 
     [ObservableProperty]
     private bool _hasSearchInput;
@@ -125,43 +126,60 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private Task ReloadResultsAsync()
     {
         long generation = Interlocked.Increment(ref _resultsGeneration);
+        CancellationTokenSource cancellationTokenSource = new();
+        CancellationTokenSource? previousCancellationTokenSource =
+            Interlocked.Exchange(ref _resultsCancellationTokenSource, cancellationTokenSource);
+
+        previousCancellationTokenSource?.Cancel();
+        previousCancellationTokenSource?.Dispose();
+
         return IsBrowsingAllServers
             ? LoadAllServersAsync(generation)
-            : SearchAsync(generation);
+            : SearchAsync(generation, cancellationTokenSource.Token);
     }
 
-    private async Task SearchAsync(long generation)
+    private async Task SearchAsync(long generation, CancellationToken cancellationToken)
     {
-        string input = _input;
-        if (string.IsNullOrWhiteSpace(input))
+        try
         {
-            if (!IsCurrentGeneration(generation))
+            string input = _input;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                if (!IsCurrentGeneration(generation))
+                {
+                    return;
+                }
+
+                HasSearchInput = false;
+                SetSearchResult([]);
+                _serverFinder.Cancel();
+                return;
+            }
+
+            if (IsCurrentGeneration(generation))
+            {
+                HasSearchInput = true;
+            }
+
+            ServerFeatures? serverFeatures = GetServerFeatures();
+            Func<ILocation, ConnectionItemBase?> itemFactory = GetConnectionItemCreationFunction();
+            List<ConnectionItemBase> result = await GetSearchResultsAsync(
+                input,
+                serverFeatures,
+                itemFactory,
+                cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested || !IsCurrentGeneration(generation))
             {
                 return;
             }
 
-            HasSearchInput = false;
-            SetSearchResult([]);
-            _serverFinder.Cancel();
-            return;
+            SetSearchResult(result);
+            TriggerServerSearchTimerIfNecessary(input, result);
         }
-
-        if (IsCurrentGeneration(generation))
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            HasSearchInput = true;
         }
-
-        ServerFeatures? serverFeatures = GetServerFeatures();
-        Func<ILocation, ConnectionItemBase?> itemFactory = GetConnectionItemCreationFunction();
-        List<ConnectionItemBase> result = await GetSearchResultsAsync(input, serverFeatures, itemFactory);
-
-        if (!IsCurrentGeneration(generation))
-        {
-            return;
-        }
-
-        SetSearchResult(result);
-        TriggerServerSearchTimerIfNecessary(input, result);
     }
 
     [RelayCommand]
@@ -200,9 +218,17 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private async Task<List<ConnectionItemBase>> GetSearchResultsAsync(
         string input,
         ServerFeatures? serverFeatures,
-        Func<ILocation, ConnectionItemBase?> itemFactory)
+        Func<ILocation, ConnectionItemBase?> itemFactory,
+        CancellationToken cancellationToken)
     {
-        return (await _globalSearch.SearchAsync(input, serverFeatures))
+        List<ILocation> locations = await _globalSearch.SearchAsync(
+            input,
+            serverFeatures,
+            cancellationToken: cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return locations
             .Where(location => !IsLocationExcluded(location))
             .Select(itemFactory)
             .Where(ci => ci is not null)
