@@ -146,6 +146,11 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
             return;
         }
 
+        if (IsCurrentGeneration(generation))
+        {
+            HasSearchInput = true;
+        }
+
         ServerFeatures? serverFeatures = GetServerFeatures();
         Func<ILocation, ConnectionItemBase?> itemFactory = GetConnectionItemCreationFunction();
         List<ConnectionItemBase> result = await GetSearchResultsAsync(input, serverFeatures, itemFactory);
@@ -155,7 +160,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
             return;
         }
 
-        HasSearchInput = true;
         SetSearchResult(result);
         TriggerServerSearchTimerIfNecessary(input, result);
     }
