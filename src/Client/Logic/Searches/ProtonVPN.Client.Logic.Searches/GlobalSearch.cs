@@ -72,7 +72,7 @@ public class GlobalSearch : IGlobalSearch
         //Task<IEnumerable<IConnectionIntent>> gatewaysTask = Task.Run(() => SearchGateways(input));
         //Task<IEnumerable<IConnectionIntent>> profilesTask = Task.Run(() => SearchProfiles(input));
 
-        Task.WaitAll(serversTask, citiesTask, statesTask, countriesTask/*, gatewaysTask, profilesTask*/);
+        await Task.WhenAll(serversTask, citiesTask, statesTask, countriesTask);
 
         IEnumerable<ILocation> servers = await serversTask;
         IEnumerable<ILocation> cities = await citiesTask;
