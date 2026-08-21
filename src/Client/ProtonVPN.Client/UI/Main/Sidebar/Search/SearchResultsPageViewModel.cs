@@ -17,7 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ProtonVPN.Client.Core.Bases;
@@ -57,7 +56,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private readonly IExclusionChecker _exclusionChecker;
 
     private string _input = string.Empty;
-    private long _resultsGeneration;
 
     [ObservableProperty]
     private bool _hasSearchInput;
@@ -106,62 +104,36 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         base.OnLanguageChanged();
         OnPropertyChanged(nameof(ExampleCountries));
-        OnPropertyChanged(nameof(ExampleCities));
-        _ = ReloadResultsAsync();
+        ReloadResultsAsync().Wait();
     }
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
-        _ = ReloadResultsAsync();
+        ReloadResultsAsync().Wait();
     }
 
-    public Task SearchAsync(string input)
+    public async Task SearchAsync(string input)
     {
         IsBrowsingAllServers = false;
         _input = input;
-        return ReloadResultsAsync();
+        await SearchAsync();
     }
 
-    private Task ReloadResultsAsync()
-    {
-        long generation = Interlocked.Increment(ref _resultsGeneration);
-        return IsBrowsingAllServers
-            ? LoadAllServersAsync(generation)
-            : SearchAsync(generation);
-    }
-
-    private async Task SearchAsync(long generation)
+    private async Task SearchAsync()
     {
         string input = _input;
         if (string.IsNullOrWhiteSpace(input))
         {
-            if (!IsCurrentGeneration(generation))
-            {
-                return;
-            }
-
             HasSearchInput = false;
             SetSearchResult([]);
             _serverFinder.Cancel();
-            return;
         }
-
-        if (IsCurrentGeneration(generation))
+        else
         {
             HasSearchInput = true;
+            IEnumerable<ConnectionItemBase> result = await SetSearchResultsAsync(input);
+            TriggerServerSearchTimerIfNecessary(input, result);
         }
-
-        ServerFeatures? serverFeatures = GetServerFeatures();
-        Func<ILocation, ConnectionItemBase?> itemFactory = GetConnectionItemCreationFunction();
-        List<ConnectionItemBase> result = await GetSearchResultsAsync(input, serverFeatures, itemFactory);
-
-        if (!IsCurrentGeneration(generation))
-        {
-            return;
-        }
-
-        SetSearchResult(result);
-        TriggerServerSearchTimerIfNecessary(input, result);
     }
 
     [RelayCommand]
@@ -169,50 +141,42 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         _input = string.Empty;
         IsBrowsingAllServers = true;
-        return ReloadResultsAsync();
-    }
+        HasSearchInput = true;
 
-    private Task LoadAllServersAsync(long generation)
-    {
         ServerFeatures? serverFeatures = GetServerFeatures();
-        Func<ILocation, ConnectionItemBase?> itemFactory = GetConnectionItemCreationFunction();
         IEnumerable<Server> servers = serverFeatures is null
             ? ServersLoader.GetServers()
             : ServersLoader.GetServersByFeatures(serverFeatures.Value);
 
-        List<ConnectionItemBase> result = servers
+        IEnumerable<ConnectionItemBase> result = servers
             .Where(server => !_exclusionChecker.IsServerExcluded(server))
-            .Select(itemFactory)
+            .Select(GetConnectionItemCreationFunction())
             .Where(ci => ci is not null)
-            .Cast<ConnectionItemBase>()
-            .ToList();
+            .Cast<ConnectionItemBase>();
 
-        if (IsCurrentGeneration(generation))
-        {
-            HasSearchInput = true;
-            SetSearchResult(result);
-            _serverFinder.Cancel();
-        }
+        SetSearchResult(result);
+        _serverFinder.Cancel();
 
         return Task.CompletedTask;
     }
 
-    private async Task<List<ConnectionItemBase>> GetSearchResultsAsync(
-        string input,
-        ServerFeatures? serverFeatures,
-        Func<ILocation, ConnectionItemBase?> itemFactory)
+    private Task ReloadResultsAsync()
     {
-        return (await _globalSearch.SearchAsync(input, serverFeatures))
-            .Where(location => !IsLocationExcluded(location))
-            .Select(itemFactory)
-            .Where(ci => ci is not null)
-            .Cast<ConnectionItemBase>()
-            .ToList();
+        return IsBrowsingAllServers
+            ? BrowseAllServersAsync()
+            : SearchAsync();
     }
 
-    private bool IsCurrentGeneration(long generation)
+    private async Task<IEnumerable<ConnectionItemBase>> SetSearchResultsAsync(string input)
     {
-        return generation == Volatile.Read(ref _resultsGeneration);
+        IEnumerable<ConnectionItemBase> result = (await _globalSearch.SearchAsync(input, GetServerFeatures()))
+            .Where(location => !IsLocationExcluded(location))
+            .Select(GetConnectionItemCreationFunction())
+            .Where(ci => ci is not null)
+            .Cast<ConnectionItemBase>();
+        SetSearchResult(result);
+
+        return result;
     }
 
     private bool IsLocationExcluded(ILocation location)
@@ -361,9 +325,9 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         ExecuteOnUIThread(() =>
         {
-            if (HasSearchInput)
+            if (IsBrowsingAllServers)
             {
-                _ = ReloadResultsAsync();
+                BrowseAllServersAsync().Wait();
             }
             else
             {
@@ -376,16 +340,20 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     public void Receive(NewServerFoundMessage message)
     {
-        if (IsBrowsingAllServers || string.IsNullOrWhiteSpace(_input))
+        string input = _input;
+        if (string.IsNullOrWhiteSpace(input))
         {
             return;
         }
 
-        ExecuteOnUIThread(() => _ = ReloadResultsAsync());
+        ExecuteOnUIThread(async () =>
+        {
+            await SetSearchResultsAsync(input);
+        });
     }
 
     public void Receive(LocationNamesChangedMessage message)
     {
-        ExecuteOnUIThread(() => _ = ReloadResultsAsync());
+        ExecuteOnUIThread(() => ReloadResultsAsync().Wait());
     }
 }
