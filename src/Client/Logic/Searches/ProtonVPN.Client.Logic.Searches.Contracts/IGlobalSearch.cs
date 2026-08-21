@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Threading;
 using ProtonVPN.Client.Logic.Servers.Contracts.Enums;
 using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 
@@ -25,7 +26,8 @@ namespace ProtonVPN.Client.Logic.Searches.Contracts;
 public interface IGlobalSearch
 {
     Task<List<ILocation>> SearchAsync(
-        string? input, 
+        string? input,
         ServerFeatures? serverFeatures = null,
-        SearchCategory categories = SearchCategory.All);
+        SearchCategory categories = SearchCategory.All,
+        CancellationToken cancellationToken = default);
 }
