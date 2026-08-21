@@ -89,14 +89,18 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
     {
         // SearchTextBox lives outside the child navigation frame, so the frame can be
         // showing Recents/Connections while the text box still owns keyboard focus.
-        // Do not rely solely on GotFocus to enter search mode: any non-empty query must
-        // make the search page visible before publishing its results.
+        // Start the search immediately to preserve keystroke/cancellation ordering,
+        // while independently ensuring that any non-empty query makes Search visible.
+        Task searchTask = _searchInputReceiver.SearchAsync(value);
+
         if (!string.IsNullOrWhiteSpace(value))
         {
-            await ChildViewNavigator.NavigateToSearchViewAsync();
+            await Task.WhenAll(ChildViewNavigator.NavigateToSearchViewAsync(), searchTask);
         }
-
-        await _searchInputReceiver.SearchAsync(value);
+        else
+        {
+            await searchTask;
+        }
     }
 
     public void ClearSearch()
