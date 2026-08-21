@@ -106,6 +106,11 @@ public class ServersLoaderTest
             CountryCode = "US",
             Name = name,
             StateName = stateName,
+            Features = default,
+            IsStandardUnderMaintenance = false,
+            IsP2PUnderMaintenance = false,
+            IsSecureCoreUnderMaintenance = false,
+            IsTorUnderMaintenance = false,
         };
     }
 
