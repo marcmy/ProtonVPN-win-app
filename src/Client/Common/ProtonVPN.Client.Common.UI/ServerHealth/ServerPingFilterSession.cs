@@ -14,9 +14,13 @@ public sealed record ServerPingFilterOption(string Label, int? MaxLatencyMillise
 
 public sealed class ServerPingFilterSession : INotifyPropertyChanged
 {
+    private const int MAX_CONCURRENT_FILTER_PROBES = 4;
+
     public static ServerPingFilterSession Current { get; } = new();
 
     private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
+    private readonly SemaphoreSlim _filterProbeSlots =
+        new(MAX_CONCURRENT_FILTER_PROBES, MAX_CONCURRENT_FILTER_PROBES);
 
     private ServerPingFilterOption _selectedOption;
 
@@ -83,11 +87,22 @@ public sealed class ServerPingFilterSession : INotifyPropertyChanged
         return latency is not null && latency <= maximumLatency.Value;
     }
 
-    public Task<ServerHealthSnapshot> ProbeAsync(
+    public async Task<ServerHealthSnapshot> ProbeAsync(
         IServerHealthSource source,
         CancellationToken cancellationToken)
     {
-        return _historyStore.ProbeAsync(source, cancellationToken);
+        // Do not submit an entire country/search result to the shared health store at once.
+        // Consumer cancellation does not abort already-started shared probes, so a bounded
+        // admission window prevents stale filter work from building a large queue.
+        await _filterProbeSlots.WaitAsync(cancellationToken);
+        try
+        {
+            return await _historyStore.ProbeAsync(source, cancellationToken);
+        }
+        finally
+        {
+            _filterProbeSlots.Release();
+        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
