@@ -21,6 +21,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Controls;
 using ProtonVPN.Client.Common.UI.Assets.Icons.Base;
 using ProtonVPN.Client.Common.UI.Assets.Icons.PathIcons;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Enums;
 using ProtonVPN.Client.Core.Services.Navigation;
@@ -46,6 +47,8 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     public override int SortIndex { get; } = 2;
 
     public List<ICountriesComponent> CountriesComponents { get; }
+
+    public ServerPingFilterSession PingFilter { get; } = ServerPingFilterSession.Current;
 
     public override bool IsAvailable => ParentViewNavigator.CanNavigateToCountriesView();
 
