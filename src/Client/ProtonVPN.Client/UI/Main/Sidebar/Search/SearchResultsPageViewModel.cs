@@ -17,9 +17,11 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.ComponentModel;
 using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Enums;
 using ProtonVPN.Client.Core.Services.Navigation;
@@ -59,6 +61,8 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private string _input = string.Empty;
     private long _resultsGeneration;
     private CancellationTokenSource? _resultsCancellationTokenSource;
+    private CancellationTokenSource? _pingFilterProbeCancellationTokenSource;
+    private List<ConnectionItemBase> _unfilteredSearchResult = [];
 
     [ObservableProperty]
     private bool _hasSearchInput;
@@ -69,7 +73,15 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     [ObservableProperty]
     private ICountriesComponent _selectedCountriesComponent;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowNoResults))]
+    private bool _isMeasuringPingFilter;
+
     public List<ICountriesComponent> CountriesComponents { get; }
+
+    public ServerPingFilterSession PingFilter { get; } = ServerPingFilterSession.Current;
+
+    public bool ShowNoResults => !HasItems && !IsMeasuringPingFilter;
 
     public string ExampleCountries => $"{Localizer.GetCountryName("JP")}, {Localizer.GetCountryName("US")}";
     public string ExampleCities => $"{Localizer.GetCityName("Tokyo", "JP")}, {Localizer.GetCityName("Los Angeles", "US")}";
@@ -101,6 +113,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
         CountriesComponents = new(countriesComponents.OrderBy(p => p.SortIndex));
         _selectedCountriesComponent = CountriesComponents.First();
+        PingFilter.PropertyChanged += OnPingFilterPropertyChanged;
     }
 
     protected override void OnLanguageChanged()
@@ -278,6 +291,18 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void SetSearchResult(IEnumerable<ConnectionItemBase> result)
     {
+        StopPingFilterProbes();
+        _unfilteredSearchResult = result.ToList();
+        ApplySearchResult();
+        StartPingFilterProbes();
+    }
+
+    private void ApplySearchResult()
+    {
+        IEnumerable<ConnectionItemBase> result = PingFilter.IsActive
+            ? _unfilteredSearchResult.Where(IsPingFilterMatch)
+            : _unfilteredSearchResult;
+
         ResetItems(result);
         ResetGroups();
 
@@ -286,6 +311,102 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         InvalidateRestrictions();
 
         OnPropertyChanged(nameof(HasItems));
+        OnPropertyChanged(nameof(ShowNoResults));
+    }
+
+    private bool IsPingFilterMatch(ConnectionItemBase item)
+    {
+        if (item is not ServerLocationItemBase server)
+        {
+            return true;
+        }
+
+        return !server.IsUnderMaintenance && PingFilter.Matches(server);
+    }
+
+    private void OnPingFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ServerPingFilterSession.SelectedOption) || !HasSearchInput)
+        {
+            return;
+        }
+
+        StopPingFilterProbes();
+        ApplySearchResult();
+        StartPingFilterProbes();
+    }
+
+    private void StartPingFilterProbes()
+    {
+        if (!PingFilter.IsActive)
+        {
+            IsMeasuringPingFilter = false;
+            return;
+        }
+
+        List<ServerLocationItemBase> servers = _unfilteredSearchResult
+            .OfType<ServerLocationItemBase>()
+            .Where(server => !server.IsUnderMaintenance && !string.IsNullOrWhiteSpace(server.HealthProbeAddress))
+            .ToList();
+
+        if (servers.Count == 0)
+        {
+            IsMeasuringPingFilter = false;
+            return;
+        }
+
+        _pingFilterProbeCancellationTokenSource = new();
+        IsMeasuringPingFilter = true;
+        _ = ProbeForPingFilterAsync(servers, _pingFilterProbeCancellationTokenSource.Token);
+    }
+
+    private void StopPingFilterProbes()
+    {
+        _pingFilterProbeCancellationTokenSource?.Cancel();
+        _pingFilterProbeCancellationTokenSource?.Dispose();
+        _pingFilterProbeCancellationTokenSource = null;
+        IsMeasuringPingFilter = false;
+    }
+
+    private async Task ProbeForPingFilterAsync(
+        IReadOnlyCollection<ServerLocationItemBase> servers,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            List<Task<ServerHealthSnapshot>> pending = servers
+                .Select(server => PingFilter.ProbeAsync(server, cancellationToken))
+                .ToList();
+            int completedSinceRefresh = 0;
+
+            while (pending.Count > 0)
+            {
+                Task<ServerHealthSnapshot> completed = await Task.WhenAny(pending);
+                pending.Remove(completed);
+                await completed;
+
+                cancellationToken.ThrowIfCancellationRequested();
+                completedSinceRefresh++;
+
+                if (completedSinceRefresh >= 8 || pending.Count == 0)
+                {
+                    ApplySearchResult();
+                    completedSinceRefresh = 0;
+                }
+            }
+
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                IsMeasuringPingFilter = false;
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(ShowNoResults));
+        }
     }
 
     private Func<ILocation, ConnectionItemBase?> GetConnectionItemCreationFunction()
