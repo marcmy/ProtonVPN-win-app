@@ -84,7 +84,7 @@ public class ServerPingFilterSessionTest
         new()
         {
             HealthServerId = $"server-{suffix}",
-            HealthProbeAddress = $"192.0.2.{Math.Abs(suffix.GetHashCode()) % 200 + 1}",
+            HealthProbeAddress = "192.0.2.1",
             HealthServerLoad = 0.25,
         };
 }
