@@ -47,13 +47,15 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
     private const int HEALTH_REFRESH_TIMER_INTERVAL_IN_MS = 30000;
     private const int HEALTH_PROBE_SAMPLE_COUNT = 4;
 
+    private static readonly TimeSpan _healthProbeTimeout = TimeSpan.FromSeconds(8);
+    private static readonly ServerHealthHistoryStore _healthHistoryStore =
+        new(maximumConcurrentProbes: 1);
+
     private readonly IDispatcherTimer _refreshTimer;
     private readonly IDispatcherTimer _healthRefreshTimer;
     private readonly IConnectionManager _connectionManager;
     private readonly ISettings _settings;
     private readonly IVpnServiceCaller _vpnServiceCaller;
-    private readonly ServerHealthHistoryStore _healthHistoryStore =
-        ServerHealthHistorySession.Current;
 
     private bool _isHealthRefreshInProgress;
     private ServerHealthHistoryKey? _currentHealthKey;
@@ -487,9 +489,27 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
         public async Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Result<ServerHealthProbeResultIpcEntity> result =
-                await _vpnServiceCaller.ProbeServerHealthAsync(
-                    new ServerHealthProbeRequestIpcEntity { Address = HealthProbeAddress! });
+
+            Result<ServerHealthProbeResultIpcEntity> result;
+            try
+            {
+                Task<Result<ServerHealthProbeResultIpcEntity>> probeTask =
+                    _vpnServiceCaller.ProbeServerHealthAsync(
+                        new ServerHealthProbeRequestIpcEntity { Address = HealthProbeAddress! });
+                result = await probeTask.WaitAsync(_healthProbeTimeout, cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                return new(
+                    null,
+                    0,
+                    HEALTH_PROBE_SAMPLE_COUNT,
+                    DateTimeOffset.UtcNow,
+                    false,
+                    "The current-server health check timed out.",
+                    HealthServerLoad);
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!result.Success)
