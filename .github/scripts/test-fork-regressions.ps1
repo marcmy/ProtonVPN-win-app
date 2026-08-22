@@ -3,6 +3,9 @@ param(
     [ValidateSet('Client', 'Service', 'All')]
     [string] $Scope = 'All',
 
+    [ValidateSet('All', 'Ui', 'Core', 'Integration')]
+    [string] $TestGroup = 'All',
+
     [ValidateNotNullOrEmpty()]
     [string] $Configuration = 'Release',
 
@@ -73,9 +76,12 @@ if ($Scope -in @('Client', 'All')) {
     }
 }
 
-$clientProjects = @(
+$uiProjects = @(
     'src/Client/Localization/ProtonVPN.Client.Localization.Tests/ProtonVPN.Client.Localization.Tests.csproj',
-    'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj',
+    'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj'
+)
+
+$coreClientProjects = @(
     'src/Client/Logic/Searches/ProtonVPN.Client.Logic.Searches.Tests/ProtonVPN.Client.Logic.Searches.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Tests/ProtonVPN.Client.Logic.Servers.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Mappers.Tests/ProtonVPN.Client.Logic.Servers.Mappers.Tests.csproj',
@@ -88,19 +94,44 @@ $serviceProjects = @(
     'src/Tests/ProtonVPN.Update.Tests/ProtonVPN.Update.Tests.csproj'
 )
 
-$crossCuttingProjects = @(
+$integrationProjects = @(
     'src/Tests/ProtonVPN.Integration.Tests/ProtonVPN.Integration.Tests.csproj'
 )
 
 $projects = @()
-if ($Scope -in @('Client', 'All')) {
-    $projects += $clientProjects
+switch ($TestGroup) {
+    'Ui' {
+        if ($Scope -in @('Client', 'All')) {
+            $projects += $uiProjects
+        }
+    }
+    'Core' {
+        if ($Scope -in @('Client', 'All')) {
+            $projects += $coreClientProjects
+        }
+        if ($Scope -in @('Service', 'All')) {
+            $projects += $serviceProjects
+        }
+    }
+    'Integration' {
+        $projects += $integrationProjects
+    }
+    default {
+        if ($Scope -in @('Client', 'All')) {
+            $projects += $uiProjects
+            $projects += $coreClientProjects
+        }
+        if ($Scope -in @('Service', 'All')) {
+            $projects += $serviceProjects
+        }
+        $projects += $integrationProjects
+    }
 }
-if ($Scope -in @('Service', 'All')) {
-    $projects += $serviceProjects
-}
-$projects += $crossCuttingProjects
 $projects = @($projects | Select-Object -Unique)
+
+if ($projects.Count -eq 0) {
+    throw "No regression projects selected for scope '$Scope' and test group '$TestGroup'."
+}
 
 function Invoke-TestProject {
     param(
@@ -127,6 +158,7 @@ function Invoke-TestProject {
         $resolvedProjectPath,
         '--configuration', $Configuration,
         "-p:Platform=$Platform",
+        '-p:RestoreUseStaticGraphEvaluation=true',
         '--logger', "trx;LogFileName=$trxName",
         '--results-directory', $logsDir,
         '--nologo',
@@ -151,11 +183,11 @@ foreach ($project in $projects) {
     Invoke-TestProject -ProjectPath $project
 }
 
-if ($RepeatServerHealth -and $Scope -in @('Client', 'All')) {
+if ($RepeatServerHealth -and $Scope -in @('Client', 'All') -and $TestGroup -in @('All', 'Ui')) {
     Invoke-TestProject `
         -ProjectPath 'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj' `
         -LogSuffix '-repeat' `
         -NoBuild
 }
 
-Write-Host "Completed $($projects.Count) fork regression test projects for scope $Scope."
+Write-Host "Completed $($projects.Count) fork regression test projects for scope $Scope and test group $TestGroup."
