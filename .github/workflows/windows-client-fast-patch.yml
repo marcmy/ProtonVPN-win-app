@@ -39,8 +39,50 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  regression:
+    name: Run fork regression tests
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.23.x'
+          cache: false
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Prepare regression logs
+        run: New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
+
+      - name: Run fork regression tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\.github\scripts\test-fork-regressions.ps1 `
+            -Scope All `
+            -LogsDirectory artifacts/logs `
+            -RepeatServerHealth
+
   pipeline:
-    name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Validate and package client and service changes' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Build and package client and service changes' }}
     runs-on: windows-latest
     timeout-minutes: 90
 
@@ -73,14 +115,6 @@ jobs:
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
-
-      - name: Cache NuGet packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
-          restore-keys: |
-            nuget-${{ runner.os }}-
 
       - name: Prepare artifact folders
         run: |
@@ -142,8 +176,9 @@ jobs:
         run: .\.github\scripts\test-patch-tooling.ps1
 
       - name: Run fork regression tests
+        if: github.event_name == 'workflow_dispatch'
         env:
-          REQUESTED_BUILD_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.build_mode || 'both' }}
+          REQUESTED_BUILD_MODE: ${{ inputs.build_mode }}
         run: |
           $ErrorActionPreference = 'Stop'
           $scope = switch ($env:REQUESTED_BUILD_MODE) {
