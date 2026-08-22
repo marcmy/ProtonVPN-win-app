@@ -33,16 +33,32 @@ on:
 permissions:
   contents: read
 
+env:
+  NUGET_XMLDOC_MODE: skip
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
 concurrency:
   group: windows-fast-patch-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.build_mode || 'both' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   regression:
-    name: Run fork regression tests
+    name: Run fork regression tests (${{ matrix.test_group }})
     if: github.event_name == 'pull_request'
     runs-on: windows-latest
     timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test_group: Ui
+            repeat_server_health: true
+          - test_group: Core
+            repeat_server_health: false
+          - test_group: Integration
+            repeat_server_health: false
 
     defaults:
       run:
@@ -52,19 +68,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          submodules: recursive
           persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 8.0.x
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: '1.23.x'
-          cache: false
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
@@ -73,12 +82,17 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
 
       - name: Run fork regression tests
+        env:
+          TEST_GROUP: ${{ matrix.test_group }}
+          REPEAT_SERVER_HEALTH: ${{ matrix.repeat_server_health }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $repeatServerHealth = [bool]::Parse($env:REPEAT_SERVER_HEALTH)
           .\.github\scripts\test-fork-regressions.ps1 `
             -Scope All `
+            -TestGroup $env:TEST_GROUP `
             -LogsDirectory artifacts/logs `
-            -RepeatServerHealth
+            -RepeatServerHealth:$repeatServerHealth
 
   pipeline:
     name: ${{ github.event_name == 'workflow_dispatch' && format('Build {0} patch artifact', inputs.build_mode) || 'Build and package client and service changes' }}
@@ -104,13 +118,6 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 8.0.x
-
-      - name: Setup Go
-        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: '1.23.x'
-          cache: false
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
@@ -200,7 +207,7 @@ jobs:
             $PSNativeCommandUseErrorActionPreference = $false
           }
 
-          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64 -bl:artifacts/logs/client-restore.binlog *>&1 |
+          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64 -p:RestoreUseStaticGraphEvaluation=true -bl:artifacts/logs/client-restore.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/client-restore.log
 
           if ($LASTEXITCODE -ne 0) {
@@ -215,7 +222,7 @@ jobs:
             $PSNativeCommandUseErrorActionPreference = $false
           }
 
-          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64 -bl:artifacts/logs/service-restore.binlog *>&1 |
+          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64 -p:RestoreUseStaticGraphEvaluation=true -bl:artifacts/logs/service-restore.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/service-restore.log
 
           if ($LASTEXITCODE -ne 0) {
