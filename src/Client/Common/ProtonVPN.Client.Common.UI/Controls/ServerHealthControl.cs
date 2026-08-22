@@ -35,6 +35,7 @@ public sealed class ServerHealthControl : Grid
     private static readonly TimeSpan _refreshInterval = TimeSpan.FromSeconds(60);
 
     private readonly Border[] _bars;
+    private readonly TextBlock _latencyText;
     private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
     private readonly ServerHealthHistoryDetailsControl _detailsControl = new();
 
@@ -67,7 +68,6 @@ public sealed class ServerHealthControl : Grid
 
     public ServerHealthControl()
     {
-        Width = 24;
         Height = 16;
         HorizontalAlignment = HorizontalAlignment.Center;
         VerticalAlignment = VerticalAlignment.Center;
@@ -89,6 +89,19 @@ public sealed class ServerHealthControl : Grid
             SetColumn(_bars[i], i);
             Children.Add(_bars[i]);
         }
+
+        _latencyText = new TextBlock
+        {
+            MinWidth = 40,
+            Margin = new Thickness(4, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            Foreground = GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)),
+            Text = "—",
+        };
+        ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        SetColumn(_latencyText, _bars.Length);
+        Children.Add(_latencyText);
 
         SetCheckingState();
 
@@ -200,6 +213,7 @@ public sealed class ServerHealthControl : Grid
         _detailsControl.Snapshot = snapshot;
         ToolTipService.SetToolTip(this, _detailsControl);
         ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
+        _latencyText.Text = presentation.LatencyText;
 
         if (snapshot.Aggregate is null)
         {
@@ -242,6 +256,7 @@ public sealed class ServerHealthControl : Grid
 
     private void SetCheckingState()
     {
+        _latencyText.Text = "—";
         SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
         _detailsControl.Snapshot = null;
         ToolTipService.SetToolTip(this, _detailsControl);
@@ -250,6 +265,7 @@ public sealed class ServerHealthControl : Grid
 
     private void SetUnavailableState(string reason)
     {
+        _latencyText.Text = "—";
         SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
         string text = $"Server health: Unavailable\n{reason}\nServer load: {ServerLoad:P0}";
         ToolTipService.SetToolTip(this, text);
