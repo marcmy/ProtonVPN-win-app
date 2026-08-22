@@ -26,4 +26,6 @@ public interface IHostLocationItem : ILocationItem
     SmartObservableCollection<ConnectionItemBase> SubItems { get; }
 
     void FetchSubItems();
+
+    void RefreshPingFilter();
 }
