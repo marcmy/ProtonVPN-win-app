@@ -94,6 +94,10 @@ public class ServerConnectionRowButton : ConnectionRowButtonBase
             indicatorsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
 
+        // The original feature column was star-sized. Once latency text is inserted beside
+        // server load, that star column can collapse to zero in the narrow sidebar and hide
+        // Smart Routing/Tor indicators. Let feature tags keep their natural width instead.
+        indicatorsGrid.ColumnDefinitions[0].Width = GridLength.Auto;
         indicatorsGrid.ColumnSpacing = 8;
         Grid.SetColumn(serverLoadElement, 2);
 
