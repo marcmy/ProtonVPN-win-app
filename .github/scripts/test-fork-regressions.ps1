@@ -3,6 +3,9 @@ param(
     [ValidateSet('Client', 'Service', 'All')]
     [string] $Scope = 'All',
 
+    [ValidateSet('All', 'Ui', 'Core', 'Integration')]
+    [string] $TestGroup = 'All',
+
     [ValidateNotNullOrEmpty()]
     [string] $Configuration = 'Release',
 
@@ -12,6 +15,8 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $LogsDirectory = 'artifacts/logs',
 
+    # Kept for compatibility with existing callers. Regression tests now use
+    # normal project output paths so MSBuild can reuse shared dependencies.
     [ValidateNotNullOrEmpty()]
     [string] $TestOutputDirectory = 'artifacts/test-bin',
 
@@ -55,41 +60,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $repositoryRoot 'src') -PathType Con
 }
 
 $logsDir = Resolve-RepositoryPath $LogsDirectory
-$testOutputRoot = Resolve-RepositoryPath $TestOutputDirectory
-$normalizedRepositoryRoot = $repositoryRoot.TrimEnd('\', '/')
-$normalizedTestOutputRoot = $testOutputRoot.TrimEnd('\', '/')
-$testOutputPrefix = "$normalizedRepositoryRoot$([System.IO.Path]::DirectorySeparatorChar)"
-$sourceRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot 'src')).TrimEnd('\', '/')
-$sourcePrefix = "$sourceRoot$([System.IO.Path]::DirectorySeparatorChar)"
-$temporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\', '/')
-$temporaryPrefix = "$temporaryRoot$([System.IO.Path]::DirectorySeparatorChar)"
-
-if (-not $normalizedTestOutputRoot.StartsWith(
-        $testOutputPrefix,
-        [System.StringComparison]::OrdinalIgnoreCase) -and
-    -not $normalizedTestOutputRoot.StartsWith(
-        $temporaryPrefix,
-        [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "Test output must be below the repository root or temporary directory: $testOutputRoot"
-}
-
-if ($normalizedTestOutputRoot.Equals(
-        $normalizedRepositoryRoot,
-        [System.StringComparison]::OrdinalIgnoreCase) -or
-    $normalizedTestOutputRoot.Equals(
-        $temporaryRoot,
-        [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "Test output must not be a broad cleanup root: $testOutputRoot"
-}
-
-if ($normalizedTestOutputRoot.StartsWith(
-        $sourcePrefix,
-        [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "Test output must not be written inside the source tree: $testOutputRoot"
-}
-
 New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
-New-Item -ItemType Directory -Force -Path $testOutputRoot | Out-Null
 
 if ($Scope -in @('Client', 'All')) {
     $sidebarSearchPath = Resolve-RepositoryPath 'src/Client/ProtonVPN.Client/UI/Main/Sidebar/SidebarComponentViewModel.cs'
@@ -105,9 +76,12 @@ if ($Scope -in @('Client', 'All')) {
     }
 }
 
-$clientProjects = @(
+$uiProjects = @(
     'src/Client/Localization/ProtonVPN.Client.Localization.Tests/ProtonVPN.Client.Localization.Tests.csproj',
-    'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj',
+    'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj'
+)
+
+$coreClientProjects = @(
     'src/Client/Logic/Searches/ProtonVPN.Client.Logic.Searches.Tests/ProtonVPN.Client.Logic.Searches.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Tests/ProtonVPN.Client.Logic.Servers.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Mappers.Tests/ProtonVPN.Client.Logic.Servers.Mappers.Tests.csproj',
@@ -120,26 +94,53 @@ $serviceProjects = @(
     'src/Tests/ProtonVPN.Update.Tests/ProtonVPN.Update.Tests.csproj'
 )
 
-$crossCuttingProjects = @(
+$integrationProjects = @(
     'src/Tests/ProtonVPN.Integration.Tests/ProtonVPN.Integration.Tests.csproj'
 )
 
 $projects = @()
-if ($Scope -in @('Client', 'All')) {
-    $projects += $clientProjects
+switch ($TestGroup) {
+    'Ui' {
+        if ($Scope -in @('Client', 'All')) {
+            $projects += $uiProjects
+        }
+    }
+    'Core' {
+        if ($Scope -in @('Client', 'All')) {
+            $projects += $coreClientProjects
+        }
+        if ($Scope -in @('Service', 'All')) {
+            $projects += $serviceProjects
+        }
+    }
+    'Integration' {
+        $projects += $integrationProjects
+    }
+    default {
+        if ($Scope -in @('Client', 'All')) {
+            $projects += $uiProjects
+            $projects += $coreClientProjects
+        }
+        if ($Scope -in @('Service', 'All')) {
+            $projects += $serviceProjects
+        }
+        $projects += $integrationProjects
+    }
 }
-if ($Scope -in @('Service', 'All')) {
-    $projects += $serviceProjects
-}
-$projects += $crossCuttingProjects
 $projects = @($projects | Select-Object -Unique)
+
+if ($projects.Count -eq 0) {
+    throw "No regression projects selected for scope '$Scope' and test group '$TestGroup'."
+}
 
 function Invoke-TestProject {
     param(
         [Parameter(Mandatory = $true)]
         [string] $ProjectPath,
 
-        [string] $LogSuffix = ''
+        [string] $LogSuffix = '',
+
+        [switch] $NoBuild
     )
 
     $resolvedProjectPath = Resolve-RepositoryPath $ProjectPath
@@ -151,21 +152,26 @@ function Invoke-TestProject {
     $logName = "$projectName$LogSuffix"
     $textLogPath = Join-Path $logsDir "$logName.log"
     $trxName = "$logName.trx"
-    $testOutputDir = Join-Path $testOutputRoot $logName
 
-    Remove-Item -LiteralPath $testOutputDir -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $testOutputDir | Out-Null
+    $dotnetArguments = @(
+        'test',
+        $resolvedProjectPath,
+        '--configuration', $Configuration,
+        "-p:Platform=$Platform",
+        '-p:RestoreUseStaticGraphEvaluation=true',
+        '--logger', "trx;LogFileName=$trxName",
+        '--results-directory', $logsDir,
+        '--nologo',
+        '--verbosity', 'minimal'
+    )
+
+    if ($NoBuild) {
+        $dotnetArguments += '--no-build'
+        $dotnetArguments += '--no-restore'
+    }
 
     Write-Host "Running fork regression project: $ProjectPath"
-    dotnet test $resolvedProjectPath `
-        --configuration $Configuration `
-        -p:Platform=$Platform `
-        -p:OutputPath=$testOutputDir `
-        -p:AppendTargetFrameworkToOutputPath=false `
-        --logger "trx;LogFileName=$trxName" `
-        --results-directory $logsDir `
-        --nologo `
-        --verbosity minimal *>&1 |
+    & dotnet @dotnetArguments *>&1 |
         Tee-Object -FilePath $textLogPath
 
     if ($LASTEXITCODE -ne 0) {
@@ -177,10 +183,11 @@ foreach ($project in $projects) {
     Invoke-TestProject -ProjectPath $project
 }
 
-if ($RepeatServerHealth -and $Scope -in @('Client', 'All')) {
+if ($RepeatServerHealth -and $Scope -in @('Client', 'All') -and $TestGroup -in @('All', 'Ui')) {
     Invoke-TestProject `
         -ProjectPath 'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj' `
-        -LogSuffix '-repeat'
+        -LogSuffix '-repeat' `
+        -NoBuild
 }
 
-Write-Host "Completed $($projects.Count) fork regression test projects for scope $Scope."
+Write-Host "Completed $($projects.Count) fork regression test projects for scope $Scope and test group $TestGroup."
