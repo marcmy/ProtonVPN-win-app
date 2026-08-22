@@ -17,7 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.ComponentModel;
 using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -49,7 +48,6 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
     private ConnectionDetails? _lastKnownConnectionDetails = null;
     private List<ConnectionItemBase> _unfilteredSubItems = [];
     private CancellationTokenSource? _pingFilterProbeCancellationTokenSource;
-    private bool _isPingFilterSubscribed;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ShowSmartRoutingOverlayCommand))]
@@ -122,7 +120,6 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
 
     public void FetchSubItems()
     {
-        SubscribeToPingFilter();
         StopPingFilterProbes();
         _unfilteredSubItems = GetSubItems().ToList();
 
@@ -130,10 +127,26 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
         StartPingFilterProbes();
     }
 
+    public void RefreshPingFilter()
+    {
+        if (_unfilteredSubItems.Count == 0)
+        {
+            return;
+        }
+
+        StopPingFilterProbes();
+        ApplySubItems();
+        StartPingFilterProbes();
+
+        foreach (IHostLocationItem nestedHost in _unfilteredSubItems.OfType<IHostLocationItem>())
+        {
+            nestedHost.RefreshPingFilter();
+        }
+    }
+
     protected void ClearSubItems()
     {
         StopPingFilterProbes();
-        UnsubscribeFromPingFilter();
         _unfilteredSubItems.Clear();
         SubItems.Clear();
         SubGroups.Clear();
@@ -174,40 +187,6 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
         }
 
         return !server.IsUnderMaintenance && _pingFilter.Matches(server);
-    }
-
-    private void SubscribeToPingFilter()
-    {
-        if (_isPingFilterSubscribed)
-        {
-            return;
-        }
-
-        _pingFilter.PropertyChanged += OnPingFilterPropertyChanged;
-        _isPingFilterSubscribed = true;
-    }
-
-    private void UnsubscribeFromPingFilter()
-    {
-        if (!_isPingFilterSubscribed)
-        {
-            return;
-        }
-
-        _pingFilter.PropertyChanged -= OnPingFilterPropertyChanged;
-        _isPingFilterSubscribed = false;
-    }
-
-    private void OnPingFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName != nameof(ServerPingFilterSession.SelectedOption))
-        {
-            return;
-        }
-
-        ApplySubItems();
-        StopPingFilterProbes();
-        StartPingFilterProbes();
     }
 
     private void StartPingFilterProbes()
