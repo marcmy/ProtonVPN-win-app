@@ -139,12 +139,20 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
           New-Item -ItemType Directory -Force -Path artifacts/ProtonVPN.Client.Patch | Out-Null
           New-Item -ItemType Directory -Force -Path artifacts/Installer | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/launcher-build-output | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/runtime-dependency-output | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/upstream-baseline | Out-Null
 
       - name: Clean previous build output
         if: github.event_name == 'workflow_dispatch'
         run: |
           Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath artifacts/client-build-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/launcher-build-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/runtime-dependency-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/runtime-dependency-metadata.json -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path artifacts/launcher-build-output | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/runtime-dependency-output | Out-Null
 
       - name: Resolve target app version
         id: app-version
@@ -191,7 +199,9 @@ jobs:
           "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
 
       - name: Test patch automation
-        run: .\.github\scripts\test-patch-tooling.ps1
+        run: |
+          .\.github\scripts\test-patch-tooling.ps1
+          .\.github\scripts\test-complete-fast-patch.ps1
 
       - name: Run fork regression tests
         if: github.event_name == 'workflow_dispatch'
@@ -226,6 +236,16 @@ jobs:
             throw "Client restore failed with exit code $LASTEXITCODE"
           }
 
+      - name: Restore application launcher project
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet restore src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj --runtime win-x64 -p:RestoreUseStaticGraphEvaluation=true -bl:artifacts/logs/launcher-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/launcher-restore.log
+          if ($LASTEXITCODE -ne 0) {
+            throw "Application launcher restore failed with exit code $LASTEXITCODE"
+          }
+
       - name: Restore service project
         if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'service' || inputs.build_mode == 'both' }}
         run: |
@@ -256,6 +276,29 @@ jobs:
             throw "Client build failed with exit code $LASTEXITCODE"
           }
 
+      - name: Publish self-contained application launcher
+        if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --no-restore `
+            --output artifacts/launcher-build-output `
+            -p:Platform=x64 `
+            -p:SelfContained=true `
+            -p:PublishSingleFile=true `
+            -p:PublishTrimmed=true `
+            -v:minimal `
+            -bl:artifacts/logs/launcher-publish.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/launcher-publish.log
+          if ($LASTEXITCODE -ne 0) {
+            throw "Application launcher publish failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path -LiteralPath artifacts/launcher-build-output/ProtonVPN.Launcher.exe -PathType Leaf)) {
+            throw 'Published ProtonVPN.Launcher.exe was not produced.'
+          }
+
       - name: Stage client patch build output
         if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
@@ -276,6 +319,53 @@ jobs:
             throw "Service build failed with exit code $LASTEXITCODE"
           }
 
+      - name: Resolve upstream dependency baseline
+        id: upstream-baseline
+        env:
+          FORK_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{
+            Accept = 'application/vnd.github+json'
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            'X-GitHub-Api-Version' = '2022-11-28'
+            'User-Agent' = 'ProtonVPN-FastPatch'
+          }
+
+          $base = [Uri]::EscapeDataString('ProtonVPN:master')
+          $compareUrl = "https://api.github.com/repos/$env:REPOSITORY/compare/$base...$env:FORK_COMMIT"
+          $comparison = Invoke-RestMethod -Uri $compareUrl -Headers $headers
+          $mergeBase = [string] $comparison.merge_base_commit.sha
+          if ($mergeBase -notmatch '^[0-9a-f]{40}$') {
+            throw "GitHub compare did not return a valid upstream merge base for $env:FORK_COMMIT."
+          }
+
+          $contentsUrl = "https://api.github.com/repos/ProtonVPN/win-app/contents/Directory.Packages.props?ref=$mergeBase"
+          $file = Invoke-RestMethod -Uri $contentsUrl -Headers $headers
+          $encoded = ([string] $file.content) -replace '\s', ''
+          if ([string]::IsNullOrWhiteSpace($encoded)) {
+            throw "Upstream Directory.Packages.props was empty at $mergeBase."
+          }
+          $text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
+          $baselinePath = 'artifacts/upstream-baseline/Directory.Packages.props'
+          [IO.File]::WriteAllText($baselinePath, $text, [Text.UTF8Encoding]::new($false))
+          [xml] (Get-Content -LiteralPath $baselinePath -Raw) | Out-Null
+
+          Write-Host "FastPatch dependency baseline: ProtonVPN/win-app@$mergeBase"
+          "upstream_base_commit=$mergeBase" >> $env:GITHUB_OUTPUT
+
+      - name: Stage changed runtime dependency closure
+        env:
+          BUILD_MODE: ${{ github.event_name == 'pull_request' && 'both' || inputs.build_mode }}
+          UPSTREAM_BASE_COMMIT: ${{ steps.upstream-baseline.outputs.upstream_base_commit }}
+        run: |
+          .\.github\scripts\stage-runtime-dependency-delta.ps1 `
+            -BuildMode $env:BUILD_MODE `
+            -BaselinePackagesPath artifacts/upstream-baseline/Directory.Packages.props `
+            -UpstreamBaseCommit $env:UPSTREAM_BASE_COMMIT
+
       - name: Package versioned patch artifacts
         id: package
         env:
@@ -285,7 +375,7 @@ jobs:
           SOURCE_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
-          .\.github\scripts\package-patch-artifacts.ps1 `
+          .\.github\scripts\package-complete-fast-patch.ps1 `
             -BuildMode $env:BUILD_MODE `
             -TargetVersion $env:TARGET_VERSION `
             -SourceCommit $env:SOURCE_COMMIT `
