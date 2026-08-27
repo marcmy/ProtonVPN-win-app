@@ -49,6 +49,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $BuilderPath = (Join-Path $PSScriptRoot '..\..\scripts\New-ProtonVPNPatchSfx.ps1'),
 
+    [Alias('InstallerScriptPath')]
     [ValidateNotNullOrEmpty()]
     [string] $BaseInstallerScriptPath = (Join-Path $PSScriptRoot '..\..\scripts\Install-ProtonVPNPatch.ps1'),
 
@@ -129,8 +130,27 @@ function Copy-ValidatedFile {
 
 $basePackager = [System.IO.Path]::GetFullPath($BasePackagerPath)
 $builder = [System.IO.Path]::GetFullPath($BuilderPath)
-$baseInstaller = [System.IO.Path]::GetFullPath($BaseInstallerScriptPath)
-$completeInstaller = [System.IO.Path]::GetFullPath($CompleteInstallerScriptPath)
+$baseInstallerCandidate = [System.IO.Path]::GetFullPath($BaseInstallerScriptPath)
+if (-not (Test-Path -LiteralPath $baseInstallerCandidate -PathType Leaf)) {
+    $tempBaseInstaller = Join-Path $PSScriptRoot 'Install-ProtonVPNPatch.ps1'
+    if (Test-Path -LiteralPath $tempBaseInstaller -PathType Leaf) {
+        $baseInstallerCandidate = [System.IO.Path]::GetFullPath($tempBaseInstaller)
+    }
+}
+$baseInstaller = $baseInstallerCandidate
+
+$completeInstallerCandidate = [System.IO.Path]::GetFullPath($CompleteInstallerScriptPath)
+if (-not (Test-Path -LiteralPath $completeInstallerCandidate -PathType Leaf)) {
+    $preservedCompleteInstaller = Join-Path $PSScriptRoot 'Install-ProtonVPNCompletePatch.ps1'
+    $workingTreeCompleteInstaller = Join-Path ([System.Environment]::CurrentDirectory) 'scripts\Install-ProtonVPNCompletePatch.ps1'
+    if (Test-Path -LiteralPath $preservedCompleteInstaller -PathType Leaf) {
+        $completeInstallerCandidate = [System.IO.Path]::GetFullPath($preservedCompleteInstaller)
+    } elseif (Test-Path -LiteralPath $workingTreeCompleteInstaller -PathType Leaf) {
+        $completeInstallerCandidate = [System.IO.Path]::GetFullPath($workingTreeCompleteInstaller)
+    }
+}
+$completeInstaller = $completeInstallerCandidate
+
 $installerLauncher = [System.IO.Path]::GetFullPath($InstallerLauncherPath)
 $patchDir = [System.IO.Path]::GetFullPath($PatchDirectory)
 $installerDir = [System.IO.Path]::GetFullPath($InstallerDirectory)
@@ -165,7 +185,7 @@ foreach ($protectedInput in @($launcherOutputDir, $runtimeOutputDir, $runtimeMet
     -PatchDirectory $PatchDirectory `
     -InstallerDirectory $InstallerDirectory `
     -BuilderPath $BuilderPath `
-    -InstallerScriptPath $BaseInstallerScriptPath `
+    -InstallerScriptPath $baseInstaller `
     -LauncherPath $InstallerLauncherPath
 
 $manifestPath = Join-Path $patchDir 'patch-manifest.json'
