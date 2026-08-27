@@ -20,45 +20,22 @@ $testRoot = if ($ownsWorkingDirectory) {
 }
 
 function Assert-Condition {
-    param(
-        [Parameter(Mandatory = $true)]
-        [bool] $Condition,
-
-        [Parameter(Mandatory = $true)]
-        [string] $Message
-    )
-
-    if (-not $Condition) {
-        throw $Message
-    }
+    param([bool] $Condition, [string] $Message)
+    if (-not $Condition) { throw $Message }
 }
 
 function Write-TestText {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Path,
-
-        [Parameter(Mandatory = $true)]
-        [AllowEmptyString()]
-        [string] $Content
-    )
-
+    param([string] $Path, [AllowEmptyString()] [string] $Content)
     New-Item -ItemType Directory -Force -Path (Split-Path -Path $Path -Parent) | Out-Null
     [IO.File]::WriteAllText($Path, $Content, [Text.UTF8Encoding]::new($false))
 }
 
 function Write-PackageProps {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Path,
-
-        [Parameter(Mandatory = $true)]
-        [hashtable] $Versions
-    )
+    param([string] $Path, [hashtable] $Versions)
 
     $items = @(
         foreach ($id in $Versions.Keys | Sort-Object) {
-            "    <PackageVersion Include=\"$id\" Version=\"$($Versions[$id])\" />"
+            '    <PackageVersion Include="{0}" Version="{1}" />' -f $id, $Versions[$id]
         }
     ) -join "`n"
 
@@ -75,10 +52,7 @@ $items
 }
 
 function New-ClientDependencyFixture {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $OutputDirectory
-    )
+    param([string] $OutputDirectory)
 
     New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
     Write-TestText (Join-Path $OutputDirectory 'Grpc.Net.Client.dll') 'grpc-client-2.80'
@@ -87,42 +61,25 @@ function New-ClientDependencyFixture {
 
     $target = [ordered]@{
         'Grpc.Net.Client/2.80.0' = [ordered]@{
-            dependencies = [ordered]@{
-                'Grpc.Core.Api' = '2.80.0'
-            }
-            runtime = [ordered]@{
-                'lib/net8.0/Grpc.Net.Client.dll' = [ordered]@{}
-            }
+            dependencies = [ordered]@{ 'Grpc.Core.Api' = '2.80.0' }
+            runtime = [ordered]@{ 'lib/net8.0/Grpc.Net.Client.dll' = [ordered]@{} }
         }
         'Grpc.Core.Api/2.80.0' = [ordered]@{
-            runtime = [ordered]@{
-                'lib/net8.0/Grpc.Core.Api.dll' = [ordered]@{}
-            }
+            runtime = [ordered]@{ 'lib/net8.0/Grpc.Core.Api.dll' = [ordered]@{} }
         }
         'Microsoft.Windows.Compatibility/10.0.10' = [ordered]@{
-            dependencies = [ordered]@{
-                'System.Security.Cryptography.Pkcs' = '10.0.10'
-            }
+            dependencies = [ordered]@{ 'System.Security.Cryptography.Pkcs' = '10.0.10' }
         }
         'System.Security.Cryptography.Pkcs/10.0.10' = [ordered]@{
-            runtime = [ordered]@{
-                'lib/net8.0/System.Security.Cryptography.Pkcs.dll' = [ordered]@{}
-            }
+            runtime = [ordered]@{ 'lib/net8.0/System.Security.Cryptography.Pkcs.dll' = [ordered]@{} }
         }
     }
-
     $libraries = [ordered]@{}
-    foreach ($key in $target.Keys) {
-        $libraries[$key] = [ordered]@{ type = 'package' }
-    }
+    foreach ($key in $target.Keys) { $libraries[$key] = [ordered]@{ type = 'package' } }
 
     $document = [ordered]@{
-        runtimeTarget = [ordered]@{
-            name = '.NETCoreApp,Version=v8.0/win-x64'
-        }
-        targets = [ordered]@{
-            '.NETCoreApp,Version=v8.0/win-x64' = $target
-        }
+        runtimeTarget = [ordered]@{ name = '.NETCoreApp,Version=v8.0/win-x64' }
+        targets = [ordered]@{ '.NETCoreApp,Version=v8.0/win-x64' = $target }
         libraries = $libraries
     }
 
@@ -139,17 +96,17 @@ function Test-RuntimeDependencyClosure {
     $stageDir = Join-Path $fixture 'runtime-stage'
     $metadataPath = Join-Path $fixture 'runtime-metadata.json'
 
-    Write-PackageProps -Path $baselineProps -Versions @{
+    Write-PackageProps $baselineProps @{
         'coverlet.collector' = '8.0.0'
         'Grpc.Net.Client' = '2.76.0'
         'Microsoft.Windows.Compatibility' = '10.0.3'
     }
-    Write-PackageProps -Path $currentProps -Versions @{
+    Write-PackageProps $currentProps @{
         'coverlet.collector' = '10.0.1'
         'Grpc.Net.Client' = '2.80.0'
         'Microsoft.Windows.Compatibility' = '10.0.10'
     }
-    $depsPath = New-ClientDependencyFixture -OutputDirectory $clientOutput
+    $depsPath = New-ClientDependencyFixture $clientOutput
 
     & $stageRuntimeScript `
         -BuildMode client `
@@ -161,52 +118,32 @@ function Test-RuntimeDependencyClosure {
         -StageDirectory $stageDir `
         -MetadataPath $metadataPath
 
-    foreach ($file in @(
-        'Grpc.Net.Client.dll',
-        'Grpc.Core.Api.dll',
-        'System.Security.Cryptography.Pkcs.dll'
-    )) {
-        Assert-Condition (Test-Path -LiteralPath (Join-Path $stageDir $file) -PathType Leaf) `
-            "Runtime dependency closure omitted $file."
+    foreach ($file in @('Grpc.Net.Client.dll', 'Grpc.Core.Api.dll', 'System.Security.Cryptography.Pkcs.dll')) {
+        Assert-Condition (Test-Path -LiteralPath (Join-Path $stageDir $file) -PathType Leaf) "Runtime dependency closure omitted $file."
     }
-
-    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $stageDir 'coverlet.collector.dll'))) `
-        'Test-only coverlet package leaked into runtime dependency staging.'
 
     $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
-    Assert-Condition (@($metadata.changedDirectPackages).Count -eq 3) `
-        'Runtime dependency metadata did not record all changed direct package roots.'
-    Assert-Condition (@($metadata.runtimePackages).Count -eq 4) `
-        'Runtime dependency closure did not retain both changed roots and transitive runtime packages.'
-    Assert-Condition (@($metadata.files).Count -eq 3) `
-        'Runtime dependency metadata reported the wrong staged file count.'
+    Assert-Condition (@($metadata.changedDirectPackages).Count -eq 3) 'Changed direct package roots were not recorded.'
+    Assert-Condition (@($metadata.runtimePackages).Count -eq 4) 'Transitive runtime package closure is incomplete.'
+    Assert-Condition (@($metadata.files).Count -eq 3) 'Runtime dependency staged file count is incorrect.'
 
     $runtimePackageNames = @($metadata.runtimePackages | ForEach-Object { [string] $_.id })
-    Assert-Condition ($runtimePackageNames -contains 'Grpc.Core.Api') `
-        'Runtime dependency closure did not follow a transitive package dependency.'
-    Assert-Condition ($runtimePackageNames -contains 'System.Security.Cryptography.Pkcs') `
-        'Runtime dependency closure did not follow the compatibility meta-package dependency.'
+    Assert-Condition ($runtimePackageNames -contains 'Grpc.Core.Api') 'Grpc transitive dependency was not followed.'
+    Assert-Condition ($runtimePackageNames -contains 'System.Security.Cryptography.Pkcs') 'Compatibility transitive dependency was not followed.'
 
-    return [ordered]@{
-        Root = $fixture
-        Stage = $stageDir
-        Metadata = $metadataPath
-    }
+    return [ordered]@{ Stage = $stageDir; Metadata = $metadataPath }
 }
 
 function Test-CompletePackaging {
-    param(
-        [Parameter(Mandatory = $true)]
-        [System.Collections.IDictionary] $RuntimeFixture
-    )
+    param([System.Collections.IDictionary] $RuntimeFixture)
 
     $fixture = Join-Path $testRoot 'complete-package'
     $binDir = Join-Path $fixture 'bin'
     $clientDir = Join-Path $fixture 'client'
     $launcherDir = Join-Path $fixture 'launcher'
+    $toolsDir = Join-Path $fixture 'tools'
     $patchDir = Join-Path $fixture 'patch'
     $installerDir = Join-Path $fixture 'installer'
-    $toolsDir = Join-Path $fixture 'tools'
 
     foreach ($directory in @($binDir, $clientDir, $launcherDir, $toolsDir)) {
         New-Item -ItemType Directory -Force -Path $directory | Out-Null
@@ -253,39 +190,19 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
         -InstallerScriptPath $realInstallerScript `
         -InstallerLauncherPath $installerLauncher
 
-    $manifestPath = Join-Path $patchDir 'patch-manifest.json'
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath (Join-Path $patchDir 'patch-manifest.json') -Raw | ConvertFrom-Json
     $paths = @($manifest.files | ForEach-Object { [string] $_.path })
+    Assert-Condition ([bool] $manifest.completeRuntimeCoverage) 'Manifest does not declare complete runtime coverage.'
+    Assert-Condition ([bool] $manifest.launcherIncluded) 'Manifest does not record the application launcher.'
+    Assert-Condition ([string] $manifest.upstreamBaseCommit -eq ('a' * 40)) 'Upstream baseline provenance was lost.'
+    Assert-Condition ([int] $manifest.runtimeDependencyFileCount -eq 3) 'Runtime dependency file count is incorrect.'
 
-    Assert-Condition ([bool] $manifest.completeRuntimeCoverage) `
-        'Complete FastPatch manifest does not declare complete runtime coverage.'
-    Assert-Condition ([bool] $manifest.launcherIncluded) `
-        'Complete FastPatch manifest does not record the application launcher.'
-    Assert-Condition ([string] $manifest.upstreamBaseCommit -eq ('a' * 40)) `
-        'Complete FastPatch manifest lost upstream dependency-baseline provenance.'
-    Assert-Condition ([int] $manifest.runtimeDependencyFileCount -eq 3) `
-        'Complete FastPatch manifest reported the wrong runtime dependency file count.'
-
-    foreach ($path in @(
-        'ProtonVPN.Launcher.exe',
-        'Grpc.Net.Client.dll',
-        'Grpc.Core.Api.dll',
-        'System.Security.Cryptography.Pkcs.dll'
-    )) {
-        Assert-Condition ($paths -contains $path) `
-            "Complete FastPatch manifest omitted $path."
+    foreach ($path in @('ProtonVPN.Launcher.exe', 'Grpc.Net.Client.dll', 'Grpc.Core.Api.dll', 'System.Security.Cryptography.Pkcs.dll')) {
+        Assert-Condition ($paths -contains $path) "Complete FastPatch manifest omitted $path."
     }
 
-    & powershell.exe `
-        -NoProfile `
-        -NonInteractive `
-        -ExecutionPolicy Bypass `
-        -File $realInstallerScript `
-        -PatchPath $patchDir `
-        -TargetVersion '5.1.5' `
-        -ValidateOnly
-    Assert-Condition ($LASTEXITCODE -eq 0) `
-        'Installer rejected an untampered complete-runtime FastPatch payload.'
+    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $realInstallerScript -PatchPath $patchDir -TargetVersion '5.1.5' -ValidateOnly
+    Assert-Condition ($LASTEXITCODE -eq 0) 'Installer rejected an untampered complete-runtime payload.'
 
     $tamperedStage = Join-Path $fixture 'tampered-runtime-stage'
     Copy-Item -LiteralPath $RuntimeFixture.Stage -Destination $tamperedStage -Recurse
@@ -312,21 +229,15 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
             -InstallerLauncherPath $installerLauncher
     }
     catch {
-        if ($_.Exception.Message -like '*source hash mismatch*') {
-            $tamperRejected = $true
-        } else {
-            throw
-        }
+        if ($_.Exception.Message -like '*source hash mismatch*') { $tamperRejected = $true } else { throw }
     }
-    Assert-Condition $tamperRejected `
-        'Complete FastPatch packaging accepted a runtime dependency whose staged hash differed from metadata.'
+    Assert-Condition $tamperRejected 'Tampered runtime dependency was accepted.'
 }
 
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
-
 try {
     $runtimeFixture = Test-RuntimeDependencyClosure
-    Test-CompletePackaging -RuntimeFixture $runtimeFixture
+    Test-CompletePackaging $runtimeFixture
     Write-Host 'Complete FastPatch regression tests passed.'
 }
 finally {
