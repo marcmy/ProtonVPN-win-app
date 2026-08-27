@@ -10,7 +10,8 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'
 $stageRuntimeScript = Join-Path $PSScriptRoot 'stage-runtime-dependency-delta.ps1'
 $completePackager = Join-Path $PSScriptRoot 'package-complete-fast-patch.ps1'
 $basePackager = Join-Path $PSScriptRoot 'package-patch-artifacts.ps1'
-$realInstallerScript = Join-Path $repositoryRoot 'scripts/Install-ProtonVPNPatch.ps1'
+$baseInstallerScript = Join-Path $repositoryRoot 'scripts/Install-ProtonVPNPatch.ps1'
+$completeInstallerScript = Join-Path $repositoryRoot 'scripts/Install-ProtonVPNCompletePatch.ps1'
 
 $ownsWorkingDirectory = [string]::IsNullOrWhiteSpace($WorkingDirectory)
 $testRoot = if ($ownsWorkingDirectory) {
@@ -187,22 +188,54 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
         -InstallerDirectory $installerDir `
         -BasePackagerPath $basePackager `
         -BuilderPath $builder `
-        -InstallerScriptPath $realInstallerScript `
+        -BaseInstallerScriptPath $baseInstallerScript `
+        -CompleteInstallerScriptPath $completeInstallerScript `
         -InstallerLauncherPath $installerLauncher
 
     $manifest = Get-Content -LiteralPath (Join-Path $patchDir 'patch-manifest.json') -Raw | ConvertFrom-Json
-    $paths = @($manifest.files | ForEach-Object { [string] $_.path })
+    Assert-Condition ([int] $manifest.schemaVersion -eq 2) 'Complete FastPatch did not upgrade to manifest schema v2.'
     Assert-Condition ([bool] $manifest.completeRuntimeCoverage) 'Manifest does not declare complete runtime coverage.'
     Assert-Condition ([bool] $manifest.launcherIncluded) 'Manifest does not record the application launcher.'
     Assert-Condition ([string] $manifest.upstreamBaseCommit -eq ('a' * 40)) 'Upstream baseline provenance was lost.'
     Assert-Condition ([int] $manifest.runtimeDependencyFileCount -eq 3) 'Runtime dependency file count is incorrect.'
 
-    foreach ($path in @('ProtonVPN.Launcher.exe', 'Grpc.Net.Client.dll', 'Grpc.Core.Api.dll', 'System.Security.Cryptography.Pkcs.dll')) {
-        Assert-Condition ($paths -contains $path) "Complete FastPatch manifest omitted $path."
+    $entries = @{}
+    foreach ($file in @($manifest.files)) { $entries[[string] $file.path] = $file }
+    foreach ($path in @(
+        'ProtonVPN.Launcher.exe',
+        'Grpc.Net.Client.dll',
+        'Grpc.Core.Api.dll',
+        'System.Security.Cryptography.Pkcs.dll',
+        'Tools/Install-ProtonVPNPatch.base.ps1'
+    )) {
+        Assert-Condition $entries.ContainsKey($path) "Complete FastPatch manifest omitted $path."
     }
+    Assert-Condition ([string] $entries['ProtonVPN.Launcher.exe'].scope -eq 'installRoot') 'Launcher was not assigned installRoot scope.'
+    Assert-Condition ([string] $entries['Grpc.Net.Client.dll'].scope -eq 'version') 'Runtime dependency was not assigned version scope.'
+    Assert-Condition ([string] $entries['Tools/Install-ProtonVPNPatch.base.ps1'].scope -eq 'tool') 'Base installer helper was not assigned tool scope.'
 
-    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $realInstallerScript -PatchPath $patchDir -TargetVersion '5.1.5' -ValidateOnly
-    Assert-Condition ($LASTEXITCODE -eq 0) 'Installer rejected an untampered complete-runtime payload.'
+    $oldInstallerOutput = @(& powershell.exe `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
+        -File $baseInstallerScript `
+        -PatchPath $patchDir `
+        -TargetVersion '5.1.5' `
+        -ValidateOnly 2>&1)
+    $oldInstallerExitCode = $LASTEXITCODE
+    Assert-Condition ($oldInstallerExitCode -ne 0) 'Schema-v1 installer accepted a schema-v2 complete FastPatch payload.'
+    Assert-Condition (($oldInstallerOutput -join "`n") -match 'Unsupported patch manifest schema version') `
+        'Schema-v1 installer rejected the v2 payload for an unexpected reason.'
+
+    & powershell.exe `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
+        -File $completeInstallerScript `
+        -PatchPath $patchDir `
+        -TargetVersion '5.1.5' `
+        -ValidateOnly
+    Assert-Condition ($LASTEXITCODE -eq 0) 'Complete installer rejected an untampered schema-v2 payload.'
 
     $tamperedStage = Join-Path $fixture 'tampered-runtime-stage'
     Copy-Item -LiteralPath $RuntimeFixture.Stage -Destination $tamperedStage -Recurse
@@ -225,7 +258,8 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
             -InstallerDirectory (Join-Path $fixture 'tampered-installer') `
             -BasePackagerPath $basePackager `
             -BuilderPath $builder `
-            -InstallerScriptPath $realInstallerScript `
+            -BaseInstallerScriptPath $baseInstallerScript `
+            -CompleteInstallerScriptPath $completeInstallerScript `
             -InstallerLauncherPath $installerLauncher
     }
     catch {
