@@ -362,13 +362,15 @@ function New-VersionPayload {
             }
         }
     )
+    $sourceRefValue = if ($null -ne $Manifest.PSObject.Properties['sourceRef']) { [string] $Manifest.sourceRef } else { '' }
+    $workflowRunIdValue = if ($null -ne $Manifest.PSObject.Properties['workflowRunId']) { [string] $Manifest.workflowRunId } else { '' }
     $versionManifest = [ordered]@{
         schemaVersion = 1
         targetVersion = [string] $Manifest.targetVersion
         buildMode = [string] $Manifest.buildMode
         sourceCommit = [string] $Manifest.sourceCommit
-        sourceRef = if ($null -ne $Manifest.PSObject.Properties['sourceRef']) { [string] $Manifest.sourceRef } else { '' }
-        workflowRunId = if ($null -ne $Manifest.PSObject.Properties['workflowRunId']) { [string] $Manifest.workflowRunId } else { '' }
+        sourceRef = $sourceRefValue
+        workflowRunId = $workflowRunIdValue
         builtAtUtc = [DateTime]::UtcNow.ToString('o')
         files = $versionManifestFiles
     }
@@ -422,7 +424,7 @@ function Invoke-BaseInstaller {
         '-ExecutionPolicy', 'Bypass',
         '-File', (ConvertTo-QuotedProcessArgument -Value $BaseInstallerPath),
         '-PatchPath', (ConvertTo-QuotedProcessArgument -Value $VersionPayloadPath),
-        '-InstallRoot', (ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($InstallRoot)),
+        '-InstallRoot', (ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($InstallRoot))),
         '-TargetVersion', (ConvertTo-QuotedProcessArgument -Value $ResolvedTargetVersion),
         '-BackupRetentionCount', [string] $BackupRetentionCount
     )
@@ -498,20 +500,24 @@ try {
                 throw "Installed ProtonVPN.Launcher.exe was not found at the install root: $launcherTarget"
             }
 
-            $pendingRootBackupDirectory = Join-Path $resolvedBackupRoot ('.pending-fastpatch-root-' + [Guid]::NewGuid().ToString('N'))
-            New-Item -ItemType Directory -Path $pendingRootBackupDirectory -Force | Out-Null
-            $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
-            Copy-Item -LiteralPath $launcherTarget -Destination $pendingLauncherBackup -Force
+            if ($WhatIfPreference) {
+                Write-Host "What if: replace root launcher '$launcherTarget'."
+            } elseif ($PSCmdlet.ShouldProcess($launcherTarget, 'Replace root ProtonVPN launcher')) {
+                $pendingRootBackupDirectory = Join-Path $resolvedBackupRoot ('.pending-fastpatch-root-' + [Guid]::NewGuid().ToString('N'))
+                New-Item -ItemType Directory -Path $pendingRootBackupDirectory -Force | Out-Null
+                $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
+                Copy-Item -LiteralPath $launcherTarget -Destination $pendingLauncherBackup -Force
+                $rootLauncherPatched = $true
 
-            if ($PSCmdlet.ShouldProcess($launcherTarget, 'Replace root ProtonVPN launcher')) {
                 Stop-RootLauncherProcesses -LauncherPath $launcherTarget
                 Copy-Item -LiteralPath $launcherSource -Destination $launcherTarget -Force
                 $expectedLauncherHash = [string] (@($manifest.files | Where-Object { ([string] $_.scope) -eq 'installRoot' })[0].sha256)
                 $installedLauncherHash = (Get-FileHash -LiteralPath $launcherTarget -Algorithm SHA256).Hash.ToLowerInvariant()
                 if (-not $installedLauncherHash.Equals($expectedLauncherHash, [StringComparison]::OrdinalIgnoreCase)) {
-                    throw "Installed ProtonVPN.Launcher.exe hash verification failed after copy."
+                    throw 'Installed ProtonVPN.Launcher.exe hash verification failed after copy.'
                 }
-                $rootLauncherPatched = $true
+            } else {
+                throw 'Root ProtonVPN launcher update was not approved; complete FastPatch installation cancelled.'
             }
         }
 
