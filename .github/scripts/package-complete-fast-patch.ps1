@@ -50,7 +50,10 @@ param(
     [string] $BuilderPath = (Join-Path $PSScriptRoot '..\..\scripts\New-ProtonVPNPatchSfx.ps1'),
 
     [ValidateNotNullOrEmpty()]
-    [string] $InstallerScriptPath = (Join-Path $PSScriptRoot '..\..\scripts\Install-ProtonVPNPatch.ps1'),
+    [string] $BaseInstallerScriptPath = (Join-Path $PSScriptRoot '..\..\scripts\Install-ProtonVPNPatch.ps1'),
+
+    [ValidateNotNullOrEmpty()]
+    [string] $CompleteInstallerScriptPath = (Join-Path $PSScriptRoot '..\..\scripts\Install-ProtonVPNCompletePatch.ps1'),
 
     [ValidateNotNullOrEmpty()]
     [string] $InstallerLauncherPath = (Join-Path $PSScriptRoot '..\..\scripts\Install-ProtonVPNPatch.cmd')
@@ -60,10 +63,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Assert-SafeRelativePath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Path
-    )
+    param([Parameter(Mandatory = $true)] [string] $Path)
 
     $normalized = $Path.Trim().Replace('/', '\')
     $segments = $normalized.Split([char[]] @('\', '/'), [StringSplitOptions]::RemoveEmptyEntries)
@@ -73,30 +73,33 @@ function Assert-SafeRelativePath {
         $segments -contains '..') {
         throw "Unsafe complete-runtime patch path: $Path"
     }
-
     if ($normalized.StartsWith('ServiceData\', [StringComparison]::OrdinalIgnoreCase)) {
         throw "Complete-runtime patch must not modify ServiceData: $Path"
     }
-
     return $normalized
+}
+
+function Test-PathIntersection {
+    param(
+        [Parameter(Mandatory = $true)] [string] $FirstPath,
+        [Parameter(Mandatory = $true)] [string] $SecondPath
+    )
+
+    $first = [System.IO.Path]::GetFullPath($FirstPath).TrimEnd('\', '/')
+    $second = [System.IO.Path]::GetFullPath($SecondPath).TrimEnd('\', '/')
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    return $first.Equals($second, [StringComparison]::OrdinalIgnoreCase) -or
+        $first.StartsWith("$second$separator", [StringComparison]::OrdinalIgnoreCase) -or
+        $second.StartsWith("$first$separator", [StringComparison]::OrdinalIgnoreCase)
 }
 
 function Copy-ValidatedFile {
     param(
-        [Parameter(Mandatory = $true)]
-        [string] $SourcePath,
-
-        [Parameter(Mandatory = $true)]
-        [string] $RelativePath,
-
-        [Parameter(Mandatory = $true)]
-        [string] $ExpectedHash,
-
-        [Parameter(Mandatory = $true)]
-        [string] $PatchRoot,
-
-        [Parameter(Mandatory = $true)]
-        [string] $Label
+        [Parameter(Mandatory = $true)] [string] $SourcePath,
+        [Parameter(Mandatory = $true)] [string] $RelativePath,
+        [Parameter(Mandatory = $true)] [string] $ExpectedHash,
+        [Parameter(Mandatory = $true)] [string] $PatchRoot,
+        [Parameter(Mandatory = $true)] [string] $Label
     )
 
     $normalizedRelativePath = Assert-SafeRelativePath -Path $RelativePath
@@ -110,9 +113,7 @@ function Copy-ValidatedFile {
     }
 
     $targetPath = Join-Path $PatchRoot $normalizedRelativePath
-    $targetParent = Split-Path -Path $targetPath -Parent
-    New-Item -ItemType Directory -Force -Path $targetParent | Out-Null
-
+    New-Item -ItemType Directory -Force -Path (Split-Path -Path $targetPath -Parent) | Out-Null
     if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
         $targetHash = (Get-FileHash -LiteralPath $targetPath -Algorithm SHA256).Hash.ToLowerInvariant()
         if (-not $targetHash.Equals($actualHash, [StringComparison]::OrdinalIgnoreCase)) {
@@ -128,7 +129,8 @@ function Copy-ValidatedFile {
 
 $basePackager = [System.IO.Path]::GetFullPath($BasePackagerPath)
 $builder = [System.IO.Path]::GetFullPath($BuilderPath)
-$installerScript = [System.IO.Path]::GetFullPath($InstallerScriptPath)
+$baseInstaller = [System.IO.Path]::GetFullPath($BaseInstallerScriptPath)
+$completeInstaller = [System.IO.Path]::GetFullPath($CompleteInstallerScriptPath)
 $installerLauncher = [System.IO.Path]::GetFullPath($InstallerLauncherPath)
 $patchDir = [System.IO.Path]::GetFullPath($PatchDirectory)
 $installerDir = [System.IO.Path]::GetFullPath($InstallerDirectory)
@@ -136,9 +138,18 @@ $launcherOutputDir = [System.IO.Path]::GetFullPath($ApplicationLauncherOutputDir
 $runtimeOutputDir = [System.IO.Path]::GetFullPath($RuntimeDependencyOutputDirectory)
 $runtimeMetadataPath = [System.IO.Path]::GetFullPath($RuntimeDependencyMetadataPath)
 
-foreach ($requiredTool in @($basePackager, $builder, $installerScript, $installerLauncher)) {
+foreach ($requiredTool in @($basePackager, $builder, $baseInstaller, $completeInstaller, $installerLauncher)) {
     if (-not (Test-Path -LiteralPath $requiredTool -PathType Leaf)) {
         throw "Required complete-runtime packaging tool was not found: $requiredTool"
+    }
+}
+
+foreach ($protectedInput in @($launcherOutputDir, $runtimeOutputDir, $runtimeMetadataPath, $completeInstaller)) {
+    if (Test-PathIntersection -FirstPath $patchDir -SecondPath $protectedInput) {
+        throw "Patch output directory must not overlap complete-runtime input '$protectedInput': $patchDir"
+    }
+    if (Test-PathIntersection -FirstPath $installerDir -SecondPath $protectedInput) {
+        throw "Installer output directory must not overlap complete-runtime input '$protectedInput': $installerDir"
     }
 }
 
@@ -154,7 +165,7 @@ foreach ($requiredTool in @($basePackager, $builder, $installerScript, $installe
     -PatchDirectory $PatchDirectory `
     -InstallerDirectory $InstallerDirectory `
     -BuilderPath $BuilderPath `
-    -InstallerScriptPath $InstallerScriptPath `
+    -InstallerScriptPath $BaseInstallerScriptPath `
     -LauncherPath $InstallerLauncherPath
 
 $manifestPath = Join-Path $patchDir 'patch-manifest.json'
@@ -163,15 +174,15 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 }
 
 try {
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-}
-catch {
+    $baseManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+} catch {
     throw "Base FastPatch manifest is not valid JSON: $($_.Exception.Message)"
 }
 
-if ([string] $manifest.targetVersion -ne $TargetVersion -or
-    [string] $manifest.buildMode -ne $BuildMode -or
-    [string] $manifest.sourceCommit -ne $SourceCommit) {
+if ([int] $baseManifest.schemaVersion -ne 1 -or
+    [string] $baseManifest.targetVersion -ne $TargetVersion -or
+    [string] $baseManifest.buildMode -ne $BuildMode -or
+    [string] $baseManifest.sourceCommit -ne $SourceCommit) {
     throw 'Base FastPatch manifest provenance does not match the complete-runtime packaging request.'
 }
 
@@ -181,7 +192,6 @@ if ($BuildMode -in @('client', 'both')) {
     if (-not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
         throw "Complete FastPatch requires the published ProtonVPN.Launcher.exe, but it was not found: $launcherPath"
     }
-
     $launcherHash = (Get-FileHash -LiteralPath $launcherPath -Algorithm SHA256).Hash.ToLowerInvariant()
     Copy-ValidatedFile `
         -SourcePath $launcherPath `
@@ -198,11 +208,9 @@ if (-not (Test-Path -LiteralPath $runtimeMetadataPath -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $runtimeOutputDir -PathType Container)) {
     throw "Runtime dependency stage directory was not produced: $runtimeOutputDir"
 }
-
 try {
     $runtimeMetadata = Get-Content -LiteralPath $runtimeMetadataPath -Raw | ConvertFrom-Json
-}
-catch {
+} catch {
     throw "Runtime dependency metadata is not valid JSON: $runtimeMetadataPath. $($_.Exception.Message)"
 }
 
@@ -212,8 +220,8 @@ if ([int] $runtimeMetadata.schemaVersion -ne 1) {
 if ([string] $runtimeMetadata.buildMode -ne $BuildMode) {
     throw "Runtime dependency metadata build mode '$($runtimeMetadata.buildMode)' does not match '$BuildMode'."
 }
-if ([string]::IsNullOrWhiteSpace([string] $runtimeMetadata.upstreamBaseCommit)) {
-    throw 'Runtime dependency metadata does not record the upstream base commit.'
+if (([string] $runtimeMetadata.upstreamBaseCommit) -notmatch '^[0-9a-fA-F]{40}$') {
+    throw "Runtime dependency metadata has an invalid upstream base commit: $($runtimeMetadata.upstreamBaseCommit)"
 }
 
 $forbiddenRuntimeNames = @(
@@ -224,7 +232,6 @@ $forbiddenRuntimeNames = @(
     'hostpolicy.dll',
     'coreclr.dll'
 )
-
 $declaredRuntimePaths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($file in @($runtimeMetadata.files)) {
     $relativePath = [string] $file.path
@@ -260,14 +267,31 @@ foreach ($actualFile in $actualRuntimeFiles) {
     }
 }
 
+$helperRelativePath = 'Tools\Install-ProtonVPNPatch.base.ps1'
+$helperHash = (Get-FileHash -LiteralPath $baseInstaller -Algorithm SHA256).Hash.ToLowerInvariant()
+Copy-ValidatedFile `
+    -SourcePath $baseInstaller `
+    -RelativePath $helperRelativePath `
+    -ExpectedHash $helperHash `
+    -PatchRoot $patchDir `
+    -Label 'base installer helper'
+
 $payloadFiles = @(Get-ChildItem -LiteralPath $patchDir -Recurse -File | Where-Object {
     -not $_.FullName.Equals($manifestPath, [StringComparison]::OrdinalIgnoreCase)
 })
-
 $manifestFiles = @(
     foreach ($file in $payloadFiles | Sort-Object FullName) {
+        $relativePath = [System.IO.Path]::GetRelativePath($patchDir, $file.FullName).Replace('\', '/')
+        $scope = if ($relativePath.Equals('ProtonVPN.Launcher.exe', [StringComparison]::OrdinalIgnoreCase)) {
+            'installRoot'
+        } elseif ($relativePath.Equals('Tools/Install-ProtonVPNPatch.base.ps1', [StringComparison]::OrdinalIgnoreCase)) {
+            'tool'
+        } else {
+            'version'
+        }
         [ordered]@{
-            path = [System.IO.Path]::GetRelativePath($patchDir, $file.FullName).Replace('\', '/')
+            path = $relativePath
+            scope = $scope
             size = $file.Length
             sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         }
@@ -275,11 +299,12 @@ $manifestFiles = @(
 )
 
 $completeManifest = [ordered]@{}
-foreach ($property in $manifest.PSObject.Properties) {
-    if ($property.Name -ne 'files') {
+foreach ($property in $baseManifest.PSObject.Properties) {
+    if ($property.Name -notin @('schemaVersion', 'files')) {
         $completeManifest[$property.Name] = $property.Value
     }
 }
+$completeManifest['schemaVersion'] = 2
 $completeManifest['completeRuntimeCoverage'] = $true
 $completeManifest['launcherIncluded'] = $launcherIncluded
 $completeManifest['upstreamBaseCommit'] = [string] $runtimeMetadata.upstreamBaseCommit
@@ -288,9 +313,9 @@ $completeManifest['runtimeDependencyPackageCount'] = @($runtimeMetadata.runtimeP
 $completeManifest['runtimeDependencyFileCount'] = @($runtimeMetadata.files).Count
 $completeManifest['runtimeDependencyPackages'] = @($runtimeMetadata.runtimePackages)
 $completeManifest['files'] = $manifestFiles
-
 $completeManifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding utf8
-Write-Host "Complete FastPatch manifest now contains $($manifestFiles.Count) payload files."
+
+Write-Host "Complete FastPatch schema v2 manifest contains $($manifestFiles.Count) payload files."
 Write-Host "Launcher included: $launcherIncluded"
 Write-Host "Runtime dependency files: $(@($runtimeMetadata.files).Count)"
 
@@ -301,7 +326,7 @@ Remove-Item -LiteralPath $installerPath -Force -ErrorAction SilentlyContinue
 & $builder `
     -PatchPath $patchDir `
     -OutputPath $installerPath `
-    -InstallerScriptPath $installerScript `
+    -InstallerScriptPath $completeInstaller `
     -LauncherPath $installerLauncher
 
 if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
