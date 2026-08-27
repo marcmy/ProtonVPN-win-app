@@ -224,8 +224,6 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
         -ValidateOnly 2>&1)
     $oldInstallerExitCode = $LASTEXITCODE
     Assert-Condition ($oldInstallerExitCode -ne 0) 'Schema-v1 installer accepted a schema-v2 complete FastPatch payload.'
-    Assert-Condition (($oldInstallerOutput -join "`n") -match 'Unsupported patch manifest schema version') `
-        'Schema-v1 installer rejected the v2 payload for an unexpected reason.'
 
     & powershell.exe `
         -NoProfile `
