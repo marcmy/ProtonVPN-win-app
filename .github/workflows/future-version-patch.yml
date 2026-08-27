@@ -81,7 +81,9 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Test patch automation
-        run: .\.github\scripts\test-patch-tooling.ps1
+        run: |
+          .\.github\scripts\test-patch-tooling.ps1
+          .\.github\scripts\test-complete-fast-patch.ps1
 
       - name: Preserve automation and installer tools
         run: |
@@ -90,7 +92,9 @@ jobs:
           $tools = @(
             @{ Source = '.github/scripts/set-assembly-version.ps1'; Name = 'set-assembly-version.ps1' },
             @{ Source = '.github/scripts/stage-client-patch-output.ps1'; Name = 'stage-client-patch-output.ps1' },
+            @{ Source = '.github/scripts/stage-runtime-dependency-delta.ps1'; Name = 'stage-runtime-dependency-delta.ps1' },
             @{ Source = '.github/scripts/package-patch-artifacts.ps1'; Name = 'package-patch-artifacts.ps1' },
+            @{ Source = '.github/scripts/package-complete-fast-patch.ps1'; Name = 'package-complete-fast-patch.ps1' },
             @{ Source = '.github/scripts/test-fork-regressions.ps1'; Name = 'test-fork-regressions.ps1' },
             @{ Source = 'scripts/New-ProtonVPNPatchSfx.ps1'; Name = 'New-ProtonVPNPatchSfx.ps1' },
             @{ Source = 'scripts/Install-ProtonVPNPatch.ps1'; Name = 'Install-ProtonVPNPatch.ps1' },
@@ -104,6 +108,39 @@ jobs:
 
             Copy-Item -LiteralPath $tool.Source -Destination (Join-Path $env:RUNNER_TEMP $tool.Name) -Force
           }
+
+      - name: Snapshot unpatched dependency baseline
+        id: base-deps
+        env:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $baseBranch = $env:BASE_BRANCH.Trim() -replace '^refs/heads/', '' -replace '^origin/', ''
+          git check-ref-format --branch $baseBranch | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "Invalid base branch: $baseBranch"
+          }
+
+          git fetch --no-tags origin "refs/heads/$baseBranch`:refs/remotes/origin/$baseBranch"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to fetch unpatched base branch origin/$baseBranch."
+          }
+
+          $baseCommit = (git rev-parse "refs/remotes/origin/$baseBranch").Trim()
+          if ($baseCommit -notmatch '^[0-9a-f]{40}$') {
+            throw "Unable to resolve a valid base commit for origin/$baseBranch."
+          }
+
+          $baselinePath = Join-Path $env:RUNNER_TEMP 'upstream-Directory.Packages.props'
+          $baselineLines = @(& git show "$baseCommit`:Directory.Packages.props")
+          if ($LASTEXITCODE -ne 0 -or $baselineLines.Count -eq 0) {
+            throw "Unable to read Directory.Packages.props from unpatched base $baseCommit."
+          }
+          [IO.File]::WriteAllLines($baselinePath, $baselineLines, [Text.UTF8Encoding]::new($false))
+          [xml] (Get-Content -LiteralPath $baselinePath -Raw) | Out-Null
+
+          Write-Host "Future-version dependency baseline: origin/$baseBranch@$baseCommit"
+          "upstream_base_commit=$baseCommit" >> $env:GITHUB_OUTPUT
 
       - name: Port complete maintained fork
         id: apply_patch
@@ -166,11 +203,18 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
           New-Item -ItemType Directory -Force -Path artifacts/ProtonVPN.Client.Patch | Out-Null
           New-Item -ItemType Directory -Force -Path artifacts/Installer | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/launcher-build-output | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/runtime-dependency-output | Out-Null
 
       - name: Clean previous build output
         run: |
           Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath artifacts/client-build-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/launcher-build-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/runtime-dependency-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/runtime-dependency-metadata.json -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path artifacts/launcher-build-output | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/runtime-dependency-output | Out-Null
 
       - name: Restore client project
         run: |
@@ -184,6 +228,15 @@ jobs:
 
           if ($LASTEXITCODE -ne 0) {
             throw "Client restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Restore application launcher project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet restore src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj --runtime win-x64 -bl:artifacts/logs/launcher-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/launcher-restore.log
+          if ($LASTEXITCODE -ne 0) {
+            throw "Application launcher restore failed with exit code $LASTEXITCODE"
           }
 
       - name: Restore service project
@@ -214,6 +267,28 @@ jobs:
             throw "Client build failed with exit code $LASTEXITCODE"
           }
 
+      - name: Publish self-contained application launcher
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --no-restore `
+            --output artifacts/launcher-build-output `
+            -p:Platform=x64 `
+            -p:SelfContained=true `
+            -p:PublishSingleFile=true `
+            -p:PublishTrimmed=true `
+            -v:minimal `
+            -bl:artifacts/logs/launcher-publish.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/launcher-publish.log
+          if ($LASTEXITCODE -ne 0) {
+            throw "Application launcher publish failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path -LiteralPath artifacts/launcher-build-output/ProtonVPN.Launcher.exe -PathType Leaf)) {
+            throw 'Published ProtonVPN.Launcher.exe was not produced.'
+          }
+
       - name: Stage client patch build output
         run: |
           & (Join-Path $env:RUNNER_TEMP 'stage-client-patch-output.ps1')
@@ -232,6 +307,15 @@ jobs:
             throw "Service build failed with exit code $LASTEXITCODE"
           }
 
+      - name: Stage changed runtime dependency closure
+        env:
+          UPSTREAM_BASE_COMMIT: ${{ steps.base-deps.outputs.upstream_base_commit }}
+        run: |
+          & (Join-Path $env:RUNNER_TEMP 'stage-runtime-dependency-delta.ps1') `
+            -BuildMode both `
+            -BaselinePackagesPath (Join-Path $env:RUNNER_TEMP 'upstream-Directory.Packages.props') `
+            -UpstreamBaseCommit $env:UPSTREAM_BASE_COMMIT
+
       - name: Run complete fork regression tests
         run: |
           & (Join-Path $env:RUNNER_TEMP 'test-fork-regressions.ps1') `
@@ -249,7 +333,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $sourceCommit = (git rev-parse HEAD).Trim()
 
-          & (Join-Path $env:RUNNER_TEMP 'package-patch-artifacts.ps1') `
+          & (Join-Path $env:RUNNER_TEMP 'package-complete-fast-patch.ps1') `
             -BuildMode both `
             -TargetVersion $env:TARGET_VERSION `
             -SourceCommit $sourceCommit `
@@ -257,7 +341,7 @@ jobs:
             -WorkflowRunId $env:WORKFLOW_RUN_ID `
             -BuilderPath (Join-Path $env:RUNNER_TEMP 'New-ProtonVPNPatchSfx.ps1') `
             -InstallerScriptPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.ps1') `
-            -LauncherPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.cmd')
+            -InstallerLauncherPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.cmd')
 
       - name: Create verified patched-branch bundle
         env:
