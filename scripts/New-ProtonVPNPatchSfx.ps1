@@ -152,8 +152,15 @@ foreach ($requiredProperty in @('schemaVersion', 'targetVersion', 'buildMode', '
     }
 }
 
-if ([int] $manifest.schemaVersion -ne 1) {
-    throw "Unsupported patch manifest schema version: $($manifest.schemaVersion)"
+$schemaVersion = [int] $manifest.schemaVersion
+if ($schemaVersion -notin @(1, 2)) {
+    throw "Unsupported patch manifest schema version: $schemaVersion"
+}
+if ($schemaVersion -eq 2) {
+    $coverageProperty = $manifest.PSObject.Properties['completeRuntimeCoverage']
+    if ($null -eq $coverageProperty -or -not [bool] $coverageProperty.Value) {
+        throw 'Schema-v2 patch manifest must declare completeRuntimeCoverage=true.'
+    }
 }
 
 $manifestTargetVersion = ([string] $manifest.targetVersion).Trim()
