@@ -54,19 +54,46 @@ public class VpnEndpointCandidates : IVpnEndpointCandidates
 
     private VpnEndpoint NextEndpoint(VpnConfig config)
     {
-        VpnHost server = _all.FirstOrDefault(h =>
-            _skippedIps[config.VpnProtocol].All(skippedIp => h.Ip != skippedIp));
+        VpnHost server = _all.FirstOrDefault(h => HasUntriedIp(h, config));
 
         Current = CreateVpnEndpoint(server, config.VpnProtocol);
 
         return Current;
     }
 
+    private bool HasUntriedIp(VpnHost host, VpnConfig config)
+    {
+        foreach (string candidateIp in GetCandidateIps(host, config))
+        {
+            if (!_skippedIps[config.VpnProtocol].Contains(candidateIp))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> GetCandidateIps(VpnHost host, VpnConfig config)
+    {
+        foreach (VpnProtocol preferredProtocol in config.PreferredProtocols)
+        {
+            string ip = host.GetIp(preferredProtocol);
+            if (!string.IsNullOrEmpty(ip))
+            {
+                yield return ip;
+            }
+        }
+    }
+
     public VpnEndpoint NextIp(VpnConfig config)
     {
-        if (!string.IsNullOrEmpty(Current?.Server.Ip))
+        if (Current != null && !Current.IsEmpty)
         {
-            _skippedIps[config.VpnProtocol].Add(Current.Server.Ip);
+            foreach (string candidateIp in GetCandidateIps(Current.Server, config))
+            {
+                _skippedIps[config.VpnProtocol].Add(candidateIp);
+            }
         }
 
         return NextEndpoint(config);
