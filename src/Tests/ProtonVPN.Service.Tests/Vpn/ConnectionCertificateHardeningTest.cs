@@ -18,6 +18,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -26,10 +27,12 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using ProtonVPN.Common.Core.LocalAgent;
 using ProtonVPN.Common.Legacy.Threading;
+using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Crypto.Contracts;
 using ProtonVPN.EntityMapping.Contracts;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.LocalAgent;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.ProcessCommunication.EntityMapping.Vpn;
 using ProtonVPN.Service.ControllerRetries;
 using ProtonVPN.Service.ProcessCommunication;
@@ -110,9 +113,7 @@ public class ConnectionCertificateHardeningTest
     public async Task LocalAgentTlsCredentialsCache_ShouldClearStoredCredentials()
     {
         LocalAgentTlsCredentialsCache subject = new(Substitute.For<ILogger>());
-        AsymmetricKeyPair keyPair = new(
-            new SecretKey(new byte[] { 1, 2, 3 }, KeyAlgorithm.X25519),
-            new CryptoPublicKey(new byte[] { 4, 5, 6 }, KeyAlgorithm.X25519));
+        AsymmetricKeyPair keyPair = CreateKeyPair();
         LocalAgentTlsCredentials credentials = new(
             new ConnectionCertificate("certificate", DateTime.UtcNow.AddHours(1)),
             keyPair);
@@ -123,6 +124,59 @@ public class ConnectionCertificateHardeningTest
         await subject.ClearAsync(CancellationToken.None);
 
         Assert.IsNull(await subject.GetAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task Connect_ShouldClearCachedLocalAgentTlsCredentials_WhenUsingUsernameAndPassword()
+    {
+        IEntityMapper entityMapper = Substitute.For<IEntityMapper>();
+        ILocalAgentTlsCredentialsCache cache = Substitute.For<ILocalAgentTlsCredentialsCache>();
+        IVpnConnectionStateMachine stateMachine = Substitute.For<IVpnConnectionStateMachine>();
+        ConnectionRequestIpcEntity request = new();
+        VpnConfig config = new(new VpnConfigParameters { PreferredProtocols = [] });
+        VpnCredentials credentials = new(CreateKeyPair(), "username", "password");
+
+        entityMapper.Map<VpnConfigIpcEntity, VpnConfig>(request.Config).Returns(config);
+        entityMapper.Map<VpnServerIpcEntity, VpnHost>(request.Servers).Returns(Array.Empty<VpnHost>());
+        entityMapper.Map<VpnCredentialsIpcEntity, VpnCredentials>(request.Credentials).Returns(credentials);
+
+        VpnController subject = CreateVpnController(entityMapper, cache, stateMachine);
+
+        await subject.Connect(request, CancellationToken.None);
+
+        await cache.Received(1).ClearAsync(CancellationToken.None);
+        await cache.DidNotReceiveWithAnyArgs().SetAsync(default, default);
+        stateMachine.Received(1).Connect(Arg.Any<IReadOnlyList<VpnHost>>(), config, credentials);
+    }
+
+    [TestMethod]
+    public async Task Connect_ShouldCacheLocalAgentTlsCredentials_WhenUsingCertificate()
+    {
+        IEntityMapper entityMapper = Substitute.For<IEntityMapper>();
+        ILocalAgentTlsCredentialsCache cache = Substitute.For<ILocalAgentTlsCredentialsCache>();
+        IVpnConnectionStateMachine stateMachine = Substitute.For<IVpnConnectionStateMachine>();
+        ConnectionRequestIpcEntity request = new();
+        VpnConfig config = new(new VpnConfigParameters { PreferredProtocols = [] });
+        DateTime expirationDateUtc = DateTime.UtcNow.AddHours(1);
+        AsymmetricKeyPair keyPair = CreateKeyPair();
+        VpnCredentials credentials = new("certificate", expirationDateUtc, keyPair, string.Empty, string.Empty);
+
+        entityMapper.Map<VpnConfigIpcEntity, VpnConfig>(request.Config).Returns(config);
+        entityMapper.Map<VpnServerIpcEntity, VpnHost>(request.Servers).Returns(Array.Empty<VpnHost>());
+        entityMapper.Map<VpnCredentialsIpcEntity, VpnCredentials>(request.Credentials).Returns(credentials);
+
+        VpnController subject = CreateVpnController(entityMapper, cache, stateMachine);
+
+        await subject.Connect(request, CancellationToken.None);
+
+        await cache.Received(1).SetAsync(
+            Arg.Is<LocalAgentTlsCredentials>(c =>
+                c.ConnectionCertificate.Pem == credentials.ClientCertPem &&
+                c.ConnectionCertificate.ExpirationDateUtc == credentials.ClientCertificateExpirationDateUtc &&
+                c.ClientKeyPair == credentials.ClientKeyPair),
+            CancellationToken.None);
+        await cache.DidNotReceiveWithAnyArgs().ClearAsync(default);
+        stateMachine.Received(1).Connect(Arg.Any<IReadOnlyList<VpnHost>>(), config, credentials);
     }
 
     [TestMethod]
@@ -167,9 +221,24 @@ public class ConnectionCertificateHardeningTest
         await cache.Received(1).SetAsync(mappedCredentials, CancellationToken.None);
     }
 
+    private static AsymmetricKeyPair CreateKeyPair()
+    {
+        return new AsymmetricKeyPair(
+            new SecretKey(new byte[] { 1, 2, 3 }, KeyAlgorithm.X25519),
+            new CryptoPublicKey(new byte[] { 4, 5, 6 }, KeyAlgorithm.X25519));
+    }
+
     private static VpnController CreateVpnController(
         IEntityMapper entityMapper,
         ILocalAgentTlsCredentialsCache cache)
+    {
+        return CreateVpnController(entityMapper, cache, Substitute.For<IVpnConnectionStateMachine>());
+    }
+
+    private static VpnController CreateVpnController(
+        IEntityMapper entityMapper,
+        ILocalAgentTlsCredentialsCache cache,
+        IVpnConnectionStateMachine stateMachine)
     {
         return new VpnController(
             Substitute.For<ILogger>(),
@@ -180,7 +249,7 @@ public class ConnectionCertificateHardeningTest
             entityMapper,
             cache,
             Substitute.For<IControllerRetryManager>(),
-            Substitute.For<IVpnConnectionStateMachine>(),
+            stateMachine,
             Substitute.For<ITunnelOrchestrator>(),
             Substitute.For<ILocalAgent>(),
             Substitute.For<ILocalAgentEventReceiver>(),
