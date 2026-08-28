@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -92,6 +92,7 @@ public static class DefaultSettings
     public static int TotalServerCount = 9000;
     public static int WhatsNewOverlayVersion = 2;
     public static TimeSpan WireGuardConnectionTimeout = TimeSpan.FromSeconds(5);
+    public static TimeSpan ProlongedWireGuardConnectionTimeout = TimeSpan.FromSeconds(15);
     public static bool IsEfficiencyModeAllowed = false;
     public static DnsBlockMode DnsBlockMode = DnsBlockMode.Nrpt;
     public static bool IsLocalDnsEnabled = false;
