@@ -47,6 +47,7 @@ public class MainSettingsRequestCreatorTest
         settings.IsIpv6LeakProtectionEnabled.Returns(false);
         settings.IsIpv6Enabled.Returns(true);
         settings.IsLocalAreaNetworkAccessEnabled.Returns(true);
+        settings.IsLocalDnsEnabled.Returns(true);
         settings.IsVpnAcceleratorEnabled.Returns(false);
         settings.OpenVpnAdapter.Returns(OpenVpnAdapter.Tun);
         settings.WireGuardConnectionTimeout.Returns(TimeSpan.FromSeconds(1));
@@ -58,6 +59,7 @@ public class MainSettingsRequestCreatorTest
         MainSettingsIpcEntity guestHoleSettings = creator.CreateForGuestHole();
 
         // Assert
+        Assert.AreEqual(KillSwitchModeIpcEntity.Off, guestHoleSettings.KillSwitchMode);
         Assert.AreEqual(SplitTunnelModeIpcEntity.Disabled, guestHoleSettings.SplitTunnel.Mode);
         Assert.AreEqual(0, guestHoleSettings.SplitTunnel.AppPaths.Length);
         Assert.AreEqual(0, guestHoleSettings.SplitTunnel.Ips.Length);
@@ -74,5 +76,24 @@ public class MainSettingsRequestCreatorTest
         Assert.AreEqual(DnsBlockModeIpcEntity.Nrpt, guestHoleSettings.DnsBlockMode);
         Assert.AreEqual(DefaultSettings.ShouldDisableWeakHostSetting, guestHoleSettings.ShouldDisableWeakHostSetting);
         Assert.IsTrue(guestHoleSettings.IsShareCrashReportsEnabled);
+    }
+
+    [TestMethod]
+    public void CreateForGuestHole_ShouldPreserveEnabledKillSwitchMode()
+    {
+        ISettings settings = Substitute.For<ISettings>();
+        IEntityMapper entityMapper = Substitute.For<IEntityMapper>();
+
+        settings.IsKillSwitchEnabled.Returns(true);
+        settings.KillSwitchMode.Returns(KillSwitchMode.Advanced);
+        entityMapper
+            .Map<KillSwitchMode, KillSwitchModeIpcEntity>(KillSwitchMode.Advanced)
+            .Returns(KillSwitchModeIpcEntity.Hard);
+
+        MainSettingsRequestCreator creator = new(settings, entityMapper);
+
+        MainSettingsIpcEntity guestHoleSettings = creator.CreateForGuestHole();
+
+        Assert.AreEqual(KillSwitchModeIpcEntity.Hard, guestHoleSettings.KillSwitchMode);
     }
 }
