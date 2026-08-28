@@ -1,0 +1,445 @@
+name: Temporary deep Proton 5.1.x archaeology
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/proton-deep-archaeology-temp.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proton-deep-archaeology-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  archaeology:
+    name: Deep compare ${{ matrix.target_version }} vs ${{ matrix.comparison_version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target_version: "5.1.6"
+            comparison_version: "5.1.5"
+          - target_version: "5.1.7"
+            comparison_version: "5.1.6"
+
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve official Proton release metadata
+        id: release
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ matrix.target_version }}
+          COMPARISON_VERSION: ${{ matrix.comparison_version }}
+        run: |
+          set -euo pipefail
+          mkdir -p archaeology
+          python3 <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          feed_url = "https://protonvpn.com/download/windows/x64/v1/version.json"
+          with urllib.request.urlopen(feed_url, timeout=30) as response:
+              feed = json.load(response)
+
+          releases = feed.get("Releases", [])
+
+          def choose(version):
+              candidates = [release for release in releases if release.get("Version") == version]
+              if not candidates:
+                  raise SystemExit(f"Version {version} was not found in Proton's x64 update feed")
+              candidates.sort(
+                  key=lambda release: (
+                      release.get("CategoryName") == "Stable",
+                      float(release.get("RolloutProportion") or 0),
+                  ),
+                  reverse=True,
+              )
+              return candidates[0]
+
+          def release_info(version):
+              release = choose(version)
+              file_info = release["File"]
+              url = file_info["Url"]
+              parsed = urllib.parse.urlparse(url)
+              if parsed.scheme != "https" or parsed.hostname != "download.protonvpn.com":
+                  raise SystemExit(f"Refusing unexpected installer URL for {version}: {url}")
+              sha = file_info["SHA256CheckSum"].strip().lower()
+              if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
+                  raise SystemExit(f"Invalid Proton-published SHA-256 for {version}: {sha}")
+              return {
+                  "version": version,
+                  "category": release.get("CategoryName"),
+                  "rollout": release.get("RolloutProportion"),
+                  "release_date": release.get("ReleaseDate"),
+                  "url": url,
+                  "sha256": sha,
+                  "release_notes": [
+                      note
+                      for group in release.get("ReleaseNotes", [])
+                      for note in group.get("Notes", [])
+                  ],
+              }
+
+          target = release_info(os.environ["TARGET_VERSION"])
+          comparison = release_info(os.environ["COMPARISON_VERSION"])
+          metadata = {
+              "feed_url": feed_url,
+              "target": target,
+              "comparison": comparison,
+          }
+          Path("archaeology/release-metadata.json").write_text(
+              json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              for prefix, info in (("target", target), ("comparison", comparison)):
+                  handle.write(f"{prefix}_version={info['version']}\n")
+                  handle.write(f"{prefix}_url={info['url']}\n")
+                  handle.write(f"{prefix}_sha256={info['sha256']}\n")
+          PY
+
+      - name: Install extraction build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libboost-all-dev liblzma-dev
+
+      - name: Build pinned Inno Setup extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools/innoextract-src
+          git -C tools/innoextract-src init
+          git -C tools/innoextract-src remote add origin https://github.com/dscho/innoextract.git
+          git -C tools/innoextract-src fetch --depth 1 origin 376a13e7c41cc5528b6088d0dd16ec1b323a8d37
+          git -C tools/innoextract-src checkout --detach FETCH_HEAD
+          cmake -S tools/innoextract-src -B tools/innoextract-build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build tools/innoextract-build --target innoextract --parallel 2
+
+      - name: Download and verify both official installers
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
+          TARGET_URL: ${{ steps.release.outputs.target_url }}
+          TARGET_SHA256: ${{ steps.release.outputs.target_sha256 }}
+          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
+          COMPARISON_URL: ${{ steps.release.outputs.comparison_url }}
+          COMPARISON_SHA256: ${{ steps.release.outputs.comparison_sha256 }}
+        run: |
+          set -euo pipefail
+          download_release() {
+            local label="$1" version="$2" url="$3" expected="$4" dir="archaeology/$1"
+            mkdir -p "$dir"
+            local installer="$dir/ProtonVPN_v${version}_x64.exe"
+            curl --fail --location --retry 3 --retry-delay 2 --output "$installer" "$url"
+            printf '%s  %s\n' "$expected" "$installer" | sha256sum --check --strict
+            sha256sum "$installer" > "$dir/installer-sha256.txt"
+          }
+          download_release target "$TARGET_VERSION" "$TARGET_URL" "$TARGET_SHA256"
+          download_release comparison "$COMPARISON_VERSION" "$COMPARISON_URL" "$COMPARISON_SHA256"
+
+      - name: Extract installers and inventory every Proton-named runtime binary
+        shell: bash
+        env:
+          TARGET_VERSION: ${{ steps.release.outputs.target_version }}
+          COMPARISON_VERSION: ${{ steps.release.outputs.comparison_version }}
+        run: |
+          set -euo pipefail
+          INNOEXTRACT="$(find tools/innoextract-build -type f -name innoextract -perm -111 -print -quit)"
+          test -n "$INNOEXTRACT"
+
+          extract_release() {
+            local label="$1" version="$2" dir="archaeology/$1"
+            "$INNOEXTRACT" --extract --output-dir "$dir/extracted" \
+              "$dir/ProtonVPN_v${version}_x64.exe" | tee "$dir/innoextract.log"
+            find "$dir/extracted" -type f -printf '%P\n' | sort > "$dir/extracted-files.txt"
+
+            local client_dll appdir
+            client_dll="$(find "$dir/extracted" -type f -iname 'ProtonVPN.Client.dll' -print -quit)"
+            test -n "$client_dll"
+            appdir="$(dirname "$client_dll")"
+            printf '%s\n' "$appdir" > "$dir/app-directory.txt"
+
+            APPDIR="$appdir" OUTDIR="$dir" python3 <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import shutil
+          from pathlib import Path
+
+          appdir = Path(os.environ["APPDIR"])
+          outdir = Path(os.environ["OUTDIR"])
+          binaries = outdir / "binaries"
+          binaries.mkdir(parents=True, exist_ok=True)
+
+          records = []
+          for src in sorted(p for p in appdir.rglob("*") if p.is_file()):
+              name = src.name.lower()
+              if not re.match(r"^protonvpn.*\.(dll|exe)$", name):
+                  continue
+              rel = src.relative_to(appdir)
+              dest = binaries / rel
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dest)
+              records.append({
+                  "path": rel.as_posix(),
+                  "sha256": hashlib.sha256(src.read_bytes()).hexdigest(),
+                  "size": src.stat().st_size,
+              })
+
+          if not records:
+              raise SystemExit("No Proton-named DLL/EXE runtime files were found")
+          (outdir / "binary-manifest.json").write_text(
+              json.dumps(records, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+          }
+
+          extract_release target "$TARGET_VERSION"
+          extract_release comparison "$COMPARISON_VERSION"
+
+      - name: Install ILSpy command line decompiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet tool install --tool-path tools/ilspy ilspycmd
+          tools/ilspy/ilspycmd --version | tee archaeology/ilspy-version.txt
+
+      - name: Build complete binary delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+
+          def load(label):
+              records = json.loads(
+                  Path(f"archaeology/{label}/binary-manifest.json").read_text(encoding="utf-8")
+              )
+              return {item["path"]: item for item in records}
+
+          target = load("target")
+          comparison = load("comparison")
+          changes = []
+          for path in sorted(set(target) | set(comparison)):
+              if path not in comparison:
+                  status = "added"
+              elif path not in target:
+                  status = "removed"
+              elif target[path]["sha256"] != comparison[path]["sha256"]:
+                  status = "changed"
+              else:
+                  status = "unchanged"
+              changes.append({
+                  "path": path,
+                  "status": status,
+                  "target_sha256": target.get(path, {}).get("sha256"),
+                  "comparison_sha256": comparison.get(path, {}).get("sha256"),
+                  "target_size": target.get(path, {}).get("size"),
+                  "comparison_size": comparison.get(path, {}).get("size"),
+              })
+
+          Path("archaeology/binary-diff.json").write_text(
+              json.dumps(changes, indent=2) + "\n", encoding="utf-8"
+          )
+          Path("archaeology/changed-binaries.txt").write_text(
+              "".join(f"{item['status']}\t{item['path']}\n"
+                      for item in changes if item["status"] != "unchanged"),
+              encoding="utf-8",
+          )
+          PY
+          cat archaeology/changed-binaries.txt
+
+      - name: Decompile every changed first-party managed binary on both sides
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p archaeology/decompile-status archaeology/source-diffs \
+                   archaeology/target/decompiled archaeology/comparison/decompiled
+
+          python3 <<'PY'
+          import base64
+          import json
+          from pathlib import Path
+
+          changes = json.loads(Path("archaeology/binary-diff.json").read_text(encoding="utf-8"))
+          rows = []
+          for item in changes:
+              if item["status"] == "unchanged":
+                  continue
+              token = base64.urlsafe_b64encode(item["path"].encode()).decode().rstrip("=")
+              rows.append(f"{item['status']}\t{token}\t{item['path']}\n")
+          Path("archaeology/decompile-work.tsv").write_text("".join(rows), encoding="utf-8")
+          PY
+
+          : > archaeology/decompile-status.tsv
+          while IFS=$'\t' read -r status token relpath; do
+            [[ -n "$relpath" ]] || continue
+            target_bin="archaeology/target/binaries/$relpath"
+            comparison_bin="archaeology/comparison/binaries/$relpath"
+            target_out="archaeology/target/decompiled/$token"
+            comparison_out="archaeology/comparison/decompiled/$token"
+            target_result="absent"
+            comparison_result="absent"
+
+            if [[ -f "$target_bin" ]]; then
+              mkdir -p "$target_out"
+              if tools/ilspy/ilspycmd --project --outputdir "$target_out" "$target_bin" \
+                  >"archaeology/decompile-status/${token}-target.log" 2>&1; then
+                target_result="managed"
+              else
+                target_result="not-decompilable"
+                rm -rf "$target_out"
+              fi
+            fi
+
+            if [[ -f "$comparison_bin" ]]; then
+              mkdir -p "$comparison_out"
+              if tools/ilspy/ilspycmd --project --outputdir "$comparison_out" "$comparison_bin" \
+                  >"archaeology/decompile-status/${token}-comparison.log" 2>&1; then
+                comparison_result="managed"
+              else
+                comparison_result="not-decompilable"
+                rm -rf "$comparison_out"
+              fi
+            fi
+
+            printf '%s\t%s\t%s\t%s\t%s\n' \
+              "$status" "$relpath" "$target_result" "$comparison_result" "$token" \
+              >> archaeology/decompile-status.tsv
+
+            if [[ "$target_result" == managed || "$comparison_result" == managed ]]; then
+              diff -ruN --exclude='AssemblyInfo.cs' --exclude='*.csproj' \
+                "$comparison_out" "$target_out" \
+                > "archaeology/source-diffs/${token}.patch" || true
+            fi
+          done < archaeology/decompile-work.tsv
+
+      - name: Build deep archaeology report
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(Path("archaeology/release-metadata.json").read_text(encoding="utf-8"))
+          delta = json.loads(Path("archaeology/binary-diff.json").read_text(encoding="utf-8"))
+          target = metadata["target"]
+          comparison = metadata["comparison"]
+
+          statuses = {}
+          status_file = Path("archaeology/decompile-status.tsv")
+          if status_file.exists():
+              for line in status_file.read_text(encoding="utf-8").splitlines():
+                  status, relpath, target_result, comparison_result, token = line.split("\t")
+                  statuses[relpath] = {
+                      "status": status,
+                      "target": target_result,
+                      "comparison": comparison_result,
+                      "token": token,
+                  }
+
+          changed = [item for item in delta if item["status"] != "unchanged"]
+          managed = [
+              (path, info) for path, info in statuses.items()
+              if "managed" in (info["target"], info["comparison"])
+          ]
+          not_decompilable = [
+              (path, info) for path, info in statuses.items()
+              if info["target"] == "not-decompilable" or info["comparison"] == "not-decompilable"
+          ]
+
+          lines = [
+              f"# Deep Proton VPN {target['version']} vs {comparison['version']} archaeology",
+              "",
+              f"- Target SHA-256: `{target['sha256']}`",
+              f"- Comparison SHA-256: `{comparison['sha256']}`",
+              f"- Repository analysis commit: `{os.environ['SOURCE_COMMIT']}`",
+              f"- Changed/added/removed Proton-named DLL/EXE files: **{len(changed)}**",
+              f"- Changed binaries with managed code on at least one side: **{len(managed)}**",
+              "",
+              "## Target release notes",
+              "",
+          ]
+          lines.extend([f"- {note}" for note in target.get("release_notes", [])] or ["- None in feed."])
+
+          lines += ["", "## Complete Proton-named runtime binary delta", ""]
+          lines.extend(
+              f"- `{item['path']}` — **{item['status']}**"
+              for item in changed
+          )
+
+          lines += ["", "## Managed/decompilation classification", ""]
+          for path, info in sorted(statuses.items()):
+              lines.append(
+                  f"- `{path}` — target `{info['target']}`, comparison `{info['comparison']}`"
+              )
+
+          if not_decompilable:
+              lines += ["", "## Changed binaries not decompilable by ILSpy", ""]
+              for path, info in sorted(not_decompilable):
+                  lines.append(
+                      f"- `{path}` — target `{info['target']}`, comparison `{info['comparison']}`"
+                  )
+
+          lines += [
+              "",
+              "## Source patch index",
+              "",
+              "Each managed changed binary has a full `diff -ruN` patch under "
+              "`archaeology/source-diffs/`; decompiled projects for both sides are retained.",
+              "",
+          ]
+          for path, info in sorted(managed):
+              patch = Path("archaeology/source-diffs") / f"{info['token']}.patch"
+              size = patch.stat().st_size if patch.exists() else 0
+              lines.append(f"- `{path}` — `{patch.as_posix()}` ({size} bytes)")
+
+          Path("archaeology/report.md").write_text(
+              "\n".join(lines).rstrip() + "\n", encoding="utf-8"
+          )
+          PY
+          cat archaeology/report.md
+
+      - name: Upload complete deep archaeology bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-${{ matrix.target_version }}-vs-${{ matrix.comparison_version }}-deep-archaeology
+          path: |
+            archaeology/report.md
+            archaeology/release-metadata.json
+            archaeology/ilspy-version.txt
+            archaeology/binary-diff.json
+            archaeology/changed-binaries.txt
+            archaeology/decompile-status.tsv
+            archaeology/decompile-status
+            archaeology/target/installer-sha256.txt
+            archaeology/target/binary-manifest.json
+            archaeology/target/extracted-files.txt
+            archaeology/target/decompiled
+            archaeology/comparison/installer-sha256.txt
+            archaeology/comparison/binary-manifest.json
+            archaeology/comparison/extracted-files.txt
+            archaeology/comparison/decompiled
+            archaeology/source-diffs
+          if-no-files-found: error
+          retention-days: 3
