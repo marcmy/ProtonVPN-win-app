@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -39,6 +40,7 @@ using ProtonVPN.Service.Vpn;
 using ProtonVPN.Vpn.Connection;
 using ProtonVPN.Vpn.LocalAgent;
 using ProtonVPN.Vpn.PortMapping;
+using CryptoPublicKey = ProtonVPN.Crypto.Contracts.PublicKey;
 
 namespace ProtonVPN.Service.Tests.Vpn;
 
@@ -110,7 +112,7 @@ public class ConnectionCertificateHardeningTest
         LocalAgentTlsCredentialsCache subject = new(Substitute.For<ILogger>());
         AsymmetricKeyPair keyPair = new(
             new SecretKey(new byte[] { 1, 2, 3 }, KeyAlgorithm.X25519),
-            new PublicKey(new byte[] { 4, 5, 6 }, KeyAlgorithm.X25519));
+            new CryptoPublicKey(new byte[] { 4, 5, 6 }, KeyAlgorithm.X25519));
         LocalAgentTlsCredentials credentials = new(
             new ConnectionCertificate("certificate", DateTime.UtcNow.AddHours(1)),
             keyPair);
