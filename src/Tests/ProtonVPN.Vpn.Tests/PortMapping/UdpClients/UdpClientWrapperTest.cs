@@ -70,6 +70,39 @@ public class UdpClientWrapperTest
     }
 
     [TestMethod]
+    public async Task ReceiveAsync_CancelledReceiveShouldNotStealRetryResponse()
+    {
+        using UdpClient gateway = CreateGateway();
+        using UdpClientWrapper sut = new();
+        await BindClientAsync(sut, gateway);
+        using CancellationTokenSource firstAttemptCancellationTokenSource = new();
+
+        Task<byte[]> firstReceive = sut.ReceiveAsync(firstAttemptCancellationTokenSource.Token);
+        firstReceive.IsCompleted.Should().BeFalse("the first receive must be genuinely pending before cancellation");
+
+        firstAttemptCancellationTokenSource.Cancel();
+        Func<Task> firstAttempt = async () => await firstReceive;
+        await firstAttempt.Should().ThrowAsync<OperationCanceledException>();
+        firstReceive.IsCompleted.Should().BeTrue("the first receive must be terminal before the retry begins");
+
+        byte[] retryQuery = [7, 8];
+        sut.Send(retryQuery);
+        using CancellationTokenSource retryCancellationTokenSource = new(TEST_TIMEOUT);
+        UdpReceiveResult receivedRetryQuery = await gateway.ReceiveAsync(retryCancellationTokenSource.Token);
+        receivedRetryQuery.Buffer.Should().Equal(retryQuery);
+
+        Task<byte[]> secondReceive = sut.ReceiveAsync(retryCancellationTokenSource.Token);
+        secondReceive.IsCompleted.Should().BeFalse("no retry response has been sent yet");
+
+        byte[] expectedReply = [9, 10, 11];
+        gateway.Send(expectedReply, expectedReply.Length, receivedRetryQuery.RemoteEndPoint);
+
+        byte[] actualReply = await secondReceive;
+        actualReply.Should().Equal(expectedReply);
+        firstReceive.IsCompleted.Should().BeTrue("a completed first receive cannot consume the retry response");
+    }
+
+    [TestMethod]
     public async Task Reset_ShouldTerminatePendingReceiveAndRemainReusable()
     {
         using UdpClient gateway = CreateGateway();
@@ -95,38 +128,69 @@ public class UdpClientWrapperTest
     }
 
     [TestMethod]
-    public async Task Stop_ShouldNormalizeDisposedReceiveToCancellationWhenOperationIsCancelled()
+    public async Task Stop_ShouldNormalizeDisposalTerminatedReceiveToCancellation()
     {
-        using UdpClient gateway = CreateGateway();
-        UdpClientWrapper sut = new();
-        await BindClientAsync(sut, gateway);
-        using CancellationTokenSource cancellationTokenSource = new();
-
-        Task<byte[]> pendingReceive = sut.ReceiveAsync(cancellationTokenSource.Token);
-        cancellationTokenSource.Cancel();
-        sut.Stop();
-        Func<Task> action = async () => await pendingReceive;
-
-        await action.Should().ThrowAsync<OperationCanceledException>();
-        pendingReceive.IsCompleted.Should().BeTrue();
-        sut.Dispose();
+        await AssertDisposalDuringCancellationIsNormalizedAsync(sut => sut.Stop());
     }
 
     [TestMethod]
-    public async Task Dispose_ShouldNormalizeDisposedReceiveToCancellationWhenOperationIsCancelled()
+    public async Task Dispose_ShouldNormalizeDisposalTerminatedReceiveToCancellation()
+    {
+        await AssertDisposalDuringCancellationIsNormalizedAsync(sut => sut.Dispose());
+    }
+
+    private static async Task AssertDisposalDuringCancellationIsNormalizedAsync(Action<UdpClientWrapper> disposeAction)
     {
         using UdpClient gateway = CreateGateway();
         UdpClientWrapper sut = new();
-        await BindClientAsync(sut, gateway);
-        using CancellationTokenSource cancellationTokenSource = new();
+        try
+        {
+            await BindClientAsync(sut, gateway);
+            using CancellationTokenSource cancellationTokenSource = new();
+            QueuedSynchronizationContext synchronizationContext = new();
 
-        Task<byte[]> pendingReceive = sut.ReceiveAsync(cancellationTokenSource.Token);
-        cancellationTokenSource.Cancel();
-        sut.Dispose();
-        Func<Task> action = async () => await pendingReceive;
+            Task<byte[]> pendingReceive = StartReceiveWithQueuedContinuation(
+                sut,
+                cancellationTokenSource.Token,
+                synchronizationContext);
+            pendingReceive.IsCompleted.Should().BeFalse("the socket receive must be pending before disposal");
 
-        await action.Should().ThrowAsync<OperationCanceledException>();
-        pendingReceive.IsCompleted.Should().BeTrue();
+            disposeAction(sut);
+            await synchronizationContext.WaitForContinuationAsync();
+            pendingReceive.IsCompleted.Should().BeFalse(
+                "socket disposal has terminated the underlying receive, but the wrapper continuation is intentionally held");
+
+            cancellationTokenSource.Cancel();
+            synchronizationContext.RunContinuation();
+
+            Task completedTask = await Task.WhenAny(pendingReceive, Task.Delay(TEST_TIMEOUT));
+            completedTask.Should().BeSameAs(pendingReceive, "the normalized cancellation must complete promptly");
+
+            Func<Task> action = async () => await pendingReceive;
+            await action.Should().ThrowAsync<OperationCanceledException>();
+            pendingReceive.IsCompleted.Should().BeTrue();
+        }
+        finally
+        {
+            sut.Dispose();
+        }
+    }
+
+    private static Task<byte[]> StartReceiveWithQueuedContinuation(
+        UdpClientWrapper sut,
+        CancellationToken cancellationToken,
+        QueuedSynchronizationContext synchronizationContext)
+    {
+        SynchronizationContext previousSynchronizationContext = SynchronizationContext.Current;
+        try
+        {
+            SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+            return sut.ReceiveAsync(cancellationToken);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousSynchronizationContext);
+        }
     }
 
     private static UdpClient CreateGateway()
@@ -152,6 +216,33 @@ public class UdpClientWrapperTest
         if (task.IsFaulted)
         {
             _ = task.Exception;
+        }
+    }
+
+    private sealed class QueuedSynchronizationContext : SynchronizationContext
+    {
+        private readonly TaskCompletionSource<bool> _continuationPosted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private SendOrPostCallback _callback;
+        private object _state;
+
+        public override void Post(SendOrPostCallback d, object state)
+        {
+            _callback = d;
+            _state = state;
+            _continuationPosted.TrySetResult(true);
+        }
+
+        public Task WaitForContinuationAsync()
+        {
+            return _continuationPosted.Task.WaitAsync(TEST_TIMEOUT);
+        }
+
+        public void RunContinuation()
+        {
+            SendOrPostCallback callback = _callback ??
+                throw new InvalidOperationException("No receive continuation was posted by socket disposal.");
+            callback(_state);
         }
     }
 }
