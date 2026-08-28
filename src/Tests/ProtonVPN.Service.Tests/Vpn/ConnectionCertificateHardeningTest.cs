@@ -34,6 +34,7 @@ using ProtonVPN.Service.ServerHealth;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Service.StateMachine;
 using ProtonVPN.Service.Vpn;
+using ProtonVPN.Vpn.Connection;
 using ProtonVPN.Vpn.LocalAgent;
 using ProtonVPN.Vpn.PortMapping;
 
