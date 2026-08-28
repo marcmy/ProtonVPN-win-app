@@ -33,6 +33,8 @@ public class UdpPingClient : IUdpPingClient
     {
         try
         {
+            // PInvoke.Ping does not expose cancellation. The token cancels the managed wait, while a native
+            // ping that has already started can continue until its own bounded timeout expires.
             return await Task.Run(() =>
             {
                 using GoString ipGoString = ip.ToGoString();

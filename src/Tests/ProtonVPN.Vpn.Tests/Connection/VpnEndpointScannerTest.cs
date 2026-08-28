@@ -42,28 +42,9 @@ public class VpnEndpointScannerTest
     {
         // Arrange
         CancellationObservingTcpPortScanner tcpPortScanner = new();
-        VpnEndpointScanner subject = new(
-            Substitute.For<ILogger>(),
-            new ImmediateTaskQueue(),
-            tcpPortScanner,
-            new UnusedUdpPingClient());
-
-        VpnHost host = new(
-            name: "server.test",
-            ip: "10.0.0.1",
-            label: string.Empty,
-            x25519PublicKey: null,
-            signature: string.Empty,
-            isIpv6Supported: false,
-            relayIpByProtocol: null);
-
-        VpnEndpoint endpoint = new(host, VpnProtocol.OpenVpnTcp);
-        IReadOnlyDictionary<VpnProtocol, IReadOnlyCollection<int>> ports =
-            new Dictionary<VpnProtocol, IReadOnlyCollection<int>>
-            {
-                [VpnProtocol.OpenVpnTcp] = [443]
-            };
-        IList<VpnProtocol> preferredProtocols = [VpnProtocol.OpenVpnTcp];
+        VpnEndpointScanner subject = CreateSubject(tcpPortScanner);
+        (VpnEndpoint endpoint, IReadOnlyDictionary<VpnProtocol, IReadOnlyCollection<int>> ports,
+            IList<VpnProtocol> preferredProtocols) = CreateOpenVpnTcpScanParameters();
         using CancellationTokenSource cancellationTokenSource = new();
 
         // Act
@@ -81,6 +62,66 @@ public class VpnEndpointScannerTest
         result.IsEmpty.Should().BeTrue();
         tcpPortScanner.ObservedCancellationToken.CanBeCanceled.Should().BeTrue();
         tcpPortScanner.ObservedCancellationToken.IsCancellationRequested.Should().BeTrue();
+        tcpPortScanner.Completed.Task.IsCompleted.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task ScanForBestEndpointAsync_ShouldCancelInFlightTcpProbe_WhenScannerTimesOutAsync()
+    {
+        // Arrange
+        CancellationObservingTcpPortScanner tcpPortScanner = new();
+        VpnEndpointScanner subject = CreateSubject(tcpPortScanner);
+        (VpnEndpoint endpoint, IReadOnlyDictionary<VpnProtocol, IReadOnlyCollection<int>> ports,
+            IList<VpnProtocol> preferredProtocols) = CreateOpenVpnTcpScanParameters();
+
+        // Act
+        Task<VpnEndpoint> scanTask = subject.ScanForBestEndpointAsync(
+            endpoint,
+            ports,
+            preferredProtocols,
+            CancellationToken.None);
+
+        await tcpPortScanner.Started.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        VpnEndpoint result = await scanTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        result.IsEmpty.Should().BeTrue();
+        tcpPortScanner.ObservedCancellationToken.CanBeCanceled.Should().BeTrue();
+        tcpPortScanner.ObservedCancellationToken.IsCancellationRequested.Should().BeTrue();
+        tcpPortScanner.Completed.Task.IsCompleted.Should().BeTrue();
+    }
+
+    private static VpnEndpointScanner CreateSubject(ITcpPortScanner tcpPortScanner)
+    {
+        return new VpnEndpointScanner(
+            Substitute.For<ILogger>(),
+            new ImmediateTaskQueue(),
+            tcpPortScanner,
+            new UnusedUdpPingClient());
+    }
+
+    private static (VpnEndpoint Endpoint,
+        IReadOnlyDictionary<VpnProtocol, IReadOnlyCollection<int>> Ports,
+        IList<VpnProtocol> PreferredProtocols) CreateOpenVpnTcpScanParameters()
+    {
+        VpnHost host = new(
+            name: "server.test",
+            ip: "10.0.0.1",
+            label: string.Empty,
+            x25519PublicKey: null,
+            signature: string.Empty,
+            isIpv6Supported: false,
+            relayIpByProtocol: null);
+
+        VpnEndpoint endpoint = new(host, VpnProtocol.OpenVpnTcp);
+        IReadOnlyDictionary<VpnProtocol, IReadOnlyCollection<int>> ports =
+            new Dictionary<VpnProtocol, IReadOnlyCollection<int>>
+            {
+                [VpnProtocol.OpenVpnTcp] = [443]
+            };
+        IList<VpnProtocol> preferredProtocols = [VpnProtocol.OpenVpnTcp];
+
+        return (endpoint, ports, preferredProtocols);
     }
 
     private sealed class ImmediateTaskQueue : ITaskQueue
@@ -94,6 +135,7 @@ public class VpnEndpointScannerTest
     private sealed class CancellationObservingTcpPortScanner : ITcpPortScanner
     {
         public TaskCompletionSource<bool> Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Completed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public CancellationToken ObservedCancellationToken { get; private set; }
 
@@ -110,6 +152,7 @@ public class VpnEndpointScannerTest
             {
             }
 
+            Completed.TrySetResult(true);
             return false;
         }
     }

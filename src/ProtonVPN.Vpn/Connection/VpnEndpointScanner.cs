@@ -35,7 +35,7 @@ namespace ProtonVPN.Vpn.Connection;
 
 public class VpnEndpointScanner : IEndpointScanner
 {
-    private static readonly TimeSpan PING_TIMEOUT = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(3);
 
     private readonly ILogger _logger;
     private readonly ITaskQueue _taskQueue;
@@ -148,7 +148,7 @@ public class VpnEndpointScanner : IEndpointScanner
         foreach (VpnProtocol preferredProtocol in preferredProtocols)
         {
             if (!ports.ContainsKey(preferredProtocol) ||
-                (endpoint.Server.X25519PublicKey == null && preferredProtocol.IsUdp()))
+                (endpoint.Server.X25519PublicKey == null && preferredProtocol.IsUdp())) // Server public key is necessary for UDP pings (see below)
             {
                 continue;
             }
@@ -206,8 +206,8 @@ public class VpnEndpointScanner : IEndpointScanner
         CancellationToken cancellationToken)
     {
         using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        linkedCts.CancelAfter(PING_TIMEOUT);
-        Task timeoutTask = Task.Delay(PING_TIMEOUT, cancellationToken);
+        linkedCts.CancelAfter(PingTimeout);
+        Task timeoutTask = Task.Delay(PingTimeout, cancellationToken);
         bool isAlive = await func(linkedCts.Token);
 
         try

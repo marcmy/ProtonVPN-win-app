@@ -22,37 +22,21 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using ProtonVPN.Configurations.Contracts;
-using ProtonVPN.Vpn.OpenVpn;
 
 namespace ProtonVPN.Vpn.PortScanning;
 
 public class TcpPortScanner : ITcpPortScanner
 {
-    private readonly byte[] _staticKey;
-
-    public TcpPortScanner(IStaticConfiguration config)
-    {
-        _staticKey = config.OpenVpn.StaticKey;
-    }
-
     public async Task<bool> IsAliveAsync(string ip, int port, CancellationToken cancellationToken)
     {
-        OpenVpnHandshake packet = new(_staticKey);
-        IPEndPoint endpoint = new(IPAddress.Parse(ip), port);
-        using Socket socket = new(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
         try
         {
+            IPEndPoint endpoint = new(IPAddress.Parse(ip), port);
+            using Socket socket = new(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
             await socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
 
-            byte[] bytes = packet.Bytes(true);
-            await socket.SendAsync(bytes.AsMemory(), SocketFlags.None, cancellationToken).ConfigureAwait(false);
-
-            byte[] answer = new byte[1024];
-            int received = await socket.ReceiveAsync(answer.AsMemory(), SocketFlags.None, cancellationToken).ConfigureAwait(false);
-
-            return received > 0;
+            return socket.Connected;
         }
         catch (Exception)
         {
