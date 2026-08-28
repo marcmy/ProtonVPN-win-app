@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -76,6 +76,7 @@ public class ConnectionLogicModule : Module
         builder.RegisterType<ReconnectionRequestCreator>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<ConnectionRequestCreator>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<GuestHoleConnectionRequestCreator>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<GuestHoleDisconnectionRequestCreator>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<DisconnectionRequestCreator>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<MainSettingsRequestCreator>().AsImplementedInterfaces().SingleInstance();
     }

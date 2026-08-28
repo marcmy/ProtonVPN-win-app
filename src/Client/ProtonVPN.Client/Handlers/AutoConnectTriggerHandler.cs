@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -23,6 +23,7 @@ using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts.Messages;
 using ProtonVPN.Client.Logic.Auth.Contracts.Models;
 using ProtonVPN.Client.Logic.Connection.Contracts;
+using ProtonVPN.Client.Logic.Connection.Contracts.GuestHole;
 using ProtonVPN.Client.Logic.Connection.Contracts.Messages;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents;
 using ProtonVPN.Client.Logic.Recents.Contracts;
@@ -30,6 +31,7 @@ using ProtonVPN.Client.Logic.Recents.Contracts.Messages;
 using ProtonVPN.Client.Logic.Servers.Cache;
 using ProtonVPN.Client.Logic.Servers.Contracts.Messages;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
 
 namespace ProtonVPN.Client.Handlers;
@@ -41,12 +43,14 @@ public class AutoConnectTriggerHandler : IHandler,
     IEventMessageReceiver<RecentConnectionsChangedMessage>,
     IEventMessageReceiver<ConnectionStatusChangedMessage>,
     IEventMessageReceiver<DeviceLocationChangedMessage>,
-    IEventMessageReceiver<ConnectionCertificateUpdatedMessage>
+    IEventMessageReceiver<ConnectionCertificateUpdatedMessage>,
+    IEventMessageReceiver<GuestHoleStatusChangedMessage>
 {
     private readonly IConnectionManager _connectionManager;
     private readonly IRecentConnectionsManager _recentConnectionsManager;
     private readonly ISettings _settings;
     private readonly IServersCache _serversCache;
+    private readonly IGuestHoleManager _guestHoleManager;
     private readonly IUserAuthenticator _userAuthenticator;
 
     private bool _isHandled;
@@ -61,12 +65,14 @@ public class AutoConnectTriggerHandler : IHandler,
         IRecentConnectionsManager recentConnectionsManager,
         ISettings settings,
         IServersCache serversCache,
+        IGuestHoleManager guestHoleManager,
         IUserAuthenticator userAuthenticator)
     {
         _connectionManager = connectionManager;
         _recentConnectionsManager = recentConnectionsManager;
         _settings = settings;
         _serversCache = serversCache;
+        _guestHoleManager = guestHoleManager;
         _userAuthenticator = userAuthenticator;
     }
 
@@ -79,7 +85,7 @@ public class AutoConnectTriggerHandler : IHandler,
 
     public void Receive(LoggedInMessage message)
     {
-        TryAutoConnectAsync();
+        TryAutoConnectAsync().FireAndForget();
     }
 
     public void Receive(ServerListChangedMessage message)
@@ -87,21 +93,21 @@ public class AutoConnectTriggerHandler : IHandler,
         _isServersListReady = !_serversCache.IsEmpty();
         _isDeviceLocationChanged = false;
 
-        TryAutoConnectAsync();
+        TryAutoConnectAsync().FireAndForget();
     }
 
     public void Receive(RecentConnectionsChangedMessage message)
     {
         _isRecentsListReady = true;
 
-        TryAutoConnectAsync();
+        TryAutoConnectAsync().FireAndForget();
     }
 
     public void Receive(ConnectionStatusChangedMessage message)
     {
         _isConnectionStatusReady = true;
 
-        TryAutoConnectAsync();
+        TryAutoConnectAsync().FireAndForget();
     }
 
     public void Receive(DeviceLocationChangedMessage message)
@@ -111,12 +117,18 @@ public class AutoConnectTriggerHandler : IHandler,
 
     public void Receive(ConnectionCertificateUpdatedMessage message)
     {
-        TryAutoConnectAsync();
+        TryAutoConnectAsync().FireAndForget();
     }
 
-    private async void TryAutoConnectAsync()
+    public void Receive(GuestHoleStatusChangedMessage message)
+    {
+        TryAutoConnectAsync().FireAndForget();
+    }
+
+    private async Task TryAutoConnectAsync()
     {
         if (_isHandled ||
+            _guestHoleManager.IsActive ||
             _isDeviceLocationChanged ||
             !_isServersListReady ||
             !_isRecentsListReady ||

@@ -20,6 +20,7 @@
 using NSubstitute;
 using ProtonVPN.Client.EventMessaging.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts;
+using ProtonVPN.Client.Logic.Connection.Contracts.Messages;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Features;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations.Countries;
@@ -56,6 +57,7 @@ public class ConnectionManagerTest
     private IFavoriteServersStorage? _favoriteServersStorage;
     private IGuestHoleServersFileStorage? _guestHoleServersFileStorage;
     private IGuestHoleConnectionRequestCreator? _guestHoleConnectionRequestCreator;
+    private IGuestHoleDisconnectionRequestCreator? _guestHoleDisconnectionRequestCreator;
     private IConnectionStatisticalEventsManager? _statisticalEventManager;
     private IConnectionKeyManager? _connectionKeyManager;
 
@@ -74,6 +76,7 @@ public class ConnectionManagerTest
         _favoriteServersStorage = Substitute.For<IFavoriteServersStorage>();
         _guestHoleServersFileStorage = Substitute.For<IGuestHoleServersFileStorage>();
         _guestHoleConnectionRequestCreator = Substitute.For<IGuestHoleConnectionRequestCreator>();
+        _guestHoleDisconnectionRequestCreator = Substitute.For<IGuestHoleDisconnectionRequestCreator>();
         _statisticalEventManager = Substitute.For<IConnectionStatisticalEventsManager>();
         _connectionKeyManager = Substitute.For<IConnectionKeyManager>();
 
@@ -96,6 +99,7 @@ public class ConnectionManagerTest
         _favoriteServersStorage = null;
         _guestHoleServersFileStorage = null;
         _guestHoleConnectionRequestCreator = null;
+        _guestHoleDisconnectionRequestCreator = null;
         _statisticalEventManager = null;
         _connectionKeyManager = null;
     }
@@ -161,6 +165,45 @@ public class ConnectionManagerTest
         Assert.IsTrue(connectionManager.CurrentConnectionIntent?.IsSameAs(connectionIntent));
     }
 
+    [TestMethod]
+    public async Task DisconnectFromGuestHoleAsync_ShouldUseGuestHoleDisconnectionRequestCreator()
+    {
+        DisconnectionRequestIpcEntity guestHoleRequest = new();
+        _guestHoleDisconnectionRequestCreator!.Create().Returns(guestHoleRequest);
+
+        ConnectionManager connectionManager = GetConnectionManager();
+
+        await connectionManager.DisconnectFromGuestHoleAsync();
+
+        _guestHoleDisconnectionRequestCreator.Received(1).Create();
+        _disconnectionRequestCreator!.DidNotReceive().Create();
+        await _vpnServiceCaller!.Received(1).DisconnectAsync(guestHoleRequest);
+        Assert.IsNull(connectionManager.CurrentConnectionIntent);
+    }
+
+    [TestMethod]
+    public async Task ConnectAsync_WhenGuestHoleIsActive_ShouldDisconnectGuestHoleBeforeNormalConnection()
+    {
+        DisconnectionRequestIpcEntity guestHoleRequest = new();
+        ConnectionRequestIpcEntity normalRequest = GetConnectionRequestIpcEntity();
+        _guestHoleDisconnectionRequestCreator!.Create().Returns(guestHoleRequest);
+        _connectionRequestCreator!.CreateAsync(Arg.Any<IConnectionIntent>()).Returns(normalRequest);
+        _settings!.VpnPlan.Returns(new VpnPlan(string.Empty, string.Empty, PAID_PLAN_TIER, false));
+
+        ConnectionManager connectionManager = GetConnectionManager();
+        connectionManager.Receive(new GuestHoleStatusChangedMessage(true));
+
+        IConnectionIntent connectionIntent = GetConnectionIntent(new SecureCoreFeatureIntent());
+        await connectionManager.ConnectAsync(VpnTriggerDimension.Auto, connectionIntent);
+
+        Received.InOrder(() =>
+        {
+            _vpnServiceCaller!.DisconnectAsync(guestHoleRequest);
+            _vpnServiceCaller.ConnectAsync(normalRequest);
+        });
+        Assert.IsTrue(connectionManager.CurrentConnectionIntent?.IsSameAs(connectionIntent));
+    }
+
     private ConnectionRequestIpcEntity GetConnectionRequestIpcEntity()
     {
         return new ConnectionRequestIpcEntity()
@@ -197,6 +240,7 @@ public class ConnectionManagerTest
             _favoriteServersStorage!,
             _guestHoleServersFileStorage!,
             _guestHoleConnectionRequestCreator!,
+            _guestHoleDisconnectionRequestCreator!,
             _statisticalEventManager!,
             _connectionKeyManager!);
     }
