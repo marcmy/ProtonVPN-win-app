@@ -82,7 +82,7 @@ public class GuestHoleManagerTest
         Assert.AreEqual(2, Volatile.Read(ref connectCallCount));
 
         secondUseCancellationTokenSource.Cancel();
-        await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () => await secondUse);
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await secondUse);
         await guestHoleConnector.Received(1).DisconnectFromGuestHoleAsync();
     }
 }
