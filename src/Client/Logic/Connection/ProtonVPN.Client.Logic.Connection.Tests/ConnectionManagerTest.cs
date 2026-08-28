@@ -109,6 +109,7 @@ public class ConnectionManagerTest
     [DataRow(typeof(TorFeatureIntent))]
     public async Task ConnectAsync_ShouldNot_ChangeConnectionIntentWhenPortForwardingEnabledAsync(Type featureIntentType)
     {
+        // Arrange
         _settings!.IsPortForwardingEnabled.Returns(true);
         _settings!.VpnPlan.Returns(new VpnPlan(string.Empty, string.Empty, PAID_PLAN_TIER, false));
 
@@ -116,8 +117,10 @@ public class ConnectionManagerTest
         IFeatureIntent featureIntent = GetFeatureIntent(featureIntentType);
         IConnectionIntent connectionIntent = GetConnectionIntent(featureIntent);
 
+        // Act
         await connectionManager.ConnectAsync(VpnTriggerDimension.Auto, connectionIntent);
 
+        // Assert
         Assert.IsTrue(connectionManager.CurrentConnectionIntent?.IsSameAs(connectionIntent));
     }
 
@@ -126,6 +129,7 @@ public class ConnectionManagerTest
     [DataRow(typeof(TorFeatureIntent))]
     public async Task ConnectAsync_ShouldNot_ChangeConnectionIntentWhenPortForwardingDisabledAsync(Type featureIntentType)
     {
+        // Arrange
         _settings!.IsPortForwardingEnabled.Returns(false);
         _settings!.VpnPlan.Returns(new VpnPlan(string.Empty, string.Empty, PAID_PLAN_TIER, false));
 
@@ -133,8 +137,10 @@ public class ConnectionManagerTest
         IFeatureIntent featureIntent = GetFeatureIntent(featureIntentType);
         IConnectionIntent connectionIntent = GetConnectionIntent(featureIntent);
 
+        // Act
         await connectionManager.ConnectAsync(VpnTriggerDimension.Auto, connectionIntent);
 
+        // Assert
         Assert.IsTrue(connectionManager.CurrentConnectionIntent?.IsSameAs(connectionIntent));
     }
 
@@ -143,6 +149,7 @@ public class ConnectionManagerTest
     [DataRow(typeof(TorFeatureIntent))]
     public async Task ReconnectAsync_ShouldNot_ChangeConnectionIntentWhenPortForwardingEnabledAsync(Type featureIntentType)
     {
+        // Arrange
         _settings!.IsPortForwardingEnabled.Returns(true);
         _settings!.VpnPlan.Returns(new VpnPlan(string.Empty, string.Empty, PAID_PLAN_TIER, false));
 
@@ -150,9 +157,11 @@ public class ConnectionManagerTest
         IFeatureIntent featureIntent = GetFeatureIntent(featureIntentType);
         IConnectionIntent connectionIntent = GetConnectionIntent(featureIntent);
 
+        // Act
         await connectionManager.ConnectAsync(VpnTriggerDimension.Auto, connectionIntent);
         await connectionManager.ReconnectAsync(VpnTriggerDimension.Auto);
 
+        // Assert
         Assert.IsTrue(connectionManager.CurrentConnectionIntent?.IsSameAs(connectionIntent));
     }
 
