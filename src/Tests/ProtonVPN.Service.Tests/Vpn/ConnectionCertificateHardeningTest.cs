@@ -137,7 +137,7 @@ public class ConnectionCertificateHardeningTest
         VpnCredentials credentials = new(CreateKeyPair(), "username", "password");
 
         entityMapper.Map<VpnConfigIpcEntity, VpnConfig>(request.Config).Returns(config);
-        entityMapper.Map<VpnServerIpcEntity, VpnHost>(request.Servers).Returns(Array.Empty<VpnHost>());
+        entityMapper.Map<VpnServerIpcEntity, VpnHost>(request.Servers).Returns(new List<VpnHost>());
         entityMapper.Map<VpnCredentialsIpcEntity, VpnCredentials>(request.Credentials).Returns(credentials);
 
         VpnController subject = CreateVpnController(entityMapper, cache, stateMachine);
@@ -162,7 +162,7 @@ public class ConnectionCertificateHardeningTest
         VpnCredentials credentials = new("certificate", expirationDateUtc, keyPair, string.Empty, string.Empty);
 
         entityMapper.Map<VpnConfigIpcEntity, VpnConfig>(request.Config).Returns(config);
-        entityMapper.Map<VpnServerIpcEntity, VpnHost>(request.Servers).Returns(Array.Empty<VpnHost>());
+        entityMapper.Map<VpnServerIpcEntity, VpnHost>(request.Servers).Returns(new List<VpnHost>());
         entityMapper.Map<VpnCredentialsIpcEntity, VpnCredentials>(request.Credentials).Returns(credentials);
 
         VpnController subject = CreateVpnController(entityMapper, cache, stateMachine);
