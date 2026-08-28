@@ -57,6 +57,11 @@ public class UdpClientWrapper : IUdpClientWrapper
         {
             throw new OperationCanceledException(cancellationToken);
         }
+        catch (SocketException e) when (cancellationToken.IsCancellationRequested &&
+            e.SocketErrorCode == SocketError.OperationAborted)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
     }
 
     public void Stop()
