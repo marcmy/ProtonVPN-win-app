@@ -73,7 +73,7 @@ jobs:
               file_info = release["File"]
               url = file_info["Url"]
               parsed = urllib.parse.urlparse(url)
-              if parsed.scheme != "https" or parsed.hostname != "download.protonvpn.com":
+              if parsed.scheme != "https" or parsed.hostname not in {"vpn.protondownload.com", "download.protonvpn.com"}:
                   raise SystemExit(f"Refusing unexpected installer URL for {version}: {url}")
               sha = file_info["SHA256CheckSum"].strip().lower()
               if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
