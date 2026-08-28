@@ -19,6 +19,8 @@
 
 using System;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ProtonVPN.Vpn.PortMapping.UdpClients
 {
@@ -26,7 +28,7 @@ namespace ProtonVPN.Vpn.PortMapping.UdpClients
     {
         void Start(IPEndPoint endpoint);
         void Send(byte[] data);
-        byte[] Receive();
+        Task<byte[]> ReceiveAsync(CancellationToken cancellationToken);
         void Stop();
         void Reset();
     }
