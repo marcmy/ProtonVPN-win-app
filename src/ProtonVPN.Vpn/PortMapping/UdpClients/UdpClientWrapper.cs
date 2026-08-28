@@ -17,8 +17,11 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ProtonVPN.Vpn.PortMapping.UdpClients;
 
@@ -38,10 +41,27 @@ public class UdpClientWrapper : IUdpClientWrapper
         _udpClient?.Send(data, data.Length, _endpoint);
     }
 
-    public byte[] Receive()
+    public async Task<byte[]> ReceiveAsync(CancellationToken cancellationToken)
     {
-        IPEndPoint? remoteEndpoint = _endpoint;
-        return _udpClient?.Receive(ref remoteEndpoint) ?? [];
+        UdpClient? udpClient = _udpClient;
+        try
+        {
+            if (udpClient is null)
+            {
+                return [];
+            }
+
+            return (await udpClient.ReceiveAsync(cancellationToken)).Buffer;
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+        catch (SocketException e) when (cancellationToken.IsCancellationRequested &&
+            e.SocketErrorCode == SocketError.OperationAborted)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
     }
 
     public void Stop()
