@@ -27,6 +27,7 @@ using NSubstitute;
 using ProtonVPN.IssueReporting.Contracts;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Vpn.Gateways;
+using ProtonVPN.Vpn.PortMapping;
 using ProtonVPN.Vpn.PortMapping.Serializers.Common;
 using ProtonVPN.Vpn.PortMapping.UdpClients;
 
@@ -156,7 +157,7 @@ public class PortMappingProtocolClientReceiveTest
 
     private Task<byte[]> InvokeGetReplyOrTimeoutAsync(int timeoutInMilliseconds, CancellationToken cancellationToken)
     {
-        MethodInfo? method = typeof(PortMappingProtocolClient).GetMethod(
+        MethodInfo method = typeof(PortMappingProtocolClient).GetMethod(
             "GetReplyOrTimeoutAsync",
             BindingFlags.Instance | BindingFlags.NonPublic);
         method.Should().NotBeNull();
@@ -166,8 +167,8 @@ public class PortMappingProtocolClientReceiveTest
 
     private static async Task<byte[]> WaitUntilCancelledAsync(
         CancellationToken cancellationToken,
-        Action? onStarted = null,
-        Action? onCompleted = null)
+        Action onStarted = null,
+        Action onCompleted = null)
     {
         onStarted?.Invoke();
         try
