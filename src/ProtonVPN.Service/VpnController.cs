@@ -117,9 +117,17 @@ public class VpnController : IVpnController
             return;
         }
 
-        await _localAgentTlsCredentialsCache.SetAsync(new LocalAgentTlsCredentials(
-            new ConnectionCertificate(credentials.ClientCertPem, credentials.ClientCertificateExpirationDateUtc),
-            credentials.ClientKeyPair), cancelToken);
+        if (!string.IsNullOrEmpty(credentials.ClientCertPem))
+        {
+            await _localAgentTlsCredentialsCache.SetAsync(new LocalAgentTlsCredentials(
+                new ConnectionCertificate(credentials.ClientCertPem, credentials.ClientCertificateExpirationDateUtc),
+                credentials.ClientKeyPair), cancelToken);
+        }
+        else
+        {
+            await _localAgentTlsCredentialsCache.ClearAsync(cancelToken);
+        }
+
         _stateMachine.Connect(endpoints, config, credentials);
     }
 
@@ -139,6 +147,12 @@ public class VpnController : IVpnController
     public async Task UpdateLocalAgentTlsCredentialsAsync(LocalAgentTlsCredentialsIpcEntity credentialsIpcEntity, CancellationToken cancelToken)
     {
         LocalAgentTlsCredentials credentials = _entityMapper.Map<LocalAgentTlsCredentialsIpcEntity, LocalAgentTlsCredentials>(credentialsIpcEntity);
+        if (string.IsNullOrEmpty(credentials?.ConnectionCertificate?.Pem))
+        {
+            _logger.Error<ConnectLog>("Connection certificate is missing, aborting credentials update.");
+            return;
+        }
+
         await _localAgentTlsCredentialsCache.SetAsync(credentials, cancelToken);
     }
 

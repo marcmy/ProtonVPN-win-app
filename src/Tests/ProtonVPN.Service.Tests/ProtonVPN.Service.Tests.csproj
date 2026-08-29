@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
         <PreserveCompilationContext>true</PreserveCompilationContext>
@@ -13,6 +13,7 @@
         <ProjectReference Include="..\..\ProtonVPN.NetworkFilter\ProtonVPN.NetworkFilter.csproj" />
         <ProjectReference Include="..\..\ProtonVPN.Service\ProtonVPN.Service.csproj" />
         <ProjectReference Include="..\..\ProtonVPN.Vpn\ProtonVPN.Vpn.csproj" />
+        <ProjectReference Include="..\..\ProcessCommunication\EntityMapping\ProtonVPN.ProcessCommunication.EntityMapping.Vpn\ProtonVPN.ProcessCommunication.EntityMapping.Vpn.csproj" />
         <ProjectReference Include="..\ProtonVPN.Tests.Common\ProtonVPN.Tests.Common.csproj" />
     </ItemGroup>
     <ItemGroup>

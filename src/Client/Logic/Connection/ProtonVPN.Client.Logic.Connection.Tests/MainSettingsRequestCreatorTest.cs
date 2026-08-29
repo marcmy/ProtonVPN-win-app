@@ -41,7 +41,6 @@ public class MainSettingsRequestCreatorTest
 
         settings.IsSplitTunnelingEnabled.Returns(true);
         settings.IsPortForwardingEnabled.Returns(true);
-        settings.IsPortForwardingForAppsEnabled.Returns(true);
         settings.IsNetShieldEnabled.Returns(true);
         settings.NatType.Returns(NatType.Moderate);
         settings.IsIpv6LeakProtectionEnabled.Returns(false);
@@ -64,7 +63,6 @@ public class MainSettingsRequestCreatorTest
         Assert.AreEqual(0, guestHoleSettings.SplitTunnel.AppPaths.Length);
         Assert.AreEqual(0, guestHoleSettings.SplitTunnel.Ips.Length);
         Assert.IsFalse(guestHoleSettings.PortForwarding);
-        Assert.IsFalse(guestHoleSettings.PortForwardingForApps);
         Assert.AreEqual(0, guestHoleSettings.NetShieldMode);
         Assert.IsFalse(guestHoleSettings.ModerateNat);
         Assert.IsTrue(guestHoleSettings.Ipv6LeakProtection);
@@ -76,6 +74,23 @@ public class MainSettingsRequestCreatorTest
         Assert.AreEqual(DnsBlockModeIpcEntity.Nrpt, guestHoleSettings.DnsBlockMode);
         Assert.AreEqual(DefaultSettings.ShouldDisableWeakHostSetting, guestHoleSettings.ShouldDisableWeakHostSetting);
         Assert.IsTrue(guestHoleSettings.IsShareCrashReportsEnabled);
+    }
+
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void CreateForGuestHole_ShouldPreserveAppPortForwardingPreference(bool isEnabled)
+    {
+        ISettings settings = Substitute.For<ISettings>();
+        IEntityMapper entityMapper = Substitute.For<IEntityMapper>();
+        settings.IsPortForwardingForAppsEnabled.Returns(isEnabled);
+
+        MainSettingsRequestCreator creator = new(settings, entityMapper);
+
+        MainSettingsIpcEntity guestHoleSettings = creator.CreateForGuestHole();
+
+        Assert.AreEqual(isEnabled, guestHoleSettings.PortForwardingForApps);
+        Assert.IsFalse(guestHoleSettings.PortForwarding);
     }
 
     [TestMethod]
