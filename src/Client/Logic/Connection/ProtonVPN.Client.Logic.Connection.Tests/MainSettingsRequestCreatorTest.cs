@@ -76,7 +76,7 @@ public class MainSettingsRequestCreatorTest
         Assert.IsTrue(guestHoleSettings.IsShareCrashReportsEnabled);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
     public void CreateForGuestHole_ShouldPreserveAppPortForwardingPreference(bool isEnabled)
