@@ -85,4 +85,53 @@ public class GuestHoleManagerTest
         await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await secondUse);
         await guestHoleConnector.Received(1).DisconnectFromGuestHoleAsync();
     }
+
+    [TestMethod]
+    public async Task ExecuteAsync_WhenPreviousUseRequestedDisconnect_ShouldNotStartNextUseBeforeDisconnectedState()
+    {
+        ILogger logger = Substitute.For<ILogger>();
+        IEventMessageSender eventMessageSender = Substitute.For<IEventMessageSender>();
+        IGuestHoleConnector guestHoleConnector = Substitute.For<IGuestHoleConnector>();
+
+        int connectCallCount = 0;
+        guestHoleConnector.ConnectToGuestHoleAsync().Returns(_ =>
+        {
+            Interlocked.Increment(ref connectCallCount);
+            return Task.CompletedTask;
+        });
+        guestHoleConnector.DisconnectFromGuestHoleAsync().Returns(Task.CompletedTask);
+
+        GuestHoleManager manager = new(logger, eventMessageSender, guestHoleConnector);
+        Task<Result?> firstUse = manager.ExecuteAsync<Result>(async () =>
+        {
+            await manager.DisconnectAsync();
+            return Result.Ok();
+        }, CancellationToken.None);
+
+        manager.Receive(new ConnectionStatusChangedMessage(ConnectionStatus.Connected));
+        Result? firstResult = await firstUse.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.IsNotNull(firstResult);
+        Assert.IsTrue(firstResult.Success);
+        Assert.AreEqual(1, Volatile.Read(ref connectCallCount));
+
+        using CancellationTokenSource secondUseCancellationTokenSource = new();
+        Task<Result?> secondUse = manager.ExecuteAsync<Result>(
+            () => Task.FromResult(Result.Ok()),
+            secondUseCancellationTokenSource.Token);
+
+        Assert.AreEqual(
+            1,
+            Volatile.Read(ref connectCallCount),
+            "A second Guest Hole connection started before the first disconnect reached the Disconnected state.");
+
+        manager.Receive(new ConnectionStatusChangedMessage(ConnectionStatus.Disconnected));
+
+        Assert.IsTrue(SpinWait.SpinUntil(
+            () => Volatile.Read(ref connectCallCount) == 2,
+            TimeSpan.FromSeconds(3)),
+            "The second Guest Hole connection did not start after the first reached Disconnected.");
+
+        secondUseCancellationTokenSource.Cancel();
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await secondUse);
+    }
 }
