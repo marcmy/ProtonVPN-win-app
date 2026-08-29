@@ -59,6 +59,11 @@ if (-not (Test-Path -LiteralPath (Join-Path $repositoryRoot 'src') -PathType Con
     throw "Repository root does not contain the Proton VPN source tree: $repositoryRoot"
 }
 
+$tempSmartRoutingApplicator = Join-Path $repositoryRoot '.github\scripts\apply-smart-routing-localization-temp.ps1'
+if (Test-Path -LiteralPath $tempSmartRoutingApplicator -PathType Leaf) {
+    & $tempSmartRoutingApplicator
+}
+
 $logsDir = Resolve-RepositoryPath $LogsDirectory
 New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
 
