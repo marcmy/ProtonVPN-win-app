@@ -48,10 +48,9 @@ public class Module
         builder.RegisterType<GatewayCache>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<DnsServerCache>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<OpenVpnDnsServersCreator>().AsImplementedInterfaces().SingleInstance();
-        builder.RegisterType<VpnEndpointScanner>().SingleInstance();
         builder.RegisterType<TcpPortScanner>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SplitTunnelRouting>().As<ISplitTunnelRouting>().SingleInstance();
-        builder.RegisterType<UdpPingClient>().SingleInstance();
+        builder.RegisterType<UdpPingClient>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<WintunAdapter>().SingleInstance();
         builder.RegisterType<TapAdapter>().SingleInstance();
         builder.RegisterType<VpnEndpointCandidates>().AsImplementedInterfaces().SingleInstance();
