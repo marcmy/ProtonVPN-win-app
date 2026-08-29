@@ -131,13 +131,25 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
         }
         catch (TimeoutException)
         {
+            lock (_disconnectSync)
+            {
+                if (ReferenceEquals(_disconnectCompletionSource, disconnectCompletionSource))
+                {
+                    _disconnectCompletionSource = null;
+                }
+            }
+
             _logger.Warn<GuestHoleLog>("Timed out waiting for Guest Hole to report the Disconnected state after disconnect was requested.");
         }
     }
 
     private void SetStatus(bool isActive)
     {
-        _isActive = isActive;
+        lock (_disconnectSync)
+        {
+            _isActive = isActive;
+        }
+
         _eventMessageSender.Send(new GuestHoleStatusChangedMessage(isActive));
     }
 
@@ -221,9 +233,9 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
 
     public async Task DisconnectAsync()
     {
-        if (_isActive)
+        lock (_disconnectSync)
         {
-            lock (_disconnectSync)
+            if (_isActive)
             {
                 _disconnectCompletionSource ??= new(TaskCreationOptions.RunContinuationsAsynchronously);
             }
