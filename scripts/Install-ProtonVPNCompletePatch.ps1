@@ -411,6 +411,25 @@ function Stop-RootLauncherProcesses {
     }
 }
 
+function Test-ClientRunningForTarget {
+    param([Parameter(Mandatory = $true)] [string] $TargetDirectory)
+
+    $normalizedTarget = [System.IO.Path]::GetFullPath($TargetDirectory).TrimEnd('\') + '\'
+    foreach ($process in @(Get-Process -Name 'ProtonVPN.Client*' -ErrorAction SilentlyContinue)) {
+        try {
+            $processPath = $process.Path
+        } catch {
+            continue
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($processPath) -and
+            [System.IO.Path]::GetFullPath($processPath).StartsWith($normalizedTarget, [StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
 function Invoke-BaseInstaller {
     param(
         [Parameter(Mandatory = $true)] [string] $BaseInstallerPath,
@@ -437,7 +456,11 @@ function Invoke-BaseInstaller {
     if ($ValidateOnly) { $arguments += '-ValidateOnly' }
     if ($WhatIfPreference) { $arguments += '-WhatIf' }
 
-    $process = Start-Process -FilePath 'powershell.exe' -ArgumentList ($arguments -join ' ') -Wait -PassThru
+    $process = Start-Process -FilePath 'powershell.exe' `
+        -ArgumentList ($arguments -join ' ') `
+        -NoNewWindow `
+        -Wait `
+        -PassThru
     return $process.ExitCode
 }
 
@@ -445,6 +468,7 @@ $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNCompl
 $pendingRootBackupDirectory = $null
 $rootLauncherPatched = $false
 $rootLauncherPersisted = $false
+$clientWasRunningBeforeInstall = $false
 $exitCode = 1
 
 try {
@@ -474,6 +498,7 @@ try {
         }
 
         $targetDirectory = Resolve-TargetDirectory
+        $clientWasRunningBeforeInstall = Test-ClientRunningForTarget -TargetDirectory $targetDirectory
         $installedVersion = (Split-Path -Leaf $targetDirectory).TrimStart([char[]] @('v', 'V'))
         if (-not $installedVersion.Equals($resolvedTargetVersion, [StringComparison]::OrdinalIgnoreCase)) {
             throw "Patch targets Proton VPN $resolvedTargetVersion, but the selected installation is $installedVersion."
@@ -551,6 +576,19 @@ try {
                 Write-Host "Root launcher backup retained with version backup: $installRootBackupDir"
             } else {
                 Write-Warning "Version patch succeeded, but its new backup directory could not be identified. Root launcher backup remains at '$pendingRootBackupDirectory'."
+            }
+        }
+
+        if (-not $NoRestart -and $RestartClient -and $clientWasRunningBeforeInstall -and
+            -not (Test-ClientRunningForTarget -TargetDirectory $targetDirectory)) {
+            $clientExecutable = Join-Path $targetDirectory 'ProtonVPN.Client.exe'
+            if (Test-Path -LiteralPath $clientExecutable -PathType Leaf) {
+                try {
+                    Write-Host 'Base installer did not leave the previously running Proton VPN Client active; restarting it now.' -ForegroundColor Yellow
+                    Start-Process -FilePath $clientExecutable | Out-Null
+                } catch {
+                    Write-Warning "Could not restart Proton VPN Client after complete patch installation: $($_.Exception.Message)"
+                }
             }
         }
 
