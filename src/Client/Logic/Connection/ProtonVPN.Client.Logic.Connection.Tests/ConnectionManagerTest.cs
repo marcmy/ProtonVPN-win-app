@@ -20,6 +20,7 @@
 using NSubstitute;
 using ProtonVPN.Client.EventMessaging.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts;
+using ProtonVPN.Client.Logic.Connection.Contracts.Enums;
 using ProtonVPN.Client.Logic.Connection.Contracts.Messages;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Features;
@@ -28,9 +29,11 @@ using ProtonVPN.Client.Logic.Connection.Contracts.RequestCreators;
 using ProtonVPN.Client.Logic.Connection.GuestHole;
 using ProtonVPN.Client.Logic.Connection.Statistics;
 using ProtonVPN.Client.Logic.Servers.Contracts;
+using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Logic.Users.Contracts.Messages;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.EntityMapping.Contracts;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Crypto;
@@ -202,6 +205,78 @@ public class ConnectionManagerTest
             _vpnServiceCaller.ConnectAsync(normalRequest);
         });
         Assert.IsTrue(connectionManager.CurrentConnectionIntent?.IsSameAs(connectionIntent));
+    }
+
+    [TestMethod]
+    public async Task ConnectAsync_WhenNormalConnectedStateArrivesBeforeGuestHoleInactive_ShouldRestoreConnectionDetails()
+    {
+        const string endpointIp = "198.51.100.10";
+        const string label = "US-NY#1";
+
+        PhysicalServer physicalServer = new()
+        {
+            Id = "physical-server-id",
+            EntryIp = endpointIp,
+            ExitIp = "203.0.113.10",
+            Domain = "node.example",
+            Label = label,
+            Status = 1,
+            X25519PublicKey = string.Empty,
+            Signature = string.Empty,
+        };
+        Server server = new()
+        {
+            Id = "server-id",
+            Name = "US-NY#1",
+            City = "New York",
+            State = "NY",
+            EntryCountry = "US",
+            ExitCountry = "US",
+            HostCountry = "US",
+            Domain = "example",
+            Servers = [physicalServer],
+            GatewayName = string.Empty,
+            StatusReference = new StatusReference(),
+            EntryLocation = new GeoLocation(),
+            ExitLocation = new GeoLocation(),
+        };
+
+        DisconnectionRequestIpcEntity guestHoleRequest = new();
+        _guestHoleDisconnectionRequestCreator!.Create().Returns(guestHoleRequest);
+        _settings!.VpnPlan.Returns(new VpnPlan(string.Empty, string.Empty, PAID_PLAN_TIER, false));
+        _serversLoader!.GetServers().Returns([server]);
+        _entityMapper!
+            .Map<VpnProtocolIpcEntity, VpnProtocol>(VpnProtocolIpcEntity.WireGuardUdp)
+            .Returns(VpnProtocol.WireGuardUdp);
+        _entityMapper
+            .Map<VpnStatusIpcEntity, ConnectionStatus>(VpnStatusIpcEntity.Connected)
+            .Returns(ConnectionStatus.Connected);
+
+        ConnectionManager connectionManager = GetConnectionManager();
+        connectionManager.Receive(new GuestHoleStatusChangedMessage(true));
+
+        IConnectionIntent connectionIntent = GetConnectionIntent(new SecureCoreFeatureIntent());
+        await connectionManager.ConnectAsync(VpnTriggerDimension.Auto, connectionIntent);
+
+        await connectionManager.HandleAsync(new VpnStateIpcEntity
+        {
+            Status = VpnStatusIpcEntity.Connected,
+            Error = VpnErrorTypeIpcEntity.None,
+            EndpointIp = endpointIp,
+            EndpointPort = 51820,
+            VpnProtocol = VpnProtocolIpcEntity.WireGuardUdp,
+            Label = label,
+        });
+
+        Assert.IsNull(
+            connectionManager.CurrentConnectionDetails,
+            "The normal Connected state should remain hidden while the Guest Hole active marker is stale.");
+
+        connectionManager.Receive(new GuestHoleStatusChangedMessage(false));
+
+        Assert.IsNotNull(
+            connectionManager.CurrentConnectionDetails,
+            "The cached normal Connected state was lost when the Guest Hole inactive event arrived after it.");
     }
 
     private ConnectionRequestIpcEntity GetConnectionRequestIpcEntity()
