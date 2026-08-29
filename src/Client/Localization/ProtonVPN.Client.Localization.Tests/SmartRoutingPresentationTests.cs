@@ -128,9 +128,9 @@ public class SmartRoutingPresentationTests
             string expectedValue = _recoveredSmartRoutingFormats[locale];
 
             XDocument document = XDocument.Load(resourcePath);
-            XElement? resource = document.Root?
+            XElement resource = document.Root?
                 .Elements("data")
-                .SingleOrDefault(element => (string?)element.Attribute("name") == SMART_ROUTING_FORMAT_KEY);
+                .SingleOrDefault(element => (string)element.Attribute("name") == SMART_ROUTING_FORMAT_KEY);
 
             resource.Should().NotBeNull($"{resourcePath} should define {SMART_ROUTING_FORMAT_KEY}");
             resource!.Element("value")?.Value.Should().Be(expectedValue);
