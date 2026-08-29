@@ -119,6 +119,9 @@ public class SmartRoutingPresentationTests
             SearchOption.AllDirectories);
 
         resourcePaths.Should().HaveCount(_recoveredSmartRoutingFormats.Count);
+        resourcePaths.Select(path => new DirectoryInfo(Path.GetDirectoryName(path)!).Name)
+            .Should().BeEquivalentTo(_recoveredSmartRoutingFormats.Keys);
+
         foreach (string resourcePath in resourcePaths)
         {
             string locale = new DirectoryInfo(Path.GetDirectoryName(resourcePath)!).Name;
