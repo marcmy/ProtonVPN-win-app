@@ -198,9 +198,9 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     public bool IsVirtual => CurrentConnectionStatus == ConnectionStatus.Connected
                           && CurrentConnectionDetails?.Server.IsVirtual == true;
 
-    public string SmartRoutingLabel =>
-        Localizer.GetFormat(
-            "Countries_SmartRouting_RoutedThrough",
+    public string SmartRoutingLabel =>
+        Localizer.GetFormat(
+            "Countries_SmartRouting_RoutedThrough",
             Localizer.GetCountryName(HostCountry));
 
     public FlagType FlagType => (CurrentConnectionStatus switch
