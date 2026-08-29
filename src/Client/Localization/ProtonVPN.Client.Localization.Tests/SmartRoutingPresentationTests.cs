@@ -122,8 +122,10 @@ public class SmartRoutingPresentationTests
         foreach (string resourcePath in resourcePaths)
         {
             string locale = new DirectoryInfo(Path.GetDirectoryName(resourcePath)!).Name;
-            _recoveredSmartRoutingFormats.ContainsKey(locale).Should().BeTrue(
-                $"{locale} should have a recovered {SMART_ROUTING_FORMAT_KEY} value");
+            if (!_recoveredSmartRoutingFormats.TryGetValue(locale, out string? expectedValue))
+            {
+                Assert.Fail($"{locale} does not have a recovered {SMART_ROUTING_FORMAT_KEY} value.");
+            }
 
             XDocument document = XDocument.Load(resourcePath);
             XElement? resource = document.Root?
@@ -131,7 +133,7 @@ public class SmartRoutingPresentationTests
                 .SingleOrDefault(element => (string?)element.Attribute("name") == SMART_ROUTING_FORMAT_KEY);
 
             resource.Should().NotBeNull($"{resourcePath} should define {SMART_ROUTING_FORMAT_KEY}");
-            resource!.Element("value")?.Value.Should().Be(_recoveredSmartRoutingFormats[locale]);
+            resource!.Element("value")?.Value.Should().Be(expectedValue);
         }
 
         string viewModel = File.ReadAllText(Path.Combine(_connectionCardDirectory, "ConnectionCardComponentViewModel.cs"));
