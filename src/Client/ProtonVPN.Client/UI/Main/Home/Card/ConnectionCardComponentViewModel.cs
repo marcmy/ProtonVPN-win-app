@@ -83,10 +83,13 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     [NotifyPropertyChangedFor(nameof(IsChangeDefaultConnectionOptionVisible))]
     [NotifyPropertyChangedFor(nameof(ExitCountry))]
     [NotifyPropertyChangedFor(nameof(EntryCountry))]
+    [NotifyPropertyChangedFor(nameof(HostCountry))]
     [NotifyPropertyChangedFor(nameof(IsSecureCore))]
     [NotifyPropertyChangedFor(nameof(IsTor))]
     [NotifyPropertyChangedFor(nameof(IsP2P))]
     [NotifyPropertyChangedFor(nameof(IsB2B))]
+    [NotifyPropertyChangedFor(nameof(IsVirtual))]
+    [NotifyPropertyChangedFor(nameof(SmartRoutingLabel))]
     [NotifyPropertyChangedFor(nameof(FlagType))]
     private ConnectionStatus _currentConnectionStatus;
 
@@ -115,10 +118,13 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     [NotifyPropertyChangedFor(nameof(HasSubtitleOrFeature))]
     [NotifyPropertyChangedFor(nameof(ExitCountry))]
     [NotifyPropertyChangedFor(nameof(EntryCountry))]
+    [NotifyPropertyChangedFor(nameof(HostCountry))]
     [NotifyPropertyChangedFor(nameof(IsSecureCore))]
     [NotifyPropertyChangedFor(nameof(IsTor))]
     [NotifyPropertyChangedFor(nameof(IsP2P))]
     [NotifyPropertyChangedFor(nameof(IsB2B))]
+    [NotifyPropertyChangedFor(nameof(IsVirtual))]
+    [NotifyPropertyChangedFor(nameof(SmartRoutingLabel))]
     [NotifyPropertyChangedFor(nameof(FlagType))]
     private ConnectionDetails? _currentConnectionDetails;
 
@@ -177,6 +183,10 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
             _ => (CurrentConnectionIntent?.Feature as SecureCoreFeatureIntent)?.EntryCountryCode
         };
 
+    public string? HostCountry => CurrentConnectionStatus == ConnectionStatus.Connected && IsVirtual
+        ? CurrentConnectionDetails?.Server.HostCountry
+        : null;
+
     public bool IsSecureCore => IsFeature<SecureCoreFeatureIntent>(ServerFeatures.SecureCore);
 
     public bool IsTor => IsFeature<TorFeatureIntent>(ServerFeatures.Tor);
@@ -184,6 +194,11 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     public bool IsP2P => IsFeature<P2PFeatureIntent>(ServerFeatures.P2P);
 
     public bool IsB2B => IsFeature<B2BFeatureIntent>(ServerFeatures.B2B);
+
+    public bool IsVirtual => CurrentConnectionStatus == ConnectionStatus.Connected
+                          && CurrentConnectionDetails?.Server.IsVirtual == true;
+
+    public string SmartRoutingLabel => $"{Localizer.Get("Countries_SmartRouting")}: {Localizer.GetCountryName(HostCountry)}";
 
     public FlagType FlagType => (CurrentConnectionStatus switch
     {
@@ -296,6 +311,7 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
 
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(SmartRoutingLabel));
     }
 
     [RelayCommand(CanExecute = nameof(CanConnect))]
@@ -352,6 +368,12 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     private Task ShowTorInfoOverlayAsync()
     {
         return _mainWindowOverlayActivator.ShowTorInfoOverlayAsync();
+    }
+
+    [RelayCommand]
+    private Task ShowSmartRoutingInfoOverlayAsync()
+    {
+        return _mainWindowOverlayActivator.ShowSmartRoutingInfoOverlayAsync();
     }
 
     private void InvalidateConnectionStatus()
