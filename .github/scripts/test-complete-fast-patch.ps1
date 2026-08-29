@@ -266,8 +266,21 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
     Assert-Condition $tamperRejected 'Tampered runtime dependency was accepted.'
 }
 
+function Test-InstallerLifecycleContracts {
+    $content = Get-Content -LiteralPath $completeInstallerScript -Raw
+
+    Assert-Condition ($content.Contains('-NoNewWindow')) `
+        'Complete FastPatch base-installer delegation must reuse the existing console.'
+    Assert-Condition ($content.Contains('$clientWasRunningBeforeInstall = Test-ClientRunningForTarget -TargetDirectory $targetDirectory')) `
+        'Complete FastPatch must capture client state before delegating the version-folder install.'
+    Assert-Condition ($content.Contains('-not (Test-ClientRunningForTarget -TargetDirectory $targetDirectory)')) `
+        'Complete FastPatch must avoid duplicate client restart when the base installer already restarted it.'
+    Assert-Condition ($content.Contains("Base installer did not leave the previously running Proton VPN Client active; restarting it now.")) `
+        'Complete FastPatch is missing its client restart fallback.'
+}
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 try {
+    Test-InstallerLifecycleContracts
     $runtimeFixture = Test-RuntimeDependencyClosure
     Test-CompletePackaging $runtimeFixture
     Write-Host 'Complete FastPatch regression tests passed.'
