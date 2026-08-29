@@ -122,7 +122,8 @@ public class SmartRoutingPresentationTests
         foreach (string resourcePath in resourcePaths)
         {
             string locale = new DirectoryInfo(Path.GetDirectoryName(resourcePath)!).Name;
-            _recoveredSmartRoutingFormats.Should().ContainKey(locale);
+            _recoveredSmartRoutingFormats.ContainsKey(locale).Should().BeTrue(
+                $"{locale} should have a recovered {SMART_ROUTING_FORMAT_KEY} value");
 
             XDocument document = XDocument.Load(resourcePath);
             XElement? resource = document.Root?
