@@ -62,4 +62,25 @@ public class SmartRoutingPresentationTests
         content.Should().Contain("Visibility=\"{x:Bind ViewModel.IsVirtual, Converter={StaticResource BooleanToVisibilityConverter}}\"");
         content.Should().Contain("<pathicons:Globe Size=\"Pixels16\" />");
     }
-}
+
+    [TestMethod]
+    public void LocalizedResources_ShouldContainRecoveredSmartRoutingFormat()
+    {
+        string[] resourcePaths = Directory.GetFiles(
+            SourcePathResolver.LocalizationStringsRoot,
+            "Resources.resw",
+            SearchOption.AllDirectories);
+
+        resourcePaths.Should().HaveCount(37);
+        foreach (string resourcePath in resourcePaths)
+        {
+            string content = File.ReadAllText(resourcePath);
+            content.Should().Contain("name=\"Countries_SmartRouting_RoutedThrough\"");
+            content.Should().Contain("{0}");
+        }
+
+        string viewModel = File.ReadAllText(Path.Combine(_connectionCardDirectory, "ConnectionCardComponentViewModel.cs"));
+        viewModel.Should().Contain("Countries_SmartRouting_RoutedThrough");
+        viewModel.Should().Contain("Localizer.GetFormat(");
+        viewModel.Should().NotContain("Localizer.Get(\"Countries_SmartRouting\")}: ");
+    }}
