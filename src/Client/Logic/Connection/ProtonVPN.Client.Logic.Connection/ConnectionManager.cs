@@ -36,6 +36,7 @@ using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Crypto.Contracts;
 using ProtonVPN.EntityMapping.Contracts;
 using ProtonVPN.Logging.Contracts;
@@ -459,7 +460,14 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
 
     public void Receive(GuestHoleStatusChangedMessage message)
     {
+        bool wasActive = _isGuestHoleActive;
         _isGuestHoleActive = message.IsActive;
+
+        if (wasActive && !message.IsActive &&
+            _cachedMessage is { Status: VpnStatusIpcEntity.Pinging or VpnStatusIpcEntity.Connected } cachedMessage)
+        {
+            HandleAsync(cachedMessage).FireAndForget();
+        }
     }
 
     private IConnectionIntent ChangeConnectionIntent(IConnectionIntent connectionIntent, Func<IConnectionIntent, IConnectionIntent> changeIntentFunc)
