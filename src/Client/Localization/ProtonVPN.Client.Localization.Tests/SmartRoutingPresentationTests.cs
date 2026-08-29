@@ -18,6 +18,8 @@
  */
 
 using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ProtonVPN.Client.Localization.Tests.Helpers;
@@ -27,6 +29,8 @@ namespace ProtonVPN.Client.Localization.Tests;
 [TestClass]
 public class SmartRoutingPresentationTests
 {
+    private const string SMART_ROUTING_FORMAT_KEY = "Countries_SmartRouting_RoutedThrough";
+
     private static readonly string _connectionCardDirectory = Path.Combine(
         SourcePathResolver.SourceRoot,
         "Client",
@@ -74,13 +78,19 @@ public class SmartRoutingPresentationTests
         resourcePaths.Should().HaveCount(37);
         foreach (string resourcePath in resourcePaths)
         {
-            string content = File.ReadAllText(resourcePath);
-            content.Should().Contain("name=\"Countries_SmartRouting_RoutedThrough\"");
-            content.Should().Contain("{0}");
+            XDocument document = XDocument.Load(resourcePath);
+            XElement? resource = document.Root?
+                .Elements("data")
+                .SingleOrDefault(element => (string?)element.Attribute("name") == SMART_ROUTING_FORMAT_KEY);
+
+            resource.Should().NotBeNull($"{resourcePath} should define {SMART_ROUTING_FORMAT_KEY}");
+            resource!.Element("value")?.Value.Should().Contain("{0}",
+                $"{SMART_ROUTING_FORMAT_KEY} in {resourcePath} should format the physical host country");
         }
 
         string viewModel = File.ReadAllText(Path.Combine(_connectionCardDirectory, "ConnectionCardComponentViewModel.cs"));
-        viewModel.Should().Contain("Countries_SmartRouting_RoutedThrough");
         viewModel.Should().Contain("Localizer.GetFormat(");
+        viewModel.Should().Contain("\"Countries_SmartRouting_RoutedThrough\",");
         viewModel.Should().NotContain("Localizer.Get(\"Countries_SmartRouting\")}: ");
-    }}
+    }
+}
