@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -30,4 +30,5 @@ public interface ILocalAgentTlsCredentialsCache
 
     Task SetAsync(LocalAgentTlsCredentials credentials, CancellationToken cancellationToken);
     Task<LocalAgentTlsCredentials?> GetAsync(CancellationToken cancellationToken);
+    Task ClearAsync(CancellationToken cancellationToken);
 }

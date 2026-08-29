@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -57,7 +57,7 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
             settings.ModerateNat = connectionProfile.Settings.NatType == NatType.Moderate;
         }
 
-        if (settings.NetShieldMode == (int)NetShieldMode.BlockAdsMalwareTrackersAdultContent && 
+        if (settings.NetShieldMode == (int)NetShieldMode.BlockAdsMalwareTrackersAdultContent &&
             (_settings.VpnPlan.IsB2B || connectionIntent?.Feature is B2BFeatureIntent))
         {
             settings.NetShieldMode = (int)NetShieldMode.BlockAdsMalwareTrackers;
@@ -95,6 +95,47 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
             OpenVpnAdapter = _entityMapper.Map<OpenVpnAdapter, OpenVpnAdapterIpcEntity>(_settings.OpenVpnAdapter),
             WireGuardConnectionTimeout = _settings.WireGuardConnectionTimeout,
             DnsBlockMode = _settings.IsLocalAreaNetworkAccessEnabled && _settings.IsLocalDnsEnabled
+                ? DnsBlockModeIpcEntity.Callout
+                : DnsBlockModeIpcEntity.Nrpt,
+            ShouldDisableWeakHostSetting = DefaultSettings.ShouldDisableWeakHostSetting,
+        };
+    }
+
+    public MainSettingsIpcEntity CreateForGuestHole()
+    {
+        const bool isPaidUser = false;
+        bool isLocalAreaNetworkAccessEnabled = DefaultSettings.IsLocalAreaNetworkAccessAllowed(isPaidUser);
+
+        return new MainSettingsIpcEntity
+        {
+            VpnProtocol = _entityMapper.Map<VpnProtocol, VpnProtocolIpcEntity>(DefaultSettings.VpnProtocol),
+            KillSwitchMode = _settings.IsKillSwitchEnabled
+                ? _entityMapper.Map<KillSwitchMode, KillSwitchModeIpcEntity>(_settings.KillSwitchMode)
+                : KillSwitchModeIpcEntity.Off,
+            SplitTunnel = new SplitTunnelSettingsIpcEntity
+            {
+                Mode = DefaultSettings.IsSplitTunnelingEnabled
+                    ? _entityMapper.Map<SplitTunnelingMode, SplitTunnelModeIpcEntity>(DefaultSettings.SplitTunnelingMode)
+                    : SplitTunnelModeIpcEntity.Disabled,
+                AppPaths = [],
+                Ips = [],
+            },
+            ModerateNat = DefaultSettings.NatType == NatType.Moderate,
+            NetShieldMode = DefaultSettings.IsNetShieldEnabled(isPaidUser) ? (int)DefaultSettings.NetShieldMode : 0,
+            Ipv6LeakProtection = DefaultSettings.IsIpv6LeakProtectionEnabled,
+            IsIpv6Enabled = DefaultSettings.IsIpv6Enabled,
+            Ipv6Fragments = DefaultSettings.Ipv6Fragments,
+            IsShareCrashReportsEnabled = _settings.IsShareCrashReportsEnabled,
+            IsLocalAreaNetworkAccessEnabled = isLocalAreaNetworkAccessEnabled,
+            PortForwarding = DefaultSettings.IsPortForwardingEnabled,
+            // This fork-specific setting is a persistent user preference. Preserve it across
+            // Guest Hole connect/disconnect snapshots; Guest Hole still cannot expose app
+            // mappings because PortForwarding remains disabled above.
+            PortForwardingForApps = _settings.IsPortForwardingForAppsEnabled,
+            SplitTcp = DefaultSettings.IsVpnAcceleratorEnabled,
+            OpenVpnAdapter = OpenVpnAdapterIpcEntity.Tap,
+            WireGuardConnectionTimeout = DefaultSettings.ProlongedWireGuardConnectionTimeout,
+            DnsBlockMode = isLocalAreaNetworkAccessEnabled && DefaultSettings.IsLocalDnsEnabled
                 ? DnsBlockModeIpcEntity.Callout
                 : DnsBlockModeIpcEntity.Nrpt,
             ShouldDisableWeakHostSetting = DefaultSettings.ShouldDisableWeakHostSetting,

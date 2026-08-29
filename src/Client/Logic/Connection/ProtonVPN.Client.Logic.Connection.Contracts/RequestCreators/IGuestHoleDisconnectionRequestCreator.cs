@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,19 +17,12 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
+using ProtonVPN.Client.Logic.Connection.Contracts.Enums;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 
-namespace ProtonVPN.Vpn.PortMapping.UdpClients
+namespace ProtonVPN.Client.Logic.Connection.Contracts.RequestCreators;
+
+public interface IGuestHoleDisconnectionRequestCreator
 {
-    public interface IUdpClientWrapper : IDisposable
-    {
-        void Start(IPEndPoint endpoint);
-        void Send(byte[] data);
-        Task<byte[]> ReceiveAsync(CancellationToken cancellationToken);
-        void Stop();
-        void Reset();
-    }
+    DisconnectionRequestIpcEntity Create(VpnError vpnError = VpnError.NoneKeepEnabledKillSwitch);
 }

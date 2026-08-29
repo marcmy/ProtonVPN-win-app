@@ -18,31 +18,31 @@
  */
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
-using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Legacy.Go;
 using ProtonVPN.Vpn.LocalAgent;
 
 namespace ProtonVPN.Vpn.PortScanning;
 
-public class UdpPingClient
+public class UdpPingClient : IUdpPingClient
 {
     private const int TIMEOUT_IN_MILLISECONDS = 3000;
 
-    public async Task<bool> PingAsync(string ip, int port, string serverKeyBase64, Task timeoutTask)
+    public async Task<bool> PingAsync(string ip, int port, string serverKeyBase64, CancellationToken cancellationToken)
     {
         try
         {
-            bool result = await Task.Run(() =>
+            // PInvoke.Ping does not expose cancellation. The token cancels the managed wait, while a native
+            // ping that has already started can continue until its own bounded timeout expires.
+            return await Task.Run(() =>
             {
                 using GoString ipGoString = ip.ToGoString();
                 using GoString serverKeyBase64GoString = serverKeyBase64.ToGoString();
                 return PInvoke.Ping(ipGoString, port, serverKeyBase64GoString, TIMEOUT_IN_MILLISECONDS);
-            }).WithTimeout(timeoutTask);
-
-            return result;
+            }, cancellationToken).WaitAsync(cancellationToken);
         }
-        catch (Exception e) when (e is TimeoutException or TaskCanceledException)
+        catch (Exception)
         {
             return false;
         }

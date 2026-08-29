@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -36,6 +36,7 @@ using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Crypto.Contracts;
 using ProtonVPN.EntityMapping.Contracts;
 using ProtonVPN.Logging.Contracts;
@@ -72,6 +73,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
     private readonly IFavoriteServersStorage _favoriteServersStorage;
     private readonly IGuestHoleServersFileStorage _guestHoleServersFileStorage;
     private readonly IGuestHoleConnectionRequestCreator _guestHoleConnectionRequestCreator;
+    private readonly IGuestHoleDisconnectionRequestCreator _guestHoleDisconnectionRequestCreator;
     private readonly IConnectionStatisticalEventsManager _statisticalEventManager;
     private readonly IConnectionKeyManager _connectionKeyManager;
 
@@ -113,6 +115,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         IFavoriteServersStorage favoriteServersStorage,
         IGuestHoleServersFileStorage guestHoleServersFileStorage,
         IGuestHoleConnectionRequestCreator guestHoleConnectionRequestCreator,
+        IGuestHoleDisconnectionRequestCreator guestHoleDisconnectionRequestCreator,
         IConnectionStatisticalEventsManager statisticalEventManager,
         IConnectionKeyManager connectionKeyManager)
     {
@@ -128,7 +131,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         _favoriteServersStorage = favoriteServersStorage;
         _guestHoleServersFileStorage = guestHoleServersFileStorage;
         _guestHoleConnectionRequestCreator = guestHoleConnectionRequestCreator;
-        _guestHoleConnectionRequestCreator = guestHoleConnectionRequestCreator;
+        _guestHoleDisconnectionRequestCreator = guestHoleDisconnectionRequestCreator;
         _statisticalEventManager = statisticalEventManager;
         _connectionKeyManager = connectionKeyManager;
     }
@@ -137,6 +140,11 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         VpnTriggerDimension connectionTrigger,
         IConnectionIntent? connectionIntent = null)
     {
+        if (_isGuestHoleActive)
+        {
+            await DisconnectFromGuestHoleAsync();
+        }
+
         _statisticalEventManager.SetConnectionAttempt(connectionTrigger, ConnectionStatus);
 
         connectionIntent ??= _settings.VpnPlan.IsPaid ? ConnectionIntent.Default : ConnectionIntent.FreeDefault;
@@ -159,6 +167,8 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
             throw new GuestHoleException("No guest hole servers provided.");
         }
 
+        CurrentConnectionIntent = null;
+
         ConnectionRequestIpcEntity request = await _guestHoleConnectionRequestCreator.CreateAsync(servers);
 
         _logger.Info<ConnectTriggerLog>("Guest hole connection requested.");
@@ -167,7 +177,9 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
 
     public async Task DisconnectFromGuestHoleAsync()
     {
-        DisconnectionRequestIpcEntity request = _disconnectionRequestCreator.Create(VpnError.NoneKeepEnabledKillSwitch);
+        CurrentConnectionIntent = null;
+
+        DisconnectionRequestIpcEntity request = _guestHoleDisconnectionRequestCreator.Create();
 
         await _vpnServiceCaller.DisconnectAsync(request);
     }
@@ -276,58 +288,59 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         _isConnectionStatusHandled = true;
         _isNetworkBlocked = message.NetworkBlocked;
 
-        if (!_isGuestHoleActive)
+        if (_isGuestHoleActive)
         {
-            if (message.Status is VpnStatusIpcEntity.Pinging or VpnStatusIpcEntity.Connected)
+            CurrentConnectionDetails = null;
+        }
+        else if (message.Status is VpnStatusIpcEntity.Pinging or VpnStatusIpcEntity.Connected)
+        {
+            VpnProtocol vpnProtocol = _entityMapper.Map<VpnProtocolIpcEntity, VpnProtocol>(message.VpnProtocol);
+            Server? server = GetCurrentServer(message, vpnProtocol);
+            PhysicalServer? physicalServer = server?.Servers.FirstOrDefault(FilterPhysicalServerByVpnState(message, vpnProtocol));
+
+            if (server is not null && physicalServer is not null)
             {
-                VpnProtocol vpnProtocol = _entityMapper.Map<VpnProtocolIpcEntity, VpnProtocol>(message.VpnProtocol);
-                Server? server = GetCurrentServer(message, vpnProtocol);
-                PhysicalServer? physicalServer = server?.Servers.FirstOrDefault(FilterPhysicalServerByVpnState(message, vpnProtocol));
+                _favoriteServersStorage.SetCurrentServerId(server.Id);
 
-                if (server is not null && physicalServer is not null)
+                if (CurrentConnectionDetails is null || !CurrentConnectionDetails.OriginalConnectionIntent.IsSameAs(connectionIntent))
                 {
-                    _favoriteServersStorage.SetCurrentServerId(server.Id);
-
-                    if (CurrentConnectionDetails is null || !CurrentConnectionDetails.OriginalConnectionIntent.IsSameAs(connectionIntent))
-                    {
-                        CurrentConnectionDetails = new ConnectionDetails(
-                            connectionIntent,
-                            server,
-                            physicalServer,
-                            vpnProtocol,
-                            message.EndpointPort);
-                    }
-                    else
-                    {
-                        CurrentConnectionDetails.UpdateServer(server, physicalServer, vpnProtocol, message.EndpointPort);
-                    }
-
-                    if (_cachedServerIpAddress is not null)
-                    {
-                        CurrentConnectionDetails.UpdateServerIpAddress(_cachedServerIpAddress.Value);
-                        _cachedServerIpAddress = null;
-                    }
+                    CurrentConnectionDetails = new ConnectionDetails(
+                        connectionIntent,
+                        server,
+                        physicalServer,
+                        vpnProtocol,
+                        message.EndpointPort);
                 }
-                else if (server is null)
+                else
                 {
-                    _logger.Error<AppLog>($"The status changed to Connected but the associated Server is null. Error: '{message.Error}' " +
-                                            $"NetworkBlocked: '{message.NetworkBlocked}' " +
-                                            $"Status: '{message.Status}' EntryIp: '{message.EndpointIp}' Label: '{message.Label}' " +
-                                            $"NetworkAdapterType: '{message.OpenVpnAdapterType}' VpnProtocol: '{message.VpnProtocol}'");
-
-                    // VPNWIN-2105 - Either (1) Reconnect without last server, or (2) Delete this comment
-                    await ReconnectAsync(VpnTriggerDimension.Auto);
+                    CurrentConnectionDetails.UpdateServer(server, physicalServer, vpnProtocol, message.EndpointPort);
                 }
-                else // Tier is too low for the connected server
+
+                if (_cachedServerIpAddress is not null)
                 {
-                    await ReconnectIfNotRecentlyReconnectedAsync();
+                    CurrentConnectionDetails.UpdateServerIpAddress(_cachedServerIpAddress.Value);
+                    _cachedServerIpAddress = null;
                 }
             }
-            else if (message.Status == VpnStatusIpcEntity.Disconnected)
+            else if (server is null)
             {
-                CurrentConnectionDetails = null;
-                _favoriteServersStorage.SetCurrentServerId(null);
+                _logger.Error<AppLog>($"The status changed to Connected but the associated Server is null. Error: '{message.Error}' " +
+                                        $"NetworkBlocked: '{message.NetworkBlocked}' " +
+                                        $"Status: '{message.Status}' EntryIp: '{message.EndpointIp}' Label: '{message.Label}' " +
+                                        $"NetworkAdapterType: '{message.OpenVpnAdapterType}' VpnProtocol: '{message.VpnProtocol}'");
+
+                // VPNWIN-2105 - Either (1) Reconnect without last server, or (2) Delete this comment
+                await ReconnectAsync(VpnTriggerDimension.Auto);
             }
+            else // Tier is too low for the connected server
+            {
+                await ReconnectIfNotRecentlyReconnectedAsync();
+            }
+        }
+        else if (message.Status == VpnStatusIpcEntity.Disconnected)
+        {
+            CurrentConnectionDetails = null;
+            _favoriteServersStorage.SetCurrentServerId(null);
         }
 
         if (message.Status != VpnStatusIpcEntity.ActionRequired ||
@@ -447,7 +460,14 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
 
     public void Receive(GuestHoleStatusChangedMessage message)
     {
+        bool wasActive = _isGuestHoleActive;
         _isGuestHoleActive = message.IsActive;
+
+        if (wasActive && !message.IsActive &&
+            _cachedMessage is { Status: VpnStatusIpcEntity.Pinging or VpnStatusIpcEntity.Connected } cachedMessage)
+        {
+            HandleAsync(cachedMessage).FireAndForget();
+        }
     }
 
     private IConnectionIntent ChangeConnectionIntent(IConnectionIntent connectionIntent, Func<IConnectionIntent, IConnectionIntent> changeIntentFunc)

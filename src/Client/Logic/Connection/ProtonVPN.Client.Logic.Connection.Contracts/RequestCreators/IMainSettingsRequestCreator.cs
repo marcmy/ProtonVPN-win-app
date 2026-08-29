@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -25,4 +25,5 @@ namespace ProtonVPN.Client.Logic.Connection.Contracts.RequestCreators;
 public interface IMainSettingsRequestCreator
 {
     MainSettingsIpcEntity Create(IConnectionIntent? connectionIntent);
+    MainSettingsIpcEntity CreateForGuestHole();
 }
