@@ -67,7 +67,7 @@ foreach ($entry in $translations.GetEnumerator()) {
     }
 
     $text = [System.IO.File]::ReadAllText($resourcePath)
-    if ($text.Contains("name=\"$key\"")) {
+    if ($text.Contains('name="' + $key + '"')) {
         continue
     }
 
@@ -79,10 +79,10 @@ foreach ($entry in $translations.GetEnumerator()) {
     }
 
     $spaceAttribute = if ($locale -eq 'en-US') { ' xml:space="preserve"' } else { '' }
-    $block = "  <data name=\"$key\"$spaceAttribute>$newline" +
-             "    <value>$($entry.Value)</value>$newline" +
-             "    <comment>$comment</comment>$newline" +
-             "  </data>$newline"
+    $block = '  <data name="' + $key + '"' + $spaceAttribute + '>' + $newline +
+             '    <value>' + $entry.Value + '</value>' + $newline +
+             '    <comment>' + $comment + '</comment>' + $newline +
+             '  </data>' + $newline
 
     $updated = $text.Insert($match.Index + $match.Length, $block)
     [System.IO.File]::WriteAllText($resourcePath, $updated, [System.Text.UTF8Encoding]::new($true))
@@ -90,7 +90,7 @@ foreach ($entry in $translations.GetEnumerator()) {
 
 $viewModelPath = Join-Path $repositoryRoot 'src\Client\ProtonVPN.Client\UI\Main\Home\Card\ConnectionCardComponentViewModel.cs'
 $viewModel = [System.IO.File]::ReadAllText($viewModelPath)
-$oldLabel = '    public string SmartRoutingLabel => $"{Localizer.Get(""Countries_SmartRouting"")}: {Localizer.GetCountryName(HostCountry)}";'
+$oldLabel = '    public string SmartRoutingLabel => $"{Localizer.Get("Countries_SmartRouting")}: {Localizer.GetCountryName(HostCountry)}";'
 $newLabel = @'
     public string SmartRoutingLabel =>
         Localizer.GetFormat(
