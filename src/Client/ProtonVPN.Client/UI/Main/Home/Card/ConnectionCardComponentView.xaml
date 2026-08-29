@@ -110,6 +110,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0"
@@ -146,6 +147,20 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                 Visibility="{x:Bind ViewModel.IsTor, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <custom:GhostButton.LeftIcon>
                     <pathicons:BrandTor Size="Pixels16" />
+                </custom:GhostButton.LeftIcon>
+            </custom:GhostButton>
+
+            <custom:GhostButton Grid.Column="3"
+                                Margin="4,0"
+                                AutomationProperties.AutomationId="ConnectionCardSmartRoutingTag"
+                                Background="{ThemeResource InteractionDefaultColorBrush}"
+                                Command="{x:Bind ViewModel.ShowSmartRoutingInfoOverlayCommand, Mode=OneTime}"
+                                Content="{x:Bind ViewModel.Localizer.Get('Countries_SmartRouting')}"
+                                Style="{StaticResource FeatureTagGhostButtonStyle}"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.SmartRoutingLabel}"
+                                Visibility="{x:Bind ViewModel.IsVirtual, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <custom:GhostButton.LeftIcon>
+                    <pathicons:Globe Size="Pixels16" />
                 </custom:GhostButton.LeftIcon>
             </custom:GhostButton>
 
