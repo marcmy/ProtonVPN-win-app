@@ -428,13 +428,13 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         });
     }
 
-    public async void Receive(ConnectionCertificateUpdatedMessage message)
+    public void Receive(ConnectionCertificateUpdatedMessage message)
     {
         AsymmetricKeyPair? clientKeyPair = _connectionKeyManager.GetKeyPairOrNull();
 
         if (message.Certificate is not null && clientKeyPair is not null)
         {
-            await _vpnServiceCaller.UpdateLocalAgentTlsCredentialsAsync(new LocalAgentTlsCredentialsIpcEntity()
+            _vpnServiceCaller.UpdateLocalAgentTlsCredentialsAsync(new LocalAgentTlsCredentialsIpcEntity()
             {
                 ConnectionCertificate = new ConnectionCertificateIpcEntity()
                 {
@@ -442,7 +442,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
                     ExpirationDateUtc = message.Certificate.Value.ExpirationUtcDate.UtcDateTime,
                 },
                 ClientKeyPair = _entityMapper.Map<AsymmetricKeyPair, AsymmetricKeyPairIpcEntity>(clientKeyPair),
-            });
+            }).FireAndForget();
         }
     }
 
