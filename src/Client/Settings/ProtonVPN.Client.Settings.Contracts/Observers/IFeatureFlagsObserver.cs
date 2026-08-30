@@ -24,8 +24,9 @@ namespace ProtonVPN.Client.Settings.Contracts.Observers;
 public interface IFeatureFlagsObserver : IObserver
 {
     string U2FGatewayPortalUrl { get; }
-    bool IsProTunEnabled { get; }                                        
+    bool IsProTunEnabled { get; }
     bool IsConnectionFeedbackEnabled { get; }
+    string ConnectionFeedbackPayload { get; }
 
     Task UpdateAsync(CancellationToken cancellationToken);
 }
