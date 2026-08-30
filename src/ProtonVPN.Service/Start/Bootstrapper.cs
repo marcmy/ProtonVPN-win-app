@@ -17,7 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.ServiceProcess;
@@ -33,7 +32,6 @@ using ProtonVPN.IPv6.Installers;
 using ProtonVPN.IssueReporting.Static;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.AppServiceLogs;
-using ProtonVPN.Logging.Events;
 using ProtonVPN.Logging.Installers;
 using ProtonVPN.Native.PInvoke;
 using ProtonVPN.OperatingSystems.Network.Installers;
@@ -46,12 +44,16 @@ namespace ProtonVPN.Service.Start;
 
 internal class Bootstrapper
 {
+    private readonly ServiceGlobalExceptionHandler _globalExceptionHandler;
+
     private IContainer _container = null!;
     private T Resolve<T>() where T : notnull => _container.Resolve<T>();
 
     public Bootstrapper()
     {
-        GlobalExceptionHandler.Initialize();
+        _globalExceptionHandler = new ServiceGlobalExceptionHandler();
+        _globalExceptionHandler.Initialize();
+        _globalExceptionHandler.OnFatalException += OnFatalExceptionOccurred;
         IssueReportingInitializer.Run();
     }
 
@@ -76,7 +78,8 @@ internal class Bootstrapper
                .RegisterAssemblyModule<IPv6Module>()
                .RegisterAssemblyModule<UpdateModule>();
         _container = builder.Build();
-    } 
+        _globalExceptionHandler.SetLogger(Resolve<ILogger>());
+    }
 
     private void PrepareDirectories()
     {
@@ -88,8 +91,6 @@ internal class Bootstrapper
 
     private void Start()
     {
-        AppDomain.CurrentDomain.UnhandledException += OnUnhandledExceptionOccurred;
-
         RegisterEvents();
 
         Resolve<ILogCleaner>().Clean(Resolve<IStaticConfiguration>().ServiceLogsFolder, 10);
@@ -115,7 +116,7 @@ internal class Bootstrapper
         };
     }
 
-    private void OnUnhandledExceptionOccurred(object? sender, UnhandledExceptionEventArgs e)
+    private void OnFatalExceptionOccurred(object? sender, EventArgs e)
     {
         IStaticConfiguration config = Resolve<IStaticConfiguration>();
         IOsProcesses processes = Resolve<IOsProcesses>();
