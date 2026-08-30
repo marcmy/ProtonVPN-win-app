@@ -110,6 +110,57 @@ public class GlobalExceptionHandlerTest
     }
 
     [TestMethod]
+    public void AppDomainNonTerminatingException_ShouldBeNonFatal()
+    {
+        TestGlobalExceptionHandler handler = CreateTestHandler();
+        InvalidOperationException exception = new("nonterminating");
+        int fatalEventCount = 0;
+        handler.OnFatalException += _ => fatalEventCount++;
+        UnhandledExceptionEventArgs eventArgs = new(exception, isTerminating: false);
+
+        InvokePrivateHandler(handler, "OnAppDomainUnhandledException", eventArgs);
+
+        handler.ErrorLogs.Should().ContainSingle();
+        handler.ErrorLogs[0].Handler.Should().StartWith("AppDomain unhandled exception");
+        handler.ErrorLogs[0].Exception.Should().BeSameAs(exception);
+        handler.FatalLogs.Should().BeEmpty();
+        fatalEventCount.Should().Be(0);
+    }
+
+    [TestMethod]
+    public void AppDomainTerminatingException_ShouldBeFatal()
+    {
+        TestGlobalExceptionHandler handler = CreateTestHandler();
+        InvalidOperationException exception = new("terminating");
+        Exception receivedFatalException = null!;
+        handler.OnFatalException += ex => receivedFatalException = ex;
+        UnhandledExceptionEventArgs eventArgs = new(exception, isTerminating: true);
+
+        InvokePrivateHandler(handler, "OnAppDomainUnhandledException", eventArgs);
+
+        handler.FatalLogs.Should().ContainSingle();
+        handler.FatalLogs[0].Handler.Should().Contain("(Terminating)");
+        handler.FatalLogs[0].Exception.Should().BeSameAs(exception);
+        receivedFatalException.Should().BeSameAs(exception);
+    }
+
+    [TestMethod]
+    public void UnobservedTaskException_ShouldBeObserved_AndLoggedAsNonFatal()
+    {
+        TestGlobalExceptionHandler handler = CreateTestHandler();
+        InvalidOperationException exception = new("unobserved");
+        UnobservedTaskExceptionEventArgs eventArgs = new(new AggregateException(exception));
+
+        InvokePrivateHandler(handler, "OnUnobservedTaskException", eventArgs);
+
+        eventArgs.Observed.Should().BeTrue();
+        handler.ErrorLogs.Should().ContainSingle();
+        handler.ErrorLogs[0].Handler.Should().Be("Unobserved task exception");
+        handler.ErrorLogs[0].Exception.Should().BeSameAs(exception);
+        handler.FatalLogs.Should().BeEmpty();
+    }
+
+    [TestMethod]
     public void ServiceHandler_ShouldUseServiceCrashAndServiceLogEvents()
     {
         ILogger logger = Substitute.For<ILogger>();
@@ -168,6 +219,18 @@ public class GlobalExceptionHandlerTest
         action.Should().NotThrow();
         openVpnProcess.Received(1).Stop();
         osProcesses.Received(1).KillProcesses("ProtonVPN.Client");
+    }
+
+    private static void InvokePrivateHandler(
+        GlobalExceptionHandlerBase handler,
+        string methodName,
+        object eventArgs)
+    {
+        MethodInfo method = typeof(GlobalExceptionHandlerBase).GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(handler, new object[] { null!, eventArgs });
     }
 
     private static void InvokeTryLogException(
