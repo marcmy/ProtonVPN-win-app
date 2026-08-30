@@ -46,11 +46,11 @@ public abstract class GlobalExceptionHandlerBase
         _logger = logger;
     }
 
-    private void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs eventArgs)
+    private void OnAppDomainUnhandledException(object? sender, UnhandledExceptionEventArgs eventArgs)
     {
-        string suffix = eventArgs.IsTerminating ? "(Terminating)" : string.Empty;
+        string terminatingText = eventArgs.IsTerminating ? "(Terminating)" : string.Empty;
         Exception exception = NormalizeExceptionObject(eventArgs.ExceptionObject);
-        TryLogException($"AppDomain unhandled exception {suffix}", exception, eventArgs.IsTerminating);
+        TryLogException($"AppDomain unhandled exception {terminatingText}", exception, eventArgs.IsTerminating);
     }
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs eventArgs)
@@ -122,34 +122,25 @@ public abstract class GlobalExceptionHandlerBase
                 return;
             }
 
-            Exception diagnosticException = exception;
-            string aggregateDetails = string.Empty;
-            if (exception is AggregateException aggregateException)
-            {
-                AggregateException flattened = aggregateException.Flatten();
-                diagnosticException = flattened.InnerExceptions.Count == 1
-                    ? flattened.InnerExceptions[0]
-                    : flattened;
+            Exception diagnosticException = exception is AggregateException aggregate && aggregate.Flatten().InnerExceptions.Count == 1
+                ? aggregate.Flatten().InnerExceptions[0]
+                : exception;
 
-                aggregateDetails = string.Join(
-                    Environment.NewLine,
-                    flattened.InnerExceptions.Select((inner, index) =>
-                        $"Inner[{index}]: {inner.GetType().FullName}: {inner.Message}{Environment.NewLine}{inner.StackTrace}"));
-            }
+            string flattenedDetails = exception is AggregateException aggregateException
+                ? FormatAggregateException(aggregateException)
+                : string.Empty;
 
             string message =
                 $"Proton VPN Windows error event log{Environment.NewLine}" +
-                $"Date: {DateTimeOffset.UtcNow:O}{Environment.NewLine}" +
-                $"Handler: {handler}{Environment.NewLine}{Environment.NewLine}" +
-                $"Exception HResult: {diagnosticException.HResult}{Environment.NewLine}" +
+                $"Date: {DateTimeOffset.UtcNow:o}{Environment.NewLine}" +
+                $"Handler: {handler}{Environment.NewLine}" +
+                Environment.NewLine +
+                $"Exception HResult: 0x{diagnosticException.HResult:X8}{Environment.NewLine}" +
                 $"Exception type: {diagnosticException.GetType().FullName}{Environment.NewLine}" +
-                $"Exception message: {diagnosticException.Message}{Environment.NewLine}{Environment.NewLine}" +
-                $"Full exception: {diagnosticException}";
-
-            if (!string.IsNullOrWhiteSpace(aggregateDetails))
-            {
-                message += $"{Environment.NewLine}{Environment.NewLine}Aggregate details:{Environment.NewLine}{aggregateDetails}";
-            }
+                $"Exception message: {diagnosticException.Message}{Environment.NewLine}" +
+                flattenedDetails +
+                Environment.NewLine +
+                $"Full exception: {exception}";
 
             EventLogger.Log(EventLogEntryType.Error, message);
         }
@@ -158,21 +149,39 @@ public abstract class GlobalExceptionHandlerBase
         }
     }
 
-    private static Exception NormalizeExceptionObject(object? exceptionObject)
+    private static string FormatAggregateException(AggregateException aggregate)
     {
-        if (exceptionObject is Exception exception)
+        AggregateException flattened = aggregate.Flatten();
+        if (flattened.InnerExceptions.Count <= 1)
         {
-            if (exception is RuntimeWrappedException runtimeWrappedException)
-            {
-                object? wrapped = runtimeWrappedException.WrappedException;
-                return wrapped as Exception ?? new InvalidOperationException(
-                    $"A non-Exception object was thrown: {wrapped?.ToString() ?? "<null>"}");
-            }
-
-            return exception;
+            return string.Empty;
         }
 
-        return new InvalidOperationException(
-            $"A non-Exception object was thrown: {exceptionObject?.ToString() ?? "<null>"}");
+        string details = string.Join(
+            Environment.NewLine,
+            flattened.InnerExceptions.Select((exception, index) =>
+                $"  [{index + 1}] {exception.GetType().FullName}: {exception.Message}"));
+
+        return $"Inner exceptions ({flattened.InnerExceptions.Count}):{Environment.NewLine}" +
+               details + Environment.NewLine;
+    }
+
+    private static Exception NormalizeExceptionObject(object? exceptionObject)
+    {
+        return exceptionObject switch
+        {
+            RuntimeWrappedException wrappedException => new Exception(
+                $"Non-Exception object thrown: " +
+                $"{wrappedException.WrappedException?.GetType().FullName} — {wrappedException.WrappedException}",
+                wrappedException),
+
+            Exception exception => exception,
+
+            object thrownObject => new Exception(
+                $"Non-Exception object thrown: " +
+                $"{thrownObject.GetType().FullName} — {thrownObject}"),
+
+            null => new Exception("Non-Exception object thrown: <null>")
+        };
     }
 }
