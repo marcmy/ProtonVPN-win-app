@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Reflection;
 using FluentAssertions;
 using NSubstitute;
 using ProtonVPN.Logging.Contracts;
@@ -35,13 +36,13 @@ public class GlobalExceptionHandlerTest
         TestGlobalExceptionHandler handler = CreateTestHandler();
         InvalidOperationException exception = new("nonfatal");
         int fatalEventCount = 0;
-        handler.OnFatalException += (_, _) => fatalEventCount++;
+        handler.OnFatalException += _ => fatalEventCount++;
 
         handler.Log("nonfatal-handler", exception, isFatal: false);
 
-        handler.NonFatalLogs.Should().ContainSingle();
-        handler.NonFatalLogs[0].Handler.Should().Be("nonfatal-handler");
-        handler.NonFatalLogs[0].Exception.Should().BeSameAs(exception);
+        handler.ErrorLogs.Should().ContainSingle();
+        handler.ErrorLogs[0].Handler.Should().Be("nonfatal-handler");
+        handler.ErrorLogs[0].Exception.Should().BeSameAs(exception);
         handler.FatalLogs.Should().BeEmpty();
         fatalEventCount.Should().Be(0);
     }
@@ -51,16 +52,38 @@ public class GlobalExceptionHandlerTest
     {
         TestGlobalExceptionHandler handler = CreateTestHandler();
         InvalidOperationException exception = new("fatal");
+        Exception receivedFatalException = null!;
         int fatalEventCount = 0;
-        handler.OnFatalException += (_, _) => fatalEventCount++;
+        handler.OnFatalException += ex =>
+        {
+            receivedFatalException = ex;
+            fatalEventCount++;
+        };
 
         handler.Log("fatal-handler", exception, isFatal: true);
 
         handler.FatalLogs.Should().ContainSingle();
         handler.FatalLogs[0].Handler.Should().Be("fatal-handler");
         handler.FatalLogs[0].Exception.Should().BeSameAs(exception);
-        handler.NonFatalLogs.Should().BeEmpty();
+        handler.ErrorLogs.Should().BeEmpty();
         fatalEventCount.Should().Be(1);
+        receivedFatalException.Should().BeSameAs(exception);
+    }
+
+    [TestMethod]
+    public void SingleInnerAggregate_ShouldUseInnerExceptionForFileLogAndFatalCallback()
+    {
+        TestGlobalExceptionHandler handler = CreateTestHandler();
+        InvalidOperationException innerException = new("inner");
+        AggregateException aggregateException = new(innerException);
+        Exception receivedFatalException = null!;
+        handler.OnFatalException += ex => receivedFatalException = ex;
+
+        handler.Log("aggregate-handler", aggregateException, isFatal: true);
+
+        handler.FatalLogs.Should().ContainSingle();
+        handler.FatalLogs[0].Exception.Should().BeSameAs(innerException);
+        receivedFatalException.Should().BeSameAs(innerException);
     }
 
     [TestMethod]
@@ -69,29 +92,28 @@ public class GlobalExceptionHandlerTest
         TestGlobalExceptionHandler handler = CreateTestHandler();
         InvalidOperationException originalException = new("fatal");
         InvalidOperationException delegateException = new("cleanup failed");
-        handler.OnFatalException += (_, _) => throw delegateException;
+        handler.OnFatalException += _ => throw delegateException;
 
         Action action = () => handler.Log("fatal-handler", originalException, isFatal: true);
 
         action.Should().NotThrow();
         handler.FatalLogs.Should().ContainSingle();
-        handler.NonFatalLogs.Should().ContainSingle();
-        handler.NonFatalLogs[0].Handler.Should().StartWith(
-            "Fatal exception delegate threw exception following 'fatal-handler' handler");
-        handler.NonFatalLogs[0].Exception.Should().BeSameAs(delegateException);
+        handler.ErrorLogs.Should().ContainSingle();
+        handler.ErrorLogs[0].Handler.Should().Be("OnFatalException subscriber threw");
+        handler.ErrorLogs[0].Exception.Should().BeSameAs(delegateException);
     }
 
     [TestMethod]
     public void ServiceHandler_ShouldUseServiceCrashAndServiceLogEvents()
     {
         ILogger logger = Substitute.For<ILogger>();
-        TestableServiceGlobalExceptionHandler handler = new();
+        ServiceGlobalExceptionHandler handler = new();
         handler.SetLogger(logger);
         InvalidOperationException nonFatalException = new("nonfatal");
         InvalidOperationException fatalException = new("fatal");
 
-        handler.Log("nonfatal-handler", nonFatalException, isFatal: false);
-        handler.Log("fatal-handler", fatalException, isFatal: true);
+        InvokeTryLogException(handler, "nonfatal-handler", nonFatalException, isFatal: false);
+        InvokeTryLogException(handler, "fatal-handler", fatalException, isFatal: true);
 
         logger.Received(1).Error<AppServiceLog>(
             "nonfatal-handler",
@@ -109,6 +131,19 @@ public class GlobalExceptionHandlerTest
             Arg.Any<int>());
     }
 
+    private static void InvokeTryLogException(
+        GlobalExceptionHandlerBase handler,
+        string handlerName,
+        Exception exception,
+        bool isFatal)
+    {
+        MethodInfo method = typeof(GlobalExceptionHandlerBase).GetMethod(
+            "TryLogException",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(handler, [handlerName, exception, isFatal]);
+    }
+
     private static TestGlobalExceptionHandler CreateTestHandler()
     {
         TestGlobalExceptionHandler handler = new();
@@ -119,29 +154,21 @@ public class GlobalExceptionHandlerTest
     private sealed class TestGlobalExceptionHandler : GlobalExceptionHandlerBase
     {
         public List<LogCall> FatalLogs { get; } = [];
-        public List<LogCall> NonFatalLogs { get; } = [];
+        public List<LogCall> ErrorLogs { get; } = [];
 
         public void Log(string handler, Exception exception, bool isFatal)
         {
             TryLogException(handler, exception, isFatal);
         }
 
-        protected override void LogFatalException(ILogger logger, string handler, Exception exception)
+        protected override void LogFatal(string handler, Exception exception)
         {
             FatalLogs.Add(new LogCall(handler, exception));
         }
 
-        protected override void LogNonFatalException(ILogger logger, string handler, Exception exception)
+        protected override void LogError(string handler, Exception exception)
         {
-            NonFatalLogs.Add(new LogCall(handler, exception));
-        }
-    }
-
-    private sealed class TestableServiceGlobalExceptionHandler : ServiceGlobalExceptionHandler
-    {
-        public void Log(string handler, Exception exception, bool isFatal)
-        {
-            TryLogException(handler, exception, isFatal);
+            ErrorLogs.Add(new LogCall(handler, exception));
         }
     }
 
