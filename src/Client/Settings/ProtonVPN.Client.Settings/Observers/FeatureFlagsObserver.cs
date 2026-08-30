@@ -50,9 +50,7 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
     public bool IsProTunEnabled => IsEnabled();
 
     [FeatureFlag("IsConnectionFeedbackEnabled")]
-    public bool IsConnectionFeedbackEnabled => IsEnabled();
-
-    public string ConnectionFeedbackPayload => GetFeatureFlag(nameof(IsConnectionFeedbackEnabled)).Payload;
+    public FeatureFlag ConnectionFeedback => GetFeatureFlag();
 
     protected override TimeSpan PollingInterval => _config.FeatureFlagsUpdateInterval;
 
@@ -160,22 +158,18 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
 
             FeatureFlag? oldFeatureFlag = GetFeatureFlag(_settings.FeatureFlags, featureFlagName);
             FeatureFlag? newFeatureFlag = GetFeatureFlag(updatedFeatureFlags, featureFlagName);
-            bool? oldValue = oldFeatureFlag?.IsEnabled;
-            bool? newValue = newFeatureFlag?.IsEnabled;
-            bool hasConnectionFeedbackPayloadChanged =
-                featureFlagPropertyInfo.Name == nameof(IFeatureFlagsObserver.IsConnectionFeedbackEnabled) &&
-                !string.Equals(oldFeatureFlag?.Payload, newFeatureFlag?.Payload, StringComparison.Ordinal);
-
-            if (oldValue != newValue || hasConnectionFeedbackPayloadChanged)
+            FeatureFlagChange change = new()
             {
-                changes.Add(new()
-                {
-                    // Use property name instead of attribute name so that later we can compare
-                    // using nameof(IFeatureFlagsObserver.FeatureFlag)
-                    Name = featureFlagPropertyInfo.Name,
-                    OldValue = oldValue,
-                    NewValue = newValue,
-                });
+                Name = featureFlagPropertyInfo.Name,
+                OldValue = oldFeatureFlag?.IsEnabled,
+                NewValue = newFeatureFlag?.IsEnabled,
+                OldPayload = oldFeatureFlag?.Payload,
+                NewPayload = newFeatureFlag?.Payload,
+            };
+
+            if (change.HasChanged)
+            {
+                changes.Add(change);
             }
         }
 
