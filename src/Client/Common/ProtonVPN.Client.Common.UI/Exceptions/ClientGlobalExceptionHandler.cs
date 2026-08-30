@@ -17,16 +17,13 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#nullable enable annotations
-
 using Microsoft.UI.Xaml;
-using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.AppLogs;
 using ProtonVPN.Logging.Events;
 
 namespace ProtonVPN.Client.Common.UI.Exceptions;
 
-public class ClientGlobalExceptionHandler : GlobalExceptionHandlerBase
+public sealed class ClientGlobalExceptionHandler : GlobalExceptionHandlerBase
 {
     public void Initialize(Application app)
     {
@@ -43,13 +40,13 @@ public class ClientGlobalExceptionHandler : GlobalExceptionHandlerBase
         // centralized logging architecture does not require swallowing every WinUI exception.
     }
 
-    protected override void LogFatalException(ILogger logger, string handler, Exception? exception)
+    protected override void LogFatal(string handler, Exception exception)
     {
-        logger.Fatal<AppCrashLog>(handler, exception);
+        Logger?.Fatal<AppCrashLog>(handler, exception);
     }
 
-    protected override void LogNonFatalException(ILogger logger, string handler, Exception? exception)
+    protected override void LogError(string handler, Exception exception)
     {
-        logger.Error<AppLog>(handler, exception);
+        Logger?.Error<AppLog>(handler, exception);
     }
 }
