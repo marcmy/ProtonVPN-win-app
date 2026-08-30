@@ -18,12 +18,18 @@
  */
 
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using Autofac;
 using FluentAssertions;
 using NSubstitute;
+using ProtonVPN.Common.Legacy.OS.Processes;
+using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.AppServiceLogs;
 using ProtonVPN.Logging.Events;
 using ProtonVPN.Service.Start;
+using ProtonVPN.Service.StateMachine;
+using ProtonVPN.Vpn.OpenVpn;
 
 namespace ProtonVPN.Service.Tests.Start;
 
@@ -129,6 +135,39 @@ public class GlobalExceptionHandlerTest
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public void FatalServiceCleanup_ShouldContinue_WhenOneCleanupActionThrows()
+    {
+        ILogger logger = Substitute.For<ILogger>();
+        IVpnConnectionStateMachine stateMachine = Substitute.For<IVpnConnectionStateMachine>();
+        IOpenVpnProcess openVpnProcess = Substitute.For<IOpenVpnProcess>();
+        IOsProcesses osProcesses = Substitute.For<IOsProcesses>();
+        IStaticConfiguration configuration = Substitute.For<IStaticConfiguration>();
+        configuration.ClientName.Returns("ProtonVPN.Client");
+        stateMachine.When(x => x.Disconnect()).Do(_ => throw new InvalidOperationException("disconnect failed"));
+
+        ContainerBuilder containerBuilder = new();
+        containerBuilder.RegisterInstance(logger).As<ILogger>();
+        containerBuilder.RegisterInstance(stateMachine).As<IVpnConnectionStateMachine>();
+        containerBuilder.RegisterInstance(openVpnProcess).As<IOpenVpnProcess>();
+        containerBuilder.RegisterInstance(osProcesses).As<IOsProcesses>();
+        containerBuilder.RegisterInstance(configuration).As<IStaticConfiguration>();
+        using IContainer container = containerBuilder.Build();
+
+        Bootstrapper bootstrapper = (Bootstrapper)RuntimeHelpers.GetUninitializedObject(typeof(Bootstrapper));
+        typeof(Bootstrapper).GetField("_container", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(bootstrapper, container);
+        MethodInfo onFatalException = typeof(Bootstrapper).GetMethod(
+            "OnFatalException",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        Action action = () => onFatalException.Invoke(bootstrapper, [new InvalidOperationException("fatal")]);
+
+        action.Should().NotThrow();
+        openVpnProcess.Received(1).Stop();
+        osProcesses.Received(1).KillProcesses("ProtonVPN.Client");
     }
 
     private static void InvokeTryLogException(
