@@ -44,8 +44,9 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
     IEventMessageReceiver<SettingChangedMessage>
 {
     private const int SUBMIT_FEEDBACK_ANIMATION_DURATION_MS = 1000;
+    private const int PAUSE_ANIMATION_DURATION_MS = 300;
     private const int DISMISS_FEEDBACK_ANIMATION_DURATION_MS = 500;
-    private const int DEFAULT_AUTO_DISMISS_TIMEOUT_SECONDS = 10;
+    private const int DEFAULT_AUTO_DISMISS_DURATION_MS = 10000;
 
     private readonly IConnectionManager _connectionManager;
     private readonly IConnectionStatisticsFeedback _connectionStatisticsFeedback;
@@ -78,7 +79,7 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
                                             && _hasReceivedAppFocus;
 
     public bool IsElligible => _settings.IsShareStatisticsEnabled
-                            && _featureFlagsObserver.IsConnectionFeedbackEnabled;
+                            && _featureFlagsObserver.ConnectionFeedback.IsEnabled;
 
     public ConnectionFeedbackComponentViewModel(
         IConnectionManager connectionManager,
@@ -112,7 +113,7 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
 
             _connectionStatisticsFeedback.SubmitNegativeFeedback();
 
-            await Task.Delay(SUBMIT_FEEDBACK_ANIMATION_DURATION_MS);
+            await Task.Delay(SUBMIT_FEEDBACK_ANIMATION_DURATION_MS + PAUSE_ANIMATION_DURATION_MS);
         }
         finally
         {
@@ -131,7 +132,7 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
 
             _connectionStatisticsFeedback.SubmitPositiveFeedback();
 
-            await Task.Delay(SUBMIT_FEEDBACK_ANIMATION_DURATION_MS);
+            await Task.Delay(SUBMIT_FEEDBACK_ANIMATION_DURATION_MS + PAUSE_ANIMATION_DURATION_MS);
         }
         finally
         {
@@ -175,17 +176,12 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
 
     public void Receive(FeatureFlagsChangedMessage message)
     {
-        if (message.Changes.Any(f => f.Name == nameof(IFeatureFlagsObserver.IsConnectionFeedbackEnabled)))
+        if (message.Changes.Any(f => f.Name == nameof(IFeatureFlagsObserver.ConnectionFeedback)))
         {
             ExecuteOnUIThread(() =>
             {
                 NotifyFeedbackStateChanged();
                 _autoDismissTimer.Interval = GetAutoDismissFeedbackDelay();
-
-                if (!IsConnectionFeedbackVisible)
-                {
-                    StopAutoDismissTimer();
-                }
             });
         }
     }
@@ -194,15 +190,7 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
     {
         if (message.PropertyName == nameof(ISettings.IsShareStatisticsEnabled))
         {
-            ExecuteOnUIThread(() =>
-            {
-                NotifyFeedbackStateChanged();
-
-                if (!IsConnectionFeedbackVisible)
-                {
-                    StopAutoDismissTimer();
-                }
-            });
+            ExecuteOnUIThread(NotifyFeedbackStateChanged);
         }
     }
 
@@ -215,7 +203,7 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
             NotifyFeedbackStateChanged();
         }
 
-        if (IsConnectionFeedbackVisible && !IsSendingFeedback && !IsDismissingFeedback)
+        if (IsConnectionFeedbackVisible && !IsSendingFeedback)
         {
             // Feedback component is now visible, initialize feedback state for the current connection session to 'ignore'.
             // This ensures that if the user doesn't provide feedback, the session will be categorized as 'ignore' in the statistics, instead of 'unknown'.
@@ -274,8 +262,8 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
 
     private TimeSpan GetAutoDismissFeedbackDelay()
     {
-        return int.TryParse(_featureFlagsObserver.ConnectionFeedbackPayload, out int timeoutSeconds) && timeoutSeconds > 0
+        return int.TryParse(_featureFlagsObserver.ConnectionFeedback.Payload, out int timeoutSeconds)
             ? TimeSpan.FromSeconds(timeoutSeconds)
-            : TimeSpan.FromSeconds(DEFAULT_AUTO_DISMISS_TIMEOUT_SECONDS);
+            : TimeSpan.FromMilliseconds(DEFAULT_AUTO_DISMISS_DURATION_MS);
     }
 }
