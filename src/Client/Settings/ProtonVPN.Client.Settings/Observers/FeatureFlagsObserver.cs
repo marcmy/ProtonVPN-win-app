@@ -47,10 +47,12 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
     public string U2FGatewayPortalUrl => GetPayload();
 
     [FeatureFlag("ProTunV1")]
-    public bool IsProTunEnabled => IsEnabled();    
-    
+    public bool IsProTunEnabled => IsEnabled();
+
     [FeatureFlag("IsConnectionFeedbackEnabled")]
-    public bool IsConnectionFeedbackEnabled => IsEnabled();  
+    public bool IsConnectionFeedbackEnabled => IsEnabled();
+
+    public string ConnectionFeedbackPayload => GetFeatureFlag(nameof(IsConnectionFeedbackEnabled)).Payload;
 
     protected override TimeSpan PollingInterval => _config.FeatureFlagsUpdateInterval;
 
@@ -104,7 +106,7 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
     {
         FeatureFlag featureFlag = GetFeatureFlag(propertyName);
 
-        return featureFlag.IsEnabled 
+        return featureFlag.IsEnabled
             ? featureFlag.Payload
             : string.Empty;
     }
@@ -156,10 +158,15 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
                 continue;
             }
 
-            bool? oldValue = GetFeatureFlag(_settings.FeatureFlags, featureFlagName)?.IsEnabled;
-            bool? newValue = GetFeatureFlag(updatedFeatureFlags, featureFlagName)?.IsEnabled;
+            FeatureFlag? oldFeatureFlag = GetFeatureFlag(_settings.FeatureFlags, featureFlagName);
+            FeatureFlag? newFeatureFlag = GetFeatureFlag(updatedFeatureFlags, featureFlagName);
+            bool? oldValue = oldFeatureFlag?.IsEnabled;
+            bool? newValue = newFeatureFlag?.IsEnabled;
+            bool hasConnectionFeedbackPayloadChanged =
+                featureFlagPropertyInfo.Name == nameof(IFeatureFlagsObserver.IsConnectionFeedbackEnabled) &&
+                !string.Equals(oldFeatureFlag?.Payload, newFeatureFlag?.Payload, StringComparison.Ordinal);
 
-            if (oldValue != newValue)
+            if (oldValue != newValue || hasConnectionFeedbackPayloadChanged)
             {
                 changes.Add(new()
                 {
