@@ -17,23 +17,20 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#nullable enable annotations
-
-using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.AppServiceLogs;
 using ProtonVPN.Logging.Events;
 
 namespace ProtonVPN.Service.Start;
 
-internal class ServiceGlobalExceptionHandler : GlobalExceptionHandlerBase
+internal sealed class ServiceGlobalExceptionHandler : GlobalExceptionHandlerBase
 {
-    protected override void LogFatalException(ILogger logger, string handler, Exception? exception)
+    protected override void LogFatal(string handler, Exception exception)
     {
-        logger.Fatal<AppServiceCrashLog>(handler, exception);
+        Logger?.Fatal<AppServiceCrashLog>(handler, exception);
     }
 
-    protected override void LogNonFatalException(ILogger logger, string handler, Exception? exception)
+    protected override void LogError(string handler, Exception exception)
     {
-        logger.Error<AppServiceLog>(handler, exception);
+        Logger?.Error<AppServiceLog>(handler, exception);
     }
 }
