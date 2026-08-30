@@ -32,7 +32,7 @@ public sealed class ClientGlobalExceptionHandler : GlobalExceptionHandlerBase
         app.UnhandledException += OnUiUnhandledException;
     }
 
-    private void OnUiUnhandledException(object? sender, UnhandledExceptionEventArgs eventArgs)
+    private void OnUiUnhandledException(object? sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs eventArgs)
     {
         TryLogException("UI unhandled exception", eventArgs.Exception, isFatal: false);
 
