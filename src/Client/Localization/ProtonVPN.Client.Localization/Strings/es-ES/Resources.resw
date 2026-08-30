@@ -631,6 +631,10 @@ Código de error: {0}</value>
   <data name="Countries_SmartRouting">
     <value>Smart Routing</value>
   </data>
+  <data name="Countries_SmartRouting_RoutedThrough">
+    <value>Smart routed through {0}</value>
+    <comment>Label used when server is virtual. {0} is a place holder for the name of the country the server is routed through.</comment>
+  </data>
   <data name="Countries_Tor">
     <value>Tor</value>
   </data>

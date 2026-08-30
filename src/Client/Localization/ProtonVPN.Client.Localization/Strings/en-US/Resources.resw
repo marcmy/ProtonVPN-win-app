@@ -2681,6 +2681,10 @@
   <data name="Countries_SmartRouting" xml:space="preserve">
     <value>Smart routing</value>
   </data>
+  <data name="Countries_SmartRouting_RoutedThrough" xml:space="preserve">
+    <value>Smart routed through {0}</value>
+    <comment>Label used when server is virtual. {0} is a place holder for the name of the country the server is routed through.</comment>
+  </data>
   <data name="Login_Error_SessionExpired" xml:space="preserve">
     <value>Your session has expired. Please sign in again.</value>
     <comment>The message displayed in Login window when expired session is detected</comment>
