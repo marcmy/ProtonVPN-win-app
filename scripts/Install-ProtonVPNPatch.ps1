@@ -18,6 +18,8 @@ param(
 
     [switch] $ValidateOnly,
 
+    [string] $TrustedStagePath = '',
+
     [switch] $PauseBeforeExit
 )
 
@@ -43,63 +45,476 @@ function ConvertTo-QuotedProcessArgument {
     return '"' + $Value + '"'
 }
 
-function Restart-Elevated {
-    $elevatedPatchPath = $PatchPath
-    if (-not [string]::IsNullOrWhiteSpace($elevatedPatchPath)) {
-        $elevatedPatchPath = [System.IO.Path]::GetFullPath($elevatedPatchPath)
-    }
+function ConvertTo-Base64Utf8 {
+    param([Parameter(Mandatory = $true)] [AllowEmptyString()] [string] $Value)
+    return [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Value))
+}
 
-    $argumentList = @(
-        '-NoProfile',
-        '-ExecutionPolicy', 'Bypass',
-        '-File', (ConvertTo-QuotedProcessArgument -Value $PSCommandPath)
+function Get-Sha256HexFromBytes {
+    param([Parameter(Mandatory = $true)] [byte[]] $Bytes)
+
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString($sha256.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+}
+
+function Write-TrustedSnapshot {
+    param(
+        [Parameter(Mandatory = $true)] [string] $Path,
+        [Parameter(Mandatory = $true)] [AllowEmptyString()] [string] $Content
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($elevatedPatchPath)) {
-        $argumentList += '-PatchPath'
-        $argumentList += ConvertTo-QuotedProcessArgument -Value $elevatedPatchPath
-    }
-
-    $argumentList += '-InstallRoot'
-    $argumentList += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($InstallRoot))
-
-    if (-not [string]::IsNullOrWhiteSpace($TargetVersion)) {
-        $argumentList += '-TargetVersion'
-        $argumentList += ConvertTo-QuotedProcessArgument -Value $TargetVersion
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) {
-        $argumentList += '-BackupRoot'
-        $argumentList += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($BackupRoot))
-    }
-
-    $argumentList += '-BackupRetentionCount'
-    $argumentList += [string] $BackupRetentionCount
-
-    if ($NoRestart) {
-        $argumentList += '-NoRestart'
-    }
-
-    if ($RestartClient) {
-        $argumentList += '-RestartClient'
-    }
-
-    if ($PauseBeforeExit) {
-        $argumentList += '-PauseBeforeExit'
-    }
-
-    if ($WhatIfPreference) {
-        $argumentList += '-WhatIf'
-    }
-
-    $process = Start-Process -FilePath 'powershell.exe' `
-        -ArgumentList ($argumentList -join ' ') `
-        -Verb RunAs `
-        -Wait `
-        -PassThru
-
-    exit $process.ExitCode
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Content)
+    [IO.File]::WriteAllBytes($Path, $bytes)
+    return Get-Sha256HexFromBytes -Bytes $bytes
 }
+
+function Get-TrustedStageBootstrap {
+    param(
+        [Parameter(Mandatory = $true)] [string] $PayloadRoot,
+        [Parameter(Mandatory = $true)] [string] $InstallerSnapshotPath,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $InstallerHash,
+        [Parameter(Mandatory = $true)] [string] $ManifestSnapshotPath,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $ManifestHash,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[A-Za-z0-9._-]+\.ps1$')] [string] $InstallerFileName,
+        [AllowEmptyString()] [string] $ForwardedArgumentText = '',
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{32}$')] [string] $StageId
+    )
+
+    $template = @'
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Decode-Utf8([string] $Value) {
+    return [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
+}
+
+function Get-HashHex([string] $Path) {
+    $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        $sha256 = [Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
+$AdministratorsSid = [Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+$SystemSid = [Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+
+function New-LockedDirectorySecurity {
+    $security = [Security.AccessControl.DirectorySecurity]::new()
+    $security.SetOwner($AdministratorsSid)
+    $security.SetAccessRuleProtection($true, $false)
+    $inheritance = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+        [Security.AccessControl.InheritanceFlags]::ObjectInherit
+    foreach ($sid in @($AdministratorsSid, $SystemSid)) {
+        $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+            $sid,
+            [Security.AccessControl.FileSystemRights]::FullControl,
+            $inheritance,
+            [Security.AccessControl.PropagationFlags]::None,
+            [Security.AccessControl.AccessControlType]::Allow)
+        $null = $security.AddAccessRule($rule)
+    }
+    return $security
+}
+
+function New-LockedFileSecurity {
+    $security = [Security.AccessControl.FileSecurity]::new()
+    $security.SetOwner($AdministratorsSid)
+    $security.SetAccessRuleProtection($true, $false)
+    foreach ($sid in @($AdministratorsSid, $SystemSid)) {
+        $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+            $sid,
+            [Security.AccessControl.FileSystemRights]::FullControl,
+            [Security.AccessControl.AccessControlType]::Allow)
+        $null = $security.AddAccessRule($rule)
+    }
+    return $security
+}
+
+function New-LockedDirectory([string] $Path) {
+    if (Test-Path -LiteralPath $Path) {
+        throw "Trusted staging path already exists: $Path"
+    }
+    $directory = [IO.DirectoryInfo]::new($Path)
+    $directory.Create((New-LockedDirectorySecurity))
+}
+
+function Ensure-LockedDirectory([string] $Root, [string] $Directory) {
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $directoryFull = [IO.Path]::GetFullPath($Directory).TrimEnd('\', '/')
+    if ($directoryFull.Equals($rootFull, [StringComparison]::OrdinalIgnoreCase)) {
+        return
+    }
+    $rootPrefix = $rootFull + [IO.Path]::DirectorySeparatorChar
+    if (-not $directoryFull.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Trusted staging directory escapes its root: $Directory"
+    }
+
+    $relative = $directoryFull.Substring($rootPrefix.Length)
+    $current = $rootFull
+    foreach ($segment in $relative.Split([char[]] @('\', '/'), [StringSplitOptions]::RemoveEmptyEntries)) {
+        $current = Join-Path $current $segment
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if (-not $item.PSIsContainer -or
+                (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+                throw "Trusted staging directory is unsafe: $current"
+            }
+        } else {
+            New-LockedDirectory -Path $current
+        }
+    }
+}
+
+function Assert-SourcePathNoReparse([string] $Root, [string] $Path) {
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $pathFull = [IO.Path]::GetFullPath($Path)
+    $rootPrefix = $rootFull + [IO.Path]::DirectorySeparatorChar
+    if (-not $pathFull.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Source path escapes its root: $Path"
+    }
+
+    $rootItem = Get-Item -LiteralPath $rootFull -Force
+    if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Source root is a reparse point: $rootFull"
+    }
+
+    $relative = $pathFull.Substring($rootPrefix.Length)
+    $current = $rootFull
+    foreach ($segment in $relative.Split([char[]] @('\', '/'), [StringSplitOptions]::RemoveEmptyEntries)) {
+        $current = Join-Path $current $segment
+        $item = Get-Item -LiteralPath $current -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Source path contains a reparse point: $current"
+        }
+    }
+}
+
+function Copy-LockedFile(
+    [string] $SourceRoot,
+    [string] $SourcePath,
+    [string] $Destination,
+    [string] $ExpectedHash,
+    [Nullable[long]] $ExpectedSize
+) {
+    Assert-SourcePathNoReparse -Root $SourceRoot -Path $SourcePath
+    $parent = Split-Path -Path $Destination -Parent
+    Ensure-LockedDirectory -Root $StageRoot -Directory $parent
+
+    $source = [IO.File]::Open(
+        $SourcePath,
+        [IO.FileMode]::Open,
+        [IO.FileAccess]::Read,
+        [IO.FileShare]::Read)
+    $destinationStream = $null
+    try {
+        $destinationStream = [IO.FileStream]::new(
+            $Destination,
+            [IO.FileMode]::CreateNew,
+            [Security.AccessControl.FileSystemRights]::FullControl,
+            [IO.FileShare]::None,
+            65536,
+            [IO.FileOptions]::SequentialScan,
+            (New-LockedFileSecurity))
+        $source.CopyTo($destinationStream)
+        $destinationStream.Flush()
+    } finally {
+        if ($null -ne $destinationStream) { $destinationStream.Dispose() }
+        $source.Dispose()
+    }
+
+    if ($null -ne $ExpectedSize) {
+        $actualSize = (Get-Item -LiteralPath $Destination -Force).Length
+        if ($actualSize -ne $ExpectedSize.Value) {
+            throw "Trusted staging size mismatch for '$Destination'. Expected $($ExpectedSize.Value), found $actualSize."
+        }
+    }
+
+    $actualHash = Get-HashHex -Path $Destination
+    if (-not $actualHash.Equals($ExpectedHash.Trim().ToLowerInvariant(), [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Trusted staging hash mismatch for '$Destination'. Expected $ExpectedHash, found $actualHash."
+    }
+}
+
+function Quote-Argument([string] $Value) {
+    if ($Value.Contains('"')) {
+        throw "Arguments containing quote characters are not supported: $Value"
+    }
+    return '"' + $Value + '"'
+}
+
+$SourcePayloadRoot = Decode-Utf8 '__PAYLOAD_ROOT__'
+$InstallerSnapshotPath = Decode-Utf8 '__INSTALLER_SNAPSHOT__'
+$ManifestSnapshotPath = Decode-Utf8 '__MANIFEST_SNAPSHOT__'
+$InstallerHash = '__INSTALLER_HASH__'
+$ManifestHash = '__MANIFEST_HASH__'
+$InstallerFileName = Decode-Utf8 '__INSTALLER_FILENAME__'
+$ForwardedArgumentText = Decode-Utf8 '__FORWARDED_ARGUMENTS__'
+$StageId = '__STAGE_ID__'
+
+$programFiles = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+if ([string]::IsNullOrWhiteSpace($programFiles)) {
+    throw 'Could not resolve the Windows Program Files directory for trusted staging.'
+}
+$programFiles = [IO.Path]::GetFullPath($programFiles).TrimEnd('\', '/')
+$programFilesItem = Get-Item -LiteralPath $programFiles -Force
+if (($programFilesItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "Program Files trusted staging parent is a reparse point: $programFiles"
+}
+
+$StageRoot = Join-Path $programFiles ('.ProtonVPNFastPatchStage-' + $StageId)
+$stagePayload = Join-Path $StageRoot 'Payload'
+$stageInstaller = Join-Path $StageRoot $InstallerFileName
+$stageManifest = Join-Path $stagePayload 'patch-manifest.json'
+$exitCode = 1
+
+try {
+    New-LockedDirectory -Path $StageRoot
+    Ensure-LockedDirectory -Root $StageRoot -Directory $stagePayload
+
+    Copy-LockedFile `
+        -SourceRoot (Split-Path -Path $InstallerSnapshotPath -Parent) `
+        -SourcePath $InstallerSnapshotPath `
+        -Destination $stageInstaller `
+        -ExpectedHash $InstallerHash `
+        -ExpectedSize $null
+
+    Copy-LockedFile `
+        -SourceRoot (Split-Path -Path $ManifestSnapshotPath -Parent) `
+        -SourcePath $ManifestSnapshotPath `
+        -Destination $stageManifest `
+        -ExpectedHash $ManifestHash `
+        -ExpectedSize $null
+
+    try {
+        $manifest = Get-Content -LiteralPath $stageManifest -Raw | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        throw "Trusted manifest snapshot is not valid JSON: $($_.Exception.Message)"
+    }
+
+    $manifestFiles = @($manifest.files)
+    if ($manifestFiles.Count -eq 0) {
+        throw 'Trusted manifest snapshot does not declare any payload files.'
+    }
+
+    $declaredPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $sourceRoot = [IO.Path]::GetFullPath($SourcePayloadRoot).TrimEnd('\', '/')
+    $sourceRootPrefix = $sourceRoot + [IO.Path]::DirectorySeparatorChar
+    $stagePayloadFull = [IO.Path]::GetFullPath($stagePayload).TrimEnd('\', '/')
+    $stagePayloadPrefix = $stagePayloadFull + [IO.Path]::DirectorySeparatorChar
+
+    foreach ($file in $manifestFiles) {
+        foreach ($required in @('path', 'size', 'sha256')) {
+            if ($null -eq $file.PSObject.Properties[$required]) {
+                throw "Trusted manifest file entry is missing '$required'."
+            }
+        }
+
+        $relativePath = ([string] $file.path).Trim().Replace('/', '\')
+        $segments = $relativePath.Split([char[]] @('\', '/'), [StringSplitOptions]::RemoveEmptyEntries)
+        if ([string]::IsNullOrWhiteSpace($relativePath) -or
+            [IO.Path]::IsPathRooted($relativePath) -or
+            $relativePath.Contains(':') -or
+            $segments -contains '..' -or
+            $relativePath.Equals('patch-manifest.json', [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Trusted manifest contains an unsafe payload path: $($file.path)"
+        }
+        if (-not $declaredPaths.Add($relativePath)) {
+            throw "Trusted manifest declares the payload path more than once: $relativePath"
+        }
+
+        $expectedHash = ([string] $file.sha256).Trim().ToLowerInvariant()
+        if ($expectedHash -notmatch '^[0-9a-f]{64}$') {
+            throw "Trusted manifest contains an invalid SHA-256 value for '$relativePath'."
+        }
+        $expectedSize = [long] $file.size
+        if ($expectedSize -lt 0) {
+            throw "Trusted manifest contains an invalid size for '$relativePath'."
+        }
+
+        $sourcePath = [IO.Path]::GetFullPath((Join-Path $sourceRoot $relativePath))
+        if (-not $sourcePath.StartsWith($sourceRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Trusted manifest source path escapes the payload root: $relativePath"
+        }
+        if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+            throw "Trusted source payload file is missing: $relativePath"
+        }
+
+        $destination = [IO.Path]::GetFullPath((Join-Path $stagePayloadFull $relativePath))
+        if (-not $destination.StartsWith($stagePayloadPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Trusted manifest destination path escapes the staged payload root: $relativePath"
+        }
+
+        Copy-LockedFile `
+            -SourceRoot $sourceRoot `
+            -SourcePath $sourcePath `
+            -Destination $destination `
+            -ExpectedHash $expectedHash `
+            -ExpectedSize ([Nullable[long]] $expectedSize)
+    }
+
+    $arguments = @(
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', (Quote-Argument $stageInstaller),
+        '-PatchPath', (Quote-Argument $stagePayload),
+        '-TrustedStagePath', (Quote-Argument $StageRoot)
+    )
+    $argumentText = $arguments -join ' '
+    if (-not [string]::IsNullOrWhiteSpace($ForwardedArgumentText)) {
+        $argumentText += ' ' + $ForwardedArgumentText
+    }
+
+    $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentText -NoNewWindow -Wait -PassThru
+    $exitCode = $process.ExitCode
+} finally {
+    if (Test-Path -LiteralPath $StageRoot -PathType Container) {
+        try {
+            Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction Stop
+        } catch {
+            Write-Error -Message "Could not clean trusted FastPatch staging directory '$StageRoot': $($_.Exception.Message)" -ErrorAction Continue
+            if ($exitCode -eq 0) { $exitCode = 1 }
+        }
+    }
+}
+
+exit $exitCode
+'@
+
+    $result = $template
+    $result = $result.Replace('__PAYLOAD_ROOT__', (ConvertTo-Base64Utf8 -Value ([IO.Path]::GetFullPath($PayloadRoot))))
+    $result = $result.Replace('__INSTALLER_SNAPSHOT__', (ConvertTo-Base64Utf8 -Value ([IO.Path]::GetFullPath($InstallerSnapshotPath))))
+    $result = $result.Replace('__MANIFEST_SNAPSHOT__', (ConvertTo-Base64Utf8 -Value ([IO.Path]::GetFullPath($ManifestSnapshotPath))))
+    $result = $result.Replace('__INSTALLER_HASH__', $InstallerHash.ToLowerInvariant())
+    $result = $result.Replace('__MANIFEST_HASH__', $ManifestHash.ToLowerInvariant())
+    $result = $result.Replace('__INSTALLER_FILENAME__', (ConvertTo-Base64Utf8 -Value $InstallerFileName))
+    $result = $result.Replace('__FORWARDED_ARGUMENTS__', (ConvertTo-Base64Utf8 -Value $ForwardedArgumentText))
+    $result = $result.Replace('__STAGE_ID__', $StageId.ToLowerInvariant())
+    return $result
+}
+
+function Invoke-TrustedStage {
+    param(
+        [Parameter(Mandatory = $true)] [string] $PayloadRoot,
+        [Parameter(Mandatory = $true)] [string] $InstallerSnapshotPath,
+        [Parameter(Mandatory = $true)] [string] $InstallerHash,
+        [Parameter(Mandatory = $true)] [string] $ManifestSnapshotPath,
+        [Parameter(Mandatory = $true)] [string] $ManifestHash,
+        [Parameter(Mandatory = $true)] [string] $InstallerFileName,
+        [AllowEmptyString()] [string] $ForwardedArgumentText = ''
+    )
+
+    $stageId = [Guid]::NewGuid().ToString('N')
+    $bootstrap = Get-TrustedStageBootstrap `
+        -PayloadRoot $PayloadRoot `
+        -InstallerSnapshotPath $InstallerSnapshotPath `
+        -InstallerHash $InstallerHash `
+        -ManifestSnapshotPath $ManifestSnapshotPath `
+        -ManifestHash $ManifestHash `
+        -InstallerFileName $InstallerFileName `
+        -ForwardedArgumentText $ForwardedArgumentText `
+        -StageId $stageId
+    $encodedBootstrap = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrap))
+    $bootstrapArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedBootstrap"
+
+    if (-not (Test-IsAdministrator)) {
+        $process = Start-Process -FilePath 'powershell.exe' `
+            -ArgumentList $bootstrapArguments `
+            -Verb RunAs `
+            -Wait `
+            -PassThru
+    } else {
+        $process = Start-Process -FilePath 'powershell.exe' `
+            -ArgumentList $bootstrapArguments `
+            -NoNewWindow `
+            -Wait `
+            -PassThru
+    }
+
+    return $process.ExitCode
+}
+
+function Assert-TrustedStage {
+    param(
+        [Parameter(Mandatory = $true)] [string] $StagePath,
+        [Parameter(Mandatory = $true)] [string] $PayloadPath
+    )
+
+    if (-not (Test-IsAdministrator)) {
+        throw 'Trusted FastPatch staging can only be consumed by an administrator process.'
+    }
+
+    $programFiles = [IO.Path]::GetFullPath(
+        [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+    ).TrimEnd('\', '/')
+    $resolvedStage = [IO.Path]::GetFullPath($StagePath).TrimEnd('\', '/')
+    if (-not (Split-Path -Path $resolvedStage -Parent).Equals($programFiles, [StringComparison]::OrdinalIgnoreCase) -or
+        (Split-Path -Path $resolvedStage -Leaf) -notmatch '^\.ProtonVPNFastPatchStage-[0-9a-fA-F]{32}$') {
+        throw "Trusted FastPatch stage is not a direct protected Program Files child: $resolvedStage"
+    }
+
+    $stagePrefix = $resolvedStage + [IO.Path]::DirectorySeparatorChar
+    foreach ($candidate in @($PSCommandPath, $PayloadPath)) {
+        $fullCandidate = [IO.Path]::GetFullPath($candidate)
+        if (-not $fullCandidate.StartsWith($stagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Trusted FastPatch consumer path is outside the protected stage: $fullCandidate"
+        }
+    }
+
+    $administratorSid = 'S-1-5-32-544'
+    $systemSid = 'S-1-5-18'
+    $items = @(
+        Get-Item -LiteralPath $resolvedStage -Force
+        Get-ChildItem -LiteralPath $resolvedStage -Recurse -Force
+    )
+
+    foreach ($item in $items) {
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Trusted FastPatch stage contains a reparse point: $($item.FullName)"
+        }
+
+        $acl = Get-Acl -LiteralPath $item.FullName
+        if (-not $acl.AreAccessRulesProtected) {
+            throw "Trusted FastPatch stage ACL inheritance is not protected: $($item.FullName)"
+        }
+
+        $ownerSid = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+        if ($ownerSid -ne $administratorSid) {
+            throw "Trusted FastPatch stage object is not owned by Administrators: $($item.FullName)"
+        }
+
+        $fullControlSids = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow) {
+                continue
+            }
+            $sid = $rule.IdentityReference.Value
+            if ($sid -notin @($administratorSid, $systemSid)) {
+                throw "Trusted FastPatch stage grants access to unexpected identity '$sid': $($item.FullName)"
+            }
+            if (($rule.FileSystemRights -band [Security.AccessControl.FileSystemRights]::FullControl) -eq
+                [Security.AccessControl.FileSystemRights]::FullControl) {
+                $null = $fullControlSids.Add($sid)
+            }
+        }
+
+        if (-not $fullControlSids.Contains($administratorSid) -or
+            -not $fullControlSids.Contains($systemSid)) {
+            throw "Trusted FastPatch stage object is missing required Administrator/SYSTEM full control: $($item.FullName)"
+        }
+    }
+}
+
 
 function Get-VersionSortValue {
     param(
@@ -263,7 +678,8 @@ function Test-PatchPayload {
     }
 
     try {
-        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
+        $manifestJson = Get-Content -LiteralPath $manifestPath -Raw
+        $manifest = $manifestJson | ConvertFrom-Json -ErrorAction Stop
     } catch {
         throw "Patch manifest is not valid JSON: $($_.Exception.Message)"
     }
@@ -366,6 +782,7 @@ function Test-PatchPayload {
         throw "Patch manifest file count does not match the payload. Declared $($declaredPaths.Count), found $($actualPayloadFiles.Count)."
     }
 
+    $script:ValidatedManifestText = $manifestJson
     return $manifest
 }
 
@@ -551,10 +968,11 @@ function Remove-OldBackups {
     }
 }
 
-if (-not $ValidateOnly -and -not (Test-IsAdministrator)) {
+if (-not $ValidateOnly -and [string]::IsNullOrWhiteSpace($TrustedStagePath)) {
     $preflightDirectory = Join-Path (
         [System.IO.Path]::GetTempPath()
     ) ("ProtonVPNPatchPreflight-{0}" -f [Guid]::NewGuid().ToString('N'))
+    $stageExitCode = 1
 
     try {
         New-Item -ItemType Directory -Path $preflightDirectory -Force | Out-Null
@@ -562,14 +980,55 @@ if (-not $ValidateOnly -and -not (Test-IsAdministrator)) {
         $null = Test-PatchPayload `
             -PayloadRoot $preflightPayloadRoot `
             -ExpectedTargetVersion $TargetVersion
-        Write-Host 'Patch payload validation succeeded; requesting administrator access.'
+
+        $installerSnapshot = Join-Path $preflightDirectory 'Install-ProtonVPNPatch.snapshot.ps1'
+        $manifestSnapshot = Join-Path $preflightDirectory 'patch-manifest.snapshot.json'
+        $installerHash = Write-TrustedSnapshot `
+            -Path $installerSnapshot `
+            -Content ([string] $MyInvocation.MyCommand.ScriptContents)
+        $manifestHash = Write-TrustedSnapshot `
+            -Path $manifestSnapshot `
+            -Content $script:ValidatedManifestText
+
+        $forwardedArguments = @(
+            '-InstallRoot',
+            (ConvertTo-QuotedProcessArgument -Value ([IO.Path]::GetFullPath($InstallRoot))),
+            '-BackupRetentionCount',
+            [string] $BackupRetentionCount
+        )
+        if (-not [string]::IsNullOrWhiteSpace($TargetVersion)) {
+            $forwardedArguments += '-TargetVersion'
+            $forwardedArguments += ConvertTo-QuotedProcessArgument -Value $TargetVersion
+        }
+        if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) {
+            $forwardedArguments += '-BackupRoot'
+            $forwardedArguments += ConvertTo-QuotedProcessArgument -Value ([IO.Path]::GetFullPath($BackupRoot))
+        }
+        if ($NoRestart) { $forwardedArguments += '-NoRestart' }
+        if ($RestartClient) { $forwardedArguments += '-RestartClient' }
+        if ($PauseBeforeExit) { $forwardedArguments += '-PauseBeforeExit' }
+        if ($WhatIfPreference) { $forwardedArguments += '-WhatIf' }
+
+        Write-Host 'Patch payload validation succeeded; staging immutable bytes for administrator use.'
+        $stageExitCode = Invoke-TrustedStage `
+            -PayloadRoot $preflightPayloadRoot `
+            -InstallerSnapshotPath $installerSnapshot `
+            -InstallerHash $installerHash `
+            -ManifestSnapshotPath $manifestSnapshot `
+            -ManifestHash $manifestHash `
+            -InstallerFileName 'Install-ProtonVPNPatch.ps1' `
+            -ForwardedArgumentText ($forwardedArguments -join ' ')
     } finally {
         if (Test-Path -LiteralPath $preflightDirectory -PathType Container) {
             Remove-Item -LiteralPath $preflightDirectory -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
-    Restart-Elevated
+    exit $stageExitCode
+}
+
+if (-not $ValidateOnly) {
+    Assert-TrustedStage -StagePath $TrustedStagePath -PayloadPath $PatchPath
 }
 
 $mutex = New-Object Threading.Mutex($false, 'Global\ProtonVPNCustomPatchInstaller')

@@ -202,7 +202,8 @@ try {
                 continue
             }
 
-            if ($removedElevationTreeWait -and -not $insertedSingleProcessWait -and $line.Trim() -eq 'exit $process.ExitCode') {
+            if ($removedElevationTreeWait -and -not $insertedSingleProcessWait -and
+                $line.Trim() -in @('exit $process.ExitCode', 'return $process.ExitCode')) {
                 '    $process.WaitForExit()'
                 $insertedSingleProcessWait = $true
             }
