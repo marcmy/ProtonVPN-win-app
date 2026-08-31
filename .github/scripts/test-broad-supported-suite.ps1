@@ -217,7 +217,10 @@ foreach ($project in $selectedProjects) {
                 $total = [int] $counters.total
                 $passed = [int] $counters.passed
                 $failed = [int] $counters.failed
-                $skipped = [int] $counters.notExecuted
+                # Some MSTest TRX files report notExecuted=0 even when the test result/log
+                # contains a skipped test. Derive skipped from the aggregate counters so the
+                # summary matches the runner's Passed/Failed/Skipped/Total output.
+                $skipped = [math]::Max(0, $total - $passed - $failed)
             }
         } catch {
             Write-Warning "Could not parse TRX counters for $($project.Project): $($_.Exception.Message)"
