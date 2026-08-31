@@ -523,8 +523,10 @@ function Test-StaticSecurityContracts {
     )) {
         Assert-Condition (-not $item.Content.Contains("'-File', (ConvertTo-QuotedProcessArgument -Value `$PSCommandPath)")) `
             "$($item.Name) installer still reopens its mutable original script path after UAC."
-        Assert-Condition ($item.Content.Contains('$MyInvocation.MyCommand.ScriptContents')) `
-            "$($item.Name) installer does not snapshot the already-parsed script bytes."
+        Assert-Condition ($item.Content.Contains("PSObject.Properties['ScriptContents']")) `
+            "$($item.Name) installer does not snapshot the already-parsed external-script bytes."
+        Assert-Condition ($item.Content.Contains("'ProtonVpnFastPatchVerifiedSfxScriptText'")) `
+            "$($item.Name) installer does not accept the hash-pinned in-memory SFX script snapshot."
         Assert-Condition ($item.Content.Contains('-EncodedCommand')) `
             "$($item.Name) installer does not carry an inline bootstrap across elevation."
         Assert-Condition ($item.Content.Contains('[IO.DirectoryInfo]::new($Path)')) `
