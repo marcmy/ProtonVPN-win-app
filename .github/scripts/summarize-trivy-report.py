@@ -8,11 +8,16 @@ from datetime import date, datetime
 from pathlib import Path
 
 SEVERITIES = ("MEDIUM", "HIGH", "CRITICAL")
+SEVERITY_RANK = {"CRITICAL": 3, "HIGH": 2, "MEDIUM": 1, "UNKNOWN": 0}
 
 
 def _severity(value):
     value = (value or "UNKNOWN").upper()
     return value if value in SEVERITIES else "UNKNOWN"
+
+
+def _finding_sort_key(finding):
+    return (-SEVERITY_RANK.get(finding["severity"], 0), finding["id"])
 
 
 def _active_findings(report):
@@ -155,7 +160,7 @@ def main():
             "| Severity | ID | Package | Installed | Fixed | Target |",
             "| --- | --- | --- | --- | --- | --- |",
         ]
-        for finding in sorted(active, key=lambda item: (item["severity"], item["id"]), reverse=True):
+        for finding in sorted(active, key=_finding_sort_key):
             lines.append(
                 f"| {_escape_table(finding['severity'])} | {_escape_table(finding['id'])} | "
                 f"{_escape_table(finding['pkg'])} | {_escape_table(finding['installed'])} | "
@@ -167,14 +172,15 @@ def main():
         lines += [
             "## Accepted / suppressed findings",
             "",
-            "| Severity | ID | Package | Installed | Status | Statement |",
-            "| --- | --- | --- | --- | --- | --- |",
+            "| Severity | ID | Package | Installed | Fixed | Status | Statement |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
-        for finding in suppressed:
+        for finding in sorted(suppressed, key=_finding_sort_key):
             lines.append(
                 f"| {_escape_table(finding['severity'])} | {_escape_table(finding['id'])} | "
                 f"{_escape_table(finding['pkg'])} | {_escape_table(finding['installed'])} | "
-                f"{_escape_table(finding['status'])} | {_escape_table(finding['statement'])} |"
+                f"{_escape_table(finding['fixed'])} | {_escape_table(finding['status'])} | "
+                f"{_escape_table(finding['statement'])} |"
             )
         lines.append("")
 
