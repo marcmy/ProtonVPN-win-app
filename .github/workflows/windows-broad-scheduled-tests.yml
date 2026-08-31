@@ -23,7 +23,9 @@ env:
   DOTNET_NOLOGO: true
 
 concurrency:
-  group: windows-broad-tests-${{ github.event_name }}-${{ github.ref }}
+  # v2 bypasses one stale cancelled validation run whose child dotnet process remained alive.
+  # Subsequent runs still cancel older runs in this same workflow/ref group.
+  group: windows-broad-tests-v2-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
