@@ -22,7 +22,7 @@ updates:
       # release should surface as a fresh compatibility-review signal.
       - dependency-name: "log4net"
         versions:
-          - "3.3.*"
+          - "[3.3.0,3.4.0)"
       # Major upgrades require an explicit compatibility review against the installed runtime.
       - dependency-name: "*"
         update-types:
