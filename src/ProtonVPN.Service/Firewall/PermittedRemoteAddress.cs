@@ -127,17 +127,17 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
 
     protected virtual void StartTransaction()
     {
-        _ipFilter.Session.StartTransaction();
+        _ipFilter.DynamicInstance.Session.StartTransaction();
     }
 
     protected virtual void AbortTransaction()
     {
-        _ipFilter.Session.AbortTransaction();
+        _ipFilter.DynamicInstance.Session.AbortTransaction();
     }
 
     protected virtual void CommitTransaction()
     {
-        _ipFilter.Session.CommitTransaction();
+        _ipFilter.DynamicInstance.Session.CommitTransaction();
     }
 
     protected virtual bool TryCreateFilters(CoreNetworkAddress networkAddress, Action action, out List<Guid> guids)
