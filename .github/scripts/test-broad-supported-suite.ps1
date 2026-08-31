@@ -66,11 +66,14 @@ $focusedProjects = [Collections.Generic.HashSet[string]]::new([StringComparer]::
     'src/Tests/ProtonVPN.Integration.Tests/ProtonVPN.Integration.Tests.csproj'
 ) | ForEach-Object { [void] $focusedProjects.Add($_) }
 
-# Proton's UI automation suite is intentionally not part of the hosted-safe lane.
-# Its own README requires an installed client plus production/test account credentials,
-# and upstream runs it in dedicated UI-test jobs rather than the unit-test lane.
+# Deliberate exclusions are surfaced in the generated inventory rather than silently skipped.
+# The two legacy off-solution projects were discovered by the first broad Actions run and do
+# not restore against the repository's current central-package graph. The credentialed FlaUI
+# suite is upstream's dedicated production E2E lane, not a hosted-safe unit/component test.
 $excludedProjects = @{
-    'src/Tests/ProtonVPN.UI.Tests/ProtonVPN.UI.Tests.csproj' = 'Dedicated FlaUI production E2E suite; requires installed client and account credentials.'
+    'src/ProcessCommunication/ProtonVPN.ProcessCommunication.Common.Tests/ProtonVPN.ProcessCommunication.Common.Tests.csproj' = 'Legacy off-solution project; references Grpc.Core but the current central package graph no longer defines that package, so the project does not restore.'
+    'src/Tests/ProtonVPN.Core.Tests/ProtonVPN.Core.Tests.csproj' = 'Legacy off-solution project; references System.Configuration.ConfigurationManager but the current central package graph no longer defines that package, so the project does not restore.'
+    'src/Tests/ProtonVPN.UI.Tests/ProtonVPN.UI.Tests.csproj' = 'Dedicated FlaUI production E2E suite; requires an installed client plus production/test account credentials and network access.'
 }
 
 function Get-ProjectGroup {
@@ -148,7 +151,7 @@ $inventoryMarkdownPath = Join-Path $inventoryDirectory 'test-project-inventory.m
 $inventoryLines = [Collections.Generic.List[string]]::new()
 $inventoryLines.Add('# Proton VPN test-project inventory')
 $inventoryLines.Add('')
-$inventoryLines.Add("Discovered **$($testProjects.Count)** test projects under `src`.")
+$inventoryLines.Add("Discovered **$($testProjects.Count)** test projects under `src`: **$(@($testProjects | Where-Object SupportedHostedCI).Count)** hosted-supported and **$(@($testProjects | Where-Object { -not $_.SupportedHostedCI }).Count)** explicitly excluded.")
 $inventoryLines.Add('')
 $inventoryLines.Add('| Project | Group | In solution | Focused PR suite | Hosted nightly | Notes |')
 $inventoryLines.Add('| --- | --- | :---: | :---: | :---: | --- |')
