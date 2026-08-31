@@ -160,6 +160,58 @@ public class ConnectionFeedbackComponentViewModelTest
         Assert.IsTrue(context.Timer.IsEnabled);
     }
 
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task SubmitFeedback_WhenConnectionDropsDuringSubmit_DoesNotHideNextSession(bool reportPositiveFeedback)
+    {
+        // Arrange
+        TestContext context = new();
+        context.ViewModel.Receive(new MainWindowFocusedMessage());
+
+        // Act - start the old session's 1300 ms submit animation/pause.
+        Task submitTask = reportPositiveFeedback
+            ? context.ViewModel.ReportGoodConnectionCommand.ExecuteAsync(null)
+            : context.ViewModel.ReportPoorConnectionCommand.ExecuteAsync(null);
+
+        Assert.IsTrue(context.ViewModel.IsSendingFeedback);
+        Assert.IsFalse(context.Timer.IsEnabled);
+
+        if (reportPositiveFeedback)
+        {
+            context.ConnectionStatisticsFeedback.Received(1).SubmitPositiveFeedback();
+        }
+        else
+        {
+            context.ConnectionStatisticsFeedback.Received(1).SubmitNegativeFeedback();
+        }
+
+        // Disconnect invalidates the delayed completion and clears the old session's sending state.
+        context.IsConnected = false;
+        context.ViewModel.Receive(new ConnectionStatusChangedMessage(ConnectionStatus.Disconnected));
+
+        Assert.IsFalse(context.ViewModel.IsSendingFeedback);
+        Assert.IsFalse(context.ViewModel.IsFeedbackSent);
+
+        // Start a new connection session while the old submit task is still delayed.
+        context.IsConnected = true;
+        context.ViewModel.Receive(new ConnectionStatusChangedMessage(ConnectionStatus.Connected));
+        context.ViewModel.Receive(new MainWindowFocusedMessage());
+
+        Assert.IsTrue(context.ViewModel.IsConnectionFeedbackVisible);
+        Assert.IsTrue(context.Timer.IsEnabled);
+        context.ConnectionStatisticsFeedback.Received(2).InitializeFeedback();
+
+        // Let the old session's delayed finally block complete.
+        await submitTask;
+
+        // Assert the stale completion did not hide or mutate the new session.
+        Assert.IsFalse(context.ViewModel.IsFeedbackSent);
+        Assert.IsFalse(context.ViewModel.IsSendingFeedback);
+        Assert.IsTrue(context.ViewModel.IsConnectionFeedbackVisible);
+        Assert.IsTrue(context.Timer.IsEnabled);
+    }
+
     private static SettingChangedMessage CreateStatisticsSharingChangedMessage(bool oldValue, bool newValue)
     {
         return new SettingChangedMessage(

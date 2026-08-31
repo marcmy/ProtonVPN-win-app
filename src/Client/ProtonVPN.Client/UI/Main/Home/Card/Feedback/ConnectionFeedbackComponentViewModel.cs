@@ -105,6 +105,8 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
     [RelayCommand(CanExecute = nameof(CanReportConnection))]
     private async Task ReportPoorConnectionAsync()
     {
+        int feedbackSessionId = _feedbackSessionId;
+
         try
         {
             StopAutoDismissTimer();
@@ -116,14 +118,15 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
         }
         finally
         {
-            IsFeedbackSent = true;
-            IsSendingFeedback = false;
+            CompleteFeedbackSubmission(feedbackSessionId);
         }
     }
 
     [RelayCommand(CanExecute = nameof(CanReportConnection))]
     private async Task ReportGoodConnectionAsync()
     {
+        int feedbackSessionId = _feedbackSessionId;
+
         try
         {
             StopAutoDismissTimer();
@@ -134,6 +137,15 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
             await Task.Delay(SUBMIT_FEEDBACK_ANIMATION_DURATION_MS + PAUSE_ANIMATION_DURATION_MS);
         }
         finally
+        {
+            CompleteFeedbackSubmission(feedbackSessionId);
+        }
+    }
+
+    private void CompleteFeedbackSubmission(int feedbackSessionId)
+    {
+        // A disconnect invalidates delayed submit-animation work from the previous connection session.
+        if (feedbackSessionId == _feedbackSessionId)
         {
             IsFeedbackSent = true;
             IsSendingFeedback = false;
@@ -158,6 +170,7 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
                 _hasReceivedAppFocus = false;
                 _isFeedbackInitialized = false;
                 IsFeedbackSent = false;
+                IsSendingFeedback = false;
                 IsDismissingFeedback = false;
             }
 
