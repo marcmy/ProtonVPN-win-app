@@ -11,7 +11,7 @@ The Medium+ lane emits three durable views:
 
 1. a JSON report containing active findings plus Trivy's suppressed/accepted findings;
 2. a SARIF report containing only active findings, uploaded to GitHub Security on non-PR runs;
-3. a GitHub job summary and 30-day workflow artifact that separate active findings from accepted/suppressed risk and show exception expiry dates.
+3. a GitHub job summary and rolling 14-day workflow artifact that separate active findings from accepted/suppressed risk and show exception expiry dates.
 
 High/Critical findings still belong to the blocking policy. The Medium+ lane also fails non-PR runs when active High/Critical findings appear so newly disclosed severe advisories become conspicuous between weekly blocking audits.
 
