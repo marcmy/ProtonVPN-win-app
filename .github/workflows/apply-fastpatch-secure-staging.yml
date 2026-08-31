@@ -1,0 +1,34 @@
+name: Apply FastPatch secure staging transformation
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor == 'marcmy' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: security/fastpatch-immutable-staging
+          fetch-depth: 0
+
+      - name: Apply source transformation
+        run: python .github/scripts/apply_secure_staging_change.py
+
+      - name: Commit transformed sources and remove one-time machinery
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/scripts/apply_secure_staging_change.py .github/workflows/apply-fastpatch-secure-staging.yml
+          git add scripts/Install-ProtonVPNPatch.ps1 scripts/Install-ProtonVPNCompletePatch.ps1 scripts/New-ProtonVPNPatchSfx.ps1 .github/scripts/test-complete-fast-patch.ps1 .github/scripts/test-fast-patch-secure-staging.ps1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Harden FastPatch elevation with immutable staging"
+          git push origin HEAD:security/fastpatch-immutable-staging
