@@ -47,10 +47,10 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
     public string U2FGatewayPortalUrl => GetPayload();
 
     [FeatureFlag("ProTunV1")]
-    public bool IsProTunEnabled => IsEnabled();    
-    
+    public bool IsProTunEnabled => IsEnabled();
+
     [FeatureFlag("IsConnectionFeedbackEnabled")]
-    public bool IsConnectionFeedbackEnabled => IsEnabled();  
+    public FeatureFlag ConnectionFeedback => GetFeatureFlag();
 
     protected override TimeSpan PollingInterval => _config.FeatureFlagsUpdateInterval;
 
@@ -104,7 +104,7 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
     {
         FeatureFlag featureFlag = GetFeatureFlag(propertyName);
 
-        return featureFlag.IsEnabled 
+        return featureFlag.IsEnabled
             ? featureFlag.Payload
             : string.Empty;
     }
@@ -156,19 +156,20 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
                 continue;
             }
 
-            bool? oldValue = GetFeatureFlag(_settings.FeatureFlags, featureFlagName)?.IsEnabled;
-            bool? newValue = GetFeatureFlag(updatedFeatureFlags, featureFlagName)?.IsEnabled;
-
-            if (oldValue != newValue)
+            FeatureFlag? oldFeatureFlag = GetFeatureFlag(_settings.FeatureFlags, featureFlagName);
+            FeatureFlag? newFeatureFlag = GetFeatureFlag(updatedFeatureFlags, featureFlagName);
+            FeatureFlagChange change = new()
             {
-                changes.Add(new()
-                {
-                    // Use property name instead of attribute name so that later we can compare
-                    // using nameof(IFeatureFlagsObserver.FeatureFlag)
-                    Name = featureFlagPropertyInfo.Name,
-                    OldValue = oldValue,
-                    NewValue = newValue,
-                });
+                Name = featureFlagPropertyInfo.Name,
+                OldValue = oldFeatureFlag?.IsEnabled,
+                NewValue = newFeatureFlag?.IsEnabled,
+                OldPayload = oldFeatureFlag?.Payload,
+                NewPayload = newFeatureFlag?.Payload,
+            };
+
+            if (change.HasChanged)
+            {
+                changes.Add(change);
             }
         }
 

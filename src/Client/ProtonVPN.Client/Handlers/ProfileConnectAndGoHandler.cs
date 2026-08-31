@@ -54,44 +54,47 @@ public class ProfileConnectAndGoHandler : IHandler,
         _logger = logger;
     }
 
-    public async void Receive(ConnectionStatusChangedMessage message)
+    public void Receive(ConnectionStatusChangedMessage message)
     {
         if (_connectionManager.IsDisconnected)
         {
             _lastProfile = null;
+        }
+        else if (_connectionManager.IsConnected &&
+                 _connectionManager.CurrentConnectionIntent is IConnectionProfile profile &&
+                 profile.Options.ConnectAndGo.IsEnabled)
+        {
+            TriggerConnectAndGoAsync(profile).FireAndForget();
+        }
+    }
+
+    private async Task TriggerConnectAndGoAsync(IConnectionProfile profile)
+    {
+        // Extra delay to ensure the connection is fully established before triggering Connect and go.
+        await Task.Delay(DELAY_AFTER_CONNECTION_IN_MS);
+
+        if (_lastProfile != null && _lastProfile.IsSameAs(profile))
+        {
             return;
         }
 
-        if (_connectionManager.IsConnected &&
-            _connectionManager.CurrentConnectionIntent is IConnectionProfile profile &&
-            profile.Options.ConnectAndGo.IsEnabled)
+        _lastProfile = profile;
+
+        IConnectAndGoOption connectAndGo = profile.Options.ConnectAndGo;
+
+        switch (connectAndGo.Mode)
         {
-            // Extra delay to ensure the connection is fully established before triggering Connect and go.
-            await Task.Delay(DELAY_AFTER_CONNECTION_IN_MS);
+            case ConnectAndGoMode.Website:
+                string url = connectAndGo.Url.ToFormattedUrl();
+                _logger.Info<AppLog>($"Connect and go - Open a website: {url}");
+                _urlsBrowser.BrowseTo(url, connectAndGo.UsePrivateBrowsingMode);
+                break;
 
-            if (_lastProfile != null && _lastProfile.IsSameAs(profile))
-            {
-                return;
-            }
-
-            _lastProfile = profile;
-
-            IConnectAndGoOption connectAndGo = profile.Options.ConnectAndGo;
-
-            switch (connectAndGo.Mode)
-            {
-                case ConnectAndGoMode.Website:
-                    string url = connectAndGo.Url.ToFormattedUrl();
-                    _logger.Info<AppLog>($"Connect and go - Open a website: {url}");
-                    _urlsBrowser.BrowseTo(url, connectAndGo.UsePrivateBrowsingMode);
-                    break;
-
-                case ConnectAndGoMode.Application:
-                    string appPath = connectAndGo.AppPath ?? string.Empty;
-                    _logger.Info<AppLog>($"Connect and go - Open an app: {appPath}");
-                    _appsBrowser.OpenApp(appPath);
-                    break;
-            }
+            case ConnectAndGoMode.Application:
+                string appPath = connectAndGo.AppPath ?? string.Empty;
+                _logger.Info<AppLog>($"Connect and go - Open an app: {appPath}");
+                _appsBrowser.OpenApp(appPath);
+                break;
         }
     }
 }
