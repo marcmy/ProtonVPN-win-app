@@ -4,14 +4,14 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-SECTION_HEADER_RE = re.compile(r"(?m)^vulnerabilities:\s*(?:#.*)?$")
+SECTION_HEADER_RE = re.compile(r"(?m)^vulnerabilities:[ \t]*(?:#.*)?$")
 SECTION_RE = re.compile(
-    r"(?ms)^vulnerabilities:\s*(?:#.*)?\n(?P<body>.*?)(?=^[A-Za-z0-9_.-]+:\s*(?:#.*)?$|\Z)"
+    r"(?ms)^vulnerabilities:[ \t]*(?:#.*)?\n(?P<body>.*?)(?=^[A-Za-z0-9_.-]+:[ \t]*(?:#.*)?$|\Z)"
 )
-CANONICAL_ENTRY_RE = re.compile(r"(?m)^  - id:\s*(?P<id>\S+)\s*$")
-ANY_ENTRY_RE = re.compile(r"(?m)^(?P<indent>[ \t]*)-\s+id:\s*(?P<id>\S+)\s*$")
-EXPIRY_RE = re.compile(r"(?m)^    expired_at:\s*(\d{4}-\d{2}-\d{2})\s*$")
-STATEMENT_RE = re.compile(r"(?m)^    statement:\s*(\S.*)?$")
+CANONICAL_ENTRY_RE = re.compile(r"(?m)^  - id:[ \t]*(?P<id>\S+)[ \t]*$")
+ANY_ENTRY_RE = re.compile(r"(?m)^(?P<indent>[ \t]*)-[ \t]+id:[ \t]*(?P<id>\S+)[ \t]*$")
+EXPIRY_RE = re.compile(r"(?m)^    expired_at:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$")
+STATEMENT_RE = re.compile(r"(?m)^    statement:[ \t]*(\S.*)?$")
 
 
 def fail(message):
@@ -29,7 +29,7 @@ def main():
     header = SECTION_HEADER_RE.search(text)
 
     if not header:
-        if re.search(r"(?m)^\s*vulnerabilities\s*:", text):
+        if re.search(r"(?m)^[ \t]*vulnerabilities[ \t]*:", text):
             fail("the vulnerabilities key must be a top-level block key on its own line")
         print("No vulnerability exceptions configured.")
         return
@@ -79,7 +79,7 @@ def main():
             fail(f"'{vuln_id}' statement must not be empty")
 
         for line in block.splitlines()[1:]:
-            if re.match(r"^[ \t]*-\s+", line) and not line.startswith("      - "):
+            if re.match(r"^[ \t]*-[ \t]+", line) and not line.startswith("      - "):
                 fail(f"'{vuln_id}' nested list items must use six-space indentation")
 
     print(f"Validated {len(canonical)} vulnerability exception(s).")
