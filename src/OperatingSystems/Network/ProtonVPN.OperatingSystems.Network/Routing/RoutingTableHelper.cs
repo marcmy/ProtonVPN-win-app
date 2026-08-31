@@ -132,6 +132,11 @@ public class RoutingTableHelper : IRoutingTableHelper
 
     public void DeleteRoute(RouteConfiguration route)
     {
+        _ = TryDeleteRoute(route);
+    }
+
+    public bool TryDeleteRoute(RouteConfiguration route)
+    {
         MIB_IPFORWARD_ROW2 routeToDelete = new()
         {
             DestinationPrefix = GetDestinationPrefix(route),
@@ -139,7 +144,14 @@ public class RoutingTableHelper : IRoutingTableHelper
             InterfaceIndex = route.InterfaceIndex,
         };
 
-        DeleteIpForwardEntry2(ref routeToDelete);
+        Win32Error result = DeleteIpForwardEntry2(ref routeToDelete);
+        if (result.Failed)
+        {
+            _logger.Error<RoutingTableLog>("Failed to delete an exact route from the routing table.", result.GetException());
+            return false;
+        }
+
+        return true;
     }
 
     public bool DeleteRoute(string destinationIpAddress, bool isIpv6)
