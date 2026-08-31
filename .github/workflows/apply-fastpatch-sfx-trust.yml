@@ -19,6 +19,20 @@ jobs:
         with:
           ref: security/fastpatch-immutable-staging
 
+      - name: Tighten the one-time transform to script scope
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/scripts/transform-fastpatch-sfx-trust.py')
+          s = p.read_text()
+          s = s.replace('return text.replace(old, new)', 'return text.replace(old, new, 1)', 1)
+          marker = '        f"{path}: invocation script capture")'
+          if marker not in s:
+              raise SystemExit('invocation-script transform marker missing')
+          s = s.replace(marker, '        f"{path}: invocation script capture", count=2)', 1)
+          p.write_text(s)
+          PY
+
       - name: Apply SFX trust-boundary transformation
         run: python .github/scripts/transform-fastpatch-sfx-trust.py
 
