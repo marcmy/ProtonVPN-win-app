@@ -176,14 +176,7 @@ if (-not $actualInstallerHash.Equals('__INSTALLER_HASH__', [StringComparison]::O
 $scriptText = [Text.Encoding]::UTF8.GetString($bytes)
 if ($scriptText.Length -gt 0 -and $scriptText[0] -eq [char]0xFEFF) { $scriptText = $scriptText.Substring(1) }
 if (-not (IsAdmin)) {
-    Add-Type @'
-using System;
-using System.Runtime.InteropServices;
-public static class FastPatchConsoleWindow {
-    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-}
-'@
+    Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class FastPatchConsoleWindow { [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }'
     [FastPatchConsoleWindow]::ShowWindow([FastPatchConsoleWindow]::GetConsoleWindow(), 0) | Out-Null
 }
 $global:ProtonVpnFastPatchVerifiedSfxScriptText = $scriptText
