@@ -1,0 +1,108 @@
+name: Windows broad scheduled tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly against the repository default/custom branch (marc/proton).
+    - cron: "41 6 * * *"
+
+permissions:
+  contents: read
+
+env:
+  NUGET_XMLDOC_MODE: skip
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+concurrency:
+  group: windows-broad-tests-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  broad-tests:
+    name: Broad supported tests (${{ matrix.test_group }})
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test_group:
+          - Client
+          - Libraries
+          - Service
+          - Integration
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'marc/proton' || github.sha }}
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Run broad supported test group
+        env:
+          TEST_GROUP: ${{ matrix.test_group }}
+        run: |
+          .\.github\scripts\test-broad-supported-suite.ps1 `
+            -TestGroup $env:TEST_GROUP `
+            -ArtifactsDirectory artifacts/broad-tests
+
+      - name: Upload broad test logs and TRX
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: broad-tests-${{ matrix.test_group }}-${{ github.run_id }}
+          path: artifacts/broad-tests
+          if-no-files-found: error
+          retention-days: 14
+
+  fork-coverage:
+    name: Fork-focused coverage
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'marc/proton' || github.sha }}
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Collect fork-focused Cobertura coverage
+        run: |
+          .\.github\scripts\test-fork-coverage.ps1 `
+            -ArtifactsDirectory artifacts/fork-coverage
+
+      - name: Upload coverage reports and logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fork-coverage-${{ github.run_id }}
+          path: artifacts/fork-coverage
+          if-no-files-found: error
+          retention-days: 14
