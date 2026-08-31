@@ -11,8 +11,7 @@ SECTION_RE = re.compile(
 CANONICAL_ENTRY_RE = re.compile(r"(?m)^  - id:[ \t]*(?P<id>\S+)[ \t]*$")
 ANY_ENTRY_RE = re.compile(r"(?m)^(?P<indent>[ \t]*)-[ \t]+id:[ \t]*(?P<id>\S+)[ \t]*$")
 EXPIRY_RE = re.compile(r"(?m)^    expired_at:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$")
-STATEMENT_RE = re.compile(r"(?m)^    statement:[ \t]*(?P<value>[^\r\n]*)$")
-BLOCK_SCALAR_MARKERS = {">", ">-", ">+", "|", "|-", "|+"}
+STATEMENT_RE = re.compile(r"(?m)^    statement:[ \t]*>-[ \t]*$")
 
 
 def fail(message):
@@ -20,12 +19,6 @@ def fail(message):
 
 
 def statement_has_content(block, match):
-    value = match.group("value").strip()
-    if not value:
-        return False
-    if value not in BLOCK_SCALAR_MARKERS:
-        return True
-
     remainder = block[match.end() :]
     next_key = re.search(r"(?m)^    [A-Za-z0-9_.-]+:[ \t]*", remainder)
     statement_body = remainder[: next_key.start()] if next_key else remainder
@@ -88,9 +81,9 @@ def main():
 
         statements = list(STATEMENT_RE.finditer(block))
         if len(statements) != 1:
-            fail(f"'{vuln_id}' must contain exactly one four-space-indented statement")
+            fail(f"'{vuln_id}' must contain exactly one four-space-indented 'statement: >-' block")
         if not statement_has_content(block, statements[0]):
-            fail(f"'{vuln_id}' statement must contain rationale text")
+            fail(f"'{vuln_id}' statement must contain indented rationale text")
 
         for line in block.splitlines()[1:]:
             if re.match(r"^[ \t]*-[ \t]+", line) and not line.startswith("      - "):
