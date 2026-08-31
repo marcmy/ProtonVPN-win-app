@@ -115,7 +115,7 @@ public class FeatureFlagsObserverTest
 
         // Assert
         Assert.IsNotNull(sentMessage);
-        Assert.HasCount(1, sentMessage.Changes);
+        Assert.AreEqual(1, sentMessage.Changes.Count);
 
         FeatureFlagChange change = sentMessage.Changes[0];
         Assert.AreEqual(nameof(IFeatureFlagsObserver.ConnectionFeedback), change.Name);
