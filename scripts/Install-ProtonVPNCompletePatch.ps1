@@ -18,6 +18,8 @@ param(
 
     [switch] $ValidateOnly,
 
+    [string] $ExpectedPatchArchiveSha256 = '',
+
     [string] $TrustedStagePath = '',
 
     [switch] $PauseBeforeExit
@@ -25,6 +27,26 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$script:FastPatchInvocationScriptText = ''
+$scriptContentsProperty = $MyInvocation.MyCommand.PSObject.Properties['ScriptContents']
+if ($null -ne $scriptContentsProperty -and
+    -not [string]::IsNullOrWhiteSpace([string] $scriptContentsProperty.Value)) {
+    $script:FastPatchInvocationScriptText = [string] $scriptContentsProperty.Value
+}
+if ([string]::IsNullOrWhiteSpace($script:FastPatchInvocationScriptText)) {
+    $verifiedSfxScript = Get-Variable `
+        -Name 'ProtonVpnFastPatchVerifiedSfxScriptText' `
+        -Scope Global `
+        -ErrorAction SilentlyContinue
+    if ($null -ne $verifiedSfxScript -and
+        -not [string]::IsNullOrWhiteSpace([string] $verifiedSfxScript.Value)) {
+        $script:FastPatchInvocationScriptText = [string] $verifiedSfxScript.Value
+    }
+}
+if ([string]::IsNullOrWhiteSpace($script:FastPatchInvocationScriptText)) {
+    throw 'FastPatch could not capture the installer script bytes for trusted staging.'
+}
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -371,7 +393,8 @@ try {
         $argumentText += ' ' + $ForwardedArgumentText
     }
 
-    $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentText -NoNewWindow -Wait -PassThru
+    $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentText -NoNewWindow -PassThru
+    $process.WaitForExit()
     $exitCode = $process.ExitCode
 } finally {
     if (Test-Path -LiteralPath $StageRoot -PathType Container) {
@@ -591,10 +614,41 @@ function Resolve-PatchSource {
         if ([System.IO.Path]::GetExtension($resolvedPatchPath) -ne '.zip') {
             throw "PatchPath must be a directory or a .zip archive: $resolvedPatchPath"
         }
-        $expandedPath = Join-Path $WorkingDirectory 'ExpandedPatch'
-        New-Item -ItemType Directory -Path $expandedPath -Force | Out-Null
-        Expand-Archive -LiteralPath $resolvedPatchPath -DestinationPath $expandedPath -Force
-        return Resolve-PayloadRoot -Root $expandedPath
+        $archiveGuard = $null
+        try {
+            if (-not [string]::IsNullOrWhiteSpace($ExpectedPatchArchiveSha256)) {
+                $expectedArchiveHash = $ExpectedPatchArchiveSha256.Trim().ToLowerInvariant()
+                if ($expectedArchiveHash -notmatch '^[0-9a-f]{64}$') {
+                    throw "ExpectedPatchArchiveSha256 is invalid: $ExpectedPatchArchiveSha256"
+                }
+
+                # Keep a read-only sharing handle open through Expand-Archive. Other readers are
+                # allowed, but same-user writers/deleters cannot replace the hash-pinned archive
+                # between verification and extraction.
+                $archiveGuard = [IO.File]::Open(
+                    $resolvedPatchPath,
+                    [IO.FileMode]::Open,
+                    [IO.FileAccess]::Read,
+                    [IO.FileShare]::Read)
+                $sha256 = [Security.Cryptography.SHA256]::Create()
+                try {
+                    $actualArchiveHash = ([BitConverter]::ToString(
+                        $sha256.ComputeHash($archiveGuard))).Replace('-', '').ToLowerInvariant()
+                } finally {
+                    $sha256.Dispose()
+                }
+                if (-not $actualArchiveHash.Equals($expectedArchiveHash, [StringComparison]::OrdinalIgnoreCase)) {
+                    throw "FastPatch archive hash mismatch. Expected $expectedArchiveHash, found $actualArchiveHash."
+                }
+            }
+
+            $expandedPath = Join-Path $WorkingDirectory 'ExpandedPatch'
+            New-Item -ItemType Directory -Path $expandedPath -Force | Out-Null
+            Expand-Archive -LiteralPath $resolvedPatchPath -DestinationPath $expandedPath -Force
+            return Resolve-PayloadRoot -Root $expandedPath
+        } finally {
+            if ($null -ne $archiveGuard) { $archiveGuard.Dispose() }
+        }
     }
 
     if (-not (Test-Path -LiteralPath $resolvedPatchPath -PathType Container)) {
@@ -1066,7 +1120,7 @@ try {
         $manifestSnapshot = Join-Path $workingDirectory 'patch-manifest.snapshot.json'
         $installerHash = Write-TrustedSnapshot `
             -Path $installerSnapshot `
-            -Content ([string] $MyInvocation.MyCommand.ScriptContents)
+            -Content $script:FastPatchInvocationScriptText
         $manifestHash = Write-TrustedSnapshot `
             -Path $manifestSnapshot `
             -Content $script:ValidatedManifestText

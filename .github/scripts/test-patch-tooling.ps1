@@ -224,23 +224,23 @@ function Test-PackageComposition {
     $fixture = New-PackageFixture
 
     $installerSource = Get-Content -LiteralPath $installerScript -Raw
-    $elevationGuardIndex = $installerSource.IndexOf(
-        'if (-not $ValidateOnly -and -not (Test-IsAdministrator)) {',
+    $stagingGuardIndex = $installerSource.IndexOf(
+        'if (-not $ValidateOnly -and [string]::IsNullOrWhiteSpace($TrustedStagePath)) {',
         [StringComparison]::Ordinal)
     $preflightValidationIndex = $installerSource.IndexOf(
         'Test-PatchPayload',
-        $elevationGuardIndex,
+        $stagingGuardIndex,
         [StringComparison]::Ordinal)
-    $elevationIndex = $installerSource.IndexOf(
-        'Restart-Elevated',
-        $elevationGuardIndex,
+    $stagingIndex = $installerSource.IndexOf(
+        'Invoke-TrustedStage',
+        $preflightValidationIndex,
         [StringComparison]::Ordinal)
 
     Assert-Condition (
-        $elevationGuardIndex -ge 0 -and
-        $preflightValidationIndex -gt $elevationGuardIndex -and
-        $elevationIndex -gt $preflightValidationIndex
-    ) 'Installer payload validation must occur before requesting elevation.'
+        $stagingGuardIndex -ge 0 -and
+        $preflightValidationIndex -gt $stagingGuardIndex -and
+        $stagingIndex -gt $preflightValidationIndex
+    ) 'Installer payload validation must occur before protected privileged staging.'
 
     $unsafeStageRejected = $false
     try {

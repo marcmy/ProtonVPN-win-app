@@ -127,6 +127,82 @@ function Test-IExpressCabinetPayload {
     }
 }
 
+
+function Get-SfxLoaderScript {
+    param(
+        [Parameter(Mandatory = $true)] [string] $InstallerFileName,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $InstallerHash,
+        [Parameter(Mandatory = $true)] [string] $PayloadFileName,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $PayloadHash,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^\d+\.\d+\.\d+$')] [string] $TargetVersion
+    )
+
+    $template = @'
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+function D([string] $Value) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value)) }
+function H([byte[]] $Bytes) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { ([BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+}
+function IsAdmin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $p = New-Object Security.Principal.WindowsPrincipal($id)
+    $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+$root = [IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/')
+$installer = Join-Path $root (D '__INSTALLER__')
+$payload = Join-Path $root (D '__PAYLOAD__')
+foreach ($path in @($root, $installer, $payload)) {
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "IExpress FastPatch source contains a reparse point: $path"
+    }
+}
+$source = [IO.File]::Open($installer, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+$memory = New-Object IO.MemoryStream
+try {
+    $source.CopyTo($memory)
+    $bytes = $memory.ToArray()
+} finally {
+    $memory.Dispose()
+    $source.Dispose()
+}
+$actualInstallerHash = H $bytes
+if (-not $actualInstallerHash.Equals('__INSTALLER_HASH__', [StringComparison]::OrdinalIgnoreCase)) {
+    throw "IExpress FastPatch installer hash mismatch. Expected __INSTALLER_HASH__, found $actualInstallerHash."
+}
+$scriptText = [Text.Encoding]::UTF8.GetString($bytes)
+if ($scriptText.Length -gt 0 -and $scriptText[0] -eq [char]0xFEFF) { $scriptText = $scriptText.Substring(1) }
+if (-not (IsAdmin)) {
+    Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class FastPatchConsoleWindow {
+    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+'@
+    [FastPatchConsoleWindow]::ShowWindow([FastPatchConsoleWindow]::GetConsoleWindow(), 0) | Out-Null
+}
+$global:ProtonVpnFastPatchVerifiedSfxScriptText = $scriptText
+& ([ScriptBlock]::Create($scriptText)) `
+    -PatchPath $payload `
+    -TargetVersion (D '__TARGET__') `
+    -RestartClient `
+    -PauseBeforeExit `
+    -ExpectedPatchArchiveSha256 '__PAYLOAD_HASH__'
+'@
+
+    $utf8 = [Text.Encoding]::UTF8
+    return $template.Replace('__INSTALLER__', [Convert]::ToBase64String($utf8.GetBytes($InstallerFileName))).Replace(
+        '__INSTALLER_HASH__', $InstallerHash.Trim().ToLowerInvariant()).Replace(
+        '__PAYLOAD__', [Convert]::ToBase64String($utf8.GetBytes($PayloadFileName))).Replace(
+        '__PAYLOAD_HASH__', $PayloadHash.Trim().ToLowerInvariant()).Replace(
+        '__TARGET__', [Convert]::ToBase64String($utf8.GetBytes($TargetVersion)))
+}
+
 $windowsPowerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 & $windowsPowerShellPath `
     -NoProfile `
@@ -177,11 +253,10 @@ if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
 }
 
 $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNSfx-{0}" -f [Guid]::NewGuid().ToString('N'))
-$payloadPath = Join-Path $workingDirectory 'payload.zip'
+$payloadFileName = 'payload.zip'
+$payloadPath = Join-Path $workingDirectory $payloadFileName
 $installerFileName = 'Install-ProtonVPNPatch.ps1'
-$launcherFileName = 'Install-ProtonVPNPatch.cmd'
 $packagedInstallerScriptPath = Join-Path $workingDirectory $installerFileName
-$packagedLauncherPath = Join-Path $workingDirectory $launcherFileName
 $iexpressConfigPath = Join-Path $workingDirectory 'ProtonVPNPatch.sed'
 $diagnosticConfigPath = [System.IO.Path]::ChangeExtension($resolvedOutputPath, '.sed')
 $buildSucceeded = $false
@@ -191,7 +266,6 @@ try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
 
     Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination $packagedInstallerScriptPath -Force
-    Copy-Item -LiteralPath $resolvedLauncherPath -Destination $packagedLauncherPath -Force
 
     $removedElevationTreeWait = $false
     $insertedSingleProcessWait = $false
@@ -218,25 +292,6 @@ try {
 
     Set-Content -LiteralPath $packagedInstallerScriptPath -Value $installerLines -Encoding UTF8
 
-    $payloadInvocation = '-PatchPath "%PAYLOAD%" -TargetVersion "{0}" -RestartClient -PauseBeforeExit' -f $manifestTargetVersion
-    $fallbackInvocation = '-File "%SCRIPT%" -TargetVersion "{0}" -RestartClient -PauseBeforeExit' -f $manifestTargetVersion
-    $launcherLines = @(
-        foreach ($line in Get-Content -LiteralPath $packagedLauncherPath) {
-            if ($line.Trim() -ieq 'pause') {
-                continue
-            }
-
-            if ($line.Contains('-PatchPath "%PAYLOAD%"')) {
-                $line = $line.Replace('-PatchPath "%PAYLOAD%"', $payloadInvocation)
-            } elseif ($line.Contains('-File "%SCRIPT%"')) {
-                $line = $line.Replace('-File "%SCRIPT%"', $fallbackInvocation)
-            }
-
-            $line
-        }
-    )
-    Set-Content -LiteralPath $packagedLauncherPath -Value $launcherLines -Encoding Ascii
-
     if ($isPatchZip) {
         Copy-Item -LiteralPath $resolvedPatchPath -Destination $payloadPath -Force
     } else {
@@ -247,6 +302,16 @@ try {
             -Force
     }
     $payloadLength = (Get-Item -LiteralPath $payloadPath).Length
+    $installerHash = (Get-FileHash -LiteralPath $packagedInstallerScriptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $payloadHash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $loaderScript = Get-SfxLoaderScript `
+        -InstallerFileName $installerFileName `
+        -InstallerHash $installerHash `
+        -PayloadFileName $payloadFileName `
+        -PayloadHash $payloadHash `
+        -TargetVersion $manifestTargetVersion
+    $encodedLoader = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loaderScript))
+    $sfxLaunchCommand = '"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ' + $encodedLoader
 
     $sourceDirectoryForSed = $workingDirectory.TrimEnd('\') + '\'
     $escapedFriendlyName = ("$FriendlyName $manifestTargetVersion").Replace('"', '')
@@ -270,10 +335,10 @@ DisplayLicense=
 FinishMessage=
 TargetName="$resolvedOutputPath"
 FriendlyName=$escapedFriendlyName
-AppLaunched=$launcherFileName
+AppLaunched=$sfxLaunchCommand
 PostInstallCmd=<None>
-AdminQuietInstCmd=$launcherFileName
-UserQuietInstCmd=$launcherFileName
+AdminQuietInstCmd=$sfxLaunchCommand
+UserQuietInstCmd=$sfxLaunchCommand
 SourceFiles=SourceFiles
 
 [SourceFiles]
@@ -282,12 +347,10 @@ SourceFiles0="$sourceDirectoryForSed"
 [SourceFiles0]
 %FILE0%=
 %FILE1%=
-%FILE2%=
 
 [Strings]
 FILE0="payload.zip"
 FILE1="$installerFileName"
-FILE2="$launcherFileName"
 "@
 
     Set-Content -LiteralPath $iexpressConfigPath -Value $sedContent -Encoding Ascii
