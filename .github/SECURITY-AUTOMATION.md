@@ -17,6 +17,14 @@ High/Critical findings still belong to the blocking policy. The Medium+ lane als
 
 Syft remains the independent SBOM generator. Grype is not run in parallel solely to duplicate Trivy vulnerability results; add a second vulnerability scanner only when it supplies a concrete coverage or validation benefit.
 
+### Coverage boundary
+
+The Trivy workflows scan the checked-out repository and its dependency manifests. This repository does not currently commit NuGet `packages.lock.json` or restore-generated `project.assets.json` files, so the Medium+ lane is not described as an exhaustive audit of every resolved transitive NuGet package.
+
+The shipping client/service FastPatch workflow performs real .NET 8 restores and therefore runs NuGet Audit as part of restore, but .NET 8 defaults `NuGetAuditMode` to `direct`. Successful restore/build output with no `NU1901`-`NU1904` warnings is useful direct-dependency evidence, not proof of complete transitive coverage.
+
+If stronger resolved-transitive NuGet reporting is added later, prefer an explicit `NuGetAuditMode=all` or resolved package-list step and integrate it with the same exception lifecycle rather than creating a second uncoordinated alert stream.
+
 ## Vulnerability exception rules
 
 Entries in `.trivyignore.yaml` must be:
@@ -26,7 +34,7 @@ Entries in `.trivyignore.yaml` must be:
 - documented with a concrete compatibility/risk rationale;
 - assigned an `expired_at` review date.
 
-The Medium+ report surfaces suppressed findings and their statements. An expired exception, or a vulnerability exception with no expiry date, makes the reporting workflow fail loudly.
+The Medium+ workflow validates the canonical exception metadata format before scanning. Unexpected entry indentation, duplicate IDs, invalid/missing expiry dates, or missing statements fail closed instead of being interpreted as zero exceptions. The report then surfaces suppressed findings and their statements; an expired exception, or a vulnerability exception with no expiry date, also makes the workflow fail loudly.
 
 ## CVE-2026-40021 / log4net 3.2.0
 
@@ -57,4 +65,4 @@ Before removal:
 6. remove the corresponding `NuGetAuditSuppress` from `ProtonVPN.Logging.csproj`;
 7. remove or revise the log4net Dependabot compatibility ignore.
 
-Dependabot intentionally ignores only the current **3.3.x** line. A future 3.4+ release is allowed to surface as a new compatibility-review signal rather than being hidden indefinitely.
+Dependabot intentionally ignores only the current **3.3.x** line using the NuGet `3.3.*` version pattern. A future 3.4+ release is allowed to surface as a new compatibility-review signal rather than being hidden indefinitely.
