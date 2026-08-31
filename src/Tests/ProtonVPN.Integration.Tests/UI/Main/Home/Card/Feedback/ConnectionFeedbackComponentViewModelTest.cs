@@ -160,7 +160,7 @@ public class ConnectionFeedbackComponentViewModelTest
         Assert.IsTrue(context.Timer.IsEnabled);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
     public async Task SubmitFeedback_WhenConnectionDropsDuringSubmit_DoesNotHideNextSession(bool reportPositiveFeedback)
