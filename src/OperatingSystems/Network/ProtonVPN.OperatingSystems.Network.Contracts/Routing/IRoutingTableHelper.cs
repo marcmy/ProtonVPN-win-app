@@ -22,6 +22,7 @@ namespace ProtonVPN.OperatingSystems.Network.Contracts.Routing;
 public interface IRoutingTableHelper
 {
     void CreateRoute(RouteConfiguration route);
+    bool TryCreateRoute(RouteConfiguration route);
     void DeleteRoute(RouteConfiguration route);
     bool DeleteRoute(string destinationIpAddress, bool isIpv6);
     uint? GetInterfaceMetric(uint interfaceIndex, bool isIpv6);
