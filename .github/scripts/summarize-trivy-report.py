@@ -67,21 +67,21 @@ def _suppressed_findings(report):
 
 def _vulnerability_ignore_entries(ignore_text):
     match = re.search(
-        r"(?ms)^vulnerabilities:\s*\n(?P<body>.*?)(?=^[A-Za-z0-9_.-]+:\s*(?:#.*)?$|\Z)",
+        r"(?ms)^vulnerabilities:[ \t]*\n(?P<body>.*?)(?=^[A-Za-z0-9_.-]+:[ \t]*(?:#.*)?$|\Z)",
         ignore_text,
     )
     if not match:
         return []
 
     body = match.group("body")
-    starts = list(re.finditer(r"(?m)^  - id:\s*(?P<id>\S+)\s*$", body))
+    starts = list(re.finditer(r"(?m)^  - id:[ \t]*(?P<id>\S+)[ \t]*$", body))
     entries = []
     for index, start in enumerate(starts):
         end = starts[index + 1].start() if index + 1 < len(starts) else len(body)
         block = body[start.start() : end]
-        expiry_match = re.search(r"(?m)^\s{4}expired_at:\s*(\d{4}-\d{2}-\d{2})\s*$", block)
-        purls = re.findall(r"(?m)^\s{6}-\s*[\"']?(pkg:[^\"'\s]+)[\"']?\s*$", block)
-        paths = re.findall(r"(?m)^\s{6}-\s*[\"']?([^\"'\n]+)[\"']?\s*$", block)
+        expiry_match = re.search(r"(?m)^    expired_at:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$", block)
+        purls = re.findall(r"(?m)^      -[ \t]*[\"']?(pkg:[^\"'\s]+)[\"']?[ \t]*$", block)
+        paths = re.findall(r"(?m)^      -[ \t]*[\"']?([^\"'\n]+)[\"']?[ \t]*$", block)
         paths = [path for path in paths if not path.startswith("pkg:")]
         entries.append(
             {
