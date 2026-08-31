@@ -145,18 +145,13 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
 
             if (!routeAlreadyExisted)
             {
-                try
+                ownsRoute = _routingTableHelper.TryCreateRoute(directRoute);
+                if (!ownsRoute && !TryRouteExists(directRoute))
                 {
-                    _routingTableHelper.CreateRoute(directRoute);
-                    ownsRoute = true;
-                }
-                catch
-                {
-                    ownsRoute = TryRouteExists(directRoute);
-                    throw;
+                    return CreateUnavailableResult("The direct route through the physical adapter could not be created.");
                 }
 
-                if (!_routingTableHelper.RouteExists(directRoute))
+                if (ownsRoute && !_routingTableHelper.RouteExists(directRoute))
                 {
                     return CreateUnavailableResult("The direct route through the physical adapter could not be created.");
                 }
@@ -169,13 +164,7 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         {
             if (ownsRoute)
             {
-                try
-                {
-                    _routingTableHelper.DeleteRoute(directRoute);
-                }
-                catch
-                {
-                }
+                _routingTableHelper.TryDeleteRoute(directRoute);
             }
 
             permitLease?.Dispose();
