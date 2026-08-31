@@ -42,6 +42,11 @@ public class RoutingTableHelper : IRoutingTableHelper
 
     public void CreateRoute(RouteConfiguration route)
     {
+        _ = TryCreateRoute(route);
+    }
+
+    public bool TryCreateRoute(RouteConfiguration route)
+    {
         InitializeIpForwardEntry(out MIB_IPFORWARD_ROW2 row);
 
         row.DestinationPrefix = GetDestinationPrefix(route);
@@ -52,7 +57,7 @@ public class RoutingTableHelper : IRoutingTableHelper
         row.PreferredLifetime = uint.MaxValue;
         row.Loopback = route.Gateway is null;
 
-        CreateIpForwardEntry2(ref row);
+        return CreateIpForwardEntry2(ref row).Succeeded;
     }
 
     public uint? GetLoopbackInterfaceIndex()
