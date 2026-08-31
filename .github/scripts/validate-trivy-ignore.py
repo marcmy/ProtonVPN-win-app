@@ -4,9 +4,9 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-SECTION_HEADER_RE = re.compile(r"(?m)^vulnerabilities:[ \t]*(?:#.*)?$")
+SECTION_HEADER_RE = re.compile(r"(?m)^vulnerabilities:[ \t]*$")
 SECTION_RE = re.compile(
-    r"(?ms)^vulnerabilities:[ \t]*(?:#.*)?\n(?P<body>.*?)(?=^[A-Za-z0-9_.-]+:[ \t]*(?:#.*)?$|\Z)"
+    r"(?ms)^vulnerabilities:[ \t]*\n(?P<body>.*?)(?=^[A-Za-z0-9_.-]+:[ \t]*(?:#.*)?$|\Z)"
 )
 CANONICAL_ENTRY_RE = re.compile(r"(?m)^  - id:[ \t]*(?P<id>\S+)[ \t]*$")
 ANY_ENTRY_RE = re.compile(r"(?m)^(?P<indent>[ \t]*)-[ \t]+id:[ \t]*(?P<id>\S+)[ \t]*$")
@@ -30,7 +30,7 @@ def main():
 
     if not header:
         if re.search(r"(?m)^[ \t]*vulnerabilities[ \t]*:", text):
-            fail("the vulnerabilities key must be a top-level block key on its own line")
+            fail("the vulnerabilities key must be a bare top-level block key on its own line")
         print("No vulnerability exceptions configured.")
         return
 
