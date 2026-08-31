@@ -43,21 +43,23 @@ $coverageProjects = @(
     'src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection.Tests/ProtonVPN.Client.Logic.Connection.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Tests/ProtonVPN.Client.Logic.Servers.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Mappers.Tests/ProtonVPN.Client.Logic.Servers.Mappers.Tests.csproj',
+    'src/ProcessCommunication/ProtonVPN.ProcessCommunication.EntityMapping.Tests/ProtonVPN.ProcessCommunication.EntityMapping.Tests.csproj',
     'src/Tests/ProtonVPN.Vpn.Tests/ProtonVPN.Vpn.Tests.csproj',
     'src/Tests/ProtonVPN.Service.Tests/ProtonVPN.Service.Tests.csproj',
     'src/Tests/ProtonVPN.Integration.Tests/ProtonVPN.Integration.Tests.csproj'
 )
 
-# These are reporting selectors, not thresholds. They intentionally map to fork-sensitive
-# functionality rather than pretending repository-wide coverage is a useful quality gate.
+# Reporting selectors only; they are intentionally not thresholds. Patterns are kept narrow
+# enough to find fork-sensitive production types while the summary reports the *lowest*
+# observed coverage rather than cherry-picking the best-covered matching helper/DTO.
 $focusAreas = [ordered]@{
-    'Guest Hole / connection transitions' = 'GuestHole|ConnectionManager'
-    'Server-health / server refresh' = 'ServerHealth|HealthProbe|ServerListUpdater'
-    'NAT-PMP / port mapping' = 'PortMapping|NatPmp|NAT.?PMP|UdpClientWrapper'
-    'Endpoint candidate/scanner' = 'VpnEndpoint|PortScanner|UdpPing'
+    'Guest Hole / connection transitions' = 'GuestHoleManager|ConnectionManager|MainSettingsRequestCreator|AutoConnectTriggerHandler'
+    'Server-health / server refresh' = 'ServerHealth(Control|History|Probe|State)|ServerListUpdater'
+    'NAT-PMP / port mapping' = 'PortMappingProtocolClient|UdpClientWrapper|NatPmp|NAT.?PMP'
+    'Endpoint candidate/scanner' = 'VpnEndpointCandidates|VpnEndpointScanner|TcpPortScanner|UdpPingClient'
     'App port-forwarding route shim' = 'PortForwardingForApps|PortForwarding.*Route|NatPmp.*Route'
-    'Domain split tunneling' = 'Domain.*Split|SplitTunnel.*Domain|DomainRoute'
-    'Certificate IPC hardening' = 'ConnectionCertificate|TlsCredentials'
+    'Domain split tunneling' = 'DomainSplitTunneling|SplitTunnelDomain'
+    'Certificate IPC hardening' = 'ConnectionCertificateMapper|LocalAgentTlsCredentialsCache|VpnCredentialsMapper|VpnController'
     'Connection-card presentation' = 'ConnectionCardComponentViewModel'
 }
 
@@ -128,20 +130,20 @@ if ($projectCoverage.Count -eq 0) {
     throw 'No readable Cobertura coverage reports were produced.'
 }
 
-$classCoverage = @()
+$classCoverageRaw = @()
 foreach ($report in Get-ChildItem -LiteralPath $reportsDirectory -File -Filter '*.cobertura.xml') {
     [xml] $coverage = Get-Content -LiteralPath $report.FullName -Raw
     $classes = @($coverage.SelectNodes("//*[local-name()='class']"))
     foreach ($class in $classes) {
         $name = [string] $class.name
         $filename = [string] $class.filename
-        if ($name -match '\.Tests?(\.|$)' -or $filename -match 'Tests?[\\/]') {
+        if ($name -match '\.Tests?(\.|$)' -or $filename -match 'Tests?[\\/]' -or $name.Contains('<')) {
             continue
         }
 
         $lineRate = if ($null -ne $class.'line-rate') { [double] $class.'line-rate' } else { 0.0 }
         $branchRate = if ($null -ne $class.'branch-rate') { [double] $class.'branch-rate' } else { 0.0 }
-        $classCoverage += [pscustomobject]@{
+        $classCoverageRaw += [pscustomobject]@{
             Report = $report.Name
             Class = $name
             File = $filename
@@ -151,27 +153,47 @@ foreach ($report in Get-ChildItem -LiteralPath $reportsDirectory -File -Filter '
     }
 }
 
+# A production class may appear in several independently collected reports. Keep the best
+# observation for that class across selected test projects; this is still conservative at
+# area level because the area summary then reports the lowest-covered matching class.
+$classCoverage = @(
+    $classCoverageRaw |
+        Group-Object Class, File |
+        ForEach-Object {
+            $best = $_.Group | Sort-Object LinePercent, BranchPercent -Descending | Select-Object -First 1
+            [pscustomobject]@{
+                Class = $best.Class
+                File = $best.File
+                LinePercent = $best.LinePercent
+                BranchPercent = $best.BranchPercent
+                Report = $best.Report
+            }
+        }
+)
+
 $focusRows = [Collections.Generic.List[object]]::new()
 foreach ($entry in $focusAreas.GetEnumerator()) {
     $matches = @($classCoverage | Where-Object { $_.Class -match $entry.Value -or $_.File -match $entry.Value })
     if ($matches.Count -eq 0) {
         $focusRows.Add([pscustomobject]@{
             Area = $entry.Key
-            Status = 'No matching class in selected coverage reports'
-            BestLinePercent = $null
-            BestBranchPercent = $null
-            ExampleClass = ''
+            MatchCount = 0
+            UncoveredCount = 0
+            LowestLinePercent = $null
+            LowestBranchPercent = $null
+            LowestClasses = @()
         })
         continue
     }
 
-    $best = $matches | Sort-Object LinePercent, BranchPercent -Descending | Select-Object -First 1
+    $lowest = @($matches | Sort-Object LinePercent, BranchPercent, Class | Select-Object -First 3)
     $focusRows.Add([pscustomobject]@{
         Area = $entry.Key
-        Status = if ($best.LinePercent -eq 0) { 'Matched, effectively uncovered' } else { 'Matched' }
-        BestLinePercent = $best.LinePercent
-        BestBranchPercent = $best.BranchPercent
-        ExampleClass = $best.Class
+        MatchCount = $matches.Count
+        UncoveredCount = @($matches | Where-Object { $_.LinePercent -eq 0 }).Count
+        LowestLinePercent = ($matches | Measure-Object -Property LinePercent -Minimum).Minimum
+        LowestBranchPercent = ($matches | Measure-Object -Property BranchPercent -Minimum).Minimum
+        LowestClasses = @($lowest | ForEach-Object { [pscustomobject]@{ Class = $_.Class; LinePercent = $_.LinePercent; BranchPercent = $_.BranchPercent } })
     })
 }
 
@@ -203,16 +225,18 @@ foreach ($row in $projectCoverage) {
 $summaryLines.Add('')
 $summaryLines.Add('### Fork-sensitive areas')
 $summaryLines.Add('')
-$summaryLines.Add('| Area | Result | Best line | Best branch | Example matching class |')
-$summaryLines.Add('| --- | --- | ---: | ---: | --- |')
+$summaryLines.Add('The table intentionally reports the **lowest** matching production-class coverage, not the most flattering match.')
+$summaryLines.Add('')
+$summaryLines.Add('| Area | Classes | Zero-line classes | Lowest line | Lowest branch | Lowest-covered examples |')
+$summaryLines.Add('| --- | ---: | ---: | ---: | ---: | --- |')
 foreach ($row in $focusRows) {
-    $line = if ($null -eq $row.BestLinePercent) { '—' } else { "$($row.BestLinePercent)%" }
-    $branch = if ($null -eq $row.BestBranchPercent) { '—' } else { "$($row.BestBranchPercent)%" }
-    $example = if ([string]::IsNullOrWhiteSpace($row.ExampleClass)) { '—' } else { "``$($row.ExampleClass)``" }
-    $summaryLines.Add("| $($row.Area) | $($row.Status) | $line | $branch | $example |")
+    $line = if ($null -eq $row.LowestLinePercent) { '—' } else { "$($row.LowestLinePercent)%" }
+    $branch = if ($null -eq $row.LowestBranchPercent) { '—' } else { "$($row.LowestBranchPercent)%" }
+    $examples = if ($row.LowestClasses.Count -eq 0) { '—' } else { ($row.LowestClasses | ForEach-Object { "``$($_.Class)`` ($($_.LinePercent)%/$($_.BranchPercent)%)" }) -join '<br>' }
+    $summaryLines.Add("| $($row.Area) | $($row.MatchCount) | $($row.UncoveredCount) | $line | $branch | $examples |")
 }
 $summaryLines.Add('')
-$summaryLines.Add('Branch coverage is reported when the Microsoft Code Coverage collector emits Cobertura branch data; it is especially useful for transition/state-machine code, but remains non-blocking.')
+$summaryLines.Add('Branch coverage comes directly from Microsoft Code Coverage Cobertura output. It is especially useful for transition/state-machine code, but remains non-blocking.')
 $summaryLines | Set-Content -LiteralPath (Join-Path $artifactsRoot 'coverage-summary.md') -Encoding utf8
 
 if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
