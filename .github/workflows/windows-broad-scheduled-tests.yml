@@ -5,6 +5,14 @@ on:
   schedule:
     # Nightly against the repository default/custom branch (marc/proton).
     - cron: "41 6 * * *"
+  # Validation-only trigger for this implementation PR. Remove after the lane is green.
+  pull_request:
+    branches:
+      - marc/proton
+    paths:
+      - .github/workflows/windows-broad-scheduled-tests.yml
+      - .github/scripts/test-broad-supported-suite.ps1
+      - .github/scripts/test-fork-coverage.ps1
 
 permissions:
   contents: read
