@@ -3,16 +3,8 @@ name: Windows broad scheduled tests
 on:
   workflow_dispatch:
   schedule:
-    # Nightly against the repository default/custom branch (marc/proton).
+    # Nightly against the fork's default/custom branch.
     - cron: "41 6 * * *"
-  # Validation-only trigger for this implementation PR. Remove after the lane is green.
-  pull_request:
-    branches:
-      - marc/proton
-    paths:
-      - .github/workflows/windows-broad-scheduled-tests.yml
-      - .github/scripts/test-broad-supported-suite.ps1
-      - .github/scripts/test-fork-coverage.ps1
 
 permissions:
   contents: read
@@ -23,9 +15,7 @@ env:
   DOTNET_NOLOGO: true
 
 concurrency:
-  # v2 bypasses one stale cancelled validation run whose child dotnet process remained alive.
-  # Subsequent runs still cancel older runs in this same workflow/ref group.
-  group: windows-broad-tests-v2-${{ github.event_name }}-${{ github.ref }}
+  group: windows-broad-tests-marc-proton
   cancel-in-progress: true
 
 jobs:
@@ -51,7 +41,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'schedule' && 'marc/proton' || github.sha }}
+          ref: marc/proton
           persist-credentials: false
 
       - name: Setup .NET
@@ -92,7 +82,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'schedule' && 'marc/proton' || github.sha }}
+          ref: marc/proton
           persist-credentials: false
 
       - name: Setup .NET
