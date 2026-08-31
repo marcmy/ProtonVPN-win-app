@@ -20,7 +20,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using ProtonVPN.Common.Core.Dns;
-using ProtonVPN.Common.Legacy.Vpn;
+using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.OperatingSystems.Network.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Dns;
