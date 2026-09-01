@@ -108,6 +108,9 @@ function Get-CurrentStageDirectories {
 
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'ConvertTo-Base64Utf8'
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'ConvertTo-CompressedEncodedCommand'
+Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Resolve-PayloadRoot'
+Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Resolve-PatchSource'
+Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Test-PatchPayload'
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Get-TrustedStageBootstrap'
 Import-FunctionDefinition -ScriptPath $sfxBuilderScript -Name 'Get-SfxLoaderScript'
 
@@ -401,6 +404,72 @@ exit 42
 }
 
 
+
+function Test-VerifiedArchiveManifestSurvivesExtractionRace {
+    $fixtureRoot = Join-Path $testRoot 'verified-archive-manifest-race'
+    $source = Join-Path $fixtureRoot 'source'
+    $archive = Join-Path $fixtureRoot 'payload.zip'
+    $working = Join-Path $fixtureRoot 'working'
+    New-Item -ItemType Directory -Force -Path $source | Out-Null
+    New-Item -ItemType Directory -Force -Path $working | Out-Null
+
+    Write-TestText (Join-Path $source 'ProtonVPN.Client.dll') 'verified-archive-client'
+    $files = [Collections.ArrayList]::new()
+    Add-ManifestFile -List $files -Root $source -RelativePath 'ProtonVPN.Client.dll'
+    $trustedManifest = [ordered]@{
+        schemaVersion = 1
+        targetVersion = '5.1.5'
+        buildMode = 'client'
+        sourceCommit = 'verified-archive-race-test'
+        files = @($files)
+    }
+    Write-TestText (Join-Path $source 'patch-manifest.json') ($trustedManifest | ConvertTo-Json -Depth 6)
+    Compress-Archive -Path (Join-Path $source '*') -DestinationPath $archive -CompressionLevel Optimal -Force
+    $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+
+    $previousPatchPath = $script:PatchPath
+    $previousExpectedArchiveHash = $script:ExpectedPatchArchiveSha256
+    $previousTrustedManifest = $script:TrustedArchiveManifestText
+    try {
+        $script:PatchPath = $archive
+        $script:ExpectedPatchArchiveSha256 = $archiveHash
+        $payloadRoot = Resolve-PatchSource -WorkingDirectory $working
+        Assert-Condition (-not [string]::IsNullOrWhiteSpace($script:TrustedArchiveManifestText)) `
+            'Hash-pinned archive did not retain its manifest as the validation trust anchor.'
+
+        # Simulate the exact race: after extraction, replace BOTH payload and manifest with a
+        # self-consistent malicious pair. Reading the temp manifest would accept this pair.
+        Write-TestText (Join-Path $payloadRoot 'ProtonVPN.Client.dll') 'attacker-client'
+        $maliciousFiles = [Collections.ArrayList]::new()
+        Add-ManifestFile -List $maliciousFiles -Root $payloadRoot -RelativePath 'ProtonVPN.Client.dll'
+        $maliciousManifest = [ordered]@{
+            schemaVersion = 1
+            targetVersion = '5.1.5'
+            buildMode = 'client'
+            sourceCommit = 'attacker-replacement'
+            files = @($maliciousFiles)
+        }
+        Write-TestText (Join-Path $payloadRoot 'patch-manifest.json') ($maliciousManifest | ConvertTo-Json -Depth 6)
+
+        $rejected = $false
+        try {
+            Test-PatchPayload -PayloadRoot $payloadRoot -ExpectedTargetVersion '5.1.5' | Out-Null
+        } catch {
+            if ($_.Exception.Message -match 'size mismatch|hash mismatch') {
+                $rejected = $true
+            } else {
+                throw
+            }
+        }
+        Assert-Condition $rejected `
+            'FastPatch accepted a malicious manifest+payload pair substituted after verified ZIP extraction.'
+    } finally {
+        $script:PatchPath = $previousPatchPath
+        $script:ExpectedPatchArchiveSha256 = $previousExpectedArchiveHash
+        $script:TrustedArchiveManifestText = $previousTrustedManifest
+    }
+}
+
 function Test-SfxLoaderRejectsMutatedInstaller {
     $fixtureRoot = Join-Path $testRoot 'sfx-mutated-installer'
     New-Item -ItemType Directory -Force -Path $fixtureRoot | Out-Null
@@ -579,6 +648,10 @@ function Test-StaticSecurityContracts {
             'FastPatch installer does not hold a no-write/no-delete read-sharing lock while expanding a hash-pinned archive.'
         Assert-Condition ($content.Contains('$ExpectedPatchArchiveSha256')) `
             'FastPatch installer cannot receive the SFX build-time payload archive hash.'
+        Assert-Condition ($content.Contains('$script:TrustedArchiveManifestText = $manifestReader.ReadToEnd()')) `
+            'FastPatch does not bind manifest validation to the already verified ZIP stream.'
+        Assert-Condition ($content.Contains('$script:TrustedArchiveManifestText')) `
+            'FastPatch does not retain the verified archive manifest across extraction.'
     }
 }
 
@@ -591,6 +664,7 @@ try {
     Test-MutatedPayloadRejected -Kind Runtime
     Test-MutatedPayloadRejected -Kind Helper
     Test-MutatedInstallerRejected
+    Test-VerifiedArchiveManifestSurvivesExtractionRace
     Test-SfxLoaderRejectsMutatedInstaller
     Test-IExpressVerifiedInMemoryEntry
     Test-ReparseSourceRejected

@@ -28,6 +28,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$script:TrustedArchiveManifestText = ''
 $script:FastPatchInvocationScriptText = ''
 $scriptContentsProperty = $MyInvocation.MyCommand.PSObject.Properties['ScriptContents']
 if ($null -ne $scriptContentsProperty -and
@@ -715,6 +716,7 @@ function Resolve-PatchSource {
         }
     }
 
+    $script:TrustedArchiveManifestText = ''
     $resolvedPatchPath = (Resolve-Path -LiteralPath $PatchPath -ErrorAction Stop).Path
     if (Test-Path -LiteralPath $resolvedPatchPath -PathType Leaf) {
         if ([System.IO.Path]::GetExtension($resolvedPatchPath) -ne '.zip') {
@@ -746,6 +748,44 @@ function Resolve-PatchSource {
                 }
                 if (-not $actualArchiveHash.Equals($expectedArchiveHash, [StringComparison]::OrdinalIgnoreCase)) {
                     throw "FastPatch archive hash mismatch. Expected $expectedArchiveHash, found $actualArchiveHash."
+                }
+
+
+                # The verified ZIP is the SFX trust anchor. Capture the manifest from that exact
+                # archive stream before extracting anything into ordinary-user-writable temp.
+                # Validation must never trust a post-extraction replacement manifest.
+                $archiveGuard.Position = 0
+                Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+                $zipArchive = [IO.Compression.ZipArchive]::new(
+                    $archiveGuard,
+                    [IO.Compression.ZipArchiveMode]::Read,
+                    $true)
+                try {
+                    $manifestEntries = @(
+                        $zipArchive.Entries |
+                            Where-Object {
+                                $_.Name.Equals('patch-manifest.json', [StringComparison]::OrdinalIgnoreCase)
+                            }
+                    )
+                    if ($manifestEntries.Count -ne 1) {
+                        throw "Verified FastPatch archive must contain exactly one patch-manifest.json entry; found $($manifestEntries.Count)."
+                    }
+
+                    $manifestStream = $manifestEntries[0].Open()
+                    $manifestReader = [IO.StreamReader]::new(
+                        $manifestStream,
+                        [Text.UTF8Encoding]::new($false),
+                        $true)
+                    try {
+                        $script:TrustedArchiveManifestText = $manifestReader.ReadToEnd()
+                    } finally {
+                        $manifestReader.Dispose()
+                    }
+                    if ([string]::IsNullOrWhiteSpace($script:TrustedArchiveManifestText)) {
+                        throw 'Verified FastPatch archive contains an empty patch manifest.'
+                    }
+                } finally {
+                    $zipArchive.Dispose()
                 }
             }
 
@@ -844,7 +884,11 @@ function Test-PatchPayload {
     }
 
     try {
-        $manifestJson = Get-Content -LiteralPath $manifestPath -Raw
+        $manifestJson = if (-not [string]::IsNullOrWhiteSpace($script:TrustedArchiveManifestText)) {
+            $script:TrustedArchiveManifestText
+        } else {
+            Get-Content -LiteralPath $manifestPath -Raw
+        }
         $manifest = $manifestJson | ConvertFrom-Json -ErrorAction Stop
     } catch {
         throw "Patch manifest is not valid JSON: $($_.Exception.Message)"
