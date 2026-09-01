@@ -109,6 +109,54 @@ function ConvertTo-Base64Utf8 {
     return [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Value))
 }
 
+function ConvertTo-CompressedEncodedCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string] $ScriptText
+    )
+
+    $scriptBytes = [Text.UTF8Encoding]::new($false).GetBytes($ScriptText)
+    $compressedStream = [IO.MemoryStream]::new()
+    try {
+        $gzip = [IO.Compression.GZipStream]::new(
+            $compressedStream,
+            [IO.Compression.CompressionMode]::Compress,
+            $true)
+        try {
+            $gzip.Write($scriptBytes, 0, $scriptBytes.Length)
+        } finally {
+            $gzip.Dispose()
+        }
+        $compressedBase64 = [Convert]::ToBase64String($compressedStream.ToArray())
+    } finally {
+        $compressedStream.Dispose()
+    }
+
+    $decoder = @"
+Set-StrictMode -Version Latest
+`$ErrorActionPreference = 'Stop'
+`$compressed = [Convert]::FromBase64String('$compressedBase64')
+`$inputStream = [IO.MemoryStream]::new(`$compressed)
+`$gzipStream = [IO.Compression.GZipStream]::new(`$inputStream, [IO.Compression.CompressionMode]::Decompress)
+`$reader = [IO.StreamReader]::new(`$gzipStream, [Text.UTF8Encoding]::new(`$false))
+try {
+    `$decodedScript = `$reader.ReadToEnd()
+} finally {
+    `$reader.Dispose()
+    `$gzipStream.Dispose()
+    `$inputStream.Dispose()
+}
+& ([ScriptBlock]::Create(`$decodedScript))
+"@
+
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($decoder))
+    if ($encodedCommand.Length -gt 30000) {
+        throw "Compressed FastPatch bootstrap exceeds the safe Windows command-line budget: $($encodedCommand.Length) characters."
+    }
+    return $encodedCommand
+}
+
 function Get-Sha256HexFromBytes {
     param([Parameter(Mandatory = $true)] [byte[]] $Bytes)
 
@@ -511,7 +559,7 @@ function Invoke-TrustedStage {
         -InstallerFileName $InstallerFileName `
         -ForwardedArgumentText $ForwardedArgumentText `
         -StageId $stageId
-    $encodedBootstrap = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrap))
+    $encodedBootstrap = ConvertTo-CompressedEncodedCommand -ScriptText $bootstrap
     $bootstrapArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedBootstrap"
 
     if (-not (Test-IsAdministrator)) {
@@ -959,8 +1007,17 @@ function Get-ProtonServicesForTarget {
     )
 
     $escapedTarget = [Regex]::Escape($TargetDirectory)
+    $windowsPowerShellHome = Split-Path -Path (Get-WindowsPowerShellPath) -Parent
+    $cimModulePath = Join-Path $windowsPowerShellHome 'Modules\CimCmdlets\CimCmdlets.psd1'
+    $cimModule = Get-Item -LiteralPath $cimModulePath -Force -ErrorAction Stop
+    if ($cimModule.PSIsContainer -or
+        (($cimModule.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "Trusted CimCmdlets module path is unsafe: $cimModulePath"
+    }
+    Microsoft.PowerShell.Core\Import-Module -Name $cimModule.FullName -Force -ErrorAction Stop | Out-Null
+
     return @(
-        Get-CimInstance -ClassName Win32_Service |
+        CimCmdlets\Get-CimInstance -ClassName Win32_Service |
             Where-Object {
                 $_.Name -like 'ProtonVPN*' -or
                 $_.DisplayName -like 'ProtonVPN*' -or

@@ -107,6 +107,7 @@ function Get-CurrentStageDirectories {
 }
 
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'ConvertTo-Base64Utf8'
+Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'ConvertTo-CompressedEncodedCommand'
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Get-TrustedStageBootstrap'
 Import-FunctionDefinition -ScriptPath $sfxBuilderScript -Name 'Get-SfxLoaderScript'
 
@@ -213,7 +214,8 @@ function Invoke-BootstrapFixture {
         -InstallerFileName 'ProbeInstaller.ps1' `
         -ForwardedArgumentText "-ProbePath $quotedProbe" `
         -StageId $StageId
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrap))
+    $encoded = ConvertTo-CompressedEncodedCommand -ScriptText $bootstrap
+    Assert-Condition ($encoded.Length -le 30000) 'Compressed trusted-stage bootstrap exceeded the safe command-line budget.'
 
     $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
     $exitCode = $LASTEXITCODE
@@ -539,6 +541,8 @@ function Test-StaticSecurityContracts {
             "$($item.Name) installer still resolves PowerShell through a mutable executable search path."
         Assert-Condition ($item.Content.Contains('Get-WindowsPowerShellPath')) `
             "$($item.Name) installer does not anchor privileged PowerShell launches to the protected Windows system directory."
+        Assert-Condition ($item.Content.Contains('ConvertTo-CompressedEncodedCommand -ScriptText $bootstrap')) `
+            "$($item.Name) installer does not compress its inline elevation bootstrap before -EncodedCommand."
         Assert-Condition ($item.Content.Contains('[IO.DirectoryInfo]::new($Path)')) `
             "$($item.Name) installer is missing atomic protected directory creation."
         Assert-Condition ($item.Content.Contains('[IO.FileStream]::new(')) `
@@ -557,6 +561,10 @@ function Test-StaticSecurityContracts {
         'Base FastPatch still resolves robocopy through a mutable executable search path.'
     Assert-Condition ($base.Contains("Get-SystemExecutablePath -RelativePath 'robocopy.exe'")) `
         'Base FastPatch does not anchor robocopy to the protected Windows system directory.'
+    Assert-Condition ($base.Contains('CimCmdlets\Get-CimInstance -ClassName Win32_Service')) `
+        'Base FastPatch does not qualify privileged CIM service discovery to the trusted CimCmdlets module.'
+    Assert-Condition ($base.Contains("Join-Path `$windowsPowerShellHome 'Modules\CimCmdlets\CimCmdlets.psd1'")) `
+        'Base FastPatch does not import CimCmdlets from the protected Windows PowerShell module directory.'
 
     Assert-Condition (-not $sfx.Contains('AppLaunched=$launcherFileName')) `
         'IExpress still launches the extracted mutable CMD file directly.'

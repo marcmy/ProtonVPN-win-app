@@ -305,6 +305,9 @@ try {
         -TargetVersion $manifestTargetVersion
     $encodedLoader = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loaderScript))
     $sfxLaunchCommand = '"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ' + $encodedLoader
+    if ($sfxLaunchCommand.Length -gt 30000) {
+        throw "IExpress FastPatch verifier exceeds the safe Windows command-line budget: $($sfxLaunchCommand.Length) characters."
+    }
 
     $sourceDirectoryForSed = $workingDirectory.TrimEnd('\') + '\'
     $escapedFriendlyName = ("$FriendlyName $manifestTargetVersion").Replace('"', '')

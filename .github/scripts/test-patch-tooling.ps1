@@ -401,6 +401,15 @@ function Test-InstallerRuntimeDataPreservation {
     Assert-Condition ($parseErrors.Count -eq 0) `
         'Installer script could not be parsed for runtime-data preservation testing.'
 
+    $systemExecutableFunctionAst = $installerAst.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq 'Get-SystemExecutablePath'
+    }, $true)
+    Assert-Condition ($null -ne $systemExecutableFunctionAst) `
+        'Installer does not define Get-SystemExecutablePath.'
+    . ([ScriptBlock]::Create($systemExecutableFunctionAst.Extent.Text))
+
     $robocopyFunctionAst = $installerAst.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
