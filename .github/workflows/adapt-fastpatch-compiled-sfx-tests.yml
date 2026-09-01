@@ -197,12 +197,14 @@ jobs:
                   'Compiled SFX does not create its resource copies without replacing attacker-controlled files.'
               Assert-Condition ($sfx.Contains('FileShare.Read')) `
                   'Compiled SFX does not deny write/delete sharing while child PowerShell consumes resource copies.'
-              Assert-Condition ($sfx.Contains('RedirectStandardInput = true')) `
-                  'Compiled SFX does not feed its trusted loader directly to system PowerShell over stdin.'
-              Assert-Condition ($sfx.Contains('Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command -"')) `
-                  'Compiled SFX does not execute the embedded loader from stdin in protected system PowerShell.'
-              Assert-Condition ($sfx.Contains('process.StandardInput.Write(loaderText)')) `
-                  'Compiled SFX does not send the embedded verified loader bytes directly to PowerShell.'
+              Assert-Condition ($sfx.Contains('Encoding.Unicode.GetBytes(loaderText)')) `
+                  'Compiled SFX does not encode the verified embedded loader bytes directly for Windows PowerShell.'
+              Assert-Condition ($sfx.Contains('-EncodedCommand " + encodedCommand')) `
+                  'Compiled SFX does not execute the verified embedded loader through direct system PowerShell EncodedCommand.'
+              Assert-Condition ($sfx.Contains('encodedCommand.Length > 30000')) `
+                  'Compiled SFX does not enforce the Windows command-line budget for its in-memory loader.'
+              Assert-Condition (-not $sfx.Contains('RedirectStandardInput = true')) `
+                  'Compiled SFX still relies on the failed PowerShell stdin loader path.'
               foreach ($resourceName in @('FastPatch.Loader', 'FastPatch.Installer', 'FastPatch.Payload')) {
                   Assert-Condition ($sfx.Contains($resourceName)) `
                       "Compiled SFX does not embed required resource '$resourceName'."
