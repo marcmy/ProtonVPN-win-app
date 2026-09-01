@@ -113,8 +113,8 @@ jobs:
           obsolete_host = "(Join-Path $PSHOME 'powershell.exe')"
           host_replacement = "(Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\\v1.0\\powershell.exe')"
           host_count = secure_test.count(obsolete_host)
-          if host_count != 2:
-              raise SystemExit(f'expected exactly two obsolete PSHOME powershell.exe references; found {host_count}')
+          if host_count != 5:
+              raise SystemExit(f'expected exactly five obsolete PSHOME powershell.exe references; found {host_count}')
           secure_test = secure_test.replace(obsolete_host, host_replacement)
           secure_test_path.write_text(secure_test, encoding='utf-8')
           '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
