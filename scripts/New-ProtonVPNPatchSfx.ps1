@@ -263,12 +263,17 @@ internal static class FastPatchSfxBootstrap
 
     private static int RunPowerShell(string loaderText, string workingDirectory)
     {
+        string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(loaderText));
+        if (encodedCommand.Length > 30000)
+        {
+            throw new InvalidOperationException("Embedded FastPatch loader exceeds the safe Windows command-line budget: " + encodedCommand.Length + " characters.");
+        }
+
         ProcessStartInfo startInfo = new ProcessStartInfo();
         startInfo.FileName = GetWindowsPowerShellPath();
-        startInfo.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command -";
+        startInfo.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand;
         startInfo.WorkingDirectory = workingDirectory;
         startInfo.UseShellExecute = false;
-        startInfo.RedirectStandardInput = true;
         startInfo.CreateNoWindow = false;
 
         using (Process process = Process.Start(startInfo))
@@ -277,8 +282,6 @@ internal static class FastPatchSfxBootstrap
             {
                 throw new InvalidOperationException("Could not start Windows PowerShell for FastPatch.");
             }
-            process.StandardInput.Write(loaderText);
-            process.StandardInput.Close();
             process.WaitForExit();
             return process.ExitCode;
         }
