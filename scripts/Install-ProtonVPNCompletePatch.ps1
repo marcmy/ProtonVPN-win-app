@@ -54,6 +54,43 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Get-SystemExecutablePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string] $RelativePath
+    )
+
+    $systemDirectory = [Environment]::GetFolderPath([Environment+SpecialFolder]::System)
+    if ([string]::IsNullOrWhiteSpace($systemDirectory)) {
+        throw 'Could not resolve the protected Windows system directory.'
+    }
+
+    $systemDirectory = [IO.Path]::GetFullPath($systemDirectory).TrimEnd('\', '/')
+    $systemDirectoryItem = Get-Item -LiteralPath $systemDirectory -Force -ErrorAction Stop
+    if (($systemDirectoryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Windows system directory is a reparse point: $systemDirectory"
+    }
+
+    $path = [IO.Path]::GetFullPath((Join-Path $systemDirectory $RelativePath))
+    $systemPrefix = $systemDirectory + [IO.Path]::DirectorySeparatorChar
+    if (-not $path.StartsWith($systemPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "System executable path escapes the protected Windows system directory: $path"
+    }
+
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
+    if ($item.PSIsContainer -or
+        (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "Trusted Windows system executable path is unsafe: $path"
+    }
+
+    return $item.FullName
+}
+
+function Get-WindowsPowerShellPath {
+    return Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe'
+}
+
 function ConvertTo-QuotedProcessArgument {
     param([Parameter(Mandatory = $true)] [string] $Value)
 
@@ -105,6 +142,33 @@ function Get-TrustedStageBootstrap {
     $template = @'
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Get-SystemExecutablePath([string] $RelativePath) {
+    $systemDirectory = [Environment]::GetFolderPath([Environment+SpecialFolder]::System)
+    if ([string]::IsNullOrWhiteSpace($systemDirectory)) {
+        throw 'Could not resolve the protected Windows system directory.'
+    }
+    $systemDirectory = [IO.Path]::GetFullPath($systemDirectory).TrimEnd('\', '/')
+    $systemDirectoryItem = Get-Item -LiteralPath $systemDirectory -Force -ErrorAction Stop
+    if (($systemDirectoryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Windows system directory is a reparse point: $systemDirectory"
+    }
+    $path = [IO.Path]::GetFullPath((Join-Path $systemDirectory $RelativePath))
+    $systemPrefix = $systemDirectory + [IO.Path]::DirectorySeparatorChar
+    if (-not $path.StartsWith($systemPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "System executable path escapes the protected Windows system directory: $path"
+    }
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
+    if ($item.PSIsContainer -or
+        (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "Trusted Windows system executable path is unsafe: $path"
+    }
+    return $item.FullName
+}
+
+function Get-WindowsPowerShellPath {
+    return Get-SystemExecutablePath 'WindowsPowerShell\v1.0\powershell.exe'
+}
 
 function Decode-Utf8([string] $Value) {
     return [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
@@ -393,7 +457,7 @@ try {
         $argumentText += ' ' + $ForwardedArgumentText
     }
 
-    $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentText -NoNewWindow -PassThru
+    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) -ArgumentList $argumentText -NoNewWindow -PassThru
     $process.WaitForExit()
     $exitCode = $process.ExitCode
 } finally {
@@ -447,13 +511,13 @@ function Invoke-TrustedStage {
     $bootstrapArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedBootstrap"
 
     if (-not (Test-IsAdministrator)) {
-        $process = Start-Process -FilePath 'powershell.exe' `
+        $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
             -ArgumentList $bootstrapArguments `
             -Verb RunAs `
             -Wait `
             -PassThru
     } else {
-        $process = Start-Process -FilePath 'powershell.exe' `
+        $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
             -ArgumentList $bootstrapArguments `
             -NoNewWindow `
             -Wait `
@@ -1094,7 +1158,7 @@ function Invoke-BaseInstaller {
     }
     if ($WhatIfPreference) { $arguments += '-WhatIf' }
 
-    $process = Start-Process -FilePath 'powershell.exe' `
+    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
         -ArgumentList ($arguments -join ' ') `
         -NoNewWindow `
         -Wait `

@@ -535,6 +535,10 @@ function Test-StaticSecurityContracts {
             "$($item.Name) installer does not accept the hash-pinned in-memory SFX script snapshot."
         Assert-Condition ($item.Content.Contains('-EncodedCommand')) `
             "$($item.Name) installer does not carry an inline bootstrap across elevation."
+        Assert-Condition (-not $item.Content.Contains("Start-Process -FilePath 'powershell.exe'")) `
+            "$($item.Name) installer still resolves PowerShell through a mutable executable search path."
+        Assert-Condition ($item.Content.Contains('Get-WindowsPowerShellPath')) `
+            "$($item.Name) installer does not anchor privileged PowerShell launches to the protected Windows system directory."
         Assert-Condition ($item.Content.Contains('[IO.DirectoryInfo]::new($Path)')) `
             "$($item.Name) installer is missing atomic protected directory creation."
         Assert-Condition ($item.Content.Contains('[IO.FileStream]::new(')) `
@@ -549,6 +553,10 @@ function Test-StaticSecurityContracts {
         'Complete FastPatch version payload is not created as Administrator-owned protected files.'
     Assert-Condition ($complete.Contains("`$arguments += '-TrustedStagePath'")) `
         'Complete FastPatch does not forward the protected-stage trust context to the base helper.'
+    Assert-Condition (-not $base.Contains('& robocopy.exe @arguments')) `
+        'Base FastPatch still resolves robocopy through a mutable executable search path.'
+    Assert-Condition ($base.Contains("Get-SystemExecutablePath -RelativePath 'robocopy.exe'")) `
+        'Base FastPatch does not anchor robocopy to the protected Windows system directory.'
 
     Assert-Condition (-not $sfx.Contains('AppLaunched=$launcherFileName')) `
         'IExpress still launches the extracted mutable CMD file directly.'
