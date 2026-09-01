@@ -63,28 +63,38 @@ jobs:
               raise SystemExit(f'expected exactly four complete-installer Get-FileHash calls; replaced {hash_count}')
 
           obsolete_acl = '        $acl = Get-Acl -LiteralPath $item.FullName'
-          acl_replacement = '''        $acl = $item.GetAccessControl(
-              [Security.AccessControl.AccessControlSections]::Access -bor
-                  [Security.AccessControl.AccessControlSections]::Owner)'''
+          acl_replacement = (
+              "        $acl = $item.GetAccessControl(\n"
+              "            [Security.AccessControl.AccessControlSections]::Access -bor\n"
+              "                [Security.AccessControl.AccessControlSections]::Owner)"
+          )
           if complete.count(obsolete_acl) != 1:
               raise SystemExit(f'expected exactly one complete-installer Get-Acl call; found {complete.count(obsolete_acl)}')
           complete = complete.replace(obsolete_acl, acl_replacement, 1)
+          if 'Get-FileHash' in complete or 'Get-Acl' in complete:
+              raise SystemExit('complete installer still contains a module-autoloaded hash/ACL command after replacement')
           complete_path.write_text(complete, encoding='utf-8')
 
           secure_path = Path('.github/scripts/test-fast-patch-secure-staging.ps1')
-          secure = secure_path.read_text(encoding='utf-8').replace('\r\n', '\n')
-          contract_anchor = '''        Assert-Condition ($item.Content.Contains('Get-WindowsPowerShellPath')) `
-              "$($item.Name) installer does not anchor privileged PowerShell launches to the protected Windows system directory."
-          '''
-          contract_addition = '''        Assert-Condition (-not $item.Content.Contains('Get-FileHash')) `
-              "$($item.Name) installer still relies on module-autoloaded Get-FileHash in the privileged path."
-          Assert-Condition (-not $item.Content.Contains('Get-Acl')) `
-              "$($item.Name) installer still relies on module-autoloaded Get-Acl in the privileged path."
-          '''
-          if secure.count(contract_anchor) != 1:
-              raise SystemExit(f'expected one static-contract anchor; found {secure.count(contract_anchor)}')
-          secure = secure.replace(contract_anchor, contract_anchor + contract_addition, 1)
-          secure_path.write_text(secure, encoding='utf-8')
+          secure_lines = secure_path.read_text(encoding='utf-8').replace('\r\n', '\n').splitlines(keepends=True)
+          anchor_text = "        Assert-Condition ($item.Content.Contains('Get-WindowsPowerShellPath')) `"
+          anchor_indexes = [i for i, line in enumerate(secure_lines) if line.rstrip('\n') == anchor_text]
+          if len(anchor_indexes) != 1:
+              raise SystemExit(f'expected one static-contract anchor line; found {anchor_indexes}')
+          anchor_index = anchor_indexes[0]
+          if anchor_index + 1 >= len(secure_lines):
+              raise SystemExit('static-contract anchor has no message line')
+          message_line = secure_lines[anchor_index + 1]
+          if 'installer does not anchor privileged PowerShell launches to the protected Windows system directory.' not in message_line:
+              raise SystemExit('static-contract anchor message did not match expected text')
+          contract_lines = [
+              "        Assert-Condition (-not $item.Content.Contains('Get-FileHash')) `\n",
+              "            \"$($item.Name) installer still relies on module-autoloaded Get-FileHash in the privileged path.\"\n",
+              "        Assert-Condition (-not $item.Content.Contains('Get-Acl')) `\n",
+              "            \"$($item.Name) installer still relies on module-autoloaded Get-Acl in the privileged path.\"\n",
+          ]
+          secure_lines[anchor_index + 2:anchor_index + 2] = contract_lines
+          secure_path.write_text(''.join(secure_lines), encoding='utf-8')
 
           tooling_path = Path('.github/scripts/test-patch-tooling.ps1')
           tooling_lines = tooling_path.read_text(encoding='utf-8').replace('\r\n', '\n').splitlines(keepends=True)
@@ -109,6 +119,8 @@ jobs:
           ends = [i for i, line in enumerate(tooling_lines) if line.rstrip('\n') == mirror_end]
           if len(starts) != 1 or len(ends) != 1 or ends[0] < starts[0]:
               raise SystemExit(f'mirror formatting range not unique; starts={starts}, ends={ends}')
+          if tooling_lines[starts[0]].startswith('    '):
+              raise SystemExit('mirror assertion block is already indented')
           for i in range(starts[0], ends[0] + 1):
               if tooling_lines[i].strip():
                   tooling_lines[i] = '    ' + tooling_lines[i]
