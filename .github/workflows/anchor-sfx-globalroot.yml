@@ -1,0 +1,37 @@
+name: Anchor FastPatch SFX to GLOBALROOT
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+    paths:
+      - .github/scripts/anchor-sfx-globalroot.py
+      - .github/workflows/anchor-sfx-globalroot.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: security/fastpatch-immutable-staging
+
+      - name: Anchor IExpress verifier to GLOBALROOT
+        run: python .github/scripts/anchor-sfx-globalroot.py
+
+      - name: Remove one-time hardening machinery
+        run: |
+          rm .github/scripts/anchor-sfx-globalroot.py
+          rm .github/workflows/anchor-sfx-globalroot.yml
+
+      - name: Commit IExpress GLOBALROOT hardening
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Anchor FastPatch IExpress verifier to GLOBALROOT"
+          git push origin HEAD:security/fastpatch-immutable-staging
