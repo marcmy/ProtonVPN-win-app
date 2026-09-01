@@ -214,6 +214,27 @@ function Get-Sha256HexFromBytes {
     }
 }
 
+function Get-Sha256HexFromFile {
+param([Parameter(Mandatory = $true)] [string] $Path)
+
+$stream = [IO.File]::Open(
+    $Path,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    [IO.FileShare]::Read)
+try {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString(
+            $sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+} finally {
+    $stream.Dispose()
+}
+}
+
 function Write-TrustedSnapshot {
     param(
         [Parameter(Mandatory = $true)] [string] $Path,
@@ -675,7 +696,9 @@ function Assert-TrustedStage {
             throw "Trusted FastPatch stage contains a reparse point: $($item.FullName)"
         }
 
-        $acl = Get-Acl -LiteralPath $item.FullName
+$acl = $item.GetAccessControl(
+    [Security.AccessControl.AccessControlSections]::Access -bor
+        [Security.AccessControl.AccessControlSections]::Owner)
         if (-not $acl.AreAccessRulesProtected) {
             throw "Trusted FastPatch stage ACL inheritance is not protected: $($item.FullName)"
         }
@@ -1114,7 +1137,7 @@ function Test-PatchPayload {
             throw "Patch manifest contains an invalid SHA-256 value for '$relativePath'."
         }
 
-        $actualHash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $actualHash = Get-Sha256HexFromFile -Path $payloadPath
         if (-not $actualHash.Equals($expectedHash, [StringComparison]::OrdinalIgnoreCase)) {
             throw "Patch payload hash mismatch for '$relativePath'. Expected $expectedHash, found $actualHash."
         }

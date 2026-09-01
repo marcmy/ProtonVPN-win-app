@@ -3,6 +3,11 @@ param()
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$windowsPowerShellModulePath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\Modules'
+if ((Test-Path -LiteralPath $windowsPowerShellModulePath -PathType Container) -and
+    (($env:PSModulePath -split ';') -notcontains $windowsPowerShellModulePath)) {
+    $env:PSModulePath = $windowsPowerShellModulePath + ';' + $env:PSModulePath
+}
 if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
     $PSNativeCommandUseErrorActionPreference = $false
 }
@@ -291,14 +296,14 @@ function Test-CompressedBootstrapExitPropagation {
     $controlEncoded = [Convert]::ToBase64String(
         [Text.Encoding]::Unicode.GetBytes('[Environment]::Exit(7)'))
     $control = Invoke-TestProcessCapture `
-        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -FilePath (Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe') `
         -Arguments "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $controlEncoded"
     Assert-Condition ($control.ExitCode -eq 7) `
         ("Raw Windows PowerShell process control could not observe Environment.Exit(7); saw {0}." -f $control.ExitCode)
 
     $encoded = ConvertTo-CompressedEncodedCommand -ScriptText "throw 'compressed-bootstrap-probe'"
     $decoder = Invoke-TestProcessCapture `
-        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -FilePath (Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe') `
         -Arguments "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded"
     Assert-Condition ($decoder.ExitCode -eq 1) `
         ("Compressed bootstrap decoder flattened a terminating failure to exit {0}. Output:`n{1}" -f $decoder.ExitCode, ($decoder.Output -join [Environment]::NewLine))
@@ -422,7 +427,7 @@ function Test-BaseInstallerEndToEnd {
         ' -TargetVersion 5.1.5' +
         ' -BackupRoot "' + $backupRoot + '"' +
         ' -NoRestart'
-    $child = Invoke-TestProcessCapture -FilePath (Join-Path $PSHOME 'powershell.exe') -Arguments $arguments
+    $child = Invoke-TestProcessCapture -FilePath (Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe') -Arguments $arguments
     $exitCode = $child.ExitCode
     $output = @($child.Output)
     Assert-Condition ($exitCode -eq 0) "Protected standalone FastPatch install failed: $($output -join [Environment]::NewLine)"
@@ -486,7 +491,7 @@ exit 42
         ' -TargetVersion 5.1.5' +
         ' -BackupRoot "' + $backupRoot + '"' +
         ' -NoRestart'
-    $child = Invoke-TestProcessCapture -FilePath (Join-Path $PSHOME 'powershell.exe') -Arguments $arguments
+    $child = Invoke-TestProcessCapture -FilePath (Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe') -Arguments $arguments
     $exitCode = $child.ExitCode
     $output = @($child.Output)
 
@@ -585,7 +590,7 @@ function Test-SfxLoaderRejectsMutatedInstaller {
     Write-TestText $installer 'param() Write-Output "attacker replacement"; exit 0'
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loader))
     $child = Invoke-TestProcessCapture `
-        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -FilePath (Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe') `
         -Arguments "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded" `
         -WorkingDirectory $fixtureRoot
     $exitCode = $child.ExitCode

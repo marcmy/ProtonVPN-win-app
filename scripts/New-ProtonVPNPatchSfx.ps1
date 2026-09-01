@@ -476,30 +476,6 @@ try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
     Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination $packagedInstallerScriptPath -Force
 
-    $removedElevationTreeWait = $false
-    $insertedSingleProcessWait = $false
-    $installerLines = @(
-        foreach ($line in Get-Content -LiteralPath $packagedInstallerScriptPath) {
-            if (-not $removedElevationTreeWait -and $line.Trim() -eq '-Wait `') {
-                $removedElevationTreeWait = $true
-                continue
-            }
-
-            if ($removedElevationTreeWait -and -not $insertedSingleProcessWait -and
-                $line.Trim() -in @('exit $process.ExitCode', 'return $process.ExitCode')) {
-                '    $process.WaitForExit()'
-                $insertedSingleProcessWait = $true
-            }
-
-            $line
-        }
-    )
-
-    if (-not $removedElevationTreeWait -or -not $insertedSingleProcessWait) {
-        throw 'Could not update the packaged installer elevation wait behavior.'
-    }
-    Set-Content -LiteralPath $packagedInstallerScriptPath -Value $installerLines -Encoding UTF8
-
     if ($isPatchZip) {
         Copy-Item -LiteralPath $resolvedPatchPath -Destination $payloadPath -Force
     } else {
