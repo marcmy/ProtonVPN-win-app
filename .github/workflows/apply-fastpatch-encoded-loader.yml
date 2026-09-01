@@ -33,17 +33,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($path in @(
-            '.github/scripts/_temp_fastpatch_memory_transform.py',
-            '.github/workflows/apply-fastpatch-encoded-loader.yml',
-            '.github/workflows/run-fastpatch-memory-transform.yml',
-            '.github/workflows/fix-fastpatch-sfx-memory-archive.yml',
-            '.github/workflows/fix-fastpatch-compiled-loader-launch.yml'
-          )) {
-            if (Test-Path -LiteralPath $path) { git rm --force $path }
-          }
+          git restore .github/workflows/adapt-fastpatch-compiled-sfx-tests.yml
+          git rm --force .github/scripts/_temp_fastpatch_memory_transform.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/New-ProtonVPNPatchSfx.ps1 scripts/Install-ProtonVPNPatch.ps1 scripts/Install-ProtonVPNCompletePatch.ps1 .github/workflows/adapt-fastpatch-compiled-sfx-tests.yml
+          git add scripts/New-ProtonVPNPatchSfx.ps1 scripts/Install-ProtonVPNPatch.ps1 scripts/Install-ProtonVPNCompletePatch.ps1
           git commit -m 'Consume SFX archive from verified process memory'
           git push origin HEAD:security/fastpatch-immutable-staging
