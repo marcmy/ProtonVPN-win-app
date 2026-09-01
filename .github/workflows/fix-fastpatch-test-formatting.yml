@@ -1,0 +1,121 @@
+name: Fix FastPatch test formatting
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.head_commit.message == 'Apply FastPatch test formatting'
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: security/fastpatch-immutable-staging
+          persist-credentials: true
+      - name: Normalize regression assertion formatting
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+
+          tooling_path = Path('.github/scripts/test-patch-tooling.ps1')
+          tooling = tooling_path.read_text(encoding='utf-8').replace('\r\n', '\n')
+          old_mirror = '''    Assert-Condition ($mirrorInvocations.Count -eq 3) `
+              'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
+              $serviceDataPreservingMirrors = @(
+              $mirrorInvocations | Where-Object {
+                  $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
+              }
+              )
+              Assert-Condition ($serviceDataPreservingMirrors.Count -eq 2) `
+              'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
+              $archiveMirrors = @(
+              $mirrorInvocations | Where-Object {
+                  $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
+                      $_.Extent.Text.Contains('-Destination $backupDirectory')
+              }
+              )
+              Assert-Condition ($archiveMirrors.Count -eq 1) `
+              'Installer must retain exactly one archival backup from the protected rollback snapshot.'
+          '''
+          old_mirror = '\n'.join(line[4:] if line.startswith('    ') else line for line in old_mirror.split('\n'))
+          new_mirror = '''    Assert-Condition ($mirrorInvocations.Count -eq 3) `
+              'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
+          $serviceDataPreservingMirrors = @(
+              $mirrorInvocations | Where-Object {
+                  $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
+              }
+          )
+          Assert-Condition ($serviceDataPreservingMirrors.Count -eq 2) `
+              'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
+          $archiveMirrors = @(
+              $mirrorInvocations | Where-Object {
+                  $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
+                      $_.Extent.Text.Contains('-Destination $backupDirectory')
+              }
+          )
+          Assert-Condition ($archiveMirrors.Count -eq 1) `
+              'Installer must retain exactly one archival backup from the protected rollback snapshot.'
+          '''
+          new_mirror = '\n'.join(line[4:] if line.startswith('    ') else line for line in new_mirror.split('\n'))
+          if tooling.count(old_mirror) != 1:
+              raise SystemExit(f'expected one poorly formatted mirror block; found {tooling.count(old_mirror)}')
+          tooling = tooling.replace(old_mirror, new_mirror, 1)
+          tooling_path.write_text(tooling, encoding='utf-8')
+
+          complete_path = Path('.github/scripts/test-complete-fast-patch.ps1')
+          complete = complete_path.read_text(encoding='utf-8').replace('\r\n', '\n')
+          old_lifecycle = '''    Assert-Condition (
+              $content.Contains('return Invoke-ProcessAndWait') -and
+              $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
+              $content.Contains('$startInfo.CreateNoWindow = $false')
+              ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'
+          '''
+          old_lifecycle = '\n'.join(line[4:] if line.startswith('    ') else line for line in old_lifecycle.split('\n'))
+          new_lifecycle = '''    Assert-Condition (
+              $content.Contains('return Invoke-ProcessAndWait') -and
+              $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
+              $content.Contains('$startInfo.CreateNoWindow = $false')
+          ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'
+          '''
+          new_lifecycle = '\n'.join(line[4:] if line.startswith('    ') else line for line in new_lifecycle.split('\n'))
+          if complete.count(old_lifecycle) != 1:
+              raise SystemExit(f'expected one poorly formatted lifecycle block; found {complete.count(old_lifecycle)}')
+          complete = complete.replace(old_lifecycle, new_lifecycle, 1)
+          complete_path.write_text(complete, encoding='utf-8')
+          '@ | Set-Content -LiteralPath .github/_fix_fastpatch_test_formatting.py -Encoding UTF8
+          python .github/_fix_fastpatch_test_formatting.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item -LiteralPath .github/_fix_fastpatch_test_formatting.py -Force
+      - name: Parse and test FastPatch tooling
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @(
+            '.github/scripts/test-patch-tooling.ps1',
+            '.github/scripts/test-complete-fast-patch.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
+            if ($errors.Count) { throw "$path : $($errors[0].Message)" }
+          }
+          .\.github\scripts\test-patch-tooling.ps1
+          .\.github\scripts\test-complete-fast-patch.ps1
+      - name: Commit tested formatting cleanup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git rm --force .github/workflows/fix-fastpatch-test-formatting.yml
+          git rm --force .github/.fastpatch-test-formatting-trigger
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/scripts/test-patch-tooling.ps1 .github/scripts/test-complete-fast-patch.ps1
+          git commit -m 'Format FastPatch regression assertions'
+          git push origin HEAD:security/fastpatch-immutable-staging
