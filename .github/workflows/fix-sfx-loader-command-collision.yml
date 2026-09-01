@@ -23,22 +23,27 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $path = 'scripts/New-ProtonVPNPatchSfx.ps1'
           $content = Get-Content -LiteralPath $path -Raw
-          $replacements = [ordered]@{
-            'function D([string] $Value)' = 'function Decode-FastPatchValue([string] $Value)'
-            'function H([byte[]] $Bytes)' = 'function Get-FastPatchBytesSha256([byte[]] $Bytes)'
-            'function IsAdmin {' = 'function Test-FastPatchAdministrator {'
-            "$installer = Join-Path $root (D '__INSTALLER__')" = "$installer = Join-Path $root (Decode-FastPatchValue '__INSTALLER__')"
-            "$payload = Join-Path $root (D '__PAYLOAD__')" = "$payload = Join-Path $root (Decode-FastPatchValue '__PAYLOAD__')"
-            '$actualInstallerHash = H $bytes' = '$actualInstallerHash = Get-FastPatchBytesSha256 $bytes'
-            'if (-not (IsAdmin)) {' = 'if (-not (Test-FastPatchAdministrator)) {'
-            "    -TargetVersion (D '__TARGET__') ``" = "    -TargetVersion (Decode-FastPatchValue '__TARGET__') ``"
+
+          $replacements = @(
+              @('function D([string] $Value)', 'function Decode-FastPatchValue([string] $Value)'),
+              @('function H([byte[]] $Bytes)', 'function Get-FastPatchBytesSha256([byte[]] $Bytes)'),
+              @('function IsAdmin {', 'function Test-FastPatchAdministrator {'),
+              @('(D ''__INSTALLER__'')', '(Decode-FastPatchValue ''__INSTALLER__'')'),
+              @('(D ''__PAYLOAD__'')', '(Decode-FastPatchValue ''__PAYLOAD__'')'),
+              @('$actualInstallerHash = H $bytes', '$actualInstallerHash = Get-FastPatchBytesSha256 $bytes'),
+              @('(IsAdmin)', '(Test-FastPatchAdministrator)'),
+              @('(D ''__TARGET__'')', '(Decode-FastPatchValue ''__TARGET__'')')
+          )
+
+          foreach ($pair in $replacements) {
+              $old = [string] $pair[0]
+              $new = [string] $pair[1]
+              if (-not $content.Contains($old)) {
+                  throw "Expected loader fragment was not found: $old"
+              }
+              $content = $content.Replace($old, $new)
           }
-          foreach ($entry in $replacements.GetEnumerator()) {
-            if (-not $content.Contains($entry.Key)) {
-              throw "Expected loader fragment was not found: $($entry.Key)"
-            }
-            $content = $content.Replace($entry.Key, $entry.Value)
-          }
+
           [IO.File]::WriteAllText((Resolve-Path $path), $content, [Text.UTF8Encoding]::new($false))
 
       - name: Remove one-time workflow and commit
