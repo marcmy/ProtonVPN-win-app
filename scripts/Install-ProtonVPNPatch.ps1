@@ -215,24 +215,24 @@ function Get-Sha256HexFromBytes {
 }
 
 function Get-Sha256HexFromFile {
-param([Parameter(Mandatory = $true)] [string] $Path)
+    param([Parameter(Mandatory = $true)] [string] $Path)
 
-$stream = [IO.File]::Open(
-    $Path,
-    [IO.FileMode]::Open,
-    [IO.FileAccess]::Read,
-    [IO.FileShare]::Read)
-try {
-    $sha256 = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::Open(
+        $Path,
+        [IO.FileMode]::Open,
+        [IO.FileAccess]::Read,
+        [IO.FileShare]::Read)
     try {
-        return ([BitConverter]::ToString(
-            $sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+        $sha256 = [Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString(
+                $sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+        }
     } finally {
-        $sha256.Dispose()
+        $stream.Dispose()
     }
-} finally {
-    $stream.Dispose()
-}
 }
 
 function Write-TrustedSnapshot {
@@ -696,7 +696,7 @@ function Assert-TrustedStage {
             throw "Trusted FastPatch stage contains a reparse point: $($item.FullName)"
         }
 
-$acl = $item.GetAccessControl(
+        $acl = $item.GetAccessControl(
     [Security.AccessControl.AccessControlSections]::Access -bor
         [Security.AccessControl.AccessControlSections]::Owner)
         if (-not $acl.AreAccessRulesProtected) {

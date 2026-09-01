@@ -3,11 +3,6 @@ param()
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$windowsPowerShellModulePath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\Modules'
-if ((Test-Path -LiteralPath $windowsPowerShellModulePath -PathType Container) -and
-    (($env:PSModulePath -split ';') -notcontains $windowsPowerShellModulePath)) {
-    $env:PSModulePath = $windowsPowerShellModulePath + ';' + $env:PSModulePath
-}
 if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
     $PSNativeCommandUseErrorActionPreference = $false
 }
