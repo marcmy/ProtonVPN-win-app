@@ -574,8 +574,19 @@ exit 0
     Assert-Condition (Test-Path -LiteralPath $output -PathType Leaf) 'IExpress SFX smoke fixture was not built.'
 
     $previousProbe = $env:PROTONVPN_FASTPATCH_SFX_PROBE
+    $previousSystemRoot = $env:SystemRoot
+    $fakeSystemRoot = Join-Path $fixtureRoot 'attacker-system-root'
+    $fakePowerShellDirectory = Join-Path $fakeSystemRoot 'System32\WindowsPowerShell\v1.0'
+    New-Item -ItemType Directory -Force -Path $fakePowerShellDirectory | Out-Null
+    # If the SFX still expands %SystemRoot%, this renamed cmd.exe receives the PowerShell
+    # arguments and the smoke probe never gets written. GLOBALROOT must bypass it entirely.
+    Copy-Item `
+        -LiteralPath (Join-Path $previousSystemRoot 'System32\cmd.exe') `
+        -Destination (Join-Path $fakePowerShellDirectory 'powershell.exe') `
+        -Force
     try {
         $env:PROTONVPN_FASTPATCH_SFX_PROBE = $probe
+        $env:SystemRoot = $fakeSystemRoot
         $process = Start-Process -FilePath $output -PassThru
         if (-not $process.WaitForExit(90000)) {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
@@ -583,6 +594,7 @@ exit 0
         }
         Assert-Condition ($process.ExitCode -eq 0) "IExpress SFX smoke run failed with exit code $($process.ExitCode)."
     } finally {
+        $env:SystemRoot = $previousSystemRoot
         $env:PROTONVPN_FASTPATCH_SFX_PROBE = $previousProbe
     }
 
@@ -647,6 +659,10 @@ function Test-StaticSecurityContracts {
         'IExpress still launches the extracted mutable CMD file directly.'
     Assert-Condition ($sfx.Contains('AppLaunched=$sfxLaunchCommand')) `
         'IExpress is not anchored to the encoded system-PowerShell verifier.'
+    Assert-Condition (-not $sfx.Contains('%SystemRoot%\System32\WindowsPowerShell')) `
+        'IExpress verifier still trusts the user-overridable SystemRoot environment variable.'
+    Assert-Condition ($sfx.Contains('\\?\GLOBALROOT\SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe')) `
+        'IExpress verifier is not anchored to the immutable GLOBALROOT system PowerShell path.'
     Assert-Condition ($sfx.Contains('[ScriptBlock]::Create($scriptText)')) `
         'IExpress verifier does not execute only the hash-pinned installer bytes in memory.'
     Assert-Condition ($sfx.Contains("-ExpectedPatchArchiveSha256 '__PAYLOAD_HASH__'")) `

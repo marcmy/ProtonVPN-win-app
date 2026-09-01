@@ -304,7 +304,10 @@ try {
         -PayloadHash $payloadHash `
         -TargetVersion $manifestTargetVersion
     $encodedLoader = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loaderScript))
-    $sfxLaunchCommand = '"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ' + $encodedLoader
+    # Resolve through the system object-manager root rather than a user-overridable
+    # environment variable such as %SystemRoot%. GLOBALROOT is a Win32 namespace
+    # alias for the true system-wide object-manager root.
+    $sfxLaunchCommand = '"\\?\GLOBALROOT\SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ' + $encodedLoader
     if ($sfxLaunchCommand.Length -gt 30000) {
         throw "IExpress FastPatch verifier exceeds the safe Windows command-line budget: $($sfxLaunchCommand.Length) characters."
     }
