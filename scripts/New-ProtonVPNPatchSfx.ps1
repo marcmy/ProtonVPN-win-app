@@ -105,7 +105,7 @@ function Test-FastPatchAdministrator {
     $p = New-Object Security.Principal.WindowsPrincipal($id)
     $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
-$root = [IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\\', '/')
+$root = [IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/')
 $installer = Join-Path $root (Decode-FastPatchValue '__INSTALLER__')
 $payload = Join-Path $root (Decode-FastPatchValue '__PAYLOAD__')
 foreach ($path in @($root, $installer, $payload)) {
