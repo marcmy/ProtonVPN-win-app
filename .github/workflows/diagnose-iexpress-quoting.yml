@@ -1,0 +1,105 @@
+name: Diagnose IExpress quoting
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: security/fastpatch-immutable-staging
+          persist-credentials: true
+
+      - name: Test AppLaunched quoting forms
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP ('iexpress-quoting-' + [Guid]::NewGuid().ToString('N'))
+          $source = Join-Path $root 'source'
+          New-Item -ItemType Directory -Force -Path $source | Out-Null
+          $iexpress = Join-Path $env:SystemRoot 'System32\iexpress.exe'
+          [IO.File]::WriteAllText((Join-Path $source 'dummy.txt'), 'x', [Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText((Join-Path $source 'probe.cmd'), '@echo off`r`necho ok>"%PROTONVPN_FASTPATCH_QUOTE_PROBE%"`r`nexit /b 0`r`n', [Text.Encoding]::ASCII)
+
+          function Run-Probe {
+              param([string]$Name,[string]$Command,[bool]$IncludeCmd=$false)
+              $out = Join-Path $root ($Name + '.exe')
+              $sed = Join-Path $root ($Name + '.sed')
+              $src = $source.TrimEnd('\') + '\'
+              $files = if ($IncludeCmd) { '%FILE0%=`r`n%FILE1%=' } else { '%FILE0%=' }
+              $strings = if ($IncludeCmd) { 'FILE0="dummy.txt"`r`nFILE1="probe.cmd"' } else { 'FILE0="dummy.txt"' }
+              $text = @"
+          [Version]
+          Class=IEXPRESS
+          SEDVersion=3
+          [Options]
+          PackagePurpose=InstallApp
+          ShowInstallProgramWindow=0
+          HideExtractAnimation=1
+          UseLongFileName=1
+          InsideCompressed=0
+          CAB_FixedSize=0
+          CAB_ResvCodeSigning=0
+          RebootMode=N
+          InstallPrompt=
+          DisplayLicense=
+          FinishMessage=
+          TargetName="$out"
+          FriendlyName=$Name
+          AppLaunched=$Command
+          PostInstallCmd=<None>
+          AdminQuietInstCmd=$Command
+          UserQuietInstCmd=$Command
+          SourceFiles=SourceFiles
+          [SourceFiles]
+          SourceFiles0="$src"
+          [SourceFiles0]
+          $files
+          [Strings]
+          $strings
+          "@
+              [IO.File]::WriteAllText($sed,$text,[Text.Encoding]::ASCII)
+              & $iexpress /N /Q $sed
+              $deadline=[DateTime]::UtcNow.AddSeconds(15)
+              while([DateTime]::UtcNow -lt $deadline -and -not(Test-Path -LiteralPath $out -PathType Leaf)){Start-Sleep -Milliseconds 100}
+              if(-not(Test-Path -LiteralPath $out -PathType Leaf)){throw "build failed $Name"}
+              $probe=Join-Path $root ($Name+'.probe')
+              $env:PROTONVPN_FASTPATCH_QUOTE_PROBE=$probe
+              $p=Start-Process -FilePath $out -PassThru
+              $exited=$p.WaitForExit(6000)
+              $hit=Test-Path -LiteralPath $probe -PathType Leaf
+              $code=if($exited){$p.ExitCode}else{$null}
+              if(-not $exited){Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue}
+              Write-Host ("IEXPRESS_QUOTE name={0} length={1} exited={2} code={3} probe={4}" -f $Name,$Command.Length,$exited,$code,$hit)
+              [pscustomobject]@{Name=$Name;Exited=$exited;Probe=$hit;Code=$code;Length=$Command.Length}
+          }
+
+          $script='$p=$env:PROTONVPN_FASTPATCH_QUOTE_PROBE;[IO.File]::WriteAllText($p,''ok'');exit 0'
+          $enc=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+          $literal='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -NonInteractive -EncodedCommand '+$enc
+          $global='\\?\GLOBALROOT\SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -NonInteractive -EncodedCommand '+$enc
+          $results=@()
+          $results += Run-Probe -Name 'ExtractedCmdControl' -Command 'probe.cmd' -IncludeCmd $true
+          $results += Run-Probe -Name 'CmdExeControl' -Command 'cmd.exe /d /c probe.cmd' -IncludeCmd $true
+          $results += Run-Probe -Name 'LiteralUnquoted' -Command $literal
+          $results += Run-Probe -Name 'GlobalRootUnquoted' -Command $global
+          $results += Run-Probe -Name 'LiteralWholeQuoted' -Command ('"'+$literal+'"')
+          $results | Format-Table -AutoSize | Out-String | Write-Host
+
+      - name: Remove quoting diagnostic workflow
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git rm --force .github/workflows/diagnose-iexpress-quoting.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Remove IExpress quoting diagnostic'
+          git push origin HEAD:security/fastpatch-immutable-staging
