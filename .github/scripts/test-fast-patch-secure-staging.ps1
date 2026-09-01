@@ -14,6 +14,14 @@ $sfxBuilderScript = Join-Path $repositoryRoot 'scripts\New-ProtonVPNPatchSfx.ps1
 $installerLauncher = Join-Path $repositoryRoot 'scripts\Install-ProtonVPNPatch.cmd'
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("protonvpn-fastpatch-secure-stage-{0}" -f [Guid]::NewGuid().ToString('N'))
 
+# Production functions imported below normally receive these from the installer param block.
+# The regression imports the functions without executing that block, so initialize the same
+# script-scope state explicitly.
+$script:PatchPath = ''
+$script:ExpectedPatchArchiveSha256 = ''
+$script:TrustedArchiveManifestText = ''
+$script:ValidatedManifestText = ''
+
 function Assert-Condition {
     param([bool] $Condition, [string] $Message)
     if (-not $Condition) { throw $Message }

@@ -765,7 +765,9 @@ function Resolve-PatchSource {
                     $manifestEntries = @(
                         $zipArchive.Entries |
                             Where-Object {
-                                $_.Name.Equals('patch-manifest.json', [StringComparison]::OrdinalIgnoreCase)
+                                $_.FullName.Replace('\', '/').Equals(
+                                    'patch-manifest.json',
+                                    [StringComparison]::OrdinalIgnoreCase)
                             }
                     )
                     if ($manifestEntries.Count -ne 1) {
