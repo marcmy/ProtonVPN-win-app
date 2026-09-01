@@ -77,29 +77,6 @@ jobs:
           if (-not $text.Contains($old)) { throw 'stdin RunPowerShell block not found exactly.' }
           [IO.File]::WriteAllText($builder, $text.Replace($old, $new), [Text.UTF8Encoding]::new($false))
 
-          $adapter = '.github/workflows/adapt-fastpatch-compiled-sfx-tests.yml'
-          $atext = [IO.File]::ReadAllText($adapter)
-          $oldContract = @'
-                        Assert-Condition ($sfx.Contains('RedirectStandardInput = true')) `
-                            'Compiled SFX does not feed its trusted loader directly to system PowerShell over stdin.'
-                        Assert-Condition ($sfx.Contains('Arguments = \"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command -\"')) `
-                            'Compiled SFX does not execute the embedded loader from stdin in protected system PowerShell.'
-                        Assert-Condition ($sfx.Contains('process.StandardInput.Write(loaderText)')) `
-                            'Compiled SFX does not send the embedded verified loader bytes directly to PowerShell.'
-          '@
-          $newContract = @'
-                        Assert-Condition ($sfx.Contains('Encoding.Unicode.GetBytes(loaderText)')) `
-                            'Compiled SFX does not encode the verified embedded loader bytes directly for Windows PowerShell.'
-                        Assert-Condition ($sfx.Contains('-EncodedCommand \" + encodedCommand')) `
-                            'Compiled SFX does not execute the verified embedded loader through direct system PowerShell EncodedCommand.'
-                        Assert-Condition ($sfx.Contains('encodedCommand.Length > 30000')) `
-                            'Compiled SFX does not enforce the Windows command-line budget for its in-memory loader.'
-                        Assert-Condition (-not $sfx.Contains('RedirectStandardInput = true')) `
-                            'Compiled SFX still relies on the failed PowerShell stdin loader path.'
-          '@
-          if (-not $atext.Contains($oldContract)) { throw 'adapter stdin static-contract block not found exactly.' }
-          [IO.File]::WriteAllText($adapter, $atext.Replace($oldContract, $newContract), [Text.UTF8Encoding]::new($false))
-
       - name: Parse updated builder
         shell: pwsh
         run: |
@@ -114,6 +91,6 @@ jobs:
           $ErrorActionPreference = 'Stop'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/New-ProtonVPNPatchSfx.ps1 .github/workflows/adapt-fastpatch-compiled-sfx-tests.yml
+          git add scripts/New-ProtonVPNPatchSfx.ps1
           git commit -m 'Run compiled FastPatch loader without a mutable path'
           git push origin HEAD:security/fastpatch-immutable-staging
