@@ -366,8 +366,9 @@ function Copy-LockedFile(
 
     if ($null -ne $ExpectedSize) {
         $actualSize = (Get-Item -LiteralPath $Destination -Force).Length
-        if ($actualSize -ne $ExpectedSize.Value) {
-            throw "Trusted staging size mismatch for '$Destination'. Expected $($ExpectedSize.Value), found $actualSize."
+        $expectedSizeValue = [long] $ExpectedSize
+        if ($actualSize -ne $expectedSizeValue) {
+            throw "Trusted staging size mismatch for '$Destination'. Expected $expectedSizeValue, found $actualSize."
         }
     }
 
