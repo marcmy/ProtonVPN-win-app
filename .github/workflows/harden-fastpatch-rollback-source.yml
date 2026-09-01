@@ -164,28 +164,28 @@ jobs:
 
           Replace-Exact -Path $complete `
               -Old @'
-                      $pendingRootBackupDirectory = Join-Path $resolvedBackupRoot ('.pending-fastpatch-root-' + [Guid]::NewGuid().ToString('N'))
-                      New-Item -ItemType Directory -Path $pendingRootBackupDirectory -Force | Out-Null
-                      $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
-                      Copy-Item -LiteralPath $launcherTarget -Destination $pendingLauncherBackup -Force
-                      $rootLauncherPatched = $true
+                          $pendingRootBackupDirectory = Join-Path $resolvedBackupRoot ('.pending-fastpatch-root-' + [Guid]::NewGuid().ToString('N'))
+                          New-Item -ItemType Directory -Path $pendingRootBackupDirectory -Force | Out-Null
+                          $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
+                          Copy-Item -LiteralPath $launcherTarget -Destination $pendingLauncherBackup -Force
+                          $rootLauncherPatched = $true
           '@ `
               -New @'
-                      # Root-launcher rollback input must never live in mutable BackupRoot storage.
-                      # Keep it in the Administrator/SYSTEM-only trusted stage until the version patch commits.
-                      Ensure-AdministratorOnlySubdirectory -Root $TrustedStagePath -RelativePath 'Rollback'
-                      $rollbackRoot = Join-Path $TrustedStagePath 'Rollback'
-                      $pendingRootBackupDirectory = Join-Path `
-                          $rollbackRoot `
-                          ('InstallRoot-' + [Guid]::NewGuid().ToString('N'))
-                      New-AdministratorOnlyDirectory -Path $pendingRootBackupDirectory
-                      $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
-                      $launcherBackupHash = (Get-FileHash -LiteralPath $launcherTarget -Algorithm SHA256).Hash.ToLowerInvariant()
-                      Copy-AdministratorOnlyFile `
-                          -SourcePath $launcherTarget `
-                          -DestinationPath $pendingLauncherBackup `
-                          -ExpectedHash $launcherBackupHash
-                      $rootLauncherPatched = $true
+                          # Root-launcher rollback input must never live in mutable BackupRoot storage.
+                          # Keep it in the Administrator/SYSTEM-only trusted stage until the version patch commits.
+                          Ensure-AdministratorOnlySubdirectory -Root $TrustedStagePath -RelativePath 'Rollback'
+                          $rollbackRoot = Join-Path $TrustedStagePath 'Rollback'
+                          $pendingRootBackupDirectory = Join-Path `
+                              $rollbackRoot `
+                              ('InstallRoot-' + [Guid]::NewGuid().ToString('N'))
+                          New-AdministratorOnlyDirectory -Path $pendingRootBackupDirectory
+                          $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
+                          $launcherBackupHash = (Get-FileHash -LiteralPath $launcherTarget -Algorithm SHA256).Hash.ToLowerInvariant()
+                          Copy-AdministratorOnlyFile `
+                              -SourcePath $launcherTarget `
+                              -DestinationPath $pendingLauncherBackup `
+                              -ExpectedHash $launcherBackupHash
+                          $rootLauncherPatched = $true
           '@
 
           Replace-Exact -Path $test `
@@ -229,6 +229,51 @@ jobs:
           }
 
           function Test-BaseInstallerEndToEnd {
+          '@
+
+          Replace-Exact -Path $test `
+              -Old @'
+              $previousProbe = $env:PROTONVPN_FASTPATCH_SFX_PROBE
+              $previousSystemRoot = $env:SystemRoot
+              $fakeSystemRoot = Join-Path $fixtureRoot 'attacker-system-root'
+              $fakePowerShellDirectory = Join-Path $fakeSystemRoot 'System32\WindowsPowerShell\v1.0'
+              New-Item -ItemType Directory -Force -Path $fakePowerShellDirectory | Out-Null
+              # If the SFX still expands %SystemRoot%, this renamed cmd.exe receives the PowerShell
+              # arguments and the smoke probe never gets written. GLOBALROOT must bypass it entirely.
+              Copy-Item `
+                  -LiteralPath (Join-Path $previousSystemRoot 'System32\cmd.exe') `
+                  -Destination (Join-Path $fakePowerShellDirectory 'powershell.exe') `
+                  -Force
+              try {
+                  $env:PROTONVPN_FASTPATCH_SFX_PROBE = $probe
+                  $env:SystemRoot = $fakeSystemRoot
+                  $process = Start-Process -FilePath $output -PassThru
+                  if (-not $process.WaitForExit(90000)) {
+                      Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                      throw 'IExpress SFX smoke run did not terminate within 90 seconds.'
+                  }
+                  Assert-Condition ($process.ExitCode -eq 0) "IExpress SFX smoke run failed with exit code $($process.ExitCode)."
+              } finally {
+                  $env:SystemRoot = $previousSystemRoot
+                  $env:PROTONVPN_FASTPATCH_SFX_PROBE = $previousProbe
+              }
+          '@ `
+              -New @'
+              # The production SED is statically required below to contain no %SystemRoot% token.
+              # Run the real package under a valid Windows environment so the OS loader itself is
+              # not sabotaged before IExpress reaches the GLOBALROOT PowerShell command.
+              $previousProbe = $env:PROTONVPN_FASTPATCH_SFX_PROBE
+              try {
+                  $env:PROTONVPN_FASTPATCH_SFX_PROBE = $probe
+                  $process = Start-Process -FilePath $output -PassThru
+                  if (-not $process.WaitForExit(90000)) {
+                      Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                      throw 'IExpress SFX smoke run did not terminate within 90 seconds.'
+                  }
+                  Assert-Condition ($process.ExitCode -eq 0) "IExpress SFX smoke run failed with exit code $($process.ExitCode)."
+              } finally {
+                  $env:PROTONVPN_FASTPATCH_SFX_PROBE = $previousProbe
+              }
           '@
 
           Replace-Exact -Path $test `
