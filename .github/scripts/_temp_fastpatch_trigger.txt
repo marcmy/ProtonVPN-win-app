@@ -1,2 +1,2 @@
 Controlled one-shot trigger for the FastPatch finalization adapter.
-Attempt: shared raw process capture.
+Attempt: production raw process status.
