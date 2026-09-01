@@ -697,8 +697,8 @@ function Assert-TrustedStage {
         }
 
         $acl = $item.GetAccessControl(
-    [Security.AccessControl.AccessControlSections]::Access -bor
-        [Security.AccessControl.AccessControlSections]::Owner)
+            [Security.AccessControl.AccessControlSections]::Access -bor
+                [Security.AccessControl.AccessControlSections]::Owner)
         if (-not $acl.AreAccessRulesProtected) {
             throw "Trusted FastPatch stage ACL inheritance is not protected: $($item.FullName)"
         }
