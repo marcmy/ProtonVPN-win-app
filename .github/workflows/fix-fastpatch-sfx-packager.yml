@@ -62,42 +62,35 @@ jobs:
           replacement = '\n'.join(line[4:] if line.startswith('    ') else line for line in replacement.split('\n'))
           test_lines[tstart[0]:tend[0] + 1] = [replacement]
 
-          # The hardened installer now has three mirrored copies: protected snapshot,
-          # archival backup, and protected rollback restore. Only the snapshot/restore
-          # mirrors need an explicit ServiceData exclusion because the archival source
-          # is already the protected snapshot with ServiceData omitted.
-          test = ''.join(test_lines)
-          old_mirror = '''    Assert-Condition ($mirrorInvocations.Count -eq 2) `
-                  'Installer must have one mirrored backup and one mirrored rollback operation.'
-              foreach ($invocation in $mirrorInvocations) {
-                  Assert-Condition ($invocation.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")) `
-                      'Installer backup and rollback must both preserve runtime ServiceData.'
+          # Update the runtime-data preservation contract for protected rollback staging.
+          mstarts = [i for i, line in enumerate(test_lines) if line.strip() == 'Assert-Condition ($mirrorInvocations.Count -eq 2) `']
+          mforeach = [i for i, line in enumerate(test_lines) if line.strip() == 'foreach ($invocation in $mirrorInvocations) {']
+          if len(mstarts) != 1 or len(mforeach) != 1 or mforeach[0] < mstarts[0]:
+              raise SystemExit(f'expected obsolete mirror assertion block; starts={mstarts}, foreach={mforeach}')
+          mend = next((i for i in range(mforeach[0] + 1, len(test_lines)) if test_lines[i].strip() == '}'), None)
+          if mend is None:
+              raise SystemExit('could not locate end of obsolete mirror assertion block')
+          mirror_replacement = '''    Assert-Condition ($mirrorInvocations.Count -eq 3) `
+              'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
+          $serviceDataPreservingMirrors = @(
+              $mirrorInvocations | Where-Object {
+                  $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
               }
+          )
+          Assert-Condition ($serviceDataPreservingMirrors.Count -eq 2) `
+              'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
+          $archiveMirrors = @(
+              $mirrorInvocations | Where-Object {
+                  $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
+                      $_.Extent.Text.Contains('-Destination $backupDirectory')
+              }
+          )
+          Assert-Condition ($archiveMirrors.Count -eq 1) `
+              'Installer must retain exactly one archival backup from the protected rollback snapshot.'
           '''
-          old_mirror = '\n'.join(line[4:] if line.startswith('    ') else line for line in old_mirror.split('\n'))
-          new_mirror = '''    Assert-Condition ($mirrorInvocations.Count -eq 3) `
-                  'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
-              $serviceDataPreservingMirrors = @(
-                  $mirrorInvocations | Where-Object {
-                      $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
-                  }
-              )
-              Assert-Condition ($serviceDataPreservingMirrors.Count -eq 2) `
-                  'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
-              $archiveMirrors = @(
-                  $mirrorInvocations | Where-Object {
-                      $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
-                          $_.Extent.Text.Contains('-Destination $backupDirectory')
-                  }
-              )
-              Assert-Condition ($archiveMirrors.Count -eq 1) `
-                  'Installer must retain exactly one archival backup from the protected rollback snapshot.'
-          '''
-          new_mirror = '\n'.join(line[4:] if line.startswith('    ') else line for line in new_mirror.split('\n'))
-          if old_mirror not in test:
-              raise SystemExit('expected obsolete mirrored-backup assertion block was not found')
-          test = test.replace(old_mirror, new_mirror, 1)
-          test_path.write_text(test, encoding='utf-8')
+          mirror_replacement = '\n'.join(line[4:] if line.startswith('    ') else line for line in mirror_replacement.split('\n'))
+          test_lines[mstarts[0]:mend + 1] = [mirror_replacement]
+          test_path.write_text(''.join(test_lines), encoding='utf-8')
           '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
           python .github/_fix_sfx_packager.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
