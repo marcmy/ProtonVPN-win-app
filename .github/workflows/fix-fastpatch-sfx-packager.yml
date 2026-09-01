@@ -42,7 +42,7 @@ jobs:
           installer = installer_path.read_text(encoding='utf-8').replace('\r\n', '\n')
           helper_anchor = '''function Write-TrustedSnapshot {
           '''
-          file_hash_helper = '''function Get-Sha256HexFromFile {
+          file_hash_helper = '''    function Get-Sha256HexFromFile {
               param([Parameter(Mandatory = $true)] [string] $Path)
 
               $stream = [IO.File]::Open(
@@ -72,6 +72,15 @@ jobs:
           if installer.count(obsolete_file_hash) != 1:
               raise SystemExit(f'expected exactly one payload Get-FileHash call; found {installer.count(obsolete_file_hash)}')
           installer = installer.replace(obsolete_file_hash, 'Get-Sha256HexFromFile -Path $payloadPath', 1)
+          obsolete_acl = '        $acl = Get-Acl -LiteralPath $item.FullName'
+          acl_replacement = '''        $acl = $item.GetAccessControl(
+                      [Security.AccessControl.AccessControlSections]::Access -bor
+                          [Security.AccessControl.AccessControlSections]::Owner)
+          '''
+          acl_replacement = '\n'.join(line[8:] if line.startswith('        ') else line for line in acl_replacement.split('\n')).rstrip('\n')
+          if installer.count(obsolete_acl) != 1:
+              raise SystemExit(f'expected exactly one trusted-stage Get-Acl call; found {installer.count(obsolete_acl)}')
+          installer = installer.replace(obsolete_acl, acl_replacement, 1)
           installer_path.write_text(installer, encoding='utf-8')
 
           test_path = Path('.github/scripts/test-patch-tooling.ps1')
