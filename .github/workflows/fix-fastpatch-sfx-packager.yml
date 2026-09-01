@@ -17,7 +17,7 @@ jobs:
         with:
           ref: security/fastpatch-immutable-staging
           persist-credentials: true
-      - name: Align compiled SFX packager and regression
+      - name: Align compiled SFX packager and regressions
         shell: pwsh
         run: |
           @'
@@ -42,7 +42,6 @@ jobs:
           test = test_path.read_text(encoding='utf-8').replace('\r\n', '\n')
           test_lines = test.splitlines(keepends=True)
 
-          # Replace the obsolete IExpress/CAB assertion with compiled-PE/resource checks.
           tstart = [i for i, line in enumerate(test_lines) if line.strip() == '$realInstallerBytes = [System.IO.File]::ReadAllBytes($realInstallerPath)']
           tend = [i for i, line in enumerate(test_lines) if "IExpress packaging returned an executable without an embedded cabinet payload." in line]
           if len(tstart) != 1 or len(tend) != 1 or tend[0] < tstart[0]:
@@ -62,7 +61,6 @@ jobs:
           replacement = '\n'.join(line[4:] if line.startswith('    ') else line for line in replacement.split('\n'))
           test_lines[tstart[0]:tend[0] + 1] = [replacement]
 
-          # Update the runtime-data preservation contract for protected rollback staging.
           mstarts = [i for i, line in enumerate(test_lines) if line.strip() == 'Assert-Condition ($mirrorInvocations.Count -eq 2) `']
           mforeach = [i for i, line in enumerate(test_lines) if line.strip() == 'foreach ($invocation in $mirrorInvocations) {']
           if len(mstarts) != 1 or len(mforeach) != 1 or mforeach[0] < mstarts[0]:
@@ -91,6 +89,24 @@ jobs:
           mirror_replacement = '\n'.join(line[4:] if line.startswith('    ') else line for line in mirror_replacement.split('\n'))
           test_lines[mstarts[0]:mend + 1] = [mirror_replacement]
           test_path.write_text(''.join(test_lines), encoding='utf-8')
+
+          complete_test_path = Path('.github/scripts/test-complete-fast-patch.ps1')
+          complete_test = complete_test_path.read_text(encoding='utf-8').replace('\r\n', '\n')
+          old_console = '''    Assert-Condition ($content.Contains('-NoNewWindow')) `
+                  'Complete FastPatch base-installer delegation must reuse the existing console.'
+          '''
+          old_console = '\n'.join(line[4:] if line.startswith('    ') else line for line in old_console.split('\n'))
+          new_console = '''    Assert-Condition (
+                  $content.Contains('return Invoke-ProcessAndWait') -and
+                  $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
+                  $content.Contains('$startInfo.CreateNoWindow = $false')
+              ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'
+          '''
+          new_console = '\n'.join(line[4:] if line.startswith('    ') else line for line in new_console.split('\n'))
+          if old_console not in complete_test:
+              raise SystemExit('expected obsolete -NoNewWindow complete FastPatch assertion was not found')
+          complete_test = complete_test.replace(old_console, new_console, 1)
+          complete_test_path.write_text(complete_test, encoding='utf-8')
           '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
           python .github/_fix_sfx_packager.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -99,7 +115,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($path in @('scripts/New-ProtonVPNPatchSfx.ps1', '.github/scripts/test-patch-tooling.ps1')) {
+          foreach ($path in @(
+            'scripts/New-ProtonVPNPatchSfx.ps1',
+            '.github/scripts/test-patch-tooling.ps1',
+            '.github/scripts/test-complete-fast-patch.ps1'
+          )) {
             $tokens = $null
             $errors = $null
             [void][Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
@@ -115,6 +135,6 @@ jobs:
           git rm --force .github/.fastpatch-sfx-cleanup-trigger
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/New-ProtonVPNPatchSfx.ps1 .github/scripts/test-patch-tooling.ps1
+          git add scripts/New-ProtonVPNPatchSfx.ps1 .github/scripts/test-patch-tooling.ps1 .github/scripts/test-complete-fast-patch.ps1
           git commit -m 'Align FastPatch tooling with compiled SFX'
           git push origin HEAD:security/fastpatch-immutable-staging
