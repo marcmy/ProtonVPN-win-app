@@ -18,20 +18,16 @@ jobs:
           persist-credentials: true
 
       - name: Replace IExpress regression with compiled-resource SFX regression
-        shell: pwsh
+        shell: python
         run: |
-          $ErrorActionPreference = 'Stop'
-          $path = '.github/scripts/test-fast-patch-secure-staging.ps1'
-          $content = [IO.File]::ReadAllText($path).Replace("`r`n", "`n")
+          from pathlib import Path
 
-          $functionStart = $content.IndexOf('function Test-IExpressVerifiedInMemoryEntry {', [StringComparison]::Ordinal)
-          $functionEnd = $content.IndexOf('function Test-StaticSecurityContracts {', $functionStart, [StringComparison]::Ordinal)
-          if ($functionStart -lt 0 -or $functionEnd -le $functionStart) {
-              throw 'Could not isolate the existing IExpress SFX smoke test.'
-          }
+          path = Path('.github/scripts/test-fast-patch-secure-staging.ps1')
+          content = path.read_text(encoding='utf-8').replace('\r\n', '\n')
 
-          $replacement = @'
-          function Test-CompiledSfxVerifiedInMemoryEntry {
+          function_start = content.index('function Test-IExpressVerifiedInMemoryEntry {')
+          function_end = content.index('function Test-StaticSecurityContracts {', function_start)
+          replacement = r"""function Test-CompiledSfxVerifiedInMemoryEntry {
               $fixtureRoot = Join-Path $testRoot 'sfx-real-compiled'
               $patch = Join-Path $fixtureRoot 'patch'
               $output = Join-Path $fixtureRoot 'ProtonVPN-Test-Patch.exe'
@@ -127,8 +123,8 @@ jobs:
                   -LauncherPath $fakeLauncher
               Assert-Condition (Test-Path -LiteralPath $output -PathType Leaf) 'Compiled FastPatch SFX smoke fixture was not built.'
 
-              # The built EXE must be self-contained. Mutating the original build inputs after
-              # packaging must not affect the bytes that execute or install at runtime.
+              # Mutating the original build inputs after packaging must not affect the bytes
+              # that the compiled EXE later executes or presents as its patch archive.
               Write-TestText $fakeInstaller @'
           param([string] $PatchPath, [string] $TargetVersion, [switch] $RestartClient, [switch] $PauseBeforeExit, [switch] $ValidateOnly, [string] $ExpectedPatchArchiveSha256 = '')
           Set-Content -LiteralPath $env:PROTONVPN_FASTPATCH_SFX_ATTACKER_MARKER -Value 'attacker replacement executed'
@@ -184,16 +180,12 @@ jobs:
                   ("Compiled SFX leaked runtime staging directories: {0}" -f ($newStages -join ', '))
           }
 
-          '@
-          $content = $content.Substring(0, $functionStart) + $replacement + $content.Substring($functionEnd)
+          """
+          content = content[:function_start] + replacement + content[function_end:]
 
-          $sfxContractStart = $content.IndexOf("    Assert-Condition (-not `$sfx.Contains('AppLaunched=`$launcherFileName'))", [StringComparison]::Ordinal)
-          $sfxContractEnd = $content.IndexOf('    foreach ($content in @($base, $complete)) {', $sfxContractStart, [StringComparison]::Ordinal)
-          if ($sfxContractStart -lt 0 -or $sfxContractEnd -le $sfxContractStart) {
-              throw 'Could not isolate the existing IExpress static security contracts.'
-          }
-          $sfxContracts = @'
-              Assert-Condition (-not $sfx.Contains('IEXPRESS')) `
+          contract_start = content.index("    Assert-Condition (-not $sfx.Contains('AppLaunched=$launcherFileName'))")
+          contract_end = content.index('    foreach ($content in @($base, $complete)) {', contract_start)
+          contracts = r"""    Assert-Condition (-not $sfx.Contains('IEXPRESS')) `
                   'FastPatch SFX still depends on IExpress extraction-before-execution semantics.'
               Assert-Condition (-not $sfx.Contains('AppLaunched=')) `
                   'FastPatch SFX still carries an IExpress AppLaunched trust boundary.'
@@ -220,17 +212,10 @@ jobs:
               Assert-Condition ($sfx.Contains("-ExpectedPatchArchiveSha256 '__PAYLOAD_HASH__'")) `
                   'Compiled SFX loader does not bind payload.zip to its build-time SHA-256.'
 
-          '@
-          $content = $content.Substring(0, $sfxContractStart) + $sfxContracts + $content.Substring($sfxContractEnd)
-          $content = $content.Replace('Test-IExpressVerifiedInMemoryEntry', 'Test-CompiledSfxVerifiedInMemoryEntry')
-          [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
-
-          $tokens = $null
-          $errors = $null
-          [void] [Management.Automation.Language.Parser]::ParseFile($path, [ref] $tokens, [ref] $errors)
-          if ($errors.Count -gt 0) {
-              throw "Updated secure-staging regression does not parse: $($errors[0].Message)"
-          }
+          """
+          content = content[:contract_start] + contracts + content[contract_end:]
+          content = content.replace('Test-IExpressVerifiedInMemoryEntry', 'Test-CompiledSfxVerifiedInMemoryEntry')
+          path.write_text(content, encoding='utf-8')
 
       - name: Parse production scripts and run secure-staging regression
         shell: pwsh
