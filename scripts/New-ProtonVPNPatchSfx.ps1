@@ -140,20 +140,20 @@ function Get-SfxLoaderScript {
     $template = @'
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-function D([string] $Value) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value)) }
-function H([byte[]] $Bytes) {
+function Decode-FastPatchValue([string] $Value) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value)) }
+function Get-FastPatchBytesSha256([byte[]] $Bytes) {
     $sha = [Security.Cryptography.SHA256]::Create()
     try { ([BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant() }
     finally { $sha.Dispose() }
 }
-function IsAdmin {
+function Test-FastPatchAdministrator {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     $p = New-Object Security.Principal.WindowsPrincipal($id)
     $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 $root = [IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/')
-$installer = Join-Path $root (D '__INSTALLER__')
-$payload = Join-Path $root (D '__PAYLOAD__')
+$installer = Join-Path $root (Decode-FastPatchValue '__INSTALLER__')
+$payload = Join-Path $root (Decode-FastPatchValue '__PAYLOAD__')
 foreach ($path in @($root, $installer, $payload)) {
     $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
@@ -169,20 +169,20 @@ try {
     $memory.Dispose()
     $source.Dispose()
 }
-$actualInstallerHash = H $bytes
+$actualInstallerHash = Get-FastPatchBytesSha256 $bytes
 if (-not $actualInstallerHash.Equals('__INSTALLER_HASH__', [StringComparison]::OrdinalIgnoreCase)) {
     throw "IExpress FastPatch installer hash mismatch. Expected __INSTALLER_HASH__, found $actualInstallerHash."
 }
 $scriptText = [Text.Encoding]::UTF8.GetString($bytes)
 if ($scriptText.Length -gt 0 -and $scriptText[0] -eq [char]0xFEFF) { $scriptText = $scriptText.Substring(1) }
-if (-not (IsAdmin)) {
+if (-not (Test-FastPatchAdministrator)) {
     Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class FastPatchConsoleWindow { [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }'
     [FastPatchConsoleWindow]::ShowWindow([FastPatchConsoleWindow]::GetConsoleWindow(), 0) | Out-Null
 }
 $global:ProtonVpnFastPatchVerifiedSfxScriptText = $scriptText
 & ([ScriptBlock]::Create($scriptText)) `
     -PatchPath $payload `
-    -TargetVersion (D '__TARGET__') `
+    -TargetVersion (Decode-FastPatchValue '__TARGET__') `
     -RestartClient `
     -PauseBeforeExit `
     -ExpectedPatchArchiveSha256 '__PAYLOAD_HASH__'
