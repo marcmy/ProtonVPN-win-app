@@ -27,9 +27,10 @@ new_capture = '''    $stdoutPath = Join-Path $fixtureRoot 'loader.stdout.txt'
         -RedirectStandardOutput $stdoutPath `
         -RedirectStandardError $stderrPath `
         -NoNewWindow `
-        -Wait `
         -PassThru
-    $exitCode = $process.ExitCode
+    $process.WaitForExit()
+    $process.Refresh()
+    $exitCode = [int] $process.ExitCode
     $output = @()
     if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) { $output += Get-Content -LiteralPath $stdoutPath }
     if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { $output += Get-Content -LiteralPath $stderrPath }
@@ -70,9 +71,10 @@ base_new = '''    $beforeStages = @(Get-CurrentStageDirectories)
         -RedirectStandardOutput $stdoutPath `
         -RedirectStandardError $stderrPath `
         -NoNewWindow `
-        -Wait `
         -PassThru
-    $exitCode = $process.ExitCode
+    $process.WaitForExit()
+    $process.Refresh()
+    $exitCode = [int] $process.ExitCode
     $output = @()
     if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) { $output += Get-Content -LiteralPath $stdoutPath }
     if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { $output += Get-Content -LiteralPath $stderrPath }
@@ -110,9 +112,10 @@ complete_new = '''    $beforeStages = @(Get-CurrentStageDirectories)
         -RedirectStandardOutput $stdoutPath `
         -RedirectStandardError $stderrPath `
         -NoNewWindow `
-        -Wait `
         -PassThru
-    $exitCode = $process.ExitCode
+    $process.WaitForExit()
+    $process.Refresh()
+    $exitCode = [int] $process.ExitCode
     $output = @()
     if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) { $output += Get-Content -LiteralPath $stdoutPath }
     if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { $output += Get-Content -LiteralPath $stderrPath }
@@ -133,5 +136,43 @@ new_assert = '''    Assert-Condition ($exitCode -eq 0) "Protected standalone Fas
 if s.count(old_assert) != 1:
     raise RuntimeError(f'expected one base E2E assertion block, found {s.count(old_assert)}')
 s = s.replace(old_assert,new_assert)
+
+complete_assert_old = "    Assert-Condition ($exitCode -ne 0) 'Synthetic base-installer failure unexpectedly produced a successful complete install.'\n"
+complete_assert_new = "    Assert-Condition ($exitCode -ne 0) (\"Synthetic base-installer failure unexpectedly produced a successful complete install. Child output:`n{0}\" -f ($output -join [Environment]::NewLine))\n"
+if s.count(complete_assert_old) != 1:
+    raise RuntimeError(f'expected one complete E2E exit assertion, found {s.count(complete_assert_old)}')
+s = s.replace(complete_assert_old, complete_assert_new)
+
+marker = '''function Test-BootstrapSuccessAndAcl {
+'''
+probe = '''function Test-CompressedBootstrapExitPropagation {
+    $encoded = ConvertTo-CompressedEncodedCommand -ScriptText 'exit 42'
+    $process = Start-Process `
+        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded) `
+        -NoNewWindow `
+        -PassThru
+    $process.WaitForExit()
+    $process.Refresh()
+    Assert-Condition ([int] $process.ExitCode -eq 42) `
+        ("Compressed bootstrap decoder flattened exit 42 to exit {0}." -f [int] $process.ExitCode)
+}
+
+function Test-BootstrapSuccessAndAcl {
+'''
+if s.count(marker) != 1:
+    raise RuntimeError(f'expected bootstrap success marker once, found {s.count(marker)}')
+s = s.replace(marker, probe)
+
+call_marker = '''    Test-StaticSecurityContracts
+    Test-BootstrapSuccessAndAcl
+'''
+call_new = '''    Test-StaticSecurityContracts
+    Test-CompressedBootstrapExitPropagation
+    Test-BootstrapSuccessAndAcl
+'''
+if s.count(call_marker) != 1:
+    raise RuntimeError(f'expected bootstrap call marker once, found {s.count(call_marker)}')
+s = s.replace(call_marker, call_new)
 
 p.write_text(s, encoding='utf-8')
