@@ -1,0 +1,81 @@
+name: Fix FastPatch SFX packager
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.head_commit.message == 'Apply FastPatch SFX cleanup'
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: security/fastpatch-immutable-staging
+          persist-credentials: true
+      - name: Remove obsolete packaged-installer rewrite
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          path = Path('scripts/New-ProtonVPNPatchSfx.ps1')
+          text = path.read_text(encoding='utf-8').replace('\r\n', '\n')
+          old = '''    $removedElevationTreeWait = $false
+              $insertedSingleProcessWait = $false
+              $installerLines = @(
+                  foreach ($line in Get-Content -LiteralPath $packagedInstallerScriptPath) {
+                      if (-not $removedElevationTreeWait -and $line.Trim() -eq '-Wait `') {
+                          $removedElevationTreeWait = $true
+                          continue
+                      }
+          
+                      if ($removedElevationTreeWait -and -not $insertedSingleProcessWait -and
+                          $line.Trim() -in @('exit $process.ExitCode', 'return $process.ExitCode')) {
+                          '    $process.WaitForExit()'
+                          $insertedSingleProcessWait = $true
+                      }
+          
+                      $line
+                  }
+              )
+          
+              if (-not $removedElevationTreeWait -or -not $insertedSingleProcessWait) {
+                  throw 'Could not update the packaged installer elevation wait behavior.'
+              }
+              Set-Content -LiteralPath $packagedInstallerScriptPath -Value $installerLines -Encoding UTF8
+          
+          '''
+          # Normalize indentation from the workflow here-string before matching the source block.
+          old = '\n'.join(line[4:] if line.startswith('    ') else line for line in old.split('\n'))
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one legacy elevation-wait rewrite block, found {text.count(old)}')
+          path.write_text(text.replace(old, ''), encoding='utf-8')
+          '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
+          python .github/_fix_sfx_packager.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item -LiteralPath .github/_fix_sfx_packager.py -Force
+      - name: Parse and test FastPatch tooling
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tokens = $null
+          $errors = $null
+          [void][Management.Automation.Language.Parser]::ParseFile('scripts/New-ProtonVPNPatchSfx.ps1',[ref]$tokens,[ref]$errors)
+          if ($errors.Count) { throw $errors[0].Message }
+          .\.github\scripts\test-patch-tooling.ps1
+          .\.github\scripts\test-complete-fast-patch.ps1
+      - name: Commit tested SFX packager cleanup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git rm --force .github/workflows/fix-fastpatch-sfx-packager.yml
+          git rm --force .github/.fastpatch-sfx-cleanup-trigger
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/New-ProtonVPNPatchSfx.ps1
+          git commit -m 'Remove obsolete FastPatch SFX elevation rewrite'
+          git push origin HEAD:security/fastpatch-immutable-staging
