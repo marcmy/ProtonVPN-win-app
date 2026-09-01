@@ -505,8 +505,9 @@ function Test-SfxLoaderRejectsMutatedInstaller {
     }
 
     Assert-Condition ($exitCode -ne 0) 'Hash-pinned SFX loader executed a mutated extracted installer.'
-    Assert-Condition (($output -join [Environment]::NewLine) -match 'installer hash mismatch') `
-        'SFX loader rejected the mutated installer for an unexpected reason.'
+    $loaderOutputText = $output -join [Environment]::NewLine
+    Assert-Condition ($loaderOutputText -match 'installer hash mismatch') `
+        ("SFX loader rejected the mutated installer for an unexpected reason. Child output:`n{0}" -f $loaderOutputText)
 }
 
 function Test-IExpressVerifiedInMemoryEntry {
