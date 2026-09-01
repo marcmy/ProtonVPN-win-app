@@ -1,0 +1,37 @@
+name: Finalize FastPatch bootstrap hardening
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+    paths:
+      - .github/scripts/finalize-fastpatch-bootstrap-hardening.py
+      - .github/workflows/finalize-fastpatch-bootstrap-hardening.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: security/fastpatch-immutable-staging
+
+      - name: Apply bootstrap and module hardening
+        run: python .github/scripts/finalize-fastpatch-bootstrap-hardening.py
+
+      - name: Remove one-time finalization machinery
+        run: |
+          rm .github/scripts/finalize-fastpatch-bootstrap-hardening.py
+          rm .github/workflows/finalize-fastpatch-bootstrap-hardening.yml
+
+      - name: Commit final FastPatch hardening
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Compress FastPatch bootstrap and trust system modules"
+          git push origin HEAD:security/fastpatch-immutable-staging
