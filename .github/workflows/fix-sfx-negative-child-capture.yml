@@ -22,23 +22,39 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $path = '.github/scripts/test-fast-patch-secure-staging.ps1'
-          $content = [IO.File]::ReadAllText($path).Replace("`r`n", "`n")
+          [string[]] $lines = Get-Content -LiteralPath $path
 
-          $functionStart = $content.IndexOf('function Test-SfxLoaderRejectsMutatedInstaller {', [StringComparison]::Ordinal)
-          $functionEnd = $content.IndexOf('function Test-IExpressVerifiedInMemoryEntry {', $functionStart, [StringComparison]::Ordinal)
+          $functionStart = [Array]::IndexOf($lines, 'function Test-SfxLoaderRejectsMutatedInstaller {')
+          $functionEnd = [Array]::IndexOf($lines, 'function Test-IExpressVerifiedInMemoryEntry {')
           if ($functionStart -lt 0 -or $functionEnd -le $functionStart) {
               throw 'Could not isolate Test-SfxLoaderRejectsMutatedInstaller.'
           }
 
-          $prefix = $content.Substring(0, $functionStart)
-          $functionText = $content.Substring($functionStart, $functionEnd - $functionStart)
-          $suffix = $content.Substring($functionEnd)
-          $pattern = '(?ms)^(?<indent>[ \t]*)Push-Location \$fixtureRoot\s*\n\k<indent>try \{\s*\n\k<indent>[ \t]+\$output = @\(& powershell\.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand \$encoded 2>&1\)\s*\n\k<indent>[ \t]+\$exitCode = \$LASTEXITCODE\s*\n\k<indent>\} finally \{\s*\n\k<indent>[ \t]+Pop-Location\s*\n\k<indent>\}'
-          $match = [regex]::Match($functionText, $pattern)
-          if (-not $match.Success) {
-              throw 'Expected SFX mutation child invocation block was not found inside its test function.'
+          $pushIndex = -1
+          for ($i = $functionStart; $i -lt $functionEnd; $i++) {
+              if ($lines[$i].Trim() -eq 'Push-Location $fixtureRoot') {
+                  if ($pushIndex -ge 0) { throw 'Multiple Push-Location blocks found in SFX mutation test.' }
+                  $pushIndex = $i
+              }
           }
-          $indent = $match.Groups['indent'].Value
+          if ($pushIndex -lt 0) { throw 'SFX mutation Push-Location block was not found.' }
+
+          $expected = @(
+              'Push-Location $fixtureRoot',
+              'try {',
+              '$output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)',
+              '$exitCode = $LASTEXITCODE',
+              '} finally {',
+              'Pop-Location',
+              '}'
+          )
+          for ($offset = 0; $offset -lt $expected.Count; $offset++) {
+              if ($lines[$pushIndex + $offset].Trim() -ne $expected[$offset]) {
+                  throw "Unexpected SFX mutation child block at offset $offset : $($lines[$pushIndex + $offset])"
+              }
+          }
+
+          $indent = $lines[$pushIndex].Substring(0, $lines[$pushIndex].IndexOf('P'))
           $replacement = @(
               $indent + 'Push-Location $fixtureRoot',
               $indent + '$previousErrorActionPreference = $ErrorActionPreference',
@@ -53,11 +69,13 @@ jobs:
               $indent + '    $ErrorActionPreference = $previousErrorActionPreference',
               $indent + '    Pop-Location',
               $indent + '}'
-          ) -join "`n"
+          )
 
-          $functionText = $functionText.Substring(0, $match.Index) + $replacement + $functionText.Substring($match.Index + $match.Length)
-          $content = $prefix + $functionText + $suffix
-          [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
+          $before = if ($pushIndex -gt 0) { @($lines[0..($pushIndex - 1)]) } else { @() }
+          $afterStart = $pushIndex + $expected.Count
+          $after = if ($afterStart -lt $lines.Count) { @($lines[$afterStart..($lines.Count - 1)]) } else { @() }
+          $updated = @($before) + @($replacement) + @($after)
+          [IO.File]::WriteAllLines($path, $updated, [Text.UTF8Encoding]::new($false))
 
           $tokens = $null
           $errors = $null
