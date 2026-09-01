@@ -82,3 +82,34 @@ complete_path = 'scripts/Install-ProtonVPNCompletePatch.ps1'
 complete = read(complete_path)
 complete = replace_exact(complete, '''    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `\n        -ArgumentList ($arguments -join ' ') `\n        -NoNewWindow `\n        -Wait `\n        -PassThru\n    return $process.ExitCode\n''', '''    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `\n        -ArgumentList ($arguments -join ' ') `\n        -NoNewWindow `\n        -PassThru\n    $process.WaitForExit()\n    $process.Refresh()\n    return [int] $process.ExitCode\n''', 'complete base-helper exit propagation')
 write(complete_path, complete)
+
+test_path = '.github/scripts/test-fast-patch-secure-staging.ps1'
+test = read(test_path)
+test = replace_exact(test,
+'''function Test-CompressedBootstrapExitPropagation {
+    $encoded = ConvertTo-CompressedEncodedCommand -ScriptText 'exit 42'
+    $process = Start-Process `
+        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded) `
+        -NoNewWindow `
+        -PassThru
+    $process.WaitForExit()
+    $process.Refresh()
+    Assert-Condition ([int] $process.ExitCode -eq 42) `
+        ("Compressed bootstrap decoder flattened exit 42 to exit {0}." -f [int] $process.ExitCode)
+}
+''',
+'''function Test-CompressedBootstrapExitPropagation {
+    $encoded = ConvertTo-CompressedEncodedCommand -ScriptText "throw 'compressed-bootstrap-probe'"
+    $process = Start-Process `
+        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded) `
+        -NoNewWindow `
+        -PassThru
+    $process.WaitForExit()
+    $process.Refresh()
+    Assert-Condition ([int] $process.ExitCode -eq 1) `
+        ("Compressed bootstrap decoder flattened a terminating failure to exit {0}." -f [int] $process.ExitCode)
+}
+''', 'compressed bootstrap regression contract')
+write(test_path, test)
