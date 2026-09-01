@@ -20,11 +20,49 @@ $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("protonvpn-fastpatch-secure-st
 $script:PatchPath = ''
 $script:ExpectedPatchArchiveSha256 = ''
 $script:TrustedArchiveManifestText = ''
+$script:TrustedSfxArchiveBytes = $null
 $script:ValidatedManifestText = ''
 
 function Assert-Condition {
     param([bool] $Condition, [string] $Message)
     if (-not $Condition) { throw $Message }
+}
+
+function Invoke-TestProcessCapture {
+    param(
+        [Parameter(Mandatory = $true)] [string] $FilePath,
+        [Parameter(Mandatory = $true)] [string] $Arguments,
+        [string] $WorkingDirectory = ''
+    )
+
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $FilePath
+    $startInfo.Arguments = $Arguments
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+        $startInfo.WorkingDirectory = $WorkingDirectory
+    }
+
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { throw "Could not start test child process: $FilePath" }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $exitCode = [int] $process.ExitCode
+        $stdout = $stdoutTask.Result
+        $stderr = $stderrTask.Result
+        $output = @()
+        if (-not [string]::IsNullOrWhiteSpace($stdout)) { $output += $stdout.TrimEnd() }
+        if (-not [string]::IsNullOrWhiteSpace($stderr)) { $output += $stderr.TrimEnd() }
+        return [pscustomobject]@{ ExitCode = $exitCode; Output = $output }
+    } finally {
+        $process.Dispose()
+    }
 }
 
 function Write-TestText {
@@ -119,6 +157,9 @@ Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'ConvertTo-Comp
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Resolve-PayloadRoot'
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Resolve-PatchSource'
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Test-PatchPayload'
+Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Get-SystemExecutablePath'
+Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Invoke-Robocopy'
+Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Restore-TrustedVersionBackup'
 Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Get-TrustedStageBootstrap'
 Import-FunctionDefinition -ScriptPath $sfxBuilderScript -Name 'Get-SfxLoaderScript'
 
@@ -246,6 +287,23 @@ function Invoke-BootstrapFixture {
     }
 }
 
+function Test-CompressedBootstrapExitPropagation {
+    $controlEncoded = [Convert]::ToBase64String(
+        [Text.Encoding]::Unicode.GetBytes('[Environment]::Exit(7)'))
+    $control = Invoke-TestProcessCapture `
+        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -Arguments "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $controlEncoded"
+    Assert-Condition ($control.ExitCode -eq 7) `
+        ("Raw Windows PowerShell process control could not observe Environment.Exit(7); saw {0}." -f $control.ExitCode)
+
+    $encoded = ConvertTo-CompressedEncodedCommand -ScriptText "throw 'compressed-bootstrap-probe'"
+    $decoder = Invoke-TestProcessCapture `
+        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -Arguments "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded"
+    Assert-Condition ($decoder.ExitCode -eq 1) `
+        ("Compressed bootstrap decoder flattened a terminating failure to exit {0}. Output:`n{1}" -f $decoder.ExitCode, ($decoder.Output -join [Environment]::NewLine))
+}
+
 function Test-BootstrapSuccessAndAcl {
     $fixture = New-BootstrapFixture -Root (Join-Path $testRoot 'bootstrap-success')
     $stageId = [Guid]::NewGuid().ToString('N')
@@ -312,6 +370,28 @@ function Test-ReparseSourceRejected {
     Assert-Condition (-not (Test-Path -LiteralPath $result.StagePath)) 'Trusted stage leaked after rejecting a reparse-point source.'
 }
 
+function Test-ProtectedRollbackIgnoresMutableRetainedBackup {
+    $fixtureRoot = Join-Path $testRoot 'protected-rollback-source'
+    $trustedRollback = Join-Path $fixtureRoot 'trusted-rollback'
+    $retainedBackup = Join-Path $fixtureRoot 'user-writable-retained-backup'
+    $target = Join-Path $fixtureRoot 'target'
+    New-Item -ItemType Directory -Force -Path $trustedRollback | Out-Null
+    New-Item -ItemType Directory -Force -Path $retainedBackup | Out-Null
+    New-Item -ItemType Directory -Force -Path $target | Out-Null
+
+    Write-TestText (Join-Path $trustedRollback 'ProtonVPN.Client.dll') 'original-protected-bytes'
+    Write-TestText (Join-Path $retainedBackup 'ProtonVPN.Client.dll') 'attacker-mutated-retained-backup'
+    Write-TestText (Join-Path $target 'ProtonVPN.Client.dll') 'partially-installed-bytes'
+
+    Restore-TrustedVersionBackup `
+        -TrustedRollbackDirectory $trustedRollback `
+        -TargetDirectory $target
+
+    Assert-Condition `
+        ((Get-Content -LiteralPath (Join-Path $target 'ProtonVPN.Client.dll') -Raw) -eq 'original-protected-bytes') `
+        'Rollback consumed the mutable retained BackupRoot copy instead of the protected trusted-stage snapshot.'
+}
+
 function Test-BaseInstallerEndToEnd {
     $fixtureRoot = Join-Path $testRoot 'base-end-to-end'
     $installRoot = Join-Path $fixtureRoot 'install'
@@ -335,20 +415,20 @@ function Test-BaseInstallerEndToEnd {
     Write-TestText (Join-Path $payload 'patch-manifest.json') ($manifest | ConvertTo-Json -Depth 6)
 
     $beforeStages = @(Get-CurrentStageDirectories)
-    $output = @(& powershell.exe `
-        -NoProfile `
-        -NonInteractive `
-        -ExecutionPolicy Bypass `
-        -File $baseInstallerScript `
-        -PatchPath $payload `
-        -InstallRoot $installRoot `
-        -TargetVersion '5.1.5' `
-        -BackupRoot $backupRoot `
-        -NoRestart 2>&1)
-    $exitCode = $LASTEXITCODE
+    $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass' +
+        ' -File "' + $baseInstallerScript + '"' +
+        ' -PatchPath "' + $payload + '"' +
+        ' -InstallRoot "' + $installRoot + '"' +
+        ' -TargetVersion 5.1.5' +
+        ' -BackupRoot "' + $backupRoot + '"' +
+        ' -NoRestart'
+    $child = Invoke-TestProcessCapture -FilePath (Join-Path $PSHOME 'powershell.exe') -Arguments $arguments
+    $exitCode = $child.ExitCode
+    $output = @($child.Output)
     Assert-Condition ($exitCode -eq 0) "Protected standalone FastPatch install failed: $($output -join [Environment]::NewLine)"
-    Assert-Condition ((Get-Content -LiteralPath (Join-Path $target 'ProtonVPN.Client.dll') -Raw) -eq 'new-client') `
-        'Standalone FastPatch did not install from the protected staged payload.'
+    $actualClientText = Get-Content -LiteralPath (Join-Path $target 'ProtonVPN.Client.dll') -Raw
+    Assert-Condition ($actualClientText -eq 'new-client') `
+        ("Standalone FastPatch did not install from the protected staged payload. Actual: '{0}'. Child output:`n{1}" -f $actualClientText, ($output -join [Environment]::NewLine))
     $afterStages = @(Get-CurrentStageDirectories)
     Assert-Condition ($afterStages.Count -eq $beforeStages.Count) 'Standalone FastPatch leaked a trusted staging directory.'
 }
@@ -399,19 +479,18 @@ exit 42
     Write-TestText (Join-Path $payload 'patch-manifest.json') ($manifest | ConvertTo-Json -Depth 8)
 
     $beforeStages = @(Get-CurrentStageDirectories)
-    $output = @(& powershell.exe `
-        -NoProfile `
-        -NonInteractive `
-        -ExecutionPolicy Bypass `
-        -File $completeInstallerScript `
-        -PatchPath $payload `
-        -InstallRoot $installRoot `
-        -TargetVersion '5.1.5' `
-        -BackupRoot $backupRoot `
-        -NoRestart 2>&1)
-    $exitCode = $LASTEXITCODE
+    $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass' +
+        ' -File "' + $completeInstallerScript + '"' +
+        ' -PatchPath "' + $payload + '"' +
+        ' -InstallRoot "' + $installRoot + '"' +
+        ' -TargetVersion 5.1.5' +
+        ' -BackupRoot "' + $backupRoot + '"' +
+        ' -NoRestart'
+    $child = Invoke-TestProcessCapture -FilePath (Join-Path $PSHOME 'powershell.exe') -Arguments $arguments
+    $exitCode = $child.ExitCode
+    $output = @($child.Output)
 
-    Assert-Condition ($exitCode -ne 0) 'Synthetic base-installer failure unexpectedly produced a successful complete install.'
+    Assert-Condition ($exitCode -ne 0) ("Synthetic base-installer failure unexpectedly produced a successful complete install. Child output:`n{0}" -f ($output -join [Environment]::NewLine))
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $installRoot 'ProtonVPN.Launcher.exe') -Raw) -eq 'original-launcher') `
         "Complete FastPatch failed to restore the root launcher after staged install failure. Output: $($output -join [Environment]::NewLine)"
     $pending = @(Get-ChildItem -LiteralPath $backupRoot -Directory -Filter '.pending-fastpatch-root-*' -ErrorAction SilentlyContinue)
@@ -505,13 +584,12 @@ function Test-SfxLoaderRejectsMutatedInstaller {
 
     Write-TestText $installer 'param() Write-Output "attacker replacement"; exit 0'
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loader))
-    Push-Location $fixtureRoot
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
-    $exitCode = $LASTEXITCODE
-    $ErrorActionPreference = $previousErrorActionPreference
-    Pop-Location
+    $child = Invoke-TestProcessCapture `
+        -FilePath (Join-Path $PSHOME 'powershell.exe') `
+        -Arguments "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded" `
+        -WorkingDirectory $fixtureRoot
+    $exitCode = $child.ExitCode
+    $output = @($child.Output)
 
     Assert-Condition ($exitCode -ne 0) 'Hash-pinned SFX loader executed a mutated extracted installer.'
     $loaderOutputText = $output -join [Environment]::NewLine
@@ -519,13 +597,14 @@ function Test-SfxLoaderRejectsMutatedInstaller {
         ("SFX loader rejected the mutated installer for an unexpected reason. Child output:`n{0}" -f $loaderOutputText)
 }
 
-function Test-IExpressVerifiedInMemoryEntry {
-    $fixtureRoot = Join-Path $testRoot 'sfx-real-iexpress'
+function Test-CompiledSfxVerifiedInMemoryEntry {
+    $fixtureRoot = Join-Path $testRoot 'sfx-real-compiled'
     $patch = Join-Path $fixtureRoot 'patch'
     $output = Join-Path $fixtureRoot 'ProtonVPN-Test-Patch.exe'
     $fakeInstaller = Join-Path $fixtureRoot 'Install-ProtonVPNPatch.ps1'
     $fakeLauncher = Join-Path $fixtureRoot 'Install-ProtonVPNPatch.cmd'
     $probe = Join-Path $fixtureRoot 'probe.json'
+    $attackerMarker = Join-Path $fixtureRoot 'attacker-marker.txt'
     New-Item -ItemType Directory -Force -Path $patch | Out-Null
     Write-TestText (Join-Path $patch 'ProtonVPN.Client.dll') 'sfx-payload'
     $payloadFile = Get-Item -LiteralPath (Join-Path $patch 'ProtonVPN.Client.dll')
@@ -552,7 +631,6 @@ param(
     [switch] $ValidateOnly,
     [string] $ExpectedPatchArchiveSha256 = ''
 )
-# This dormant function deliberately preserves the packaged-installer process-wait rewrite seam.
 function Dummy-ElevationWait {
     $process = Start-Process -FilePath 'cmd.exe' `
         -ArgumentList '/c exit 0' `
@@ -560,63 +638,121 @@ function Dummy-ElevationWait {
         -PassThru
     return $process.ExitCode
 }
+function Test-SfxWriteDenied {
+    param([Parameter(Mandatory = $true)] [string] $Path)
+    $stream = $null
+    try {
+        $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+        return $false
+    } catch [IO.IOException] {
+        return $true
+    } catch [UnauthorizedAccessException] {
+        return $true
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
+function Test-SfxDeleteDenied {
+    param([Parameter(Mandatory = $true)] [string] $Path)
+    try {
+        Remove-Item -LiteralPath $Path -Force -ErrorAction Stop
+        return $false
+    } catch [IO.IOException] {
+        return $true
+    } catch [UnauthorizedAccessException] {
+        return $true
+    }
+}
 if ($ValidateOnly) { exit 0 }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+$resourceInstallerPath = Join-Path (Get-Location).Path 'Install-ProtonVPNPatch.ps1'
+$trustedArchiveBytes = [byte[]] (Get-Variable -Name 'ProtonVpnFastPatchVerifiedSfxArchiveBytes' -Scope Global -ErrorAction Stop).Value
+$archiveSha = [Security.Cryptography.SHA256]::Create()
+try {
+    $actualTrustedArchiveHash = ([BitConverter]::ToString($archiveSha.ComputeHash($trustedArchiveBytes))).Replace('-', '').ToLowerInvariant()
+} finally {
+    $archiveSha.Dispose()
+}
 $result = [ordered]@{
     IsAdministrator = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     Is64BitProcess = [Environment]::Is64BitProcess
     PSCommandPath = [string] $PSCommandPath
     DefinitionContainsProbe = ([string] $MyInvocation.MyCommand.Definition).Contains('DefinitionContainsProbe')
     PatchPath = [IO.Path]::GetFullPath($PatchPath)
+    InstallerResourcePath = [IO.Path]::GetFullPath($resourceInstallerPath)
     ExpectedPatchArchiveSha256 = $ExpectedPatchArchiveSha256
-    ActualPatchArchiveSha256 = (Get-FileHash -LiteralPath $PatchPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    ActualPatchArchiveSha256 = $actualTrustedArchiveHash
+    PayloadWriteDenied = Test-SfxWriteDenied -Path $PatchPath
+    PayloadDeleteDenied = Test-SfxDeleteDenied -Path $PatchPath
+    InstallerWriteDenied = Test-SfxWriteDenied -Path $resourceInstallerPath
+    InstallerDeleteDenied = Test-SfxDeleteDenied -Path $resourceInstallerPath
 }
 $result | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $env:PROTONVPN_FASTPATCH_SFX_PROBE -Encoding UTF8
 exit 0
 '@
 
+    $stagesBefore = @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter 'ProtonVPNFastPatchSfx-*' -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
     & $sfxBuilderScript `
         -PatchPath $patch `
         -OutputPath $output `
         -InstallerScriptPath $fakeInstaller `
         -LauncherPath $fakeLauncher
-    Assert-Condition (Test-Path -LiteralPath $output -PathType Leaf) 'IExpress SFX smoke fixture was not built.'
+    Assert-Condition (Test-Path -LiteralPath $output -PathType Leaf) 'Compiled FastPatch SFX smoke fixture was not built.'
+
+    Write-TestText $fakeInstaller @'
+param([string] $PatchPath, [string] $TargetVersion, [switch] $RestartClient, [switch] $PauseBeforeExit, [switch] $ValidateOnly, [string] $ExpectedPatchArchiveSha256 = '')
+Set-Content -LiteralPath $env:PROTONVPN_FASTPATCH_SFX_ATTACKER_MARKER -Value 'attacker replacement executed'
+exit 0
+'@
+    Write-TestText (Join-Path $patch 'ProtonVPN.Client.dll') 'attacker-replaced-build-input'
 
     $previousProbe = $env:PROTONVPN_FASTPATCH_SFX_PROBE
-    $previousSystemRoot = $env:SystemRoot
-    $fakeSystemRoot = Join-Path $fixtureRoot 'attacker-system-root'
-    $fakePowerShellDirectory = Join-Path $fakeSystemRoot 'System32\WindowsPowerShell\v1.0'
-    New-Item -ItemType Directory -Force -Path $fakePowerShellDirectory | Out-Null
-    # If the SFX still expands %SystemRoot%, this renamed cmd.exe receives the PowerShell
-    # arguments and the smoke probe never gets written. GLOBALROOT must bypass it entirely.
-    Copy-Item `
-        -LiteralPath (Join-Path $previousSystemRoot 'System32\cmd.exe') `
-        -Destination (Join-Path $fakePowerShellDirectory 'powershell.exe') `
-        -Force
+    $previousAttackerMarker = $env:PROTONVPN_FASTPATCH_SFX_ATTACKER_MARKER
     try {
         $env:PROTONVPN_FASTPATCH_SFX_PROBE = $probe
-        $env:SystemRoot = $fakeSystemRoot
+        $env:PROTONVPN_FASTPATCH_SFX_ATTACKER_MARKER = $attackerMarker
         $process = Start-Process -FilePath $output -PassThru
         if (-not $process.WaitForExit(90000)) {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            throw 'IExpress SFX smoke run did not terminate within 90 seconds.'
+            throw 'Compiled FastPatch SFX smoke run did not terminate within 90 seconds.'
         }
-        Assert-Condition ($process.ExitCode -eq 0) "IExpress SFX smoke run failed with exit code $($process.ExitCode)."
+        Assert-Condition ($process.ExitCode -eq 0) "Compiled FastPatch SFX smoke run failed with exit code $($process.ExitCode)."
     } finally {
-        $env:SystemRoot = $previousSystemRoot
         $env:PROTONVPN_FASTPATCH_SFX_PROBE = $previousProbe
+        $env:PROTONVPN_FASTPATCH_SFX_ATTACKER_MARKER = $previousAttackerMarker
     }
 
-    Assert-Condition (Test-Path -LiteralPath $probe -PathType Leaf) 'IExpress did not execute the hash-pinned in-memory installer entry.'
+    Assert-Condition (-not (Test-Path -LiteralPath $attackerMarker -PathType Leaf)) `
+        'Compiled FastPatch SFX executed the mutable original installer after packaging.'
+    Assert-Condition (Test-Path -LiteralPath $probe -PathType Leaf) `
+        'Compiled FastPatch SFX did not execute the embedded hash-pinned in-memory installer entry.'
     $result = Get-Content -LiteralPath $probe -Raw | ConvertFrom-Json
-    Assert-Condition ([bool] $result.IsAdministrator) 'IExpress smoke installer did not inherit the administrator test token.'
-    Assert-Condition ([bool] $result.Is64BitProcess) 'IExpress did not launch native 64-bit Windows PowerShell.'
+    Assert-Condition ([bool] $result.IsAdministrator) 'Compiled SFX smoke installer did not inherit the administrator test token.'
+    Assert-Condition ([bool] $result.Is64BitProcess) 'Compiled SFX did not launch native 64-bit Windows PowerShell.'
     Assert-Condition ([string]::IsNullOrWhiteSpace([string] $result.PSCommandPath)) `
-        'IExpress directly executed the extracted mutable installer path instead of verified in-memory bytes.'
-    Assert-Condition ([bool] $result.DefinitionContainsProbe) 'Verified installer bytes were not executed as the expected in-memory script block.'
+        'Compiled SFX directly executed a mutable installer path instead of verified in-memory bytes.'
+    Assert-Condition ([bool] $result.DefinitionContainsProbe) `
+        'Embedded verified installer bytes were not executed as the expected in-memory script block.'
     Assert-Condition ([string] $result.ExpectedPatchArchiveSha256 -eq [string] $result.ActualPatchArchiveSha256) `
-        'IExpress did not bind the extracted payload archive to its build-time SHA-256.'
+        'Compiled SFX did not bind the verified in-memory payload archive to its build-time SHA-256.'
+    Assert-Condition ([bool] $result.PayloadWriteDenied) `
+        'Compiled SFX did not keep the extracted payload archive write-locked for the installer lifetime.'
+    Assert-Condition ([bool] $result.PayloadDeleteDenied) `
+        'Compiled SFX did not keep the extracted payload archive delete-locked for the installer lifetime.'
+    Assert-Condition ([bool] $result.InstallerWriteDenied) `
+        'Compiled SFX did not keep the extracted installer resource write-locked for the installer lifetime.'
+    Assert-Condition ([bool] $result.InstallerDeleteDenied) `
+        'Compiled SFX did not keep the extracted installer resource delete-locked for the installer lifetime.'
+    Assert-Condition (-not (Test-Path -LiteralPath ([string] $result.PatchPath))) `
+        'Compiled SFX left its extracted payload resource behind after the installer exited.'
+    Assert-Condition (-not (Test-Path -LiteralPath ([string] $result.InstallerResourcePath))) `
+        'Compiled SFX left its extracted installer resource behind after the installer exited.'
+
+    $stagesAfter = @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter 'ProtonVPNFastPatchSfx-*' -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+    $newStages = @($stagesAfter | Where-Object { $stagesBefore -notcontains $_ })
+    Assert-Condition ($newStages.Count -eq 0) `
+        ("Compiled SFX leaked runtime staging directories: {0}" -f ($newStages -join ', '))
 }
 
 function Test-StaticSecurityContracts {
@@ -664,19 +800,58 @@ function Test-StaticSecurityContracts {
         'Base FastPatch does not qualify privileged CIM service discovery to the trusted CimCmdlets module.'
     Assert-Condition ($base.Contains("Join-Path `$windowsPowerShellHome 'Modules\CimCmdlets\CimCmdlets.psd1'")) `
         'Base FastPatch does not import CimCmdlets from the protected Windows PowerShell module directory.'
+    Assert-Condition ($base.Contains('function Invoke-ProcessAndWait')) `
+        'Base FastPatch does not use the raw process-status helper.'
+    Assert-Condition ($complete.Contains('function Invoke-ProcessAndWait')) `
+        'Complete FastPatch does not use the raw process-status helper.'
+    Assert-Condition (-not $base.Contains('Start-Process -FilePath (Get-WindowsPowerShellPath)')) `
+        'Base FastPatch still relies on Start-Process for a privilege-critical child status.'
+    Assert-Condition (-not $complete.Contains('Start-Process -FilePath (Get-WindowsPowerShellPath)')) `
+        'Complete FastPatch still relies on Start-Process for a privilege-critical child status.'
+    Assert-Condition ($base.Contains("`$trustedRollbackDirectory = Join-Path")) `
+        'Base FastPatch does not create its rollback source inside trusted staging.'
+    Assert-Condition ($base.Contains('-TrustedRollbackDirectory $trustedRollbackDirectory')) `
+        'Base FastPatch rollback does not consume the protected trusted-stage snapshot.'
+    Assert-Condition (-not $base.Contains('-Source $backupDirectory `')) `
+        'Base FastPatch still consumes the mutable retained BackupRoot copy as privileged rollback input.'
+    Assert-Condition ($complete.Contains("`$rollbackRoot = Join-Path `$TrustedStagePath 'Rollback'")) `
+        'Complete FastPatch does not protect the root-launcher rollback source inside trusted staging.'
+    Assert-Condition (-not $complete.Contains("Join-Path `$resolvedBackupRoot ('.pending-fastpatch-root-'")) `
+        'Complete FastPatch still stores its live launcher rollback source in mutable BackupRoot storage.'
 
-    Assert-Condition (-not $sfx.Contains('AppLaunched=$launcherFileName')) `
-        'IExpress still launches the extracted mutable CMD file directly.'
-    Assert-Condition ($sfx.Contains('AppLaunched=$sfxLaunchCommand')) `
-        'IExpress is not anchored to the encoded system-PowerShell verifier.'
-    Assert-Condition (-not $sfx.Contains('%SystemRoot%\System32\WindowsPowerShell')) `
-        'IExpress verifier still trusts the user-overridable SystemRoot environment variable.'
-    Assert-Condition ($sfx.Contains('\\?\GLOBALROOT\SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe')) `
-        'IExpress verifier is not anchored to the immutable GLOBALROOT system PowerShell path.'
+    Assert-Condition (-not $sfx.Contains('IEXPRESS')) `
+        'FastPatch SFX still depends on IExpress extraction-before-execution semantics.'
+    Assert-Condition (-not $sfx.Contains('AppLaunched=')) `
+        'FastPatch SFX still carries an IExpress AppLaunched trust boundary.'
+    Assert-Condition ($sfx.Contains('GetSystemDirectory')) `
+        'Compiled SFX does not derive the protected Windows system directory through Win32.'
+    Assert-Condition ($sfx.Contains('GetManifestResourceStream')) `
+        'Compiled SFX does not load installer, payload, and loader bytes from its own executable resources.'
+    Assert-Condition ($sfx.Contains('FileMode.CreateNew')) `
+        'Compiled SFX does not create its resource copies without replacing attacker-controlled files.'
+    Assert-Condition ($sfx.Contains('FileShare.Read')) `
+        'Compiled SFX parent does not deny write/delete sharing while child PowerShell consumes resource copies.'
+    Assert-Condition ($sfx.Contains('[IO.FileShare]::ReadWrite')) `
+        'Compiled SFX loader cannot read resources while the parent write-lock handle remains open.'
+    Assert-Condition ($sfx.Contains('ProtonVpnFastPatchVerifiedSfxArchiveBytes')) `
+        'Compiled SFX does not bind verified payload archive bytes into installer process memory.'
+    Assert-Condition ($sfx.Contains('Encoding.Unicode.GetBytes(loaderText)')) `
+        'Compiled SFX does not encode the verified embedded loader bytes directly for Windows PowerShell.'
+    Assert-Condition ($sfx.Contains('-EncodedCommand " + encodedCommand')) `
+        'Compiled SFX does not execute the verified embedded loader through direct system PowerShell EncodedCommand.'
+    Assert-Condition ($sfx.Contains('encodedCommand.Length > 30000')) `
+        'Compiled SFX does not enforce the Windows command-line budget for its in-memory loader.'
+    Assert-Condition (-not $sfx.Contains('RedirectStandardInput = true')) `
+        'Compiled SFX still relies on the failed PowerShell stdin loader path.'
+    foreach ($resourceName in @('FastPatch.Loader', 'FastPatch.Installer', 'FastPatch.Payload')) {
+        Assert-Condition ($sfx.Contains($resourceName)) `
+            "Compiled SFX does not embed required resource '$resourceName'."
+    }
     Assert-Condition ($sfx.Contains('[ScriptBlock]::Create($scriptText)')) `
-        'IExpress verifier does not execute only the hash-pinned installer bytes in memory.'
+        'Compiled SFX loader does not execute only the hash-pinned installer bytes in memory.'
     Assert-Condition ($sfx.Contains("-ExpectedPatchArchiveSha256 '__PAYLOAD_HASH__'")) `
-        'IExpress verifier does not bind payload.zip to its build-time SHA-256.'
+        'Compiled SFX loader does not bind payload.zip to its build-time SHA-256.'
+
     foreach ($content in @($base, $complete)) {
         Assert-Condition ($content.Contains('[IO.FileShare]::Read)')) `
             'FastPatch installer does not hold a no-write/no-delete read-sharing lock while expanding a hash-pinned archive.'
@@ -694,14 +869,16 @@ try {
     Assert-Condition (Test-IsAdministrator) 'Secure-staging Windows regression requires the GitHub Windows runner to have an administrator token.'
 
     Test-StaticSecurityContracts
+    Test-CompressedBootstrapExitPropagation
     Test-BootstrapSuccessAndAcl
     Test-MutatedPayloadRejected -Kind Runtime
     Test-MutatedPayloadRejected -Kind Helper
     Test-MutatedInstallerRejected
     Test-VerifiedArchiveManifestSurvivesExtractionRace
     Test-SfxLoaderRejectsMutatedInstaller
-    Test-IExpressVerifiedInMemoryEntry
+    Test-CompiledSfxVerifiedInMemoryEntry
     Test-ReparseSourceRejected
+    Test-ProtectedRollbackIgnoresMutableRetainedBackup
     Test-BaseInstallerEndToEnd
     Test-CompleteLauncherRollbackAfterProtectedStageFailure
 

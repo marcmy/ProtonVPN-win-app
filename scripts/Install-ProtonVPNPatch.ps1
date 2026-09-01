@@ -100,6 +100,37 @@ function Get-WindowsPowerShellPath {
     return Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe'
 }
 
+function Invoke-ProcessAndWait {
+    param(
+        [Parameter(Mandatory = $true)] [string] $FilePath,
+        [Parameter(Mandatory = $true)] [string] $ArgumentText,
+        [switch] $RunAs
+    )
+
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $FilePath
+    $startInfo.Arguments = $ArgumentText
+    if ($RunAs) {
+        $startInfo.UseShellExecute = $true
+        $startInfo.Verb = 'runas'
+    } else {
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $false
+    }
+
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw "Could not start trusted FastPatch child process: $FilePath"
+        }
+        $process.WaitForExit()
+        return [int] $process.ExitCode
+    } finally {
+        $process.Dispose()
+    }
+}
+
 function ConvertTo-QuotedProcessArgument {
     param(
         [Parameter(Mandatory = $true)]
@@ -156,7 +187,13 @@ try {
     `$gzipStream.Dispose()
     `$inputStream.Dispose()
 }
-& ([ScriptBlock]::Create(`$decodedScript))
+try {
+    & ([ScriptBlock]::Create(`$decodedScript))
+    [Environment]::Exit(0)
+} catch {
+    Write-Error -Message `$_.Exception.Message -ErrorAction Continue
+    [Environment]::Exit(1)
+}
 "@
 
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($decoder))
@@ -519,9 +556,22 @@ try {
         $argumentText += ' ' + $ForwardedArgumentText
     }
 
-    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) -ArgumentList $argumentText -NoNewWindow -PassThru
-    $process.WaitForExit()
-    $exitCode = $process.ExitCode
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = Get-WindowsPowerShellPath
+    $startInfo.Arguments = $argumentText
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $false
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw "Could not start trusted staged FastPatch installer: $($startInfo.FileName)"
+        }
+        $process.WaitForExit()
+        $exitCode = [int] $process.ExitCode
+    } finally {
+        $process.Dispose()
+    }
 } finally {
     if (Test-Path -LiteralPath $StageRoot -PathType Container) {
         try {
@@ -533,7 +583,9 @@ try {
     }
 }
 
-exit $exitCode
+if ($exitCode -ne 0) {
+    throw "Trusted staged FastPatch child failed with exit code $exitCode."
+}
 '@
 
     $result = $template
@@ -573,20 +625,15 @@ function Invoke-TrustedStage {
     $bootstrapArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedBootstrap"
 
     if (-not (Test-IsAdministrator)) {
-        $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
-            -ArgumentList $bootstrapArguments `
-            -Verb RunAs `
-            -Wait `
-            -PassThru
-    } else {
-        $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
-            -ArgumentList $bootstrapArguments `
-            -NoNewWindow `
-            -Wait `
-            -PassThru
+        return Invoke-ProcessAndWait `
+            -FilePath (Get-WindowsPowerShellPath) `
+            -ArgumentText $bootstrapArguments `
+            -RunAs
     }
 
-    return $process.ExitCode
+    return Invoke-ProcessAndWait `
+        -FilePath (Get-WindowsPowerShellPath) `
+        -ArgumentText $bootstrapArguments
 }
 
 function Assert-TrustedStage {
@@ -1140,6 +1187,19 @@ function Invoke-Robocopy {
     }
 }
 
+function Restore-TrustedVersionBackup {
+    param(
+        [Parameter(Mandatory = $true)] [string] $TrustedRollbackDirectory,
+        [Parameter(Mandatory = $true)] [string] $TargetDirectory
+    )
+
+    Invoke-Robocopy `
+        -Source $TrustedRollbackDirectory `
+        -Destination $TargetDirectory `
+        -Mirror `
+        -ExcludedDirectories @('ServiceData')
+}
+
 function Get-ProtonServicesForTarget {
     param(
         [Parameter(Mandatory = $true)]
@@ -1217,6 +1277,7 @@ function Stop-ProtonProcessesForTarget {
 function Stop-ProtonServices {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [object[]] $Services
     )
 
@@ -1352,6 +1413,7 @@ $hasMutex = $false
 $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNPatch-{0}" -f [Guid]::NewGuid().ToString('N'))
 $backupDirectory = $null
 $resolvedBackupRoot = $null
+$trustedRollbackDirectory = $null
 $targetDirectory = $null
 $targetFolderName = $null
 $services = @()
@@ -1421,7 +1483,7 @@ try {
     Write-Host "Payload: $payloadRoot"
     Write-Host "Backup:  $backupDirectory"
 
-    $services = Get-ProtonServicesForTarget -TargetDirectory $targetDirectory
+    $services = @(Get-ProtonServicesForTarget -TargetDirectory $targetDirectory)
     $runningServiceNames = @(
         $services |
             Where-Object { $_.State -eq 'Running' } |
@@ -1429,8 +1491,6 @@ try {
     )
 
     if ($PSCmdlet.ShouldProcess($targetDirectory, 'Back up and install Proton VPN custom patch')) {
-        New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
-
         Write-Host 'Closing Proton VPN client...'
         $clientWasRunning = Stop-ProtonProcessesForTarget -TargetDirectory $targetDirectory
 
@@ -1439,12 +1499,26 @@ try {
 
         # ServiceData contains live settings and access-restricted WireGuard key material.
         # Patch payloads cannot target it, so preserve it in place across backup and rollback.
-        Write-Host 'Backing up installed program files while preserving runtime ServiceData...'
+        # BackupRoot may be user-writable; it is archival output only. Rollback consumes only
+        # the Administrator/SYSTEM-controlled snapshot under TrustedStagePath.
+        $trustedRollbackDirectory = Join-Path `
+            $TrustedStagePath `
+            ('Rollback\Version-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $trustedRollbackDirectory -Force | Out-Null
+
+        Write-Host 'Creating protected rollback snapshot while preserving runtime ServiceData...'
         Invoke-Robocopy `
             -Source $targetDirectory `
-            -Destination $backupDirectory `
+            -Destination $trustedRollbackDirectory `
             -Mirror `
             -ExcludedDirectories @('ServiceData')
+
+        Write-Host 'Retaining requested backup copy...'
+        New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+        Invoke-Robocopy `
+            -Source $trustedRollbackDirectory `
+            -Destination $backupDirectory `
+            -Mirror
         $backupCompleted = $true
 
         Write-Host 'Applying patch files...'
@@ -1462,15 +1536,13 @@ try {
 } catch {
     Write-Error -Message $_.Exception.Message -ErrorAction Continue
 
-    if ($backupCompleted -and -not $installCompleted -and $targetDirectory -and $backupDirectory) {
-        Write-Warning 'Patch installation failed. Restoring the backup automatically...'
+    if ($backupCompleted -and -not $installCompleted -and $targetDirectory -and $trustedRollbackDirectory) {
+        Write-Warning 'Patch installation failed. Restoring the protected rollback snapshot automatically...'
         try {
-            Invoke-Robocopy `
-                -Source $backupDirectory `
-                -Destination $targetDirectory `
-                -Mirror `
-                -ExcludedDirectories @('ServiceData')
-            Write-Host 'Backup restored successfully.' -ForegroundColor Yellow
+            Restore-TrustedVersionBackup `
+                -TrustedRollbackDirectory $trustedRollbackDirectory `
+                -TargetDirectory $targetDirectory
+            Write-Host 'Protected rollback snapshot restored successfully.' -ForegroundColor Yellow
         } catch {
             Write-Error `
                 -Message "Automatic rollback failed. The backup remains at '$backupDirectory'. $($_.Exception.Message)" `

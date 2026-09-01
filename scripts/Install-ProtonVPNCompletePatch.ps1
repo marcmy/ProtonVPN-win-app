@@ -100,6 +100,37 @@ function Get-WindowsPowerShellPath {
     return Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe'
 }
 
+function Invoke-ProcessAndWait {
+    param(
+        [Parameter(Mandatory = $true)] [string] $FilePath,
+        [Parameter(Mandatory = $true)] [string] $ArgumentText,
+        [switch] $RunAs
+    )
+
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $FilePath
+    $startInfo.Arguments = $ArgumentText
+    if ($RunAs) {
+        $startInfo.UseShellExecute = $true
+        $startInfo.Verb = 'runas'
+    } else {
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $false
+    }
+
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw "Could not start trusted FastPatch child process: $FilePath"
+        }
+        $process.WaitForExit()
+        return [int] $process.ExitCode
+    } finally {
+        $process.Dispose()
+    }
+}
+
 function ConvertTo-QuotedProcessArgument {
     param([Parameter(Mandatory = $true)] [string] $Value)
 
@@ -152,7 +183,13 @@ try {
     `$gzipStream.Dispose()
     `$inputStream.Dispose()
 }
-& ([ScriptBlock]::Create(`$decodedScript))
+try {
+    & ([ScriptBlock]::Create(`$decodedScript))
+    [Environment]::Exit(0)
+} catch {
+    Write-Error -Message `$_.Exception.Message -ErrorAction Continue
+    [Environment]::Exit(1)
+}
 "@
 
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($decoder))
@@ -515,9 +552,22 @@ try {
         $argumentText += ' ' + $ForwardedArgumentText
     }
 
-    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) -ArgumentList $argumentText -NoNewWindow -PassThru
-    $process.WaitForExit()
-    $exitCode = $process.ExitCode
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = Get-WindowsPowerShellPath
+    $startInfo.Arguments = $argumentText
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $false
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw "Could not start trusted staged FastPatch installer: $($startInfo.FileName)"
+        }
+        $process.WaitForExit()
+        $exitCode = [int] $process.ExitCode
+    } finally {
+        $process.Dispose()
+    }
 } finally {
     if (Test-Path -LiteralPath $StageRoot -PathType Container) {
         try {
@@ -529,7 +579,9 @@ try {
     }
 }
 
-exit $exitCode
+if ($exitCode -ne 0) {
+    throw "Trusted staged FastPatch child failed with exit code $exitCode."
+}
 '@
 
     $result = $template
@@ -569,20 +621,15 @@ function Invoke-TrustedStage {
     $bootstrapArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedBootstrap"
 
     if (-not (Test-IsAdministrator)) {
-        $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
-            -ArgumentList $bootstrapArguments `
-            -Verb RunAs `
-            -Wait `
-            -PassThru
-    } else {
-        $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
-            -ArgumentList $bootstrapArguments `
-            -NoNewWindow `
-            -Wait `
-            -PassThru
+        return Invoke-ProcessAndWait `
+            -FilePath (Get-WindowsPowerShellPath) `
+            -ArgumentText $bootstrapArguments `
+            -RunAs
     }
 
-    return $process.ExitCode
+    return Invoke-ProcessAndWait `
+        -FilePath (Get-WindowsPowerShellPath) `
+        -ArgumentText $bootstrapArguments
 }
 
 function Assert-TrustedStage {
@@ -1346,12 +1393,9 @@ function Invoke-BaseInstaller {
     }
     if ($WhatIfPreference) { $arguments += '-WhatIf' }
 
-    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
-        -ArgumentList ($arguments -join ' ') `
-        -NoNewWindow `
-        -Wait `
-        -PassThru
-    return $process.ExitCode
+    return Invoke-ProcessAndWait `
+        -FilePath (Get-WindowsPowerShellPath) `
+        -ArgumentText ($arguments -join ' ')
 }
 
 $workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNCompletePatch-{0}" -f [Guid]::NewGuid().ToString('N'))
@@ -1466,10 +1510,19 @@ try {
             if ($WhatIfPreference) {
                 Write-Host "What if: replace root launcher '$launcherTarget'."
             } elseif ($PSCmdlet.ShouldProcess($launcherTarget, 'Replace root ProtonVPN launcher')) {
-                $pendingRootBackupDirectory = Join-Path $resolvedBackupRoot ('.pending-fastpatch-root-' + [Guid]::NewGuid().ToString('N'))
-                New-Item -ItemType Directory -Path $pendingRootBackupDirectory -Force | Out-Null
+                # Root-launcher rollback input must never live in mutable BackupRoot storage.
+                Ensure-AdministratorOnlySubdirectory -Root $TrustedStagePath -RelativePath 'Rollback'
+                $rollbackRoot = Join-Path $TrustedStagePath 'Rollback'
+                $pendingRootBackupDirectory = Join-Path `
+                    $rollbackRoot `
+                    ('InstallRoot-' + [Guid]::NewGuid().ToString('N'))
+                New-AdministratorOnlyDirectory -Path $pendingRootBackupDirectory
                 $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
-                Copy-Item -LiteralPath $launcherTarget -Destination $pendingLauncherBackup -Force
+                $launcherBackupHash = (Get-FileHash -LiteralPath $launcherTarget -Algorithm SHA256).Hash.ToLowerInvariant()
+                Copy-AdministratorOnlyFile `
+                    -SourcePath $launcherTarget `
+                    -DestinationPath $pendingLauncherBackup `
+                    -ExpectedHash $launcherBackupHash
                 $rootLauncherPatched = $true
 
                 Stop-RootLauncherProcesses -LauncherPath $launcherTarget
