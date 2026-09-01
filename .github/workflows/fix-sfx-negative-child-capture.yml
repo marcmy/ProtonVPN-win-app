@@ -23,34 +23,40 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $path = '.github/scripts/test-fast-patch-secure-staging.ps1'
           $content = [IO.File]::ReadAllText($path).Replace("`r`n", "`n")
-          $old = @'
-              Push-Location $fixtureRoot
-              try {
-                  $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
-                  $exitCode = $LASTEXITCODE
-              } finally {
-                  Pop-Location
-              }
-          '@
-          $new = @'
-              Push-Location $fixtureRoot
-              $previousErrorActionPreference = $ErrorActionPreference
-              try {
-                  # This child is expected to fail on the build-time installer hash. Capture
-                  # Windows PowerShell's stderr as assertion evidence instead of promoting the
-                  # NativeCommandError through this harness's ErrorActionPreference=Stop.
-                  $ErrorActionPreference = 'Continue'
-                  $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
-                  $exitCode = $LASTEXITCODE
-              } finally {
-                  $ErrorActionPreference = $previousErrorActionPreference
-                  Pop-Location
-              }
-          '@
-          if (-not $content.Contains($old)) {
-              throw 'Expected SFX mutation child invocation block was not found.'
+
+          $functionStart = $content.IndexOf('function Test-SfxLoaderRejectsMutatedInstaller {', [StringComparison]::Ordinal)
+          $functionEnd = $content.IndexOf('function Test-IExpressVerifiedInMemoryEntry {', $functionStart, [StringComparison]::Ordinal)
+          if ($functionStart -lt 0 -or $functionEnd -le $functionStart) {
+              throw 'Could not isolate Test-SfxLoaderRejectsMutatedInstaller.'
           }
-          $content = $content.Replace($old, $new)
+
+          $prefix = $content.Substring(0, $functionStart)
+          $functionText = $content.Substring($functionStart, $functionEnd - $functionStart)
+          $suffix = $content.Substring($functionEnd)
+          $pattern = '(?ms)^(?<indent>[ \t]*)Push-Location \$fixtureRoot\s*\n\k<indent>try \{\s*\n\k<indent>[ \t]+\$output = @\(& powershell\.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand \$encoded 2>&1\)\s*\n\k<indent>[ \t]+\$exitCode = \$LASTEXITCODE\s*\n\k<indent>\} finally \{\s*\n\k<indent>[ \t]+Pop-Location\s*\n\k<indent>\}'
+          $match = [regex]::Match($functionText, $pattern)
+          if (-not $match.Success) {
+              throw 'Expected SFX mutation child invocation block was not found inside its test function.'
+          }
+          $indent = $match.Groups['indent'].Value
+          $replacement = @(
+              $indent + 'Push-Location $fixtureRoot',
+              $indent + '$previousErrorActionPreference = $ErrorActionPreference',
+              $indent + 'try {',
+              $indent + '    # This child is expected to fail on the build-time installer hash. Capture',
+              $indent + "    # Windows PowerShell's stderr as assertion evidence instead of promoting the",
+              $indent + "    # NativeCommandError through this harness's ErrorActionPreference=Stop.",
+              $indent + "    `$ErrorActionPreference = 'Continue'",
+              $indent + '    $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)',
+              $indent + '    $exitCode = $LASTEXITCODE',
+              $indent + '} finally {',
+              $indent + '    $ErrorActionPreference = $previousErrorActionPreference',
+              $indent + '    Pop-Location',
+              $indent + '}'
+          ) -join "`n"
+
+          $functionText = $functionText.Substring(0, $match.Index) + $replacement + $functionText.Substring($match.Index + $match.Length)
+          $content = $prefix + $functionText + $suffix
           [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
 
           $tokens = $null
