@@ -29,6 +29,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:TrustedArchiveManifestText = ''
+$script:TrustedSfxArchiveBytes = $null
+$trustedSfxArchiveVariable = Get-Variable `
+    -Name 'ProtonVpnFastPatchVerifiedSfxArchiveBytes' `
+    -Scope Global `
+    -ErrorAction SilentlyContinue
+if ($null -ne $trustedSfxArchiveVariable -and $trustedSfxArchiveVariable.Value -is [byte[]]) {
+    $script:TrustedSfxArchiveBytes = [byte[]] $trustedSfxArchiveVariable.Value
+}
 $script:FastPatchInvocationScriptText = ''
 $scriptContentsProperty = $MyInvocation.MyCommand.PSObject.Properties['ScriptContents']
 if ($null -ne $scriptContentsProperty -and
@@ -702,6 +710,88 @@ function Resolve-TargetDirectory {
     return $versionDirectories[0].FullName
 }
 
+function Expand-TrustedSfxArchive {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $WorkingDirectory
+    )
+
+    if ($null -eq $script:TrustedSfxArchiveBytes) {
+        throw 'Trusted SFX archive bytes are not available.'
+    }
+    if ([string]::IsNullOrWhiteSpace($ExpectedPatchArchiveSha256)) {
+        throw 'Trusted SFX archive bytes require the build-time archive SHA-256.'
+    }
+    $expectedArchiveHash = $ExpectedPatchArchiveSha256.Trim().ToLowerInvariant()
+    if ($expectedArchiveHash -notmatch '^[0-9a-f]{64}$') {
+        throw "ExpectedPatchArchiveSha256 is invalid: $ExpectedPatchArchiveSha256"
+    }
+    $actualArchiveHash = Get-Sha256HexFromBytes -Bytes $script:TrustedSfxArchiveBytes
+    if (-not $actualArchiveHash.Equals($expectedArchiveHash, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "FastPatch in-memory SFX archive hash mismatch. Expected $expectedArchiveHash, found $actualArchiveHash."
+    }
+
+    $expandedPath = Join-Path $WorkingDirectory 'ExpandedPatch'
+    New-Item -ItemType Directory -Path $expandedPath -Force | Out-Null
+    $expandedFull = [IO.Path]::GetFullPath($expandedPath).TrimEnd('\', '/')
+    $expandedPrefix = $expandedFull + [IO.Path]::DirectorySeparatorChar
+    Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+    $memory = [IO.MemoryStream]::new($script:TrustedSfxArchiveBytes, $false)
+    $archive = [IO.Compression.ZipArchive]::new($memory, [IO.Compression.ZipArchiveMode]::Read, $false)
+    try {
+        $manifestEntries = @(
+            $archive.Entries | Where-Object {
+                $_.FullName.Replace('\', '/').Trim('/').Equals('patch-manifest.json', [StringComparison]::OrdinalIgnoreCase)
+            }
+        )
+        if ($manifestEntries.Count -ne 1) {
+            throw "Verified FastPatch archive must contain exactly one patch-manifest.json entry; found $($manifestEntries.Count)."
+        }
+        $manifestStream = $manifestEntries[0].Open()
+        $manifestReader = [IO.StreamReader]::new($manifestStream, [Text.UTF8Encoding]::new($false), $true)
+        try {
+            $script:TrustedArchiveManifestText = $manifestReader.ReadToEnd()
+        } finally {
+            $manifestReader.Dispose()
+        }
+        if ([string]::IsNullOrWhiteSpace($script:TrustedArchiveManifestText)) {
+            throw 'Verified FastPatch archive contains an empty patch manifest.'
+        }
+
+        foreach ($entry in $archive.Entries) {
+            $relativePath = $entry.FullName.Replace('/', '\').TrimStart('\')
+            if ([string]::IsNullOrWhiteSpace($relativePath)) { continue }
+            $segments = $relativePath.Split([char[]] @('\', '/'), [StringSplitOptions]::RemoveEmptyEntries)
+            if ([IO.Path]::IsPathRooted($relativePath) -or $relativePath.Contains(':') -or $segments -contains '..') {
+                throw "Verified FastPatch archive contains an unsafe entry path: $($entry.FullName)"
+            }
+            $destination = [IO.Path]::GetFullPath((Join-Path $expandedFull $relativePath))
+            if (-not $destination.StartsWith($expandedPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Verified FastPatch archive entry escapes the extraction root: $($entry.FullName)"
+            }
+            if ([string]::IsNullOrEmpty($entry.Name)) {
+                New-Item -ItemType Directory -Path $destination -Force | Out-Null
+                continue
+            }
+            New-Item -ItemType Directory -Path (Split-Path -Path $destination -Parent) -Force | Out-Null
+            $entryStream = $entry.Open()
+            $destinationStream = $null
+            try {
+                $destinationStream = [IO.File]::Open($destination, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+                $entryStream.CopyTo($destinationStream)
+                $destinationStream.Flush()
+            } finally {
+                if ($null -ne $destinationStream) { $destinationStream.Dispose() }
+                $entryStream.Dispose()
+            }
+        }
+    } finally {
+        $archive.Dispose()
+        $memory.Dispose()
+    }
+    return Resolve-PayloadRoot -Root $expandedPath
+}
+
 function Resolve-PatchSource {
     param(
         [Parameter(Mandatory = $true)]
@@ -718,6 +808,9 @@ function Resolve-PatchSource {
     }
 
     $script:TrustedArchiveManifestText = ''
+    if ($null -ne $script:TrustedSfxArchiveBytes) {
+        return Expand-TrustedSfxArchive -WorkingDirectory $WorkingDirectory
+    }
     $resolvedPatchPath = (Resolve-Path -LiteralPath $PatchPath -ErrorAction Stop).Path
     if (Test-Path -LiteralPath $resolvedPatchPath -PathType Leaf) {
         if ([System.IO.Path]::GetExtension($resolvedPatchPath) -ne '.zip') {

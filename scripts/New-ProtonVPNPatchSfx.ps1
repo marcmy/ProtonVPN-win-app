@@ -114,7 +114,7 @@ foreach ($path in @($root, $installer, $payload)) {
         throw "Compiled FastPatch SFX source contains a reparse point: $path"
     }
 }
-$source = [IO.File]::Open($installer, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+$source = [IO.File]::Open($installer, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
 $memory = New-Object IO.MemoryStream
 try {
     $source.CopyTo($memory)
@@ -127,6 +127,20 @@ $actualInstallerHash = Get-FastPatchBytesSha256 $bytes
 if (-not $actualInstallerHash.Equals('__INSTALLER_HASH__', [StringComparison]::OrdinalIgnoreCase)) {
     throw "Compiled FastPatch SFX installer hash mismatch. Expected __INSTALLER_HASH__, found $actualInstallerHash."
 }
+$payloadSource = [IO.File]::Open($payload, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+$payloadMemory = New-Object IO.MemoryStream
+try {
+    $payloadSource.CopyTo($payloadMemory)
+    $payloadBytes = $payloadMemory.ToArray()
+} finally {
+    $payloadMemory.Dispose()
+    $payloadSource.Dispose()
+}
+$actualPayloadHash = Get-FastPatchBytesSha256 $payloadBytes
+if (-not $actualPayloadHash.Equals('__PAYLOAD_HASH__', [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Compiled FastPatch SFX payload hash mismatch. Expected __PAYLOAD_HASH__, found $actualPayloadHash."
+}
+$global:ProtonVpnFastPatchVerifiedSfxArchiveBytes = $payloadBytes
 $scriptText = [Text.Encoding]::UTF8.GetString($bytes)
 if ($scriptText.Length -gt 0 -and $scriptText[0] -eq [char]0xFEFF) { $scriptText = $scriptText.Substring(1) }
 if (-not (Test-FastPatchAdministrator)) {
