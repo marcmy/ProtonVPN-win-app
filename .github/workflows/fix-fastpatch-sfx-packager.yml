@@ -38,6 +38,42 @@ jobs:
           del lines[start:end + 1]
           sfx_path.write_text(''.join(lines), encoding='utf-8')
 
+          installer_path = Path('scripts/Install-ProtonVPNPatch.ps1')
+          installer = installer_path.read_text(encoding='utf-8').replace('\r\n', '\n')
+          helper_anchor = '''function Write-TrustedSnapshot {
+          '''
+          file_hash_helper = '''function Get-Sha256HexFromFile {
+              param([Parameter(Mandatory = $true)] [string] $Path)
+
+              $stream = [IO.File]::Open(
+                  $Path,
+                  [IO.FileMode]::Open,
+                  [IO.FileAccess]::Read,
+                  [IO.FileShare]::Read)
+              try {
+                  $sha256 = [Security.Cryptography.SHA256]::Create()
+                  try {
+                      return ([BitConverter]::ToString(
+                          $sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+                  } finally {
+                      $sha256.Dispose()
+                  }
+              } finally {
+                  $stream.Dispose()
+              }
+          }
+
+          '''
+          file_hash_helper = '\n'.join(line[4:] if line.startswith('    ') else line for line in file_hash_helper.split('\n'))
+          if installer.count(helper_anchor) != 1:
+              raise SystemExit('expected one Write-TrustedSnapshot anchor for file hash helper')
+          installer = installer.replace(helper_anchor, file_hash_helper + helper_anchor, 1)
+          obsolete_file_hash = "(Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()"
+          if installer.count(obsolete_file_hash) != 1:
+              raise SystemExit(f'expected exactly one payload Get-FileHash call; found {installer.count(obsolete_file_hash)}')
+          installer = installer.replace(obsolete_file_hash, 'Get-Sha256HexFromFile -Path $payloadPath', 1)
+          installer_path.write_text(installer, encoding='utf-8')
+
           test_path = Path('.github/scripts/test-patch-tooling.ps1')
           test = test_path.read_text(encoding='utf-8').replace('\r\n', '\n')
           test_lines = test.splitlines(keepends=True)
@@ -137,6 +173,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           foreach ($path in @(
             'scripts/New-ProtonVPNPatchSfx.ps1',
+            'scripts/Install-ProtonVPNPatch.ps1',
             '.github/scripts/test-patch-tooling.ps1',
             '.github/scripts/test-complete-fast-patch.ps1',
             '.github/scripts/test-fast-patch-secure-staging.ps1'
@@ -156,6 +193,6 @@ jobs:
           git rm --force .github/.fastpatch-sfx-cleanup-trigger
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/New-ProtonVPNPatchSfx.ps1 .github/scripts/test-patch-tooling.ps1 .github/scripts/test-complete-fast-patch.ps1 .github/scripts/test-fast-patch-secure-staging.ps1
+          git add scripts/New-ProtonVPNPatchSfx.ps1 scripts/Install-ProtonVPNPatch.ps1 .github/scripts/test-patch-tooling.ps1 .github/scripts/test-complete-fast-patch.ps1 .github/scripts/test-fast-patch-secure-staging.ps1
           git commit -m 'Align FastPatch tooling with compiled SFX'
           git push origin HEAD:security/fastpatch-immutable-staging
