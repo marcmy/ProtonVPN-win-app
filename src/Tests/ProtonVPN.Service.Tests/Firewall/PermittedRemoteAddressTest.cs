@@ -4,10 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.NetworkFilter;
 using ProtonVPN.Service.Firewall;
 using Action = ProtonVPN.NetworkFilter.Action;
+using CoreNetworkAddress = ProtonVPN.Common.Core.Networking.NetworkAddress;
 
 namespace ProtonVPN.Service.Tests.Firewall;
 
@@ -148,7 +148,7 @@ public class PermittedRemoteAddressTest
         }
 
         protected override bool TryCreateFilters(
-            NetworkAddress networkAddress,
+            CoreNetworkAddress networkAddress,
             Action action,
             out List<Guid> guids)
         {
