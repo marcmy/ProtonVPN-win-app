@@ -51,7 +51,7 @@ function Get-PatchManifestJson {
     try {
         $manifestEntries = @(
             $archive.Entries | Where-Object {
-                $normalizedName = $_.FullName.Replace('\\', '/').Trim('/')
+                $normalizedName = $_.FullName.Replace('\', '/').Trim('/')
                 $normalizedName -eq 'patch-manifest.json' -or
                     $normalizedName.EndsWith('/patch-manifest.json', [StringComparison]::OrdinalIgnoreCase)
             }
