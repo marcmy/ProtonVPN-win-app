@@ -1,0 +1,37 @@
+name: Tighten FastPatch archive race regression
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+    paths:
+      - .github/scripts/tighten-fastpatch-archive-test.py
+      - .github/workflows/tighten-fastpatch-archive-test.yml
+
+permissions:
+  contents: write
+
+jobs:
+  tighten:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: security/fastpatch-immutable-staging
+
+      - name: Tighten archive trust regression
+        run: python .github/scripts/tighten-fastpatch-archive-test.py
+
+      - name: Remove one-time tightening machinery
+        run: |
+          rm .github/scripts/tighten-fastpatch-archive-test.py
+          rm .github/workflows/tighten-fastpatch-archive-test.yml
+
+      - name: Commit archive regression correction
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Tighten FastPatch verified archive regression"
+          git push origin HEAD:security/fastpatch-immutable-staging
