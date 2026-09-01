@@ -107,6 +107,16 @@ jobs:
           console_replacement = '\n'.join(line[4:] if line.startswith('    ') else line for line in console_replacement.split('\n'))
           complete_lines[cstart:cstart + 2] = [console_replacement]
           complete_test_path.write_text(''.join(complete_lines), encoding='utf-8')
+
+          secure_test_path = Path('.github/scripts/test-fast-patch-secure-staging.ps1')
+          secure_test = secure_test_path.read_text(encoding='utf-8').replace('\r\n', '\n')
+          obsolete_host = "(Join-Path $PSHOME 'powershell.exe')"
+          host_replacement = "(Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\\v1.0\\powershell.exe')"
+          host_count = secure_test.count(obsolete_host)
+          if host_count != 2:
+              raise SystemExit(f'expected exactly two obsolete PSHOME powershell.exe references; found {host_count}')
+          secure_test = secure_test.replace(obsolete_host, host_replacement)
+          secure_test_path.write_text(secure_test, encoding='utf-8')
           '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
           python .github/_fix_sfx_packager.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -118,7 +128,8 @@ jobs:
           foreach ($path in @(
             'scripts/New-ProtonVPNPatchSfx.ps1',
             '.github/scripts/test-patch-tooling.ps1',
-            '.github/scripts/test-complete-fast-patch.ps1'
+            '.github/scripts/test-complete-fast-patch.ps1',
+            '.github/scripts/test-fast-patch-secure-staging.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -135,6 +146,6 @@ jobs:
           git rm --force .github/.fastpatch-sfx-cleanup-trigger
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/New-ProtonVPNPatchSfx.ps1 .github/scripts/test-patch-tooling.ps1 .github/scripts/test-complete-fast-patch.ps1
+          git add scripts/New-ProtonVPNPatchSfx.ps1 .github/scripts/test-patch-tooling.ps1 .github/scripts/test-complete-fast-patch.ps1 .github/scripts/test-fast-patch-secure-staging.ps1
           git commit -m 'Align FastPatch tooling with compiled SFX'
           git push origin HEAD:security/fastpatch-immutable-staging
