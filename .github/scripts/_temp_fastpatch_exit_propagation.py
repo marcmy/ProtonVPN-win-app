@@ -100,16 +100,32 @@ test = replace_exact(test,
 }
 ''',
 '''function Test-CompressedBootstrapExitPropagation {
+    function Invoke-RawPowerShellChild {
+        param([Parameter(Mandatory = $true)] [string] $EncodedCommand)
+        $startInfo = New-Object Diagnostics.ProcessStartInfo
+        $startInfo.FileName = Join-Path $PSHOME 'powershell.exe'
+        $startInfo.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $EncodedCommand"
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $process = [Diagnostics.Process]::Start($startInfo)
+        try {
+            $process.WaitForExit()
+            return [int] $process.ExitCode
+        } finally {
+            $process.Dispose()
+        }
+    }
+
+    $controlEncoded = [Convert]::ToBase64String(
+        [Text.Encoding]::Unicode.GetBytes('[Environment]::Exit(7)'))
+    $controlExit = Invoke-RawPowerShellChild -EncodedCommand $controlEncoded
+    Assert-Condition ($controlExit -eq 7) `
+        ("Raw Windows PowerShell process control could not observe Environment.Exit(7); saw {0}." -f $controlExit)
+
     $encoded = ConvertTo-CompressedEncodedCommand -ScriptText "throw 'compressed-bootstrap-probe'"
-    $process = Start-Process `
-        -FilePath (Join-Path $PSHOME 'powershell.exe') `
-        -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded) `
-        -NoNewWindow `
-        -PassThru
-    $process.WaitForExit()
-    $process.Refresh()
-    Assert-Condition ([int] $process.ExitCode -eq 1) `
-        ("Compressed bootstrap decoder flattened a terminating failure to exit {0}." -f [int] $process.ExitCode)
+    $decoderExit = Invoke-RawPowerShellChild -EncodedCommand $encoded
+    Assert-Condition ($decoderExit -eq 1) `
+        ("Compressed bootstrap decoder flattened a terminating failure to exit {0}." -f $decoderExit)
 }
 ''', 'compressed bootstrap regression contract')
 write(test_path, test)
