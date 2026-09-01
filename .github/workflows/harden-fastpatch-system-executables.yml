@@ -1,0 +1,37 @@
+name: Harden FastPatch system executable resolution
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+    paths:
+      - .github/scripts/harden-fastpatch-system-executables.py
+      - .github/workflows/harden-fastpatch-system-executables.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: security/fastpatch-immutable-staging
+
+      - name: Apply trusted system executable hardening
+        run: python .github/scripts/harden-fastpatch-system-executables.py
+
+      - name: Remove one-time hardening machinery
+        run: |
+          rm .github/scripts/harden-fastpatch-system-executables.py
+          rm .github/workflows/harden-fastpatch-system-executables.yml
+
+      - name: Commit privileged executable hardening
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Anchor FastPatch privileged launches to system executables"
+          git push origin HEAD:security/fastpatch-immutable-staging
