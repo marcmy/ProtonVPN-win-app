@@ -116,6 +116,16 @@ jobs:
           if host_count != 5:
               raise SystemExit(f'expected exactly five obsolete PSHOME powershell.exe references; found {host_count}')
           secure_test = secure_test.replace(obsolete_host, host_replacement)
+          module_anchor = "Set-StrictMode -Version Latest\n$ErrorActionPreference = 'Stop'\n"
+          module_setup = """$windowsPowerShellModulePath = Join-Path $env:SystemRoot 'System32\\WindowsPowerShell\\v1.0\\Modules'
+          if ((Test-Path -LiteralPath $windowsPowerShellModulePath -PathType Container) -and
+              (($env:PSModulePath -split ';') -notcontains $windowsPowerShellModulePath)) {
+              $env:PSModulePath = $windowsPowerShellModulePath + ';' + $env:PSModulePath
+          }
+          """
+          if module_anchor not in secure_test:
+              raise SystemExit('secure staging regression setup anchor was not found')
+          secure_test = secure_test.replace(module_anchor, module_anchor + module_setup, 1)
           secure_test_path.write_text(secure_test, encoding='utf-8')
           '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
           python .github/_fix_sfx_packager.py
