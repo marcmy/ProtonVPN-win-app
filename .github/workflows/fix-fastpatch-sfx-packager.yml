@@ -40,14 +40,9 @@ jobs:
 
           test_path = Path('.github/scripts/test-patch-tooling.ps1')
           test = test_path.read_text(encoding='utf-8').replace('\r\n', '\n')
-          old = '''    $realInstallerBytes = [System.IO.File]::ReadAllBytes($realInstallerPath)
-              Assert-Condition (
-                  [Text.Encoding]::ASCII.GetString($realInstallerBytes).Contains('MSCF')
-              ) 'IExpress packaging returned an executable without an embedded cabinet payload.'
-          '''
-          old = '\n'.join(line[4:] if line.startswith('    ') else line for line in old.split('\n'))
-          # Avoid indentation sensitivity by locating the byte-read line and old assertion message.
           test_lines = test.splitlines(keepends=True)
+
+          # Replace the obsolete IExpress/CAB assertion with compiled-PE/resource checks.
           tstart = [i for i, line in enumerate(test_lines) if line.strip() == '$realInstallerBytes = [System.IO.File]::ReadAllBytes($realInstallerPath)']
           tend = [i for i, line in enumerate(test_lines) if "IExpress packaging returned an executable without an embedded cabinet payload." in line]
           if len(tstart) != 1 or len(tend) != 1 or tend[0] < tstart[0]:
@@ -66,7 +61,43 @@ jobs:
           '''
           replacement = '\n'.join(line[4:] if line.startswith('    ') else line for line in replacement.split('\n'))
           test_lines[tstart[0]:tend[0] + 1] = [replacement]
-          test_path.write_text(''.join(test_lines), encoding='utf-8')
+
+          # The hardened installer now has three mirrored copies: protected snapshot,
+          # archival backup, and protected rollback restore. Only the snapshot/restore
+          # mirrors need an explicit ServiceData exclusion because the archival source
+          # is already the protected snapshot with ServiceData omitted.
+          test = ''.join(test_lines)
+          old_mirror = '''    Assert-Condition ($mirrorInvocations.Count -eq 2) `
+                  'Installer must have one mirrored backup and one mirrored rollback operation.'
+              foreach ($invocation in $mirrorInvocations) {
+                  Assert-Condition ($invocation.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")) `
+                      'Installer backup and rollback must both preserve runtime ServiceData.'
+              }
+          '''
+          old_mirror = '\n'.join(line[4:] if line.startswith('    ') else line for line in old_mirror.split('\n'))
+          new_mirror = '''    Assert-Condition ($mirrorInvocations.Count -eq 3) `
+                  'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
+              $serviceDataPreservingMirrors = @(
+                  $mirrorInvocations | Where-Object {
+                      $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
+                  }
+              )
+              Assert-Condition ($serviceDataPreservingMirrors.Count -eq 2) `
+                  'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
+              $archiveMirrors = @(
+                  $mirrorInvocations | Where-Object {
+                      $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
+                          $_.Extent.Text.Contains('-Destination $backupDirectory')
+                  }
+              )
+              Assert-Condition ($archiveMirrors.Count -eq 1) `
+                  'Installer must retain exactly one archival backup from the protected rollback snapshot.'
+          '''
+          new_mirror = '\n'.join(line[4:] if line.startswith('    ') else line for line in new_mirror.split('\n'))
+          if old_mirror not in test:
+              raise SystemExit('expected obsolete mirrored-backup assertion block was not found')
+          test = test.replace(old_mirror, new_mirror, 1)
+          test_path.write_text(test, encoding='utf-8')
           '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
           python .github/_fix_sfx_packager.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
