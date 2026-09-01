@@ -20,7 +20,7 @@ old_capture = '''    Push-Location $fixtureRoot
 new_capture = '''    $stdoutPath = Join-Path $fixtureRoot 'loader.stdout.txt'
     $stderrPath = Join-Path $fixtureRoot 'loader.stderr.txt'
     $process = Start-Process `
-        -FilePath (Get-WindowsPowerShellPath) `
+        -FilePath (Join-Path $PSHOME 'powershell.exe') `
         -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded) `
         -WorkingDirectory $fixtureRoot `
         -RedirectStandardOutput $stdoutPath `
