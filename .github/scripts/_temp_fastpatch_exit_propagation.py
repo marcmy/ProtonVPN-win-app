@@ -48,38 +48,24 @@ trusted_stage_new = '''    if (-not (Test-IsAdministrator)) {
     return [int] $process.ExitCode
 '''
 
+decoder_old = '''& ([ScriptBlock]::Create(`$decodedScript))
+"@
+'''
+decoder_new = '''& ([ScriptBlock]::Create(`$decodedScript))
+`$decodedExitCode = `$LASTEXITCODE
+if (`$null -eq `$decodedExitCode) { `$decodedExitCode = 0 }
+exit [int] `$decodedExitCode
+"@
+'''
+
 for path in ('scripts/Install-ProtonVPNPatch.ps1', 'scripts/Install-ProtonVPNCompletePatch.ps1'):
     text = read(path)
+    text = replace_exact(text, decoder_old, decoder_new, f'{path} compressed bootstrap decoder exit propagation')
     text = replace_exact(text, trusted_stage_old, trusted_stage_new, f'{path} trusted-stage exit propagation')
-    # The generated bootstrap already waits explicitly; Refresh makes its child exit read equally deterministic.
-    text = replace_exact(text,
-'''    $process.WaitForExit()
-    $exitCode = $process.ExitCode
-} finally {
-''',
-'''    $process.WaitForExit()
-    $process.Refresh()
-    $exitCode = [int] $process.ExitCode
-} finally {
-''', f'{path} bootstrap child exit propagation')
+    text = replace_exact(text, '''    $process.WaitForExit()\n    $exitCode = $process.ExitCode\n} finally {\n''', '''    $process.WaitForExit()\n    $process.Refresh()\n    $exitCode = [int] $process.ExitCode\n} finally {\n''', f'{path} bootstrap child exit propagation')
     write(path, text)
 
 complete_path = 'scripts/Install-ProtonVPNCompletePatch.ps1'
 complete = read(complete_path)
-complete = replace_exact(complete,
-'''    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
-        -ArgumentList ($arguments -join ' ') `
-        -NoNewWindow `
-        -Wait `
-        -PassThru
-    return $process.ExitCode
-''',
-'''    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `
-        -ArgumentList ($arguments -join ' ') `
-        -NoNewWindow `
-        -PassThru
-    $process.WaitForExit()
-    $process.Refresh()
-    return [int] $process.ExitCode
-''', 'complete base-helper exit propagation')
+complete = replace_exact(complete, '''    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `\n        -ArgumentList ($arguments -join ' ') `\n        -NoNewWindow `\n        -Wait `\n        -PassThru\n    return $process.ExitCode\n''', '''    $process = Start-Process -FilePath (Get-WindowsPowerShellPath) `\n        -ArgumentList ($arguments -join ' ') `\n        -NoNewWindow `\n        -PassThru\n    $process.WaitForExit()\n    $process.Refresh()\n    return [int] $process.ExitCode\n''', 'complete base-helper exit propagation')
 write(complete_path, complete)
