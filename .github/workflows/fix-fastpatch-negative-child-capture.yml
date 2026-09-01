@@ -23,29 +23,28 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $path = '.github/scripts/test-fast-patch-secure-staging.ps1'
           $content = [IO.File]::ReadAllText($path).Replace("`r`n", "`n")
-          $old = @'
-              $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
-              $exitCode = $LASTEXITCODE
-              return [pscustomobject]@{
-          '@
-          $new = @'
-              # Several tests intentionally make the bootstrap fail. Windows PowerShell writes an
-              # unhandled child exception to stderr, which must be captured as test evidence rather
-              # than promoted by this harness's ErrorActionPreference=Stop.
-              $previousErrorActionPreference = $ErrorActionPreference
-              try {
-                  $ErrorActionPreference = 'Continue'
-                  $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
-                  $exitCode = $LASTEXITCODE
-              } finally {
-                  $ErrorActionPreference = $previousErrorActionPreference
-              }
-              return [pscustomobject]@{
-          '@
-          if (-not $content.Contains($old)) {
+          $pattern = '(?ms)^(?<indent>[ \t]*)\$output = @\(& powershell\.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand \$encoded 2>&1\)\n\k<indent>\$exitCode = \$LASTEXITCODE\n\k<indent>return \[pscustomobject\]@\{'
+          $match = [regex]::Match($content, $pattern)
+          if (-not $match.Success) {
               throw 'Expected Invoke-BootstrapFixture child invocation block was not found.'
           }
-          $content = $content.Replace($old, $new)
+          $indent = $match.Groups['indent'].Value
+          $replacementLines = @(
+              $indent + '# Several tests intentionally make the bootstrap fail. Windows PowerShell writes an',
+              $indent + '# unhandled child exception to stderr, which must be captured as test evidence rather',
+              $indent + "# than promoted by this harness's ErrorActionPreference=Stop.",
+              $indent + '$previousErrorActionPreference = $ErrorActionPreference',
+              $indent + 'try {',
+              $indent + "    `$ErrorActionPreference = 'Continue'",
+              $indent + '    $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)',
+              $indent + '    $exitCode = $LASTEXITCODE',
+              $indent + '} finally {',
+              $indent + '    $ErrorActionPreference = $previousErrorActionPreference',
+              $indent + '}',
+              $indent + 'return [pscustomobject]@{'
+          )
+          $replacement = $replacementLines -join "`n"
+          $content = $content.Substring(0, $match.Index) + $replacement + $content.Substring($match.Index + $match.Length)
           [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
 
       - name: Remove one-time workflow and commit
