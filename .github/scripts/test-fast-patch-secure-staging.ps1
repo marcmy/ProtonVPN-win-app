@@ -506,12 +506,12 @@ function Test-SfxLoaderRejectsMutatedInstaller {
     Write-TestText $installer 'param() Write-Output "attacker replacement"; exit 0'
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loader))
     Push-Location $fixtureRoot
-    try {
-        $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
-        $exitCode = $LASTEXITCODE
-    } finally {
-        Pop-Location
-    }
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
+    Pop-Location
 
     Assert-Condition ($exitCode -ne 0) 'Hash-pinned SFX loader executed a mutated extracted installer.'
     $loaderOutputText = $output -join [Environment]::NewLine
