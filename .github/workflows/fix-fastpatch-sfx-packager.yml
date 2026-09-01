@@ -91,22 +91,22 @@ jobs:
           test_path.write_text(''.join(test_lines), encoding='utf-8')
 
           complete_test_path = Path('.github/scripts/test-complete-fast-patch.ps1')
-          complete_test = complete_test_path.read_text(encoding='utf-8').replace('\r\n', '\n')
-          old_console = '''    Assert-Condition ($content.Contains('-NoNewWindow')) `
-                  'Complete FastPatch base-installer delegation must reuse the existing console.'
+          complete_lines = complete_test_path.read_text(encoding='utf-8').replace('\r\n', '\n').splitlines(keepends=True)
+          cstarts = [i for i, line in enumerate(complete_lines) if line.strip() == "Assert-Condition ($content.Contains('-NoNewWindow')) `"]
+          if len(cstarts) != 1:
+              raise SystemExit(f'expected one obsolete -NoNewWindow assertion; starts={cstarts}')
+          cstart = cstarts[0]
+          if cstart + 1 >= len(complete_lines) or 'Complete FastPatch base-installer delegation must reuse the existing console.' not in complete_lines[cstart + 1]:
+              raise SystemExit('obsolete -NoNewWindow assertion message was not found after assertion')
+          console_replacement = '''    Assert-Condition (
+              $content.Contains('return Invoke-ProcessAndWait') -and
+              $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
+              $content.Contains('$startInfo.CreateNoWindow = $false')
+          ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'
           '''
-          old_console = '\n'.join(line[4:] if line.startswith('    ') else line for line in old_console.split('\n'))
-          new_console = '''    Assert-Condition (
-                  $content.Contains('return Invoke-ProcessAndWait') -and
-                  $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
-                  $content.Contains('$startInfo.CreateNoWindow = $false')
-              ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'
-          '''
-          new_console = '\n'.join(line[4:] if line.startswith('    ') else line for line in new_console.split('\n'))
-          if old_console not in complete_test:
-              raise SystemExit('expected obsolete -NoNewWindow complete FastPatch assertion was not found')
-          complete_test = complete_test.replace(old_console, new_console, 1)
-          complete_test_path.write_text(complete_test, encoding='utf-8')
+          console_replacement = '\n'.join(line[4:] if line.startswith('    ') else line for line in console_replacement.split('\n'))
+          complete_lines[cstart:cstart + 2] = [console_replacement]
+          complete_test_path.write_text(''.join(complete_lines), encoding='utf-8')
           '@ | Set-Content -LiteralPath .github/_fix_sfx_packager.py -Encoding UTF8
           python .github/_fix_sfx_packager.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
