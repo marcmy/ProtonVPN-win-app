@@ -77,7 +77,13 @@ function Import-FunctionDefinition {
         throw "Function '$Name' was not found in '$ScriptPath'."
     }
 
-    Invoke-Expression $functionAst.Extent.Text
+    $definition = $functionAst.Extent.Text
+    $scriptScopedDefinition = [regex]::Replace(
+        $definition,
+        '^function\s+' + [regex]::Escape($Name),
+        ('function script:' + $Name),
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    Invoke-Expression $scriptScopedDefinition
 }
 
 function Test-IsAdministrator {
