@@ -16,81 +16,34 @@ jobs:
         with:
           ref: security/fastpatch-immutable-staging
           persist-credentials: true
-
-      - name: Replace stdin loader with direct EncodedCommand
+      - name: Transform verified SFX memory path
+        shell: python
+        run: python .github/scripts/_temp_fastpatch_memory_transform.py
+      - name: Parse transformed production scripts
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $builder = 'scripts/New-ProtonVPNPatchSfx.ps1'
-          $text = [IO.File]::ReadAllText($builder)
-          $old = @'
-              private static int RunPowerShell(string loaderText, string workingDirectory)
-              {
-                  ProcessStartInfo startInfo = new ProcessStartInfo();
-                  startInfo.FileName = GetWindowsPowerShellPath();
-                  startInfo.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command -";
-                  startInfo.WorkingDirectory = workingDirectory;
-                  startInfo.UseShellExecute = false;
-                  startInfo.RedirectStandardInput = true;
-                  startInfo.CreateNoWindow = false;
-
-                  using (Process process = Process.Start(startInfo))
-                  {
-                      if (process == null)
-                      {
-                          throw new InvalidOperationException("Could not start Windows PowerShell for FastPatch.");
-                      }
-                      process.StandardInput.Write(loaderText);
-                      process.StandardInput.Close();
-                      process.WaitForExit();
-                      return process.ExitCode;
-                  }
-              }
-          '@
-          $new = @'
-              private static int RunPowerShell(string loaderText, string workingDirectory)
-              {
-                  string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(loaderText));
-                  if (encodedCommand.Length > 30000)
-                  {
-                      throw new InvalidOperationException("Embedded FastPatch loader exceeds the safe Windows command-line budget: " + encodedCommand.Length + " characters.");
-                  }
-
-                  ProcessStartInfo startInfo = new ProcessStartInfo();
-                  startInfo.FileName = GetWindowsPowerShellPath();
-                  startInfo.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand;
-                  startInfo.WorkingDirectory = workingDirectory;
-                  startInfo.UseShellExecute = false;
-                  startInfo.CreateNoWindow = false;
-
-                  using (Process process = Process.Start(startInfo))
-                  {
-                      if (process == null)
-                      {
-                          throw new InvalidOperationException("Could not start Windows PowerShell for FastPatch.");
-                      }
-                      process.WaitForExit();
-                      return process.ExitCode;
-                  }
-              }
-          '@
-          if (-not $text.Contains($old)) { throw 'stdin RunPowerShell block not found exactly.' }
-          [IO.File]::WriteAllText($builder, $text.Replace($old, $new), [Text.UTF8Encoding]::new($false))
-
-      - name: Parse updated builder
-        shell: pwsh
-        run: |
-          $tokens = $null
-          $errors = $null
-          [void][Management.Automation.Language.Parser]::ParseFile('scripts/New-ProtonVPNPatchSfx.ps1', [ref]$tokens, [ref]$errors)
-          if ($errors.Count) { throw $errors[0].Message }
-
-      - name: Commit transformation
+          foreach ($path in @('scripts/New-ProtonVPNPatchSfx.ps1','scripts/Install-ProtonVPNPatch.ps1','scripts/Install-ProtonVPNCompletePatch.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
+            if ($errors.Count) { throw "$path : $($errors[0].Message)" }
+          }
+      - name: Commit verified memory path
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          foreach ($path in @(
+            '.github/scripts/_temp_fastpatch_memory_transform.py',
+            '.github/workflows/apply-fastpatch-encoded-loader.yml',
+            '.github/workflows/run-fastpatch-memory-transform.yml',
+            '.github/workflows/fix-fastpatch-sfx-memory-archive.yml',
+            '.github/workflows/fix-fastpatch-compiled-loader-launch.yml'
+          )) {
+            if (Test-Path -LiteralPath $path) { git rm --force $path }
+          }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/New-ProtonVPNPatchSfx.ps1
-          git commit -m 'Run compiled FastPatch loader without a mutable path'
+          git add scripts/New-ProtonVPNPatchSfx.ps1 scripts/Install-ProtonVPNPatch.ps1 scripts/Install-ProtonVPNCompletePatch.ps1 .github/workflows/adapt-fastpatch-compiled-sfx-tests.yml
+          git commit -m 'Consume SFX archive from verified process memory'
           git push origin HEAD:security/fastpatch-immutable-staging
