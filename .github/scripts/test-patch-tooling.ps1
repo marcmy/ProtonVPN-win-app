@@ -433,22 +433,22 @@ function Test-InstallerRuntimeDataPreservation {
             $node.Extent.Text -match '(?m)-Mirror(?:\s|$)'
     }, $true))
     Assert-Condition ($mirrorInvocations.Count -eq 3) `
-    'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
+        'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
     $serviceDataPreservingMirrors = @(
-    $mirrorInvocations | Where-Object {
-        $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
-    }
+        $mirrorInvocations | Where-Object {
+            $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
+        }
     )
     Assert-Condition ($serviceDataPreservingMirrors.Count -eq 2) `
-    'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
+        'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
     $archiveMirrors = @(
-    $mirrorInvocations | Where-Object {
-        $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
-            $_.Extent.Text.Contains('-Destination $backupDirectory')
-    }
+        $mirrorInvocations | Where-Object {
+            $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
+                $_.Extent.Text.Contains('-Destination $backupDirectory')
+        }
     )
     Assert-Condition ($archiveMirrors.Count -eq 1) `
-    'Installer must retain exactly one archival backup from the protected rollback snapshot.'
+        'Installer must retain exactly one archival backup from the protected rollback snapshot.' 
 
     New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
     Invoke-Robocopy `

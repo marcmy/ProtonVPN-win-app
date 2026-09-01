@@ -270,10 +270,10 @@ function Test-InstallerLifecycleContracts {
     $content = Get-Content -LiteralPath $completeInstallerScript -Raw
 
     Assert-Condition (
-    $content.Contains('return Invoke-ProcessAndWait') -and
-    $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
-    $content.Contains('$startInfo.CreateNoWindow = $false')
-    ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'
+        $content.Contains('return Invoke-ProcessAndWait') -and
+        $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
+        $content.Contains('$startInfo.CreateNoWindow = $false')
+    ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.' 
     Assert-Condition (-not $content.Contains("'-File', (ConvertTo-QuotedProcessArgument -Value `$PSCommandPath)")) `
         'Complete FastPatch must not cross UAC by reopening the mutable original script path.'
     Assert-Condition ($content.Contains('-EncodedCommand')) `
