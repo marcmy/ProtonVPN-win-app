@@ -228,7 +228,18 @@ function Invoke-BootstrapFixture {
     $encoded = ConvertTo-CompressedEncodedCommand -ScriptText $bootstrap
     Assert-Condition ($encoded.Length -le 30000) 'Compressed trusted-stage bootstrap exceeded the safe command-line budget.'
 
-    # Several tests intentionally make the bootstrap fail. Windows PowerShell writes an     # unhandled child exception to stderr, which must be captured as test evidence rather     # than promoted by this harness's ErrorActionPreference=Stop.     $previousErrorActionPreference = $ErrorActionPreference     try {         $ErrorActionPreference = 'Continue'         $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)         $exitCode = $LASTEXITCODE     } finally {         $ErrorActionPreference = $previousErrorActionPreference     }     return [pscustomobject]@{
+    # Several tests intentionally make the bootstrap fail. Windows PowerShell writes an
+    # unhandled child exception to stderr, which must be captured as test evidence rather
+    # than promoted by this harness's ErrorActionPreference=Stop.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    return [pscustomobject]@{
         ExitCode = $exitCode
         Output = $output
         StagePath = Get-StagePath -StageId $StageId
