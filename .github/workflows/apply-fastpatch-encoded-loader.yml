@@ -17,7 +17,7 @@ jobs:
           ref: security/fastpatch-immutable-staging
           persist-credentials: true
       - name: Transform verified SFX memory path
-        shell: python
+        shell: pwsh
         run: python .github/scripts/_temp_fastpatch_memory_transform.py
       - name: Parse transformed production scripts
         shell: pwsh
