@@ -1,0 +1,302 @@
+name: Harden FastPatch rollback sources
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: security/fastpatch-immutable-staging
+          persist-credentials: true
+
+      - name: Keep rollback inputs inside trusted staging
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Replace-Exact {
+              param(
+                  [Parameter(Mandatory = $true)] [string] $Path,
+                  [Parameter(Mandatory = $true)] [string] $Old,
+                  [Parameter(Mandatory = $true)] [string] $New
+              )
+              $content = [IO.File]::ReadAllText($Path).Replace("`r`n", "`n")
+              $oldText = $Old.Replace("`r`n", "`n")
+              $newText = $New.Replace("`r`n", "`n")
+              if (-not $content.Contains($oldText)) {
+                  throw "Expected transform block was not found in $Path.`n--- expected ---`n$oldText"
+              }
+              $content = $content.Replace($oldText, $newText)
+              [IO.File]::WriteAllText($Path, $content, [Text.UTF8Encoding]::new($false))
+          }
+
+          $base = 'scripts/Install-ProtonVPNPatch.ps1'
+          $complete = 'scripts/Install-ProtonVPNCompletePatch.ps1'
+          $test = '.github/scripts/test-fast-patch-secure-staging.ps1'
+
+          $old = @'
+              if ($exitCode -gt 7) {
+                  throw "robocopy failed with exit code $exitCode while copying '$Source' to '$Destination'."
+              }
+          }
+
+          function Get-ProtonServicesForTarget {
+          '@
+          $new = @'
+              if ($exitCode -gt 7) {
+                  throw "robocopy failed with exit code $exitCode while copying '$Source' to '$Destination'."
+              }
+          }
+
+          function Restore-TrustedVersionBackup {
+              param(
+                  [Parameter(Mandatory = $true)] [string] $TrustedRollbackDirectory,
+                  [Parameter(Mandatory = $true)] [string] $TargetDirectory
+              )
+
+              Invoke-Robocopy `
+                  -Source $TrustedRollbackDirectory `
+                  -Destination $TargetDirectory `
+                  -Mirror `
+                  -ExcludedDirectories @('ServiceData')
+          }
+
+          function Get-ProtonServicesForTarget {
+          '@
+          Replace-Exact -Path $base -Old $old -New $new
+
+          Replace-Exact -Path $base `
+              -Old @'
+          $backupDirectory = $null
+          $resolvedBackupRoot = $null
+          $targetDirectory = $null
+          '@ `
+              -New @'
+          $backupDirectory = $null
+          $resolvedBackupRoot = $null
+          $trustedRollbackDirectory = $null
+          $targetDirectory = $null
+          '@
+
+          Replace-Exact -Path $base `
+              -Old @'
+              if ($PSCmdlet.ShouldProcess($targetDirectory, 'Back up and install Proton VPN custom patch')) {
+                  New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+
+                  Write-Host 'Closing Proton VPN client...'
+          '@ `
+              -New @'
+              if ($PSCmdlet.ShouldProcess($targetDirectory, 'Back up and install Proton VPN custom patch')) {
+                  Write-Host 'Closing Proton VPN client...'
+          '@
+
+          Replace-Exact -Path $base `
+              -Old @'
+                  # ServiceData contains live settings and access-restricted WireGuard key material.
+                  # Patch payloads cannot target it, so preserve it in place across backup and rollback.
+                  Write-Host 'Backing up installed program files while preserving runtime ServiceData...'
+                  Invoke-Robocopy `
+                      -Source $targetDirectory `
+                      -Destination $backupDirectory `
+                      -Mirror `
+                      -ExcludedDirectories @('ServiceData')
+                  $backupCompleted = $true
+
+                  Write-Host 'Applying patch files...'
+          '@ `
+              -New @'
+                  # ServiceData contains live settings and access-restricted WireGuard key material.
+                  # Patch payloads cannot target it, so preserve it in place across backup and rollback.
+                  # The retained BackupRoot copy may be user-writable, so it is archival output only.
+                  # Rollback must consume only the Administrator/SYSTEM-controlled trusted-stage snapshot.
+                  $trustedRollbackDirectory = Join-Path `
+                      $TrustedStagePath `
+                      ('Rollback\Version-' + [Guid]::NewGuid().ToString('N'))
+                  New-Item -ItemType Directory -Path $trustedRollbackDirectory -Force | Out-Null
+
+                  Write-Host 'Creating protected rollback snapshot while preserving runtime ServiceData...'
+                  Invoke-Robocopy `
+                      -Source $targetDirectory `
+                      -Destination $trustedRollbackDirectory `
+                      -Mirror `
+                      -ExcludedDirectories @('ServiceData')
+
+                  Write-Host 'Retaining requested backup copy...'
+                  New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+                  Invoke-Robocopy `
+                      -Source $trustedRollbackDirectory `
+                      -Destination $backupDirectory `
+                      -Mirror
+                  $backupCompleted = $true
+
+                  Write-Host 'Applying patch files...'
+          '@
+
+          Replace-Exact -Path $base `
+              -Old @'
+              if ($backupCompleted -and -not $installCompleted -and $targetDirectory -and $backupDirectory) {
+                  Write-Warning 'Patch installation failed. Restoring the backup automatically...'
+                  try {
+                      Invoke-Robocopy `
+                          -Source $backupDirectory `
+                          -Destination $targetDirectory `
+                          -Mirror `
+                          -ExcludedDirectories @('ServiceData')
+                      Write-Host 'Backup restored successfully.' -ForegroundColor Yellow
+          '@ `
+              -New @'
+              if ($backupCompleted -and -not $installCompleted -and $targetDirectory -and $trustedRollbackDirectory) {
+                  Write-Warning 'Patch installation failed. Restoring the protected rollback snapshot automatically...'
+                  try {
+                      Restore-TrustedVersionBackup `
+                          -TrustedRollbackDirectory $trustedRollbackDirectory `
+                          -TargetDirectory $targetDirectory
+                      Write-Host 'Protected rollback snapshot restored successfully.' -ForegroundColor Yellow
+          '@
+
+          Replace-Exact -Path $complete `
+              -Old @'
+                      $pendingRootBackupDirectory = Join-Path $resolvedBackupRoot ('.pending-fastpatch-root-' + [Guid]::NewGuid().ToString('N'))
+                      New-Item -ItemType Directory -Path $pendingRootBackupDirectory -Force | Out-Null
+                      $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
+                      Copy-Item -LiteralPath $launcherTarget -Destination $pendingLauncherBackup -Force
+                      $rootLauncherPatched = $true
+          '@ `
+              -New @'
+                      # Root-launcher rollback input must never live in mutable BackupRoot storage.
+                      # Keep it in the Administrator/SYSTEM-only trusted stage until the version patch commits.
+                      Ensure-AdministratorOnlySubdirectory -Root $TrustedStagePath -RelativePath 'Rollback'
+                      $rollbackRoot = Join-Path $TrustedStagePath 'Rollback'
+                      $pendingRootBackupDirectory = Join-Path `
+                          $rollbackRoot `
+                          ('InstallRoot-' + [Guid]::NewGuid().ToString('N'))
+                      New-AdministratorOnlyDirectory -Path $pendingRootBackupDirectory
+                      $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
+                      $launcherBackupHash = (Get-FileHash -LiteralPath $launcherTarget -Algorithm SHA256).Hash.ToLowerInvariant()
+                      Copy-AdministratorOnlyFile `
+                          -SourcePath $launcherTarget `
+                          -DestinationPath $pendingLauncherBackup `
+                          -ExpectedHash $launcherBackupHash
+                      $rootLauncherPatched = $true
+          '@
+
+          Replace-Exact -Path $test `
+              -Old @'
+          Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Test-PatchPayload'
+          Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Get-TrustedStageBootstrap'
+          '@ `
+              -New @'
+          Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Test-PatchPayload'
+          Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Get-SystemExecutablePath'
+          Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Invoke-Robocopy'
+          Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Restore-TrustedVersionBackup'
+          Import-FunctionDefinition -ScriptPath $baseInstallerScript -Name 'Get-TrustedStageBootstrap'
+          '@
+
+          Replace-Exact -Path $test `
+              -Old @'
+          function Test-BaseInstallerEndToEnd {
+          '@ `
+              -New @'
+          function Test-ProtectedRollbackIgnoresMutableRetainedBackup {
+              $fixtureRoot = Join-Path $testRoot 'protected-rollback-source'
+              $trustedRollback = Join-Path $fixtureRoot 'trusted-rollback'
+              $retainedBackup = Join-Path $fixtureRoot 'user-writable-retained-backup'
+              $target = Join-Path $fixtureRoot 'target'
+              New-Item -ItemType Directory -Force -Path $trustedRollback | Out-Null
+              New-Item -ItemType Directory -Force -Path $retainedBackup | Out-Null
+              New-Item -ItemType Directory -Force -Path $target | Out-Null
+
+              Write-TestText (Join-Path $trustedRollback 'ProtonVPN.Client.dll') 'original-protected-bytes'
+              Write-TestText (Join-Path $retainedBackup 'ProtonVPN.Client.dll') 'attacker-mutated-retained-backup'
+              Write-TestText (Join-Path $target 'ProtonVPN.Client.dll') 'partially-installed-bytes'
+
+              Restore-TrustedVersionBackup `
+                  -TrustedRollbackDirectory $trustedRollback `
+                  -TargetDirectory $target
+
+              Assert-Condition `
+                  ((Get-Content -LiteralPath (Join-Path $target 'ProtonVPN.Client.dll') -Raw) -eq 'original-protected-bytes') `
+                  'Rollback consumed the mutable retained BackupRoot copy instead of the protected trusted-stage snapshot.'
+          }
+
+          function Test-BaseInstallerEndToEnd {
+          '@
+
+          Replace-Exact -Path $test `
+              -Old @'
+              Assert-Condition ($base.Contains("Join-Path `$windowsPowerShellHome 'Modules\CimCmdlets\CimCmdlets.psd1'")) `
+                  'Base FastPatch does not import CimCmdlets from the protected Windows PowerShell module directory.'
+
+              Assert-Condition (-not $sfx.Contains('AppLaunched=$launcherFileName')) `
+          '@ `
+              -New @'
+              Assert-Condition ($base.Contains("Join-Path `$windowsPowerShellHome 'Modules\CimCmdlets\CimCmdlets.psd1'")) `
+                  'Base FastPatch does not import CimCmdlets from the protected Windows PowerShell module directory.'
+              Assert-Condition ($base.Contains("`$trustedRollbackDirectory = Join-Path")) `
+                  'Base FastPatch does not create its rollback source inside trusted staging.'
+              Assert-Condition ($base.Contains('-TrustedRollbackDirectory $trustedRollbackDirectory')) `
+                  'Base FastPatch rollback does not consume the protected trusted-stage snapshot.'
+              Assert-Condition (-not $base.Contains('-Source $backupDirectory `')) `
+                  'Base FastPatch still consumes the mutable retained BackupRoot copy as privileged input.'
+              Assert-Condition ($complete.Contains("`$rollbackRoot = Join-Path `$TrustedStagePath 'Rollback'")) `
+                  'Complete FastPatch does not protect the root-launcher rollback source inside trusted staging.'
+              Assert-Condition (-not $complete.Contains("Join-Path `$resolvedBackupRoot ('.pending-fastpatch-root-'")) `
+                  'Complete FastPatch still stores its live launcher rollback source in mutable BackupRoot storage.'
+
+              Assert-Condition (-not $sfx.Contains('AppLaunched=$launcherFileName')) `
+          '@
+
+          Replace-Exact -Path $test `
+              -Old @'
+              Test-ReparseSourceRejected
+              Test-BaseInstallerEndToEnd
+              Test-CompleteLauncherRollbackAfterProtectedStageFailure
+          '@ `
+              -New @'
+              Test-ReparseSourceRejected
+              Test-ProtectedRollbackIgnoresMutableRetainedBackup
+              Test-BaseInstallerEndToEnd
+              Test-CompleteLauncherRollbackAfterProtectedStageFailure
+          '@
+
+      - name: Parse and run secure-staging regression before commit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @(
+              'scripts/Install-ProtonVPNPatch.ps1',
+              'scripts/Install-ProtonVPNCompletePatch.ps1',
+              'scripts/New-ProtonVPNPatchSfx.ps1',
+              '.github/scripts/test-fast-patch-secure-staging.ps1'
+          )) {
+              $tokens = $null
+              $errors = $null
+              [void] [Management.Automation.Language.Parser]::ParseFile($path, [ref] $tokens, [ref] $errors)
+              if ($errors.Count -gt 0) {
+                  throw "PowerShell parser rejected $path : $($errors[0].Message)"
+              }
+          }
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/scripts/test-fast-patch-secure-staging.ps1
+          if ($LASTEXITCODE -ne 0) {
+              throw "Secure-staging regression failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Remove one-time workflow and commit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git rm --force .github/workflows/harden-fastpatch-rollback-source.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/Install-ProtonVPNPatch.ps1 scripts/Install-ProtonVPNCompletePatch.ps1 .github/scripts/test-fast-patch-secure-staging.ps1
+          git commit -m 'Keep FastPatch rollback sources inside trusted staging'
+          git push origin HEAD:security/fastpatch-immutable-staging
