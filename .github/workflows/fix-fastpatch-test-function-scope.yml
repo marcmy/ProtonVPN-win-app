@@ -1,0 +1,37 @@
+name: Fix FastPatch secure-staging test function scope
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+    paths:
+      - .github/scripts/fix-fastpatch-test-function-scope.py
+      - .github/workflows/fix-fastpatch-test-function-scope.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: security/fastpatch-immutable-staging
+
+      - name: Apply secure-staging test scope fix
+        run: python .github/scripts/fix-fastpatch-test-function-scope.py
+
+      - name: Remove one-time fix machinery
+        run: |
+          rm .github/scripts/fix-fastpatch-test-function-scope.py
+          rm .github/workflows/fix-fastpatch-test-function-scope.yml
+
+      - name: Commit test harness correction
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Fix FastPatch secure-staging test function scope"
+          git push origin HEAD:security/fastpatch-immutable-staging
