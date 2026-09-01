@@ -53,10 +53,10 @@ decoder_old = '''& ([ScriptBlock]::Create(`$decodedScript))
 '''
 decoder_new = '''try {
     & ([ScriptBlock]::Create(`$decodedScript))
-    exit 0
+    [Environment]::Exit(0)
 } catch {
     Write-Error -Message `$_.Exception.Message -ErrorAction Continue
-    exit 1
+    [Environment]::Exit(1)
 }
 "@
 '''
