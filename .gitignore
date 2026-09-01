@@ -97,7 +97,7 @@ _ReSharper*/
 # JustCode is a .NET coding add-in
 .JustCode
 
-# TeamCity is a build add-in
+# TeamCity build directory
 _TeamCity*
 
 # DotCover is a Code Coverage Tool
@@ -238,3 +238,6 @@ ModelManifest.xml
 
 # Python
 **/__pycache__
+
+# Guest Hole diagnostic captures
+guest-hole-smoke-results/
