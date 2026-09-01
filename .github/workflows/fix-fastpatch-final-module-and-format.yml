@@ -89,25 +89,20 @@ jobs:
           tooling_path = Path('.github/scripts/test-patch-tooling.ps1')
           tooling_lines = tooling_path.read_text(encoding='utf-8').replace('\r\n', '\n').splitlines(keepends=True)
 
-          def indent_range(lines, start_marker, end_marker):
-              starts = [i for i, line in enumerate(lines) if line.rstrip('\n') == start_marker]
-              ends = [i for i, line in enumerate(lines) if line.rstrip('\n') == end_marker]
-              if len(starts) != 1 or len(ends) != 1 or ends[0] < starts[0]:
-                  raise SystemExit(f'formatting range not unique: {start_marker!r} -> {end_marker!r}; starts={starts}, ends={ends}')
-              start, end = starts[0], ends[0]
-              if lines[start].startswith('    '):
-                  raise SystemExit(f'formatting range already indented: {start_marker!r}')
-              for i in range(start, end + 1):
-                  if lines[i].strip():
-                      lines[i] = '    ' + lines[i]
+          pe_start_marker = '$realInstallerBytes = [System.IO.File]::ReadAllBytes($realInstallerPath)'
+          pe_starts = [i for i, line in enumerate(tooling_lines) if line.rstrip('\n') == pe_start_marker]
+          if len(pe_starts) != 1:
+              raise SystemExit(f'PE assertion start not unique; starts={pe_starts}')
+          pe_start = pe_starts[0]
+          pe_end = next((i for i in range(pe_start + 1, len(tooling_lines)) if tooling_lines[i].rstrip('\n') == '}'), None)
+          if pe_end is None:
+              raise SystemExit('PE resource assertion closing brace was not found')
+          if tooling_lines[pe_start].startswith('    '):
+              raise SystemExit('PE assertion block is already indented')
+          for i in range(pe_start, pe_end + 1):
+              if tooling_lines[i].strip():
+                  tooling_lines[i] = '    ' + tooling_lines[i]
 
-          indent_range(
-              tooling_lines,
-              '$realInstallerBytes = [System.IO.File]::ReadAllBytes($realInstallerPath)',
-              '}')
-
-          # The first generic closing brace after the PE/resource assertion is its foreach end.
-          # Re-resolve the mirror block independently after that edit.
           mirror_start = 'Assert-Condition ($mirrorInvocations.Count -eq 3) `'
           mirror_end = "'Installer must retain exactly one archival backup from the protected rollback snapshot.'"
           starts = [i for i, line in enumerate(tooling_lines) if line.rstrip('\n') == mirror_start]
@@ -121,13 +116,21 @@ jobs:
 
           complete_test_path = Path('.github/scripts/test-complete-fast-patch.ps1')
           complete_test_lines = complete_test_path.read_text(encoding='utf-8').replace('\r\n', '\n').splitlines(keepends=True)
-          lifecycle_start = 'Assert-Condition ('
           lifecycle_end = ") 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'"
-          starts = [i for i, line in enumerate(complete_test_lines) if line.rstrip('\n') == lifecycle_start]
           ends = [i for i, line in enumerate(complete_test_lines) if line.rstrip('\n') == lifecycle_end]
-          if len(starts) != 1 or len(ends) != 1 or ends[0] < starts[0]:
-              raise SystemExit(f'lifecycle formatting range not unique; starts={starts}, ends={ends}')
-          for i in range(starts[0], ends[0] + 1):
+          if len(ends) != 1:
+              raise SystemExit(f'lifecycle formatting end not unique; ends={ends}')
+          lifecycle_end_index = ends[0]
+          lifecycle_candidates = [
+              i for i in range(lifecycle_end_index, -1, -1)
+              if complete_test_lines[i].rstrip('\n') == 'Assert-Condition ('
+          ]
+          if not lifecycle_candidates:
+              raise SystemExit('lifecycle formatting start was not found')
+          lifecycle_start_index = lifecycle_candidates[0]
+          if complete_test_lines[lifecycle_start_index].startswith('    '):
+              raise SystemExit('lifecycle assertion block is already indented')
+          for i in range(lifecycle_start_index, lifecycle_end_index + 1):
               if complete_test_lines[i].strip():
                   complete_test_lines[i] = '    ' + complete_test_lines[i]
           complete_test_path.write_text(''.join(complete_test_lines), encoding='utf-8')
