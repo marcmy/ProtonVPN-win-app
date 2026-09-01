@@ -776,6 +776,10 @@ function Test-StaticSecurityContracts {
             "$($item.Name) installer still resolves PowerShell through a mutable executable search path."
         Assert-Condition ($item.Content.Contains('Get-WindowsPowerShellPath')) `
             "$($item.Name) installer does not anchor privileged PowerShell launches to the protected Windows system directory."
+        Assert-Condition (-not $item.Content.Contains('Get-FileHash')) `
+            "$($item.Name) installer still relies on module-autoloaded Get-FileHash in the privileged path."
+        Assert-Condition (-not $item.Content.Contains('Get-Acl')) `
+            "$($item.Name) installer still relies on module-autoloaded Get-Acl in the privileged path."
         Assert-Condition ($item.Content.Contains('ConvertTo-CompressedEncodedCommand -ScriptText $bootstrap')) `
             "$($item.Name) installer does not compress its inline elevation bootstrap before -EncodedCommand."
         Assert-Condition ($item.Content.Contains('[IO.DirectoryInfo]::new($Path)')) `

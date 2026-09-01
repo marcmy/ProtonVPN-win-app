@@ -210,6 +210,27 @@ function Get-Sha256HexFromBytes {
     }
 }
 
+function Get-Sha256HexFromFile {
+    param([Parameter(Mandatory = $true)] [string] $Path)
+
+    $stream = [IO.File]::Open(
+        $Path,
+        [IO.FileMode]::Open,
+        [IO.FileAccess]::Read,
+        [IO.FileShare]::Read)
+    try {
+        $sha256 = [Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString(
+                $sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 function Write-TrustedSnapshot {
     param(
         [Parameter(Mandatory = $true)] [string] $Path,
@@ -671,7 +692,9 @@ function Assert-TrustedStage {
             throw "Trusted FastPatch stage contains a reparse point: $($item.FullName)"
         }
 
-        $acl = Get-Acl -LiteralPath $item.FullName
+        $acl = $item.GetAccessControl(
+            [Security.AccessControl.AccessControlSections]::Access -bor
+                [Security.AccessControl.AccessControlSections]::Owner)
         if (-not $acl.AreAccessRulesProtected) {
             throw "Trusted FastPatch stage ACL inheritance is not protected: $($item.FullName)"
         }
@@ -1086,7 +1109,7 @@ function Test-CompletePatchPayload {
         if ($expectedHash -notmatch '^[0-9a-f]{64}$') {
             throw "Patch manifest contains an invalid SHA-256 value for '$relativePath'."
         }
-        $actualHash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $actualHash = Get-Sha256HexFromFile -Path $payloadPath
         if (-not $actualHash.Equals($expectedHash, [StringComparison]::OrdinalIgnoreCase)) {
             throw "Patch payload hash mismatch for '$relativePath'. Expected $expectedHash, found $actualHash."
         }
@@ -1214,7 +1237,7 @@ function Copy-AdministratorOnlyFile {
         $source.Dispose()
     }
 
-    $actualHash = (Get-FileHash -LiteralPath $DestinationPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actualHash = Get-Sha256HexFromFile -Path $DestinationPath
     if (-not $actualHash.Equals($ExpectedHash.Trim().ToLowerInvariant(), [StringComparison]::OrdinalIgnoreCase)) {
         throw "Protected version payload hash mismatch for '$DestinationPath'."
     }
@@ -1518,7 +1541,7 @@ try {
                     ('InstallRoot-' + [Guid]::NewGuid().ToString('N'))
                 New-AdministratorOnlyDirectory -Path $pendingRootBackupDirectory
                 $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
-                $launcherBackupHash = (Get-FileHash -LiteralPath $launcherTarget -Algorithm SHA256).Hash.ToLowerInvariant()
+                $launcherBackupHash = Get-Sha256HexFromFile -Path $launcherTarget
                 Copy-AdministratorOnlyFile `
                     -SourcePath $launcherTarget `
                     -DestinationPath $pendingLauncherBackup `
@@ -1528,7 +1551,7 @@ try {
                 Stop-RootLauncherProcesses -LauncherPath $launcherTarget
                 Copy-Item -LiteralPath $launcherSource -Destination $launcherTarget -Force
                 $expectedLauncherHash = [string] (@($manifest.files | Where-Object { ([string] $_.scope) -eq 'installRoot' })[0].sha256)
-                $installedLauncherHash = (Get-FileHash -LiteralPath $launcherTarget -Algorithm SHA256).Hash.ToLowerInvariant()
+                $installedLauncherHash = Get-Sha256HexFromFile -Path $launcherTarget
                 if (-not $installedLauncherHash.Equals($expectedLauncherHash, [StringComparison]::OrdinalIgnoreCase)) {
                     throw 'Installed ProtonVPN.Launcher.exe hash verification failed after copy.'
                 }
