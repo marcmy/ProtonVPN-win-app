@@ -51,16 +51,29 @@ trusted_stage_new = '''    if (-not (Test-IsAdministrator)) {
 decoder_old = '''& ([ScriptBlock]::Create(`$decodedScript))
 "@
 '''
-decoder_new = '''& ([ScriptBlock]::Create(`$decodedScript))
-`$decodedExitCode = `$LASTEXITCODE
-if (`$null -eq `$decodedExitCode) { `$decodedExitCode = 0 }
-exit [int] `$decodedExitCode
+decoder_new = '''try {
+    & ([ScriptBlock]::Create(`$decodedScript))
+    exit 0
+} catch {
+    Write-Error -Message `$_.Exception.Message -ErrorAction Continue
+    exit 1
+}
 "@
+'''
+
+bootstrap_exit_old = '''exit $exitCode
+'@
+'''
+bootstrap_exit_new = '''if ($exitCode -ne 0) {
+    throw "Trusted staged FastPatch child failed with exit code $exitCode."
+}
+'@
 '''
 
 for path in ('scripts/Install-ProtonVPNPatch.ps1', 'scripts/Install-ProtonVPNCompletePatch.ps1'):
     text = read(path)
-    text = replace_exact(text, decoder_old, decoder_new, f'{path} compressed bootstrap decoder exit propagation')
+    text = replace_exact(text, decoder_old, decoder_new, f'{path} compressed bootstrap decoder failure propagation')
+    text = replace_exact(text, bootstrap_exit_old, bootstrap_exit_new, f'{path} trusted-stage bootstrap failure contract')
     text = replace_exact(text, trusted_stage_old, trusted_stage_new, f'{path} trusted-stage exit propagation')
     text = replace_exact(text, '''    $process.WaitForExit()\n    $exitCode = $process.ExitCode\n} finally {\n''', '''    $process.WaitForExit()\n    $process.Refresh()\n    $exitCode = [int] $process.ExitCode\n} finally {\n''', f'{path} bootstrap child exit propagation')
     write(path, text)
