@@ -21,22 +21,20 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $path = 'scripts/Install-ProtonVPNPatch.ps1'
-          $content = [IO.File]::ReadAllText($path).Replace("`r`n", "`n")
-          $old = @'
-        $acl = $item.GetAccessControl(
-    [Security.AccessControl.AccessControlSections]::Access -bor
-        [Security.AccessControl.AccessControlSections]::Owner)
-'@
-          $new = @'
-        $acl = $item.GetAccessControl(
-            [Security.AccessControl.AccessControlSections]::Access -bor
-                [Security.AccessControl.AccessControlSections]::Owner)
-'@
-          $matches = ([regex]::Matches($content, [regex]::Escape($old))).Count
-          if ($matches -ne 1) { throw "Expected exactly one ACL formatting block; found $matches" }
-          $content = $content.Replace($old, $new)
-          [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
+          @'
+          from pathlib import Path
+          path = Path('scripts/Install-ProtonVPNPatch.ps1')
+          content = path.read_text(encoding='utf-8').replace('\r\n', '\n')
+          old = "        $acl = $item.GetAccessControl(\n    [Security.AccessControl.AccessControlSections]::Access -bor\n        [Security.AccessControl.AccessControlSections]::Owner)"
+          new = "        $acl = $item.GetAccessControl(\n            [Security.AccessControl.AccessControlSections]::Access -bor\n                [Security.AccessControl.AccessControlSections]::Owner)"
+          count = content.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one ACL formatting block; found {count}')
+          path.write_text(content.replace(old, new, 1), encoding='utf-8')
+          '@ | Set-Content -LiteralPath .github/_format_acl.py -Encoding UTF8
+          python .github/_format_acl.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item -LiteralPath .github/_format_acl.py -Force
       - name: Parse and test FastPatch tooling
         shell: pwsh
         run: |
