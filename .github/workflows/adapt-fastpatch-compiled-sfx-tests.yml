@@ -25,6 +25,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python .github/scripts/_temp_fastpatch_finalize.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python .github/scripts/_temp_fastpatch_exit_propagation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Parse and run secure-staging regression
         shell: pwsh
         run: |
@@ -49,6 +51,7 @@ jobs:
           git rm --force .github/scripts/_temp_fastpatch_adapt_compiled_test.py
           git rm --force .github/scripts/_temp_fastpatch_test_init.py
           git rm --force .github/scripts/_temp_fastpatch_finalize.py
+          git rm --force .github/scripts/_temp_fastpatch_exit_propagation.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/Install-ProtonVPNPatch.ps1 scripts/Install-ProtonVPNCompletePatch.ps1 .github/scripts/test-fast-patch-secure-staging.ps1
