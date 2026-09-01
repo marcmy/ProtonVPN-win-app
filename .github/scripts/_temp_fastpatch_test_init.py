@@ -121,4 +121,17 @@ if s.count(complete_old) != 1:
     raise RuntimeError(f'expected one complete E2E native capture block, found {s.count(complete_old)}')
 s = s.replace(complete_old,complete_new)
 
+old_assert = '''    Assert-Condition ($exitCode -eq 0) "Protected standalone FastPatch install failed: $($output -join [Environment]::NewLine)"
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $target 'ProtonVPN.Client.dll') -Raw) -eq 'new-client') `
+        'Standalone FastPatch did not install from the protected staged payload.'
+'''
+new_assert = '''    Assert-Condition ($exitCode -eq 0) "Protected standalone FastPatch install failed: $($output -join [Environment]::NewLine)"
+    $actualClientText = Get-Content -LiteralPath (Join-Path $target 'ProtonVPN.Client.dll') -Raw
+    Assert-Condition ($actualClientText -eq 'new-client') `
+        ("Standalone FastPatch did not install from the protected staged payload. Actual: '{0}'. Child output:`n{1}" -f $actualClientText, ($output -join [Environment]::NewLine))
+'''
+if s.count(old_assert) != 1:
+    raise RuntimeError(f'expected one base E2E assertion block, found {s.count(old_assert)}')
+s = s.replace(old_assert,new_assert)
+
 p.write_text(s, encoding='utf-8')
