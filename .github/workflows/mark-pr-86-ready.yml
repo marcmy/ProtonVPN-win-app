@@ -1,0 +1,20 @@
+name: Mark PR 86 ready
+
+on:
+  push:
+    branches:
+      - security/fastpatch-immutable-staging
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ready:
+    if: github.event.head_commit.message == 'Mark PR #86 ready'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Mark pull request ready for review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr ready 86 --repo marcmy/ProtonVPN-win-app
