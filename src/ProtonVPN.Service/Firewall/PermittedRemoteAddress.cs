@@ -47,28 +47,61 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
     public void Add(string[] addresses, Action action)
     {
         HashSet<string> desiredAddresses = new(StringComparer.OrdinalIgnoreCase);
-        bool hasFailures = false;
+        Dictionary<string, List<Guid>> stagedAddresses = new(StringComparer.OrdinalIgnoreCase);
+        List<string> staleAddresses = [];
+        bool transactionStarted = false;
 
-        foreach (string address in addresses ?? [])
+        try
         {
-            if (!TryCreateAddressFilters(address, action, desiredAddresses))
+            StartTransaction();
+            transactionStarted = true;
+
+            foreach (string address in addresses ?? [])
             {
-                hasFailures = true;
+                if (!TryStageAddressFilters(address, action, desiredAddresses, stagedAddresses))
+                {
+                    AbortTransaction();
+                    transactionStarted = false;
+                    return;
+                }
+            }
+
+            staleAddresses = _list.Keys
+                .Where(address => !desiredAddresses.Contains(address))
+                .ToList();
+
+            foreach (string staleAddress in staleAddresses)
+            {
+                RemoveGuids(_list[staleAddress]);
+            }
+
+            CommitTransaction();
+            transactionStarted = false;
+        }
+        finally
+        {
+            if (transactionStarted)
+            {
+                AbortTransaction();
             }
         }
 
-        if (hasFailures)
+        foreach ((string address, List<Guid> guids) in stagedAddresses)
         {
-            return;
+            _list[address] = guids;
         }
 
-        foreach (string staleAddress in _list.Keys.Where(address => !desiredAddresses.Contains(address)).ToList())
+        foreach (string staleAddress in staleAddresses)
         {
-            Remove(staleAddress);
+            _list.Remove(staleAddress);
         }
     }
 
-    private bool TryCreateAddressFilters(string address, Action action, HashSet<string> desiredAddresses)
+    private bool TryStageAddressFilters(
+        string address,
+        Action action,
+        HashSet<string> desiredAddresses,
+        Dictionary<string, List<Guid>> stagedAddresses)
     {
         if (!CoreNetworkAddress.TryParse(address, out CoreNetworkAddress networkAddress))
         {
@@ -78,7 +111,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
         string normalizedAddress = networkAddress.ToString();
         desiredAddresses.Add(normalizedAddress);
 
-        if (_list.ContainsKey(normalizedAddress))
+        if (_list.ContainsKey(normalizedAddress) || stagedAddresses.ContainsKey(normalizedAddress))
         {
             return true;
         }
@@ -88,11 +121,26 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
             return false;
         }
 
-        _list[normalizedAddress] = guids;
+        stagedAddresses[normalizedAddress] = guids;
         return true;
     }
 
-    private bool TryCreateFilters(CoreNetworkAddress networkAddress, Action action, out List<Guid> guids)
+    protected virtual void StartTransaction()
+    {
+        _ipFilter.DynamicInstance.Session.StartTransaction();
+    }
+
+    protected virtual void AbortTransaction()
+    {
+        _ipFilter.DynamicInstance.Session.AbortTransaction();
+    }
+
+    protected virtual void CommitTransaction()
+    {
+        _ipFilter.DynamicInstance.Session.CommitTransaction();
+    }
+
+    protected virtual bool TryCreateFilters(CoreNetworkAddress networkAddress, Action action, out List<Guid> guids)
     {
         List<Guid> createdGuids = [];
 
@@ -150,7 +198,7 @@ public class PermittedRemoteAddress : IPermittedRemoteAddress
         _list.Remove(address);
     }
 
-    private void RemoveGuids(List<Guid> guids)
+    protected virtual void RemoveGuids(List<Guid> guids)
     {
         foreach (Guid guid in guids)
         {
