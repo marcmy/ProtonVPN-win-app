@@ -23,10 +23,12 @@ using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts.Enums;
 using ProtonVPN.Client.Logic.Auth.Contracts.Models;
+using ProtonVPN.Client.Logic.Connection.Contracts.GuestHole;
 using ProtonVPN.Client.Logic.Servers.Cache;
 using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Logic.Updates.Contracts;
 using ProtonVPN.Client.Logic.Users.Contracts;
+using ProtonVPN.Client.Services.Bootstrapping.Diagnostics;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.Settings.Contracts.Enums;
 using ProtonVPN.Client.Settings.Contracts.Initializers;
@@ -58,6 +60,7 @@ public class Bootstrapper : IBootstrapper
     private readonly IMainWindowActivator _mainWindowActivator;
     private readonly IVpnPlanUpdater _vpnPlanUpdater;
     private readonly IUIThreadDispatcher _uiThreadDispatcher;
+    private readonly GuestHoleDiagnosticController _guestHoleDiagnosticController;
 
     private bool _isOpenOnDesktopRequested;
 
@@ -67,6 +70,7 @@ public class Bootstrapper : IBootstrapper
         ISettingsRestorer settingsRestorer,
         IServiceManager serviceManager,
         IUserAuthenticator userAuthenticator,
+        IGuestHoleManager guestHoleManager,
         IServersCache serversCache,
         IUpdatesManager updatesManager,
         IGlobalSettingsMigrator settingsMigrator,
@@ -93,6 +97,7 @@ public class Bootstrapper : IBootstrapper
         _mainWindowActivator = mainWindowActivator;
         _vpnPlanUpdater = vpnPlanUpdater;
         _uiThreadDispatcher = uiThreadDispatcher;
+        _guestHoleDiagnosticController = new GuestHoleDiagnosticController(guestHoleManager, logger);
     }
 
     public async Task StartAsync(LaunchActivatedEventArgs args)
@@ -101,6 +106,7 @@ public class Bootstrapper : IBootstrapper
         {
             IssueReportingInitializer.SetEnabled(_settings.IsShareCrashReportsEnabled);
 
+            _guestHoleDiagnosticController.Start();
             AppInstance.GetCurrent().Activated += OnCurrentAppInstanceActivated;
 
             _systemConfigurationInitializer.Initialize();
