@@ -20,7 +20,8 @@
     </ItemGroup>
     <ItemGroup>
         <!-- This app uses PatternLayout, not the XML layouts affected by GHSA-4f7c-pmjv-c25w.
-             Keep log4net 3.2.0 for binary compatibility with installed patch targets. -->
+             Keep log4net 3.2.0 for binary compatibility with installed patch targets.
+             Temporary compatibility exception: review with CVE-2026-40021 by 2026-10-31. -->
         <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-4f7c-pmjv-c25w" />
     </ItemGroup>
     <ItemGroup>

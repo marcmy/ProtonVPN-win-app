@@ -56,17 +56,18 @@ public class ServerHealthProbeServiceTest
     }
 
     [TestMethod]
-    public async Task ProbeAsync_WhenRouteIsCreated_AlwaysDeletesRouteAndPermit()
+    public async Task ProbeAsync_WhenRouteIsCreated_AlwaysDeletesOwnedRouteAndPermit()
     {
         _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(false, true);
+        _routingTableHelper.TryCreateRoute(Arg.Any<RouteConfiguration>()).Returns(true);
         ServerHealthProbeService service = CreateService();
 
         ServerHealthProbeResultIpcEntity result =
             await service.ProbeAsync("203.0.113.10", CancellationToken.None);
 
         Assert.IsTrue(result.UsedPhysicalRoute);
-        _routingTableHelper.Received(1).CreateRoute(Arg.Any<RouteConfiguration>());
-        _routingTableHelper.Received(1).DeleteRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.Received(1).TryCreateRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.Received(1).TryDeleteRoute(Arg.Any<RouteConfiguration>());
         _permitLease.Received(1).Dispose();
         Assert.AreEqual(0, service.ActiveAddressLockCount);
     }
@@ -79,35 +80,50 @@ public class ServerHealthProbeServiceTest
 
         await service.ProbeAsync("203.0.113.10", CancellationToken.None);
 
-        _routingTableHelper.DidNotReceive().CreateRoute(Arg.Any<RouteConfiguration>());
-        _routingTableHelper.DidNotReceive().DeleteRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.DidNotReceive().TryCreateRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.DidNotReceive().TryDeleteRoute(Arg.Any<RouteConfiguration>());
         _permitLease.Received(1).Dispose();
     }
 
     [TestMethod]
-    public async Task ProbeAsync_WhenRouteCreationThrowsAfterCreatingRoute_CleansUpOwnedRoute()
+    public async Task ProbeAsync_WhenAnotherActorCreatesRouteDuringCreateRace_DoesNotDeleteUnownedRoute()
     {
         _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(false, true);
-        _routingTableHelper
-            .When(helper => helper.CreateRoute(Arg.Any<RouteConfiguration>()))
-            .Do(_ => throw new InvalidOperationException("simulated route creation failure"));
+        _routingTableHelper.TryCreateRoute(Arg.Any<RouteConfiguration>()).Returns(false);
+        ServerHealthProbeService service = CreateService();
+
+        ServerHealthProbeResultIpcEntity result =
+            await service.ProbeAsync("203.0.113.10", CancellationToken.None);
+
+        Assert.IsTrue(result.UsedPhysicalRoute);
+        _routingTableHelper.Received(1).TryCreateRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.DidNotReceive().TryDeleteRoute(Arg.Any<RouteConfiguration>());
+        _pingProbe.Received(1).MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>());
+        _permitLease.Received(1).Dispose();
+    }
+
+    [TestMethod]
+    public async Task ProbeAsync_WhenRouteCreationFailsAndRouteDoesNotExist_DoesNotPingOrDelete()
+    {
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(false);
+        _routingTableHelper.TryCreateRoute(Arg.Any<RouteConfiguration>()).Returns(false);
         ServerHealthProbeService service = CreateService();
 
         ServerHealthProbeResultIpcEntity result =
             await service.ProbeAsync("203.0.113.10", CancellationToken.None);
 
         Assert.IsFalse(result.UsedPhysicalRoute);
-        _routingTableHelper.Received(1).DeleteRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.DidNotReceive().TryDeleteRoute(Arg.Any<RouteConfiguration>());
+        _pingProbe.DidNotReceive().MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>());
         _permitLease.Received(1).Dispose();
-        Assert.AreEqual(0, service.ActiveAddressLockCount);
     }
 
     [TestMethod]
-    public async Task ProbeAsync_WhenCancelledDuringMeasurement_CleansUpRoutePermitAndAddressLock()
+    public async Task ProbeAsync_WhenCancelledDuringMeasurement_CleansUpOwnedRoutePermitAndAddressLock()
     {
         _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(false, true);
-        TaskCompletionSource started =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _routingTableHelper.TryCreateRoute(Arg.Any<RouteConfiguration>()).Returns(true);
+        TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _pingProbe.MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>())
             .Returns(async call =>
             {
@@ -124,9 +140,26 @@ public class ServerHealthProbeServiceTest
         cancellation.Cancel();
 
         await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => pending);
-        _routingTableHelper.Received(1).DeleteRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.Received(1).TryDeleteRoute(Arg.Any<RouteConfiguration>());
         _permitLease.Received(1).Dispose();
         Assert.AreEqual(0, service.ActiveAddressLockCount);
+    }
+
+    [TestMethod]
+    public async Task ProbeAsync_WhenMeasurementThrows_CleansUpOwnedRouteAndPermit()
+    {
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(false, true);
+        _routingTableHelper.TryCreateRoute(Arg.Any<RouteConfiguration>()).Returns(true);
+        _pingProbe.MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>())
+            .Returns<Task<ServerHealthProbeResultIpcEntity>>(_ => throw new InvalidOperationException("simulated ping failure"));
+        ServerHealthProbeService service = CreateService();
+
+        ServerHealthProbeResultIpcEntity result =
+            await service.ProbeAsync("203.0.113.10", CancellationToken.None);
+
+        Assert.IsFalse(result.UsedPhysicalRoute);
+        _routingTableHelper.Received(1).TryDeleteRoute(Arg.Any<RouteConfiguration>());
+        _permitLease.Received(1).Dispose();
     }
 
     [TestMethod]
@@ -135,10 +168,8 @@ public class ServerHealthProbeServiceTest
         int routeExistsCall = 0;
         _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>())
             .Returns(_ => Interlocked.Increment(ref routeExistsCall) % 2 == 0);
-        TaskCompletionSource firstStarted =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource releaseFirst =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource firstStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFirst = new(TaskCreationOptions.RunContinuationsAsynchronously);
         int pingCalls = 0;
         _pingProbe.MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>())
             .Returns(async _ =>
@@ -179,7 +210,7 @@ public class ServerHealthProbeServiceTest
 
         Assert.IsFalse(result.UsedPhysicalRoute);
         _permitManager.DidNotReceive().TryCreate(Arg.Any<IPAddress>());
-        _routingTableHelper.DidNotReceive().CreateRoute(Arg.Any<RouteConfiguration>());
+        _routingTableHelper.DidNotReceive().TryCreateRoute(Arg.Any<RouteConfiguration>());
     }
 
     private ServerHealthProbeService CreateService()

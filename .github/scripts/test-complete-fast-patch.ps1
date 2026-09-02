@@ -269,8 +269,19 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
 function Test-InstallerLifecycleContracts {
     $content = Get-Content -LiteralPath $completeInstallerScript -Raw
 
-    Assert-Condition ($content.Contains('-NoNewWindow')) `
-        'Complete FastPatch base-installer delegation must reuse the existing console.'
+    Assert-Condition (
+        $content.Contains('return Invoke-ProcessAndWait') -and
+        $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
+        $content.Contains('$startInfo.CreateNoWindow = $false')
+    ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.' 
+    Assert-Condition (-not $content.Contains("'-File', (ConvertTo-QuotedProcessArgument -Value `$PSCommandPath)")) `
+        'Complete FastPatch must not cross UAC by reopening the mutable original script path.'
+    Assert-Condition ($content.Contains('-EncodedCommand')) `
+        'Complete FastPatch must use an inline encoded bootstrap across the elevation boundary.'
+    Assert-Condition ($content.Contains('Assert-TrustedStage -StagePath $TrustedStagePath -PayloadPath $PatchPath')) `
+        'Complete FastPatch must verify the protected stage before privileged consumption.'
+    Assert-Condition ($content.Contains("`$arguments += '-TrustedStagePath'")) `
+        'Complete FastPatch must keep the base helper inside the same protected stage.'
     Assert-Condition ($content.Contains('$clientWasRunningBeforeInstall = Test-ClientRunningForTarget -TargetDirectory $targetDirectory')) `
         'Complete FastPatch must capture client state before delegating the version-folder install.'
     Assert-Condition ($content.Contains('-not (Test-ClientRunningForTarget -TargetDirectory $targetDirectory)')) `
@@ -281,6 +292,10 @@ function Test-InstallerLifecycleContracts {
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 try {
     Test-InstallerLifecycleContracts
+    & (Join-Path $PSScriptRoot 'test-fast-patch-secure-staging.ps1')
+    if ($LASTEXITCODE -ne 0) {
+        throw "FastPatch secure staging tests failed with exit code $LASTEXITCODE."
+    }
     $runtimeFixture = Test-RuntimeDependencyClosure
     Test-CompletePackaging $runtimeFixture
     Write-Host 'Complete FastPatch regression tests passed.'
