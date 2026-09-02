@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Start', 'Stop', 'Status')]
+    [ValidateSet('Start', 'Release', 'Stop', 'Status')]
     [string]$Action,
 
     [ValidateRange(1, 300)]
@@ -102,7 +102,7 @@ try
             }
         }
 
-        'Stop'
+        { $_ -in @('Release', 'Stop') }
         {
             if ($events.Idle.WaitOne(0) -and -not $events.Active.WaitOne(0))
             {
@@ -110,7 +110,7 @@ try
                 break
             }
 
-            # Stop may be issued while the connector is still transitioning. AutoReset preserves the
+            # Release may be issued while the connector is still transitioning. AutoReset preserves the
             # signal until HoldGuestHoleAsync begins waiting, so the tunnel will be released promptly
             # if it reaches Connected after this command.
             $events.Stop.Set() | Out-Null

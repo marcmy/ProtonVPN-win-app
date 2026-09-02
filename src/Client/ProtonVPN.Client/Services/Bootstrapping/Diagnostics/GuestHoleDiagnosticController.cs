@@ -29,8 +29,9 @@ namespace ProtonVPN.Client.Services.Bootstrapping.Diagnostics;
 ///
 /// This intentionally exercises IGuestHoleManager itself. The controller does not modify
 /// routes, DNS, firewall policy, settings, or VPN state directly. A start request enters the
-/// normal Guest Hole connection path and keeps the real Guest Hole callback alive until a stop
-/// request arrives. The callback then asks IGuestHoleManager to perform its normal disconnect.
+/// normal Guest Hole connection path and keeps the real Guest Hole callback alive until a release
+/// request arrives. The callback then returns null so GuestHoleManager.ExecuteAsync performs its
+/// normal Guest Hole teardown path itself.
 ///
 /// This class exists only on the diagnostics/guest-hole-windows-smoke-matrix branch and must not
 /// be carried into a production release.
@@ -97,15 +98,21 @@ internal sealed class GuestHoleDiagnosticController
 
     private async Task RunGuestHoleAsync()
     {
+        TaskCompletionSource<bool> heldGuestHoleReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         try
         {
             _logger.Info<AppLog>("Guest Hole diagnostic: starting genuine Guest Hole connection.");
 
-            Result? result = await _guestHoleManager.ExecuteAsync<Result>(HoldGuestHoleAsync, CancellationToken.None);
-            if (result is null)
+            Result? result = await _guestHoleManager.ExecuteAsync<Result>(
+                () => HoldGuestHoleAsync(heldGuestHoleReleased),
+                CancellationToken.None);
+
+            if (result is null &&
+                (!heldGuestHoleReleased.Task.IsCompletedSuccessfully || _guestHoleManager.IsActive))
             {
                 _failedEvent.Set();
-                _logger.Warn<AppLog>("Guest Hole diagnostic: Guest Hole did not become usable or disconnected before the diagnostic callback completed.");
+                _logger.Warn<AppLog>("Guest Hole diagnostic: Guest Hole did not become usable or did not reach the real Disconnected state before the manager returned.");
             }
         }
         catch (Exception e)
@@ -121,7 +128,7 @@ internal sealed class GuestHoleDiagnosticController
         }
     }
 
-    private async Task<Result> HoldGuestHoleAsync()
+    private async Task<Result> HoldGuestHoleAsync(TaskCompletionSource<bool> heldGuestHoleReleased)
     {
         // GuestHoleManager calls this only after it has received the real Connected status and
         // applied its normal connected-callback delay, so this is a reliable smoke-test signal.
@@ -130,9 +137,11 @@ internal sealed class GuestHoleDiagnosticController
 
         await Task.Run(() => _stopEvent.WaitOne());
 
-        _logger.Info<AppLog>("Guest Hole diagnostic: release requested; performing genuine Guest Hole disconnect.");
-        await _guestHoleManager.DisconnectAsync();
+        _logger.Info<AppLog>("Guest Hole diagnostic: release requested; returning control to GuestHoleManager for genuine teardown.");
+        heldGuestHoleReleased.TrySetResult(true);
 
-        return Result.Ok();
+        // GuestHoleManager.ExecuteAsync treats a null callback result as the signal to run its
+        // ordinary DisconnectAsync path. This keeps the smoke trigger observational/control-only.
+        return null!;
     }
 }

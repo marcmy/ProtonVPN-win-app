@@ -6,10 +6,60 @@ It exists because deterministic service/firewall characterization proves that th
 
 The accompanying scripts are diagnostic-only:
 
+- `Invoke-GuestHoleDiagnostic.ps1` starts, holds, reports, and releases the genuine Guest Hole path exposed only by this diagnostic branch.
 - `Capture-GuestHoleWindowsState.ps1` records a timestamped state snapshot and performs read-only LAN/DNS probes.
 - `Compare-GuestHoleWindowsState.ps1` compares the sanitized `summary.json` files from multiple snapshots.
 
-Neither script enters Guest Hole, reconnects the VPN, changes settings, restarts services/processes, or modifies Windows firewall/routes. Guest Hole transitions and recovery actions remain deliberate manual steps.
+The trigger script calls the real `IGuestHoleManager.ExecuteAsync` path inside the diagnostic client and holds its connected callback until release. It does not synthesize firewall, route, DNS, or network state. The capture/compare scripts remain read-only, and recovery actions remain deliberate manual steps.
+
+## Install the diagnostic branch build
+
+Do not run `src\bin\ProtonVPN.Client.exe` directly against the installed Proton VPN service for this smoke test. A loose development executable is not accepted by the installed service's process-authentication/version checks and will receive HTTP 401 responses instead of usable VPN service IPC.
+
+First make sure the diagnostic changes are committed and pushed to `diagnostics/guest-hole-windows-smoke-matrix`. Then dispatch the fork's normal **FastPatch both** workflow explicitly against the fork repository:
+
+```powershell
+gh workflow run windows-client-fast-patch.yml `
+    --repo marcmy/ProtonVPN-win-app `
+    --ref diagnostics/guest-hole-windows-smoke-matrix `
+    -f build_mode=both `
+    -f upload_full_bin=false
+```
+
+`--repo` is intentional. This checkout also has the upstream Proton repository configured, and GitHub CLI may otherwise resolve the workflow lookup against `ProtonVPN/win-app`, where this fork-only workflow does not exist.
+
+After the run finishes, find the newest run for this branch:
+
+```powershell
+$run = gh run list `
+    --repo marcmy/ProtonVPN-win-app `
+    --workflow windows-client-fast-patch.yml `
+    --branch diagnostics/guest-hole-windows-smoke-matrix `
+    --limit 1 `
+    --json databaseId,status,conclusion `
+    | ConvertFrom-Json
+
+$run
+```
+
+Require `status = completed` and `conclusion = success`, then download the self-extracting installer artifact:
+
+```powershell
+gh run download $run.databaseId `
+    --repo marcmy/ProtonVPN-win-app `
+    --name protonvpn-custom-patch-installer-5.1.5-both `
+    --dir .\guest-hole-fastpatch
+```
+
+Install the resulting diagnostic build through the generated FastPatch installer:
+
+```powershell
+Start-Process `
+    .\guest-hole-fastpatch\ProtonVPN-Custom-Patch-5.1.5.exe `
+    -Wait
+```
+
+Accept the normal UAC prompt. The installer overlays the matching client/service runtime into the installed `v5.1.5` tree and preserves a backup using the fork's normal FastPatch safety path. Launch Proton VPN normally after installation; the diagnostic named events are created only by this branch build.
 
 ## Preconditions
 
@@ -94,7 +144,7 @@ Run **Soft** and **Hard** as separate matrices.
 
 For recovery testing, use a **fresh Baseline -> Guest Hole -> KeepEnabledDisconnected cycle for each recovery arm**. Do not perform reconnect, settings reapply, service restart, client restart, and reboot one after another in a single chain: the first recovery action changes the state being investigated and contaminates the later result.
 
-Record the exact manual Guest Hole trigger/path used in the `-Note` field. Do not replace it with a synthetic script unless the application later exposes a reliable supported trigger.
+For this branch, use `Invoke-GuestHoleDiagnostic.ps1`; it is the deterministic diagnostic control surface for the genuine Guest Hole path. Do not substitute synthetic firewall/network manipulation.
 
 ### A. Baseline normal state
 
@@ -119,8 +169,18 @@ The baseline is the control for route, LAN, DNS/NRPT, firewall/WFP, and service 
 
 ### B. Guest Hole active
 
-1. Enter/force Guest Hole through the actual application path being validated.
-2. Confirm the application has reached Guest Hole rather than an ordinary VPN connection.
+1. With the diagnostic-branch client running, start and hold the genuine Guest Hole:
+
+```powershell
+.\scripts\diagnostics\Invoke-GuestHoleDiagnostic.ps1 Start
+```
+
+2. Confirm the script reports `Guest Hole is active and held open for capture.` You can also query:
+
+```powershell
+.\scripts\diagnostics\Invoke-GuestHoleDiagnostic.ps1 Status
+```
+
 3. Do not change normal user settings to manufacture the safe state.
 4. Capture while Guest Hole is active:
 
@@ -128,7 +188,7 @@ The baseline is the control for route, LAN, DNS/NRPT, firewall/WFP, and service 
 .\scripts\diagnostics\Capture-GuestHoleWindowsState.ps1 @common `
     -KillSwitchMode Soft `
     -Phase GuestHole `
-    -Note 'Guest Hole active; exact trigger: <record it here>'
+    -Note 'Guest Hole active; deterministic diagnostic ExecuteAsync trigger'
 ```
 
 Expected characterization to verify at the real Windows layer: Guest Hole's safe policy should prevent ordinary LAN access and should show the expected safe DNS/NRPT/firewall behavior.
@@ -137,7 +197,12 @@ Expected characterization to verify at the real Windows layer: Guest Hole's safe
 
 This is the state under investigation.
 
-1. Exit Guest Hole through the real path that produces `VpnError.NoneKeepEnabledKillSwitch` or its current equivalent.
+1. Release the held callback. This returns `null` to `GuestHoleManager.ExecuteAsync`, which makes the real manager invoke its normal disconnect path:
+
+```powershell
+.\scripts\diagnostics\Invoke-GuestHoleDiagnostic.ps1 Release
+```
+
 2. Keep the VPN **disconnected**.
 3. Keep the kill switch **enabled**.
 4. Do **not** reconnect.
