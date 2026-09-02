@@ -82,8 +82,304 @@ function Get-PatchManifestJson {
     }
 }
 
+function Get-SfxLoaderScript {
+    param(
+        [Parameter(Mandatory = $true)] [string] $InstallerFileName,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $InstallerHash,
+        [Parameter(Mandatory = $true)] [string] $PayloadFileName,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $PayloadHash,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^\d+\.\d+\.\d+$')] [string] $TargetVersion
+    )
+
+    $template = @'
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+function Decode-FastPatchValue([string] $Value) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value)) }
+function Get-FastPatchBytesSha256([byte[]] $Bytes) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { ([BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+}
+function Test-FastPatchAdministrator {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $p = New-Object Security.Principal.WindowsPrincipal($id)
+    $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+$root = [IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/')
+$installer = Join-Path $root (Decode-FastPatchValue '__INSTALLER__')
+$payload = Join-Path $root (Decode-FastPatchValue '__PAYLOAD__')
+foreach ($path in @($root, $installer, $payload)) {
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Compiled FastPatch SFX source contains a reparse point: $path"
+    }
+}
+$source = [IO.File]::Open($installer, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+$memory = New-Object IO.MemoryStream
+try {
+    $source.CopyTo($memory)
+    $bytes = $memory.ToArray()
+} finally {
+    $memory.Dispose()
+    $source.Dispose()
+}
+$actualInstallerHash = Get-FastPatchBytesSha256 $bytes
+if (-not $actualInstallerHash.Equals('__INSTALLER_HASH__', [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Compiled FastPatch SFX installer hash mismatch. Expected __INSTALLER_HASH__, found $actualInstallerHash."
+}
+$payloadSource = [IO.File]::Open($payload, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+$payloadMemory = New-Object IO.MemoryStream
+try {
+    $payloadSource.CopyTo($payloadMemory)
+    $payloadBytes = $payloadMemory.ToArray()
+} finally {
+    $payloadMemory.Dispose()
+    $payloadSource.Dispose()
+}
+$actualPayloadHash = Get-FastPatchBytesSha256 $payloadBytes
+if (-not $actualPayloadHash.Equals('__PAYLOAD_HASH__', [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Compiled FastPatch SFX payload hash mismatch. Expected __PAYLOAD_HASH__, found $actualPayloadHash."
+}
+$global:ProtonVpnFastPatchVerifiedSfxArchiveBytes = $payloadBytes
+$scriptText = [Text.Encoding]::UTF8.GetString($bytes)
+if ($scriptText.Length -gt 0 -and $scriptText[0] -eq [char]0xFEFF) { $scriptText = $scriptText.Substring(1) }
+if (-not (Test-FastPatchAdministrator)) {
+    Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class FastPatchConsoleWindow { [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }'
+    [FastPatchConsoleWindow]::ShowWindow([FastPatchConsoleWindow]::GetConsoleWindow(), 0) | Out-Null
+}
+$global:ProtonVpnFastPatchVerifiedSfxScriptText = $scriptText
+& ([ScriptBlock]::Create($scriptText)) `
+    -PatchPath $payload `
+    -TargetVersion (Decode-FastPatchValue '__TARGET__') `
+    -RestartClient `
+    -PauseBeforeExit `
+    -ExpectedPatchArchiveSha256 '__PAYLOAD_HASH__'
+'@
+
+    $utf8 = [Text.Encoding]::UTF8
+    return $template.Replace('__INSTALLER__', [Convert]::ToBase64String($utf8.GetBytes($InstallerFileName))).Replace(
+        '__INSTALLER_HASH__', $InstallerHash.Trim().ToLowerInvariant()).Replace(
+        '__PAYLOAD__', [Convert]::ToBase64String($utf8.GetBytes($PayloadFileName))).Replace(
+        '__PAYLOAD_HASH__', $PayloadHash.Trim().ToLowerInvariant()).Replace(
+        '__TARGET__', [Convert]::ToBase64String($utf8.GetBytes($TargetVersion)))
+}
+
+function Get-CompiledSfxBootstrapSource {
+    param(
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $InstallerHash,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $PayloadHash,
+        [Parameter(Mandatory = $true)] [ValidatePattern('^[0-9a-fA-F]{64}$')] [string] $LoaderHash
+    )
+
+    $source = @'
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
+
+internal static class FastPatchSfxBootstrap
+{
+    private const string InstallerResource = "FastPatch.Installer";
+    private const string PayloadResource = "FastPatch.Payload";
+    private const string LoaderResource = "FastPatch.Loader";
+    private const string InstallerHash = "__INSTALLER_HASH__";
+    private const string PayloadHash = "__PAYLOAD_HASH__";
+    private const string LoaderHash = "__LOADER_HASH__";
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetSystemDirectory(StringBuilder lpBuffer, uint uSize);
+
+    private static string ToHex(byte[] bytes)
+    {
+        StringBuilder result = new StringBuilder(bytes.Length * 2);
+        for (int i = 0; i < bytes.Length; ++i)
+        {
+            result.Append(bytes[i].ToString("x2"));
+        }
+        return result.ToString();
+    }
+
+    private static byte[] ReadVerifiedResource(Assembly assembly, string resourceName, string expectedHash)
+    {
+        using (Stream source = assembly.GetManifestResourceStream(resourceName))
+        {
+            if (source == null)
+            {
+                throw new InvalidOperationException("Embedded FastPatch resource was not found: " + resourceName);
+            }
+            using (MemoryStream memory = new MemoryStream())
+            {
+                source.CopyTo(memory);
+                byte[] bytes = memory.ToArray();
+                using (SHA256 sha = SHA256.Create())
+                {
+                    string actualHash = ToHex(sha.ComputeHash(bytes));
+                    if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException("Embedded FastPatch resource hash mismatch for " + resourceName + ". Expected " + expectedHash + ", found " + actualHash + ".");
+                    }
+                }
+                return bytes;
+            }
+        }
+    }
+
+    private static FileStream WriteLockedResource(byte[] bytes, string destinationPath, string expectedHash)
+    {
+        FileStream stream = new FileStream(
+            destinationPath,
+            FileMode.CreateNew,
+            FileAccess.ReadWrite,
+            FileShare.Read,
+            65536,
+            FileOptions.SequentialScan);
+        try
+        {
+            stream.Write(bytes, 0, bytes.Length);
+            stream.Flush(true);
+            stream.Position = 0;
+            using (SHA256 sha = SHA256.Create())
+            {
+                string actualHash = ToHex(sha.ComputeHash(stream));
+                if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException("FastPatch SFX extracted resource hash mismatch for " + destinationPath + ". Expected " + expectedHash + ", found " + actualHash + ".");
+                }
+            }
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
+    }
+
+    private static string GetWindowsPowerShellPath()
+    {
+        StringBuilder buffer = new StringBuilder(32768);
+        uint length = GetSystemDirectory(buffer, (uint)buffer.Capacity);
+        if (length == 0 || length >= buffer.Capacity)
+        {
+            throw new InvalidOperationException("Could not resolve the Windows system directory. Win32 error: " + Marshal.GetLastWin32Error());
+        }
+        string path = Path.Combine(buffer.ToString(), "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("Windows PowerShell was not found in the protected system directory.", path);
+        }
+        return path;
+    }
+
+    private static int RunPowerShell(string loaderText, string workingDirectory)
+    {
+        string encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(loaderText));
+        if (encodedCommand.Length > 30000)
+        {
+            throw new InvalidOperationException("Embedded FastPatch loader exceeds the safe Windows command-line budget: " + encodedCommand.Length + " characters.");
+        }
+
+        ProcessStartInfo startInfo = new ProcessStartInfo();
+        startInfo.FileName = GetWindowsPowerShellPath();
+        startInfo.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand;
+        startInfo.WorkingDirectory = workingDirectory;
+        startInfo.UseShellExecute = false;
+        startInfo.CreateNoWindow = false;
+
+        using (Process process = Process.Start(startInfo))
+        {
+            if (process == null)
+            {
+                throw new InvalidOperationException("Could not start Windows PowerShell for FastPatch.");
+            }
+            process.WaitForExit();
+            return process.ExitCode;
+        }
+    }
+
+    public static int Main()
+    {
+        string temporaryRoot = Path.Combine(Path.GetTempPath(), "ProtonVPNFastPatchSfx-" + Guid.NewGuid().ToString("N"));
+        FileStream installerLock = null;
+        FileStream payloadLock = null;
+        int exitCode = 1;
+        try
+        {
+            Directory.CreateDirectory(temporaryRoot);
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            byte[] loaderBytes = ReadVerifiedResource(assembly, LoaderResource, LoaderHash);
+            byte[] installerBytes = ReadVerifiedResource(assembly, InstallerResource, InstallerHash);
+            byte[] payloadBytes = ReadVerifiedResource(assembly, PayloadResource, PayloadHash);
+
+            string installerPath = Path.Combine(temporaryRoot, "Install-ProtonVPNPatch.ps1");
+            string payloadPath = Path.Combine(temporaryRoot, "payload.zip");
+            installerLock = WriteLockedResource(installerBytes, installerPath, InstallerHash);
+            payloadLock = WriteLockedResource(payloadBytes, payloadPath, PayloadHash);
+
+            string loaderText = new UTF8Encoding(false, true).GetString(loaderBytes);
+            if (loaderText.Length > 0 && loaderText[0] == '\ufeff')
+            {
+                loaderText = loaderText.Substring(1);
+            }
+            exitCode = RunPowerShell(loaderText, temporaryRoot);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine("FastPatch SFX bootstrap failed: " + exception.Message);
+            exitCode = 1;
+        }
+        finally
+        {
+            if (payloadLock != null) payloadLock.Dispose();
+            if (installerLock != null) installerLock.Dispose();
+            try
+            {
+                if (Directory.Exists(temporaryRoot))
+                {
+                    Directory.Delete(temporaryRoot, true);
+                }
+            }
+            catch (Exception cleanupException)
+            {
+                Console.Error.WriteLine("FastPatch SFX cleanup failed: " + cleanupException.Message);
+                if (exitCode == 0) exitCode = 1;
+            }
+        }
+        return exitCode;
+    }
+}
+'@
+
+    return $source.Replace('__INSTALLER_HASH__', $InstallerHash.Trim().ToLowerInvariant()).Replace(
+        '__PAYLOAD_HASH__', $PayloadHash.Trim().ToLowerInvariant()).Replace(
+        '__LOADER_HASH__', $LoaderHash.Trim().ToLowerInvariant())
+}
+
+function Get-FrameworkCscPath {
+    $windowsDirectory = [Environment]::GetFolderPath([Environment+SpecialFolder]::Windows)
+    if ([string]::IsNullOrWhiteSpace($windowsDirectory)) {
+        throw 'Could not resolve the Windows directory for the .NET Framework compiler.'
+    }
+
+    foreach ($relativePath in @(
+        'Microsoft.NET\Framework64\v4.0.30319\csc.exe',
+        'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+    )) {
+        $candidate = Join-Path $windowsDirectory $relativePath
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $candidate
+        }
+    }
+
+    throw 'The .NET Framework C# compiler was not found. FastPatch SFX packaging requires .NET Framework 4.x.'
+}
+
 if ($env:OS -ne 'Windows_NT') {
-    throw 'The self-extractor builder requires Windows because it uses IExpress.'
+    throw 'The self-extractor builder requires Windows.'
 }
 
 $resolvedPatchPath = (Resolve-Path -LiteralPath $PatchPath -ErrorAction Stop).Path
@@ -94,6 +390,10 @@ $outputDirectory = Split-Path -Path $resolvedOutputPath -Parent
 
 if ([System.IO.Path]::GetExtension($resolvedOutputPath) -ne '.exe') {
     throw "OutputPath must end in .exe: $resolvedOutputPath"
+}
+
+if (-not (Test-Path -LiteralPath $resolvedLauncherPath -PathType Leaf)) {
+    throw "LauncherPath was not found: $resolvedLauncherPath"
 }
 
 $isPatchZip = Test-Path -LiteralPath $resolvedPatchPath -PathType Leaf
@@ -113,21 +413,10 @@ if ($isPatchDirectory) {
     }
 }
 
-function Test-IExpressCabinetPayload {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Path
-    )
-
-    try {
-        $bytes = [System.IO.File]::ReadAllBytes($Path)
-        return [Text.Encoding]::ASCII.GetString($bytes).Contains('MSCF')
-    } catch {
-        return $false
-    }
+$windowsPowerShellPath = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) 'WindowsPowerShell\v1.0\powershell.exe'
+if (-not (Test-Path -LiteralPath $windowsPowerShellPath -PathType Leaf)) {
+    throw "Windows PowerShell was not found: $windowsPowerShellPath"
 }
-
-$windowsPowerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 & $windowsPowerShellPath `
     -NoProfile `
     -NonInteractive `
@@ -169,72 +458,23 @@ if ($manifestTargetVersion -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 Write-Host "Packaging patch for Proton VPN $manifestTargetVersion ($($manifest.buildMode))."
-
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
-
 if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
     Remove-Item -LiteralPath $resolvedOutputPath -Force
 }
 
-$workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNSfx-{0}" -f [Guid]::NewGuid().ToString('N'))
-$payloadPath = Join-Path $workingDirectory 'payload.zip'
+$workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNSfxBuild-{0}" -f [Guid]::NewGuid().ToString('N'))
+$payloadFileName = 'payload.zip'
+$payloadPath = Join-Path $workingDirectory $payloadFileName
 $installerFileName = 'Install-ProtonVPNPatch.ps1'
-$launcherFileName = 'Install-ProtonVPNPatch.cmd'
 $packagedInstallerScriptPath = Join-Path $workingDirectory $installerFileName
-$packagedLauncherPath = Join-Path $workingDirectory $launcherFileName
-$iexpressConfigPath = Join-Path $workingDirectory 'ProtonVPNPatch.sed'
-$diagnosticConfigPath = [System.IO.Path]::ChangeExtension($resolvedOutputPath, '.sed')
+$loaderScriptPath = Join-Path $workingDirectory 'FastPatchSfxLoader.ps1'
+$bootstrapSourcePath = Join-Path $workingDirectory 'FastPatchSfxBootstrap.cs'
 $buildSucceeded = $false
-$existingIExpressIds = @()
 
 try {
     New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
-
     Copy-Item -LiteralPath $resolvedInstallerScriptPath -Destination $packagedInstallerScriptPath -Force
-    Copy-Item -LiteralPath $resolvedLauncherPath -Destination $packagedLauncherPath -Force
-
-    $removedElevationTreeWait = $false
-    $insertedSingleProcessWait = $false
-    $installerLines = @(
-        foreach ($line in Get-Content -LiteralPath $packagedInstallerScriptPath) {
-            if (-not $removedElevationTreeWait -and $line.Trim() -eq '-Wait `') {
-                $removedElevationTreeWait = $true
-                continue
-            }
-
-            if ($removedElevationTreeWait -and -not $insertedSingleProcessWait -and $line.Trim() -eq 'exit $process.ExitCode') {
-                '    $process.WaitForExit()'
-                $insertedSingleProcessWait = $true
-            }
-
-            $line
-        }
-    )
-
-    if (-not $removedElevationTreeWait -or -not $insertedSingleProcessWait) {
-        throw 'Could not update the packaged installer elevation wait behavior.'
-    }
-
-    Set-Content -LiteralPath $packagedInstallerScriptPath -Value $installerLines -Encoding UTF8
-
-    $payloadInvocation = '-PatchPath "%PAYLOAD%" -TargetVersion "{0}" -RestartClient -PauseBeforeExit' -f $manifestTargetVersion
-    $fallbackInvocation = '-File "%SCRIPT%" -TargetVersion "{0}" -RestartClient -PauseBeforeExit' -f $manifestTargetVersion
-    $launcherLines = @(
-        foreach ($line in Get-Content -LiteralPath $packagedLauncherPath) {
-            if ($line.Trim() -ieq 'pause') {
-                continue
-            }
-
-            if ($line.Contains('-PatchPath "%PAYLOAD%"')) {
-                $line = $line.Replace('-PatchPath "%PAYLOAD%"', $payloadInvocation)
-            } elseif ($line.Contains('-File "%SCRIPT%"')) {
-                $line = $line.Replace('-File "%SCRIPT%"', $fallbackInvocation)
-            }
-
-            $line
-        }
-    )
-    Set-Content -LiteralPath $packagedLauncherPath -Value $launcherLines -Encoding Ascii
 
     if ($isPatchZip) {
         Copy-Item -LiteralPath $resolvedPatchPath -Destination $payloadPath -Force
@@ -245,146 +485,55 @@ try {
             -CompressionLevel Optimal `
             -Force
     }
-    $payloadLength = (Get-Item -LiteralPath $payloadPath).Length
 
-    $sourceDirectoryForSed = $workingDirectory.TrimEnd('\') + '\'
-    $escapedFriendlyName = ("$FriendlyName $manifestTargetVersion").Replace('"', '')
+    $installerHash = (Get-FileHash -LiteralPath $packagedInstallerScriptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $payloadHash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $loaderScript = Get-SfxLoaderScript `
+        -InstallerFileName $installerFileName `
+        -InstallerHash $installerHash `
+        -PayloadFileName $payloadFileName `
+        -PayloadHash $payloadHash `
+        -TargetVersion $manifestTargetVersion
+    [IO.File]::WriteAllText($loaderScriptPath, $loaderScript, [Text.UTF8Encoding]::new($false))
+    $loaderHash = (Get-FileHash -LiteralPath $loaderScriptPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
-    $sedContent = @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
+    $bootstrapSource = Get-CompiledSfxBootstrapSource `
+        -InstallerHash $installerHash `
+        -PayloadHash $payloadHash `
+        -LoaderHash $loaderHash
+    [IO.File]::WriteAllText($bootstrapSourcePath, $bootstrapSource, [Text.UTF8Encoding]::new($false))
 
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=1
-HideExtractAnimation=0
-UseLongFileName=1
-InsideCompressed=0
-CAB_FixedSize=0
-CAB_ResvCodeSigning=0
-RebootMode=N
-InstallPrompt=
-DisplayLicense=
-FinishMessage=
-TargetName="$resolvedOutputPath"
-FriendlyName=$escapedFriendlyName
-AppLaunched=$launcherFileName
-PostInstallCmd=<None>
-AdminQuietInstCmd=$launcherFileName
-UserQuietInstCmd=$launcherFileName
-SourceFiles=SourceFiles
-
-[SourceFiles]
-SourceFiles0="$sourceDirectoryForSed"
-
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
-%FILE2%=
-
-[Strings]
-FILE0="payload.zip"
-FILE1="$installerFileName"
-FILE2="$launcherFileName"
-"@
-
-    Set-Content -LiteralPath $iexpressConfigPath -Value $sedContent -Encoding Ascii
-
-    $iexpressPath = Join-Path $env:SystemRoot 'System32\iexpress.exe'
-    if (-not (Test-Path -LiteralPath $iexpressPath -PathType Leaf)) {
-        throw "IExpress was not found: $iexpressPath"
-    }
-
-    $existingIExpressIds = @(
-        Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.Id }
+    $cscPath = Get-FrameworkCscPath
+    $compilerArguments = @(
+        '/nologo',
+        '/target:exe',
+        '/platform:anycpu',
+        '/optimize+',
+        "/out:$resolvedOutputPath",
+        "/resource:$loaderScriptPath,FastPatch.Loader",
+        "/resource:$packagedInstallerScriptPath,FastPatch.Installer",
+        "/resource:$payloadPath,FastPatch.Payload",
+        $bootstrapSourcePath
     )
 
-    Write-Host 'Starting IExpress package build...'
-    & $iexpressPath /N /Q $iexpressConfigPath
-    Write-Host 'IExpress invocation returned; waiting for the installer file...'
-
-    $deadline = [DateTime]::UtcNow.AddSeconds(120)
-    $lastObservedLength = -1L
-    $stableLengthChecks = 0
-    $cabinetPayloadPresent = $false
-
-    while ([DateTime]::UtcNow -lt $deadline) {
-        if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf) {
-            $currentLength = (Get-Item -LiteralPath $resolvedOutputPath).Length
-            if ($currentLength -gt 0 -and $currentLength -eq $lastObservedLength) {
-                $stableLengthChecks++
-            } else {
-                $lastObservedLength = $currentLength
-                $stableLengthChecks = 0
-            }
-
-            # IExpress can leave a stable WEXTRACT stub while it builds the CAB asynchronously.
-            # Do not treat the output as complete until the embedded cabinet exists and the
-            # IExpress process that was started for this build has exited.
-            if ($stableLengthChecks -ge 3 -and $currentLength -gt $payloadLength) {
-                $cabinetPayloadPresent = Test-IExpressCabinetPayload -Path $resolvedOutputPath
-                $newIExpressProcesses = @(
-                    Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
-                        Where-Object { $existingIExpressIds -notcontains $_.Id }
-                )
-                if ($cabinetPayloadPresent -and $newIExpressProcesses.Count -eq 0) {
-                    break
-                }
-            }
-        }
-
-        Start-Sleep -Milliseconds 250
+    Write-Host "Compiling immutable FastPatch SFX bootstrap with: $cscPath"
+    & $cscPath @compilerArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "FastPatch SFX bootstrap compilation failed with exit code $LASTEXITCODE."
     }
-
-    $outputExists = Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf
-    $outputLength = if ($outputExists) {
-        (Get-Item -LiteralPath $resolvedOutputPath).Length
-    } else {
-        0L
+    if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf)) {
+        throw "FastPatch SFX compiler did not create the expected output: $resolvedOutputPath"
     }
-
-    if ($outputExists) {
-        $cabinetPayloadPresent = Test-IExpressCabinetPayload -Path $resolvedOutputPath
-    }
-
-    if (-not $outputExists -or
-        $outputLength -le $payloadLength -or
-        $stableLengthChecks -lt 3 -or
-        -not $cabinetPayloadPresent) {
-        $newIExpressProcesses = @(
-            Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
-                Where-Object { $existingIExpressIds -notcontains $_.Id }
-        )
-        $processStatus = if ($newIExpressProcesses.Count -gt 0) {
-            "$($newIExpressProcesses.Count) newly started IExpress process(es) are still running"
-        } else {
-            'No newly started IExpress process is still running'
-        }
-
-        throw "IExpress did not create a complete installer containing payload.zip within 120 seconds. $processStatus. Expected output: $resolvedOutputPath"
+    if ((Get-Item -LiteralPath $resolvedOutputPath).Length -le 0) {
+        throw "FastPatch SFX compiler created an empty output: $resolvedOutputPath"
     }
 
     $buildSucceeded = $true
-    if (Test-Path -LiteralPath $diagnosticConfigPath -PathType Leaf) {
-        Remove-Item -LiteralPath $diagnosticConfigPath -Force -ErrorAction SilentlyContinue
-    }
-
-    Write-Host "Created self-extracting patch installer: $resolvedOutputPath" -ForegroundColor Green
+    Write-Host "Created immutable self-contained patch installer: $resolvedOutputPath" -ForegroundColor Green
 } finally {
-    $newIExpressProcesses = @(
-        Get-Process -Name 'iexpress' -ErrorAction SilentlyContinue |
-            Where-Object { $existingIExpressIds -notcontains $_.Id }
-    )
-    foreach ($process in $newIExpressProcesses) {
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    if (-not $buildSucceeded -and (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf)) {
+        Remove-Item -LiteralPath $resolvedOutputPath -Force -ErrorAction SilentlyContinue
     }
-
-    if (-not $buildSucceeded -and (Test-Path -LiteralPath $iexpressConfigPath -PathType Leaf)) {
-        Copy-Item -LiteralPath $iexpressConfigPath -Destination $diagnosticConfigPath -Force -ErrorAction SilentlyContinue
-    }
-
     if (Test-Path -LiteralPath $workingDirectory -PathType Container) {
         Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }

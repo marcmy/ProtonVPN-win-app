@@ -224,23 +224,23 @@ function Test-PackageComposition {
     $fixture = New-PackageFixture
 
     $installerSource = Get-Content -LiteralPath $installerScript -Raw
-    $elevationGuardIndex = $installerSource.IndexOf(
-        'if (-not $ValidateOnly -and -not (Test-IsAdministrator)) {',
+    $stagingGuardIndex = $installerSource.IndexOf(
+        'if (-not $ValidateOnly -and [string]::IsNullOrWhiteSpace($TrustedStagePath)) {',
         [StringComparison]::Ordinal)
     $preflightValidationIndex = $installerSource.IndexOf(
         'Test-PatchPayload',
-        $elevationGuardIndex,
+        $stagingGuardIndex,
         [StringComparison]::Ordinal)
-    $elevationIndex = $installerSource.IndexOf(
-        'Restart-Elevated',
-        $elevationGuardIndex,
+    $stagingIndex = $installerSource.IndexOf(
+        'Invoke-TrustedStage',
+        $preflightValidationIndex,
         [StringComparison]::Ordinal)
 
     Assert-Condition (
-        $elevationGuardIndex -ge 0 -and
-        $preflightValidationIndex -gt $elevationGuardIndex -and
-        $elevationIndex -gt $preflightValidationIndex
-    ) 'Installer payload validation must occur before requesting elevation.'
+        $stagingGuardIndex -ge 0 -and
+        $preflightValidationIndex -gt $stagingGuardIndex -and
+        $stagingIndex -gt $preflightValidationIndex
+    ) 'Installer payload validation must occur before protected privileged staging.'
 
     $unsafeStageRejected = $false
     try {
@@ -318,8 +318,15 @@ function Test-PackageComposition {
         -LauncherPath $installerLauncher
     $realInstallerBytes = [System.IO.File]::ReadAllBytes($realInstallerPath)
     Assert-Condition (
-        [Text.Encoding]::ASCII.GetString($realInstallerBytes).Contains('MSCF')
-    ) 'IExpress packaging returned an executable without an embedded cabinet payload.'
+        $realInstallerBytes.Length -gt 2 -and
+        $realInstallerBytes[0] -eq 0x4D -and
+        $realInstallerBytes[1] -eq 0x5A
+    ) 'Compiled FastPatch packaging did not return a valid PE executable.'
+    $realInstallerAscii = [Text.Encoding]::ASCII.GetString($realInstallerBytes)
+    foreach ($resourceName in @('FastPatch.Loader', 'FastPatch.Installer', 'FastPatch.Payload')) {
+        Assert-Condition ($realInstallerAscii.Contains($resourceName)) `
+            "Compiled FastPatch executable omitted embedded resource: $resourceName"
+    }
 
     $runtimeDataPatchDir = Join-Path $fixture.Root 'patch-runtime-data'
     Copy-Item -LiteralPath $patchDir -Destination $runtimeDataPatchDir -Recurse
@@ -401,6 +408,15 @@ function Test-InstallerRuntimeDataPreservation {
     Assert-Condition ($parseErrors.Count -eq 0) `
         'Installer script could not be parsed for runtime-data preservation testing.'
 
+    $systemExecutableFunctionAst = $installerAst.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq 'Get-SystemExecutablePath'
+    }, $true)
+    Assert-Condition ($null -ne $systemExecutableFunctionAst) `
+        'Installer does not define Get-SystemExecutablePath.'
+    . ([ScriptBlock]::Create($systemExecutableFunctionAst.Extent.Text))
+
     $robocopyFunctionAst = $installerAst.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
@@ -416,12 +432,23 @@ function Test-InstallerRuntimeDataPreservation {
             $node.GetCommandName() -eq 'Invoke-Robocopy' -and
             $node.Extent.Text -match '(?m)-Mirror(?:\s|$)'
     }, $true))
-    Assert-Condition ($mirrorInvocations.Count -eq 2) `
-        'Installer must have one mirrored backup and one mirrored rollback operation.'
-    foreach ($invocation in $mirrorInvocations) {
-        Assert-Condition ($invocation.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")) `
-            'Installer backup and rollback must both preserve runtime ServiceData.'
-    }
+    Assert-Condition ($mirrorInvocations.Count -eq 3) `
+        'Installer must have one protected snapshot, one archival backup copy, and one protected rollback mirror.'
+    $serviceDataPreservingMirrors = @(
+        $mirrorInvocations | Where-Object {
+            $_.Extent.Text.Contains("-ExcludedDirectories @('ServiceData')")
+        }
+    )
+    Assert-Condition ($serviceDataPreservingMirrors.Count -eq 2) `
+        'Protected rollback snapshot and restore must both preserve runtime ServiceData.'
+    $archiveMirrors = @(
+        $mirrorInvocations | Where-Object {
+            $_.Extent.Text.Contains('-Source $trustedRollbackDirectory') -and
+                $_.Extent.Text.Contains('-Destination $backupDirectory')
+        }
+    )
+    Assert-Condition ($archiveMirrors.Count -eq 1) `
+        'Installer must retain exactly one archival backup from the protected rollback snapshot.' 
 
     New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
     Invoke-Robocopy `
