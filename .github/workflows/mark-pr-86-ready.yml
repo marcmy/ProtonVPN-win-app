@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   ready:
-    if: github.event.head_commit.message == 'Mark PR #86 ready'
+    if: github.event.head_commit.message == 'Mark PR 86 ready'
     runs-on: ubuntu-24.04
     steps:
       - name: Mark pull request ready for review
