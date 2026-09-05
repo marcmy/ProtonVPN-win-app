@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,17 +17,18 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace ProtonVPN.Client.Common.Models;
+using ProtonVPN.Client.Contracts.Services.Activation;
+using ProtonVPN.Client.Localization.Contracts;
 
-public struct WindowPositionParameters
+namespace ProtonVPN.Client.Logic.Connection.ConnectionErrors;
+
+public class ServerValidationConnectionError : ReportableConnectionError
 {
-    public double Width { get; set; }
+    public override string Message => Localizer.Get("Connection_Error_ServerValidation");
 
-    public double Height { get; set; }
-
-    public double? XPosition { get; set; }
-
-    public double? YPosition { get; set; }
-
-    public bool IsCentered { get; set; }
+    public ServerValidationConnectionError(
+        ILocalizationProvider localizer,
+        IClientWindowsActivator clientWindowsActivator)
+        : base(localizer, clientWindowsActivator)
+    { }
 }

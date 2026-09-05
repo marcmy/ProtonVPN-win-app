@@ -108,6 +108,7 @@ public class UserSettingsLog : LogBase
     {
         yield return new(nameof(IUserSettings.Theme), _settings.Theme);
         yield return new(nameof(IUserSettings.VpnProtocol), _settings.VpnProtocol);
+        yield return new(nameof(IUserSettings.AreProtonProtocolsEnabled), _settings.AreProtonProtocolsEnabled);
         yield return new(nameof(IUserSettings.Username), _settings.Username);
         yield return new($"{nameof(IUserSettings.VpnPlan)}.{nameof(VpnPlan.IsPaid)}", _settings.VpnPlan.IsPaid);
         yield return new($"{nameof(IUserSettings.VpnPlan)}.{nameof(VpnPlan.Title)}", _settings.VpnPlan.Title);
@@ -161,11 +162,11 @@ public class UserSettingsLog : LogBase
         yield return new(nameof(IUserSettings.IsNavigationPaneOpened), _settings.IsNavigationPaneOpened);
         yield return new(nameof(IUserSettings.IsConnectionDetailsPaneOpened), _settings.IsConnectionDetailsPaneOpened);
 
-        yield return new(nameof(IUserSettings.WindowWidth), _settings.WindowWidth);
-        yield return new(nameof(IUserSettings.WindowHeight), _settings.WindowHeight);
-        yield return new(nameof(IUserSettings.WindowXPosition), _settings.WindowXPosition);
-        yield return new(nameof(IUserSettings.WindowYPosition), _settings.WindowYPosition);
-        yield return new(nameof(IUserSettings.IsWindowMaximized), _settings.IsWindowMaximized);
+        yield return new($"{nameof(IGlobalSettings.WindowLocation)}.{nameof(WindowLocation.Width)}", _settings.WindowLocation.Width);
+        yield return new($"{nameof(IGlobalSettings.WindowLocation)}.{nameof(WindowLocation.Height)}", _settings.WindowLocation.Height);
+        yield return new($"{nameof(IGlobalSettings.WindowLocation)}.{nameof(WindowLocation.XPosition)}", _settings.WindowLocation.XPosition);
+        yield return new($"{nameof(IGlobalSettings.WindowLocation)}.{nameof(WindowLocation.YPosition)}", _settings.WindowLocation.YPosition);
+        yield return new($"{nameof(IGlobalSettings.WindowLocation)}.{nameof(WindowLocation.IsMaximized)}", _settings.WindowLocation.IsMaximized);
 
         yield return new(nameof(IUserSettings.WasWelcomeOverlayDisplayed), _settings.WasWelcomeOverlayDisplayed);
         yield return new(nameof(IUserSettings.WasWelcomePlusOverlayDisplayed), _settings.WasWelcomePlusOverlayDisplayed);

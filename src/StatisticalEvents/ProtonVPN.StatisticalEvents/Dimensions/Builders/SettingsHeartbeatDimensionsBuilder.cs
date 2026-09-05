@@ -105,7 +105,10 @@ public class SettingsHeartbeatDimensionsBuilder : ISettingsHeartbeatDimensionsBu
                 _settings.SplitTunnelingMode,
                 _settings.SplitTunnelingStandardIpAddressesList,
                 _settings.SplitTunnelingInverseIpAddressesList) },
-            { "window_size_category", _windowSizeCategoryDimensionMapper.Map(_settings.WindowWidth, _settings.WindowHeight, _settings.IsWindowMaximized) },
+            { "window_size_category", _windowSizeCategoryDimensionMapper.Map(
+                _settings.WindowLocation.Width,
+                _settings.WindowLocation.Height,
+                _settings.WindowLocation.IsMaximized) },
             { "netshield_level", _netShieldModeDimensionMapper.Map(_settings.IsNetShieldEnabled, _settings.NetShieldMode) },
             { "kill_switch_level", _killSwitchModeDimensionMapper.Map(_settings.IsKillSwitchEnabled, _settings.KillSwitchMode) },
             { "nat_type", _natTypeDimensionMapper.Map(_settings.NatType) },

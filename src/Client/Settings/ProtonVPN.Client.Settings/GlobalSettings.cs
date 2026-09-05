@@ -284,8 +284,32 @@ public class GlobalSettings : TransientSettings, IGlobalSettings
         set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
+    public WindowLocation WindowLocation
+    {
+        get
+        {
+            WindowLocation? windowLocation = _globalCache.GetValueType<WindowLocation>(SettingEncryption.Unencrypted);
+            if (windowLocation is null)
+            {
+                windowLocation = GetWindowLocationFromUserSettings();
+                if (windowLocation is not null)
+                {
+                    _globalCache.SetValueType<WindowLocation>(windowLocation, SettingEncryption.Unencrypted);
+                }
+            }
+
+            return windowLocation ?? DefaultSettings.WindowLocation;
+        }
+        set => _globalCache.SetValueType<WindowLocation>(value, SettingEncryption.Unencrypted);
+    }
+
     public GlobalSettings(IGlobalSettingsCache globalSettingsCache)
     {
         _globalCache = globalSettingsCache;
+    }
+
+    protected virtual WindowLocation? GetWindowLocationFromUserSettings()
+    {
+        return null;
     }
 }

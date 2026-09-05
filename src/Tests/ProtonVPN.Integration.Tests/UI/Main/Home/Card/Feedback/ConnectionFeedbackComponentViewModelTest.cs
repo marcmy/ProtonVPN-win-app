@@ -305,6 +305,15 @@ public class ConnectionFeedbackComponentViewModelTest
             return true;
         }
 
+        public void TryEnqueue(
+            Func<Task> callback,
+            string sourceFilePath = "",
+            string sourceMemberName = "",
+            int sourceLineNumber = 0)
+        {
+            callback().GetAwaiter().GetResult();
+        }
+
         public async Task<bool> TryEnqueueAsync(
             Func<Task> callback,
             string sourceFilePath = "",

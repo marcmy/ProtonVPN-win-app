@@ -1,5 +1,5 @@
-﻿/*
- * Copyright (c) 2023 Proton AG
+/*
+ * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -17,17 +17,17 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace ProtonVPN.Client.Common.Models;
+namespace ProtonVPN.Client.Settings.Contracts;
 
-public struct WindowPositionParameters
+public readonly struct WindowLocation
 {
-    public double Width { get; set; }
+    public int Width { get; init; }
 
-    public double Height { get; set; }
+    public int Height { get; init; }
 
-    public double? XPosition { get; set; }
+    public int? XPosition { get; init; }
 
-    public double? YPosition { get; set; }
+    public int? YPosition { get; init; }
 
-    public bool IsCentered { get; set; }
+    public bool IsMaximized { get; init; }
 }
