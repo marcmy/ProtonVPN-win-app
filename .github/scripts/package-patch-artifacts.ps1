@@ -47,6 +47,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# These assemblies contain values injected only by Proton's official release build and must
+# remain byte-for-byte from the matching installed release. Public-source builds intentionally
+# contain placeholders and are not valid replacements.
+$preservedReleaseAssemblies = @(
+    'ProtonVPN.Builds.Variables.dll'
+)
+
 function Test-PathIntersection {
     param(
         [Parameter(Mandatory = $true)]
@@ -260,7 +267,9 @@ function Get-FirstPartyServiceRuntimeAssets {
             }
 
             foreach ($asset in $runtimeProperty.Value.PSObject.Properties) {
-                if ([System.IO.Path]::GetFileName($asset.Name) -like 'ProtonVPN*.dll') {
+                $leafName = [System.IO.Path]::GetFileName($asset.Name)
+                if ($leafName -like 'ProtonVPN*.dll' -and
+                    $preservedReleaseAssemblies -notcontains $leafName) {
                     $asset.Name.Replace('\', '/')
                 }
             }
@@ -286,6 +295,7 @@ if ($BuildMode -in @('client', 'both')) {
         Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
             Where-Object {
                 $_.Name -ne 'ProtonVPNService.dll' -and
+                $preservedReleaseAssemblies -notcontains $_.Name -and
                 $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
                 $_.Name -notlike 'ProtonVPN.Tests*.dll'
             } |
