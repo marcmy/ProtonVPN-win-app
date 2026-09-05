@@ -43,6 +43,7 @@ using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.UI.Main.Sidebar.Bases;
 using ProtonVPN.Client.UI.Main.Sidebar.Connections.Bases.Contracts;
 using ProtonVPN.Client.UI.Main.Sidebar.Search.Contracts;
+using ProtonVPN.Common.Core.Extensions;
 
 namespace ProtonVPN.Client.UI.Main.Sidebar.Search;
 
@@ -121,12 +122,12 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         base.OnLanguageChanged();
         OnPropertyChanged(nameof(ExampleCountries));
         OnPropertyChanged(nameof(ExampleCities));
-        _ = ReloadResultsAsync();
+        ReloadResultsAsync().FireAndForget();
     }
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
-        _ = ReloadResultsAsync();
+        ReloadResultsAsync().FireAndForget();
     }
 
     public Task SearchAsync(string input)
@@ -506,11 +507,11 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     public void Receive(ServerListChangedMessage message)
     {
-        ExecuteOnUIThread(() =>
+        ExecuteOnUIThread(async () =>
         {
             if (HasSearchInput)
             {
-                _ = ReloadResultsAsync();
+                await ReloadResultsAsync();
             }
             else
             {
@@ -528,11 +529,11 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
             return;
         }
 
-        ExecuteOnUIThread(() => _ = ReloadResultsAsync());
+        ExecuteOnUIThread(ReloadResultsAsync);
     }
 
     public void Receive(LocationNamesChangedMessage message)
     {
-        ExecuteOnUIThread(() => _ = ReloadResultsAsync());
+        ExecuteOnUIThread(ReloadResultsAsync);
     }
 }
