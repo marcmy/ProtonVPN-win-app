@@ -25,10 +25,13 @@ using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Legacy.Abstract;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.GuestHoleLogs;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 
 namespace ProtonVPN.Client.Logic.Connection.GuestHole;
 
-public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<ConnectionStatusChangedMessage>
+public class GuestHoleManager : IGuestHoleManager,
+    IEventMessageReceiver<ConnectionStatusChangedMessage>,
+    IEventMessageReceiver<VpnStateIpcEntity>
 {
     private const int CONNECTED_FUNC_DELAY_IN_MS = 1000;
 
@@ -158,6 +161,33 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
         HandleConnectionStatusChangedAsync(message).FireAndForget();
     }
 
+    public void Receive(VpnStateIpcEntity message)
+    {
+        if (message.Status != VpnStatusIpcEntity.Disconnected)
+        {
+            return;
+        }
+
+        bool shouldHandleDisconnection;
+        lock (_disconnectSync)
+        {
+            // Guest Hole startup first tears down the ordinary VPN with
+            // NoneKeepEnabledKillSwitch. That raw Disconnected state must not be
+            // mistaken for Guest Hole teardown. Once Guest Hole has actually
+            // connected, or once this manager has requested its own disconnect,
+            // the raw service state is authoritative even though the normal
+            // VpnStateIpcEntityHandler intentionally filters it from the UI-level
+            // ConnectionStatusChangedMessage stream.
+            shouldHandleDisconnection = _isActive &&
+                (_wasConnected || _disconnectCompletionSource is not null);
+        }
+
+        if (shouldHandleDisconnection)
+        {
+            HandleDisconnection();
+        }
+    }
+
     private async Task HandleConnectionStatusChangedAsync(ConnectionStatusChangedMessage message)
     {
         if (!_isActive || _lastVpnStatus == message.ConnectionStatus)
@@ -173,7 +203,10 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
                                                  _onConnectedFunc is not null:
                 _logger.Info<GuestHoleLog>("Connected to guest hole");
 
-                _wasConnected = true;
+                lock (_disconnectSync)
+                {
+                    _wasConnected = true;
+                }
                 Result? result;
                 try
                 {
@@ -196,12 +229,24 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
 
     private void HandleDisconnection()
     {
-        if (!_wasConnected)
+        bool wasConnected;
+        lock (_disconnectSync)
+        {
+            if (!_isActive)
+            {
+                return;
+            }
+
+            _isActive = false;
+            wasConnected = _wasConnected;
+        }
+
+        if (!wasConnected)
         {
             SetTaskCompletionSourceResult(null);
         }
 
-        SetStatus(false);
+        _eventMessageSender.Send(new GuestHoleStatusChangedMessage(false));
         CompletePendingDisconnect();
         _logger.Info<GuestHoleLog>("Disconnected from guest hole.");
     }
@@ -228,7 +273,10 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
         _tcs.TrySetResult(result);
         _tcs = null;
         _onConnectedFunc = null;
-        _wasConnected = false;
+        lock (_disconnectSync)
+        {
+            _wasConnected = false;
+        }
     }
 
     public async Task DisconnectAsync()

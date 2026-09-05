@@ -103,6 +103,13 @@ internal class ConnectionProbe : IConnectionProbe
                 break;
             }
 
+            VpnError validationError = _serverValidator.Validate(endpoint.Server);
+            if (validationError != VpnError.None)
+            {
+                _logger.Warn<ConnectLog>($"Server validation failed for IP {endpoint.Server.Ip} and Label ({endpoint.Server.Label}).");
+                continue;
+            }
+
             VpnEndpoint bestEndpoint = await _endpointScanner.ScanForBestEndpointAsync(
                 endpoint,
                 config.Ports,
