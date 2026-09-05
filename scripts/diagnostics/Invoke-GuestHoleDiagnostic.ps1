@@ -92,7 +92,8 @@ try
             {
                 'Guest Hole is active and held open for capture.'
                 'The ordinary VPN tunnel has been replaced by Guest Hole for this phase.'
-                'The client UI may show its normal/default (for example, Fastest Server) connection card disabled while Guest Hole is active.'
+                'The client UI may still look connected to a normal/default target (for example, Fastest Country) even though the active tunnel is Guest Hole.'
+                'Ordinary Internet access may be unavailable while Guest Hole is held.'
                 'Do not reconnect or press Disconnect until the Guest Hole capture is complete.'
             }
             elseif ($waitResult -eq 1)

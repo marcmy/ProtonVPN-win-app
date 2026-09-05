@@ -7,6 +7,7 @@ It exists because deterministic service/firewall characterization proves that th
 The accompanying scripts are diagnostic-only:
 
 - `Invoke-GuestHoleDiagnostic.ps1` starts, holds, reports, and releases the genuine Guest Hole path exposed only by this diagnostic branch.
+- `Invoke-GuestHoleSmokeCycle.ps1` runs the Guest Hole-active capture and the immediate keep-enabled-disconnected capture locally as one guarded operation, so the matrix can continue even when Guest Hole removes ordinary Internet access.
 - `Capture-GuestHoleWindowsState.ps1` records a timestamped state snapshot and performs read-only LAN/DNS probes.
 - `Compare-GuestHoleWindowsState.ps1` compares the sanitized `summary.json` files from multiple snapshots.
 
@@ -169,6 +170,33 @@ The baseline is the control for route, LAN, DNS/NRPT, firewall/WFP, and service 
 
 ### B. Guest Hole active
 
+#### Recommended: self-contained B -> C capture
+
+On machines where the genuine Guest Hole tunnel removes ordinary Internet access, do not drive phases B and C interactively from a remote/chat control channel. From the same **elevated PowerShell** used for the baseline, run the local cycle instead:
+
+```powershell
+.\scripts\diagnostics\Invoke-GuestHoleSmokeCycle.ps1 `
+    -KillSwitchMode Soft `
+    -LanTargets @('192.168.1.1') `
+    -LanTcpPorts @(80) `
+    -DnsNames @('protonvpn.com','example.com') `
+    -UiLanAccessState Enabled
+```
+
+The cycle performs these guarded steps locally without synthesizing any network state:
+
+1. starts the genuine `IGuestHoleManager.ExecuteAsync` diagnostic path;
+2. requires diagnostic `Status` to be `Active`;
+3. captures the authoritative `GuestHole` Windows snapshot;
+4. checks that Guest Hole is still `Active` before issuing `Release`;
+5. waits for `Idle` after the genuine Guest Hole teardown;
+6. immediately captures `KeepEnabledDisconnected` before any reconnect or settings change;
+7. prints an explicit completion message when it is safe to reconnect manually.
+
+If Guest Hole disappears during the capture, the cycle **does not issue Release against a replacement tunnel**. If a capture error occurs while Guest Hole is still positively `Active`, its guarded cleanup releases that held Guest Hole before exiting.
+
+Use `-KillSwitchMode Hard` for the Hard matrix. The manual steps below remain useful for a machine with an independent local/out-of-band control channel.
+
 1. With the diagnostic-branch client running, start and hold the genuine Guest Hole:
 
 ```powershell
@@ -181,7 +209,7 @@ The baseline is the control for route, LAN, DNS/NRPT, firewall/WFP, and service 
 .\scripts\diagnostics\Invoke-GuestHoleDiagnostic.ps1 Status
 ```
 
-3. While Guest Hole is active, the ordinary VPN tunnel has been replaced by the Guest Hole tunnel. The client UI can therefore show its normal/default connection card (for example, `Fastest Server`) disabled because there is no normal `CurrentConnectionIntent` during Guest Hole. **Do not reconnect or press Disconnect**; either action tears down Guest Hole and aborts this phase.
+3. While Guest Hole is active, the ordinary VPN tunnel has been replaced by the Guest Hole tunnel. The client can show a connected normal/default-looking card (for example, `Fastest Country`) even though the actual connection status is Guest Hole and ordinary Internet access can be unavailable. **Do not reconnect or press Disconnect**; either action tears down Guest Hole and aborts this phase.
 4. Do not change normal user settings to manufacture the safe state.
 5. Capture while Guest Hole is active:
 
