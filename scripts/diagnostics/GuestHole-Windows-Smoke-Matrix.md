@@ -195,7 +195,9 @@ The cycle performs these guarded steps locally without synthesizing any network 
 
 If Guest Hole disappears during the capture, the cycle **does not issue Release against a replacement tunnel**. If a capture error occurs while Guest Hole is still positively `Active`, its guarded cleanup releases that held Guest Hole before exiting.
 
-The production `GuestHoleManager` currently waits up to 30 seconds for its requested disconnect to report the real `Disconnected` state. If that wait expires first, the diagnostic controller latches `Failed` even though Windows/service teardown can still complete later. In that case the local cycle does **not** immediately treat `Failed` as permission to capture phase C: it waits for a new post-release `CONN.GUEST_HOLE | Disconnected from guest hole.` client-log event. Only that positive late-disconnect evidence allows the disconnected snapshot to proceed; otherwise the cycle stops without capturing phase C.
+The production `GuestHoleManager` waits up to 30 seconds for its requested disconnect to report the real service `Disconnected` state. The service uses `NoneKeepEnabledKillSwitch` for this transition, and the normal client state handler intentionally filters that state from the UI-level `ConnectionStatusChangedMessage` stream. `GuestHoleManager` therefore also observes the raw service state, but only after Guest Hole has actually connected or after the manager has issued its own disconnect request. This avoids mistaking the ordinary-tunnel teardown that occurs during Guest Hole startup for Guest Hole teardown.
+
+If the diagnostic controller latches `Failed` after release, the local cycle stops without phase C and explicitly says that the smoke cycle is over. It is then safe to reconnect manually for recovery. That reconnect must not be accepted as phase-C evidence because a normal reconnect can itself induce the Guest Hole disconnect and would contaminate the keep-enabled-disconnected capture.
 
 Use `-KillSwitchMode Hard` for the Hard matrix. The manual steps below remain useful for a machine with an independent local/out-of-band control channel.
 
