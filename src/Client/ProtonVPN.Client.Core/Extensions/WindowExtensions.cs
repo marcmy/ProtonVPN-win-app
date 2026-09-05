@@ -227,7 +227,7 @@ public static class WindowExtensions
 
         double windowPositionX;
         double windowPositionY;
-        if (isPositionSpecified)
+        if (isPositionSpecified && !parameters.IsCentered)
         {
             // Ensure the window position is within the work area bounds (position is calculated in pixels)
             windowPositionX = parameters.XPosition!.Value.Clamp(workArea.X, workArea.X + workArea.Width - windowWidth.ToPixels(dpi));

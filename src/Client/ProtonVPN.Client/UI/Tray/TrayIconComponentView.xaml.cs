@@ -39,6 +39,7 @@ public sealed partial class TrayIconComponentView : IContextAware
 
     public void DisposeTrayIcon()
     {
+        Bindings.StopTracking();
         TrayIcon.Dispose();
     }
 }

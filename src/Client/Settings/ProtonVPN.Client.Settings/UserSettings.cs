@@ -519,4 +519,21 @@ public class UserSettings : GlobalSettings, IUserSettings
     {
         _userCache = userSettingsCache;
     }
+
+    protected override WindowLocation? GetWindowLocationFromUserSettings()
+    {
+        if (UserId is null)
+        {
+            return null;
+        }
+
+        return new()
+        {
+            Width = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowWidth)) ?? DefaultSettings.WindowLocation.Width,
+            Height = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowHeight)) ?? DefaultSettings.WindowLocation.Height,
+            XPosition = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowXPosition)) ?? DefaultSettings.WindowLocation.XPosition,
+            YPosition = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowYPosition)) ?? DefaultSettings.WindowLocation.YPosition,
+            IsMaximized = _userCache.GetValueType<bool>(SettingEncryption.Unencrypted, nameof(IsWindowMaximized)) ?? DefaultSettings.WindowLocation.IsMaximized,
+        };
+    }
 }
