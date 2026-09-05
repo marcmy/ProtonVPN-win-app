@@ -91,6 +91,9 @@ try
             if ($waitResult -eq 0)
             {
                 'Guest Hole is active and held open for capture.'
+                'The ordinary VPN tunnel has been replaced by Guest Hole for this phase.'
+                'The client UI may show its normal/default (for example, Fastest Server) connection card disabled while Guest Hole is active.'
+                'Do not reconnect or press Disconnect until the Guest Hole capture is complete.'
             }
             elseif ($waitResult -eq 1)
             {

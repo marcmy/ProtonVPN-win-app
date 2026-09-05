@@ -181,8 +181,9 @@ The baseline is the control for route, LAN, DNS/NRPT, firewall/WFP, and service 
 .\scripts\diagnostics\Invoke-GuestHoleDiagnostic.ps1 Status
 ```
 
-3. Do not change normal user settings to manufacture the safe state.
-4. Capture while Guest Hole is active:
+3. While Guest Hole is active, the ordinary VPN tunnel has been replaced by the Guest Hole tunnel. The client UI can therefore show its normal/default connection card (for example, `Fastest Server`) disabled because there is no normal `CurrentConnectionIntent` during Guest Hole. **Do not reconnect or press Disconnect**; either action tears down Guest Hole and aborts this phase.
+4. Do not change normal user settings to manufacture the safe state.
+5. Capture while Guest Hole is active:
 
 ```powershell
 .\scripts\diagnostics\Capture-GuestHoleWindowsState.ps1 @common `
