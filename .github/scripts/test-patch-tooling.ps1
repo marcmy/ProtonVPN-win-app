@@ -115,6 +115,7 @@ function New-PackageFixture {
     }
 
     Write-TestText (Join-Path $clientDir 'ProtonVPN.Client.dll') 'client'
+    Write-TestText (Join-Path $clientDir 'ProtonVPN.Builds.Variables.dll') 'public-source-empty-release-variables'
     Write-TestText (Join-Path $clientDir 'ProtonVPN.Shared.dll') 'shared-identical'
     Write-TestText (Join-Path $clientDir 'ProtonVPN.Client.pri') 'pri'
     Write-TestText (Join-Path $clientDir 'App.xbf') 'app'
@@ -123,6 +124,7 @@ function New-PackageFixture {
 
     $serviceAssets = @(
         'ProtonVPNService.dll',
+        'ProtonVPN.Builds.Variables.dll',
         'ProtonVPN.Vpn.dll',
         'ProtonVPN.Update.dll',
         'ProtonVPN.ProcessCommunication.Service.dll',
@@ -259,6 +261,15 @@ function Test-PackageComposition {
     Assert-Condition $unsafeStageRejected `
         'Client staging did not reject a cleanup directory that overlapped its source.'
 
+    $safeStageDirectory = Join-Path $fixture.Root 'client-stage'
+    & $stageClientScript `
+        -ClientOutputDirectory $fixture.Client `
+        -StageDirectory $safeStageDirectory
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $safeStageDirectory 'ProtonVPN.Client.dll') -PathType Leaf) `
+        'Client staging omitted ProtonVPN.Client.dll.'
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $safeStageDirectory 'ProtonVPN.Builds.Variables.dll'))) `
+        'Client staging overwrote release-injected ProtonVPN.Builds.Variables.dll.'
+
     $unsafePackageRejected = $false
     try {
         & $packageScript `
@@ -291,12 +302,19 @@ function Test-PackageComposition {
     $manifest = Get-Content -LiteralPath (Join-Path $patchDir 'patch-manifest.json') -Raw | ConvertFrom-Json
     $manifestPaths = @($manifest.files | ForEach-Object { [string] $_.path })
 
-    foreach ($asset in $fixture.ServiceAssets) {
+    $expectedServiceAssets = @(
+        $fixture.ServiceAssets | Where-Object { $_ -ne 'ProtonVPN.Builds.Variables.dll' }
+    )
+
+    foreach ($asset in $expectedServiceAssets) {
         Assert-Condition ($manifestPaths -contains $asset) `
             "Packaged manifest omitted service runtime assembly: $asset"
     }
 
-    Assert-Condition ([int] $manifest.serviceRuntimeAssemblyCount -eq $fixture.ServiceAssets.Count) `
+    Assert-Condition ($manifestPaths -notcontains 'ProtonVPN.Builds.Variables.dll') `
+        'Packaged manifest overwrote release-injected ProtonVPN.Builds.Variables.dll.'
+
+    Assert-Condition ([int] $manifest.serviceRuntimeAssemblyCount -eq $expectedServiceAssets.Count) `
         'Packaged manifest reported the wrong service runtime assembly count.'
 
     & powershell.exe `

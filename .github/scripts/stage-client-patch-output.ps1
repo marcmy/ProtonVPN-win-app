@@ -122,10 +122,19 @@ function Copy-RelativeClientFileToStage {
     Write-Host "Staged $RelativePath"
 }
 
+# ProtonVPN.Builds.Variables.dll is populated with release-private values during Proton's
+# official build (including the Guest Hole resource decryption keys). The public source keeps
+# those values empty, so a fork build must preserve the matching official release assembly
+# instead of overwriting it with an unusable placeholder.
+$preservedReleaseAssemblies = @(
+    'ProtonVPN.Builds.Variables.dll'
+)
+
 $clientDlls = @(
     Get-ChildItem -LiteralPath $clientOutputDir -File -Filter 'ProtonVPN*.dll' |
         Where-Object {
             $_.Name -ne 'ProtonVPNService.dll' -and
+            $preservedReleaseAssemblies -notcontains $_.Name -and
             $_.Name -notlike 'ProtonVPN.*Tests*.dll' -and
             $_.Name -notlike 'ProtonVPN.Tests*.dll'
         } |
