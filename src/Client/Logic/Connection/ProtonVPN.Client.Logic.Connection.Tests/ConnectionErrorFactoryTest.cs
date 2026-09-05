@@ -45,6 +45,7 @@ public class ConnectionErrorFactoryTest
         { VpnError.WireGuardAdapterInUseError, typeof(WireGuardAdapterInUseConnectionError) },
         { VpnError.MissingConnectionCertificate, typeof(MissingConnectionCertificateError) },
         { VpnError.TlsCertificateError, typeof(TlsCertificateConnectionError) },
+        { VpnError.ServerValidationError, typeof(ServerValidationConnectionError) },
         { VpnError.NoTapAdaptersError, typeof(NoTapAdaptersConnectionError) },
         { VpnError.TapAdapterInUseError, typeof(TapAdapterInUseConnectionError) },
         { VpnError.TapRequiresUpdateError, typeof(TapRequiresUpdateConnectionError) },
@@ -136,6 +137,7 @@ public class ConnectionErrorFactoryTest
             new WireGuardAdapterInUseConnectionError(_localizer!, _connectionManager!),
             new MissingConnectionCertificateError(_localizer!, _clientWindowsActivator!),
             new TlsCertificateConnectionError(_localizer!, _clientWindowsActivator!),
+            new ServerValidationConnectionError(_localizer!, _clientWindowsActivator!),
             new SessionLimitReachedConnectionError(_localizer!, _settings!, _clientWindowsActivator!),
             new MobileHotspotConnectionError(_localizer!, _clientWindowsActivator!),
         ]);
