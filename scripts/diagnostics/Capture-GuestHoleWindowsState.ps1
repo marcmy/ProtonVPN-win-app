@@ -143,6 +143,27 @@ function Find-ServiceSettingsFile
         return $null
     }
 
+    # Prefer the shared locator, which resolves the settings file from the
+    # registered/running ProtonVPN service and therefore selects the exact
+    # installed version's ServiceData directory.
+    $locatorPath = Join-Path $PSScriptRoot 'Get-ProtonServiceSettingsPath.ps1'
+    if (Test-Path -LiteralPath $locatorPath -PathType Leaf)
+    {
+        try
+        {
+            $locatedPath = & $locatorPath | Select-Object -First 1
+            if (-not [string]::IsNullOrWhiteSpace($locatedPath) -and
+                (Test-Path -LiteralPath $locatedPath -PathType Leaf))
+            {
+                return (Resolve-Path -LiteralPath $locatedPath).Path
+            }
+        }
+        catch
+        {
+            # Fall through to legacy ProgramData discovery for unusual installs.
+        }
+    }
+
     if ([string]::IsNullOrWhiteSpace($env:ProgramData) -or -not (Test-Path -LiteralPath $env:ProgramData))
     {
         return $null
@@ -191,7 +212,7 @@ function Get-SafeServiceSettings
         return [ordered]@{
             Path = $null
             Error = if ([string]::IsNullOrWhiteSpace($ServiceSettingsPath)) {
-                'Service settings file was not auto-discovered under a Proton ProgramData directory.'
+                'Service settings file was not auto-discovered from the Proton VPN service or fallback ProgramData search.'
             } else {
                 'The supplied ServiceSettingsPath does not exist or is not a file.'
             }

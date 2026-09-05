@@ -75,7 +75,7 @@ Before starting, choose at least one LAN target that is known reachable during t
 
 Do not infer "LAN blocked" from an ICMP failure alone. A peer firewall can block ping. The same target/port must first succeed in the baseline for a later failure to be meaningful.
 
-The capture script tries to locate the persisted service-settings JSON under Proton-related `%ProgramData%` directories. If `ServiceSettings.Path` is empty in `summary.json`, locate the actual service-settings file for this installation and pass it explicitly with `-ServiceSettingsPath` on subsequent captures.
+The capture script first resolves the persisted service-settings JSON from the registered/running Proton VPN service, which identifies the exact installed version's `ServiceData\ServiceSettings.json`. It retains a Proton-related `%ProgramData%` search as a legacy fallback. If `ServiceSettings.Path` is still empty in `summary.json`, locate the actual service-settings file for this installation and pass it explicitly with `-ServiceSettingsPath` on subsequent captures.
 
 The script only copies these selected service fields into its output; it does not copy the complete settings file:
 
