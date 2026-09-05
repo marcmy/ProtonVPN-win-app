@@ -108,7 +108,12 @@ internal sealed class GuestHoleDiagnosticController
                 () => HoldGuestHoleAsync(heldGuestHoleReleased),
                 CancellationToken.None);
 
-            if (result is null &&
+            if (result is { Failure: true })
+            {
+                _failedEvent.Set();
+                _logger.Warn<AppLog>($"Guest Hole diagnostic: {result.Error}");
+            }
+            else if (result is null &&
                 (!heldGuestHoleReleased.Task.IsCompletedSuccessfully || _guestHoleManager.IsActive))
             {
                 _failedEvent.Set();
@@ -135,7 +140,26 @@ internal sealed class GuestHoleDiagnosticController
         _activeEvent.Set();
         _logger.Info<AppLog>("Guest Hole diagnostic: genuine Guest Hole is active; waiting for release request.");
 
-        await Task.Run(() => _stopEvent.WaitOne());
+        bool releaseRequested = await Task.Run(() =>
+        {
+            while (_guestHoleManager.IsActive)
+            {
+                if (_stopEvent.WaitOne(TimeSpan.FromMilliseconds(100)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        if (!releaseRequested)
+        {
+            // A normal connection request can tear down Guest Hole while this callback is held.
+            // Return a non-null failure so GuestHoleManager.ExecuteAsync does not send a second
+            // Guest Hole disconnect request against the newly established normal VPN tunnel.
+            return Result.Fail("Guest Hole disconnected while the diagnostic hold was active; no additional teardown was requested.");
+        }
 
         _logger.Info<AppLog>("Guest Hole diagnostic: release requested; returning control to GuestHoleManager for genuine teardown.");
         heldGuestHoleReleased.TrySetResult(true);
