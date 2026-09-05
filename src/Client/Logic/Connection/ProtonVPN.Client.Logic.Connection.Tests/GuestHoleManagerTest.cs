@@ -25,12 +25,79 @@ using ProtonVPN.Client.Logic.Connection.Contracts.Messages;
 using ProtonVPN.Client.Logic.Connection.GuestHole;
 using ProtonVPN.Common.Legacy.Abstract;
 using ProtonVPN.Logging.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 
 namespace ProtonVPN.Client.Logic.Connection.Tests;
 
 [TestClass]
 public class GuestHoleManagerTest
 {
+    [TestMethod]
+    public async Task ExecuteAsync_ShouldIgnoreRawDisconnectedStateBeforeGuestHoleConnects()
+    {
+        ILogger logger = Substitute.For<ILogger>();
+        IEventMessageSender eventMessageSender = Substitute.For<IEventMessageSender>();
+        IGuestHoleConnector guestHoleConnector = Substitute.For<IGuestHoleConnector>();
+
+        TaskCompletionSource<bool> disconnectRequested = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        guestHoleConnector.ConnectToGuestHoleAsync().Returns(Task.CompletedTask);
+        guestHoleConnector.DisconnectFromGuestHoleAsync().Returns(_ =>
+        {
+            disconnectRequested.TrySetResult(true);
+            return Task.CompletedTask;
+        });
+
+        GuestHoleManager manager = new(logger, eventMessageSender, guestHoleConnector);
+        Task<Result?> use = manager.ExecuteAsync<Result>(
+            () => Task.FromResult<Result>(null!),
+            CancellationToken.None);
+
+        manager.Receive(CreateRawDisconnectedState());
+        await Task.Delay(100);
+
+        Assert.IsTrue(manager.IsActive, "The ordinary tunnel teardown was mistaken for Guest Hole teardown.");
+        Assert.IsFalse(use.IsCompleted);
+
+        manager.Receive(new ConnectionStatusChangedMessage(ConnectionStatus.Connected));
+        await disconnectRequested.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        manager.Receive(CreateRawDisconnectedState());
+
+        Result? result = await use.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.IsNull(result);
+        Assert.IsFalse(manager.IsActive);
+    }
+
+    [TestMethod]
+    public async Task ExecuteAsync_ShouldCompleteRequestedDisconnectFromRawServiceDisconnectedState()
+    {
+        ILogger logger = Substitute.For<ILogger>();
+        IEventMessageSender eventMessageSender = Substitute.For<IEventMessageSender>();
+        IGuestHoleConnector guestHoleConnector = Substitute.For<IGuestHoleConnector>();
+
+        TaskCompletionSource<bool> disconnectRequested = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        guestHoleConnector.ConnectToGuestHoleAsync().Returns(Task.CompletedTask);
+        guestHoleConnector.DisconnectFromGuestHoleAsync().Returns(_ =>
+        {
+            disconnectRequested.TrySetResult(true);
+            return Task.CompletedTask;
+        });
+
+        GuestHoleManager manager = new(logger, eventMessageSender, guestHoleConnector);
+        Task<Result?> use = manager.ExecuteAsync<Result>(
+            () => Task.FromResult<Result>(null!),
+            CancellationToken.None);
+
+        manager.Receive(new ConnectionStatusChangedMessage(ConnectionStatus.Connected));
+        await disconnectRequested.Task.WaitAsync(TimeSpan.FromSeconds(3));
+
+        manager.Receive(CreateRawDisconnectedState());
+
+        Result? result = await use.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.IsNull(result);
+        Assert.IsFalse(manager.IsActive);
+        await guestHoleConnector.Received(1).DisconnectFromGuestHoleAsync();
+    }
+
     [TestMethod]
     public async Task ExecuteAsync_ShouldSerializeConcurrentGuestHoleUses()
     {
@@ -148,5 +215,14 @@ public class GuestHoleManagerTest
         manager.Receive(new ConnectionStatusChangedMessage(ConnectionStatus.Disconnected));
         releaseSecondAction.TrySetResult(true);
         await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await secondUse);
+    }
+
+    private static VpnStateIpcEntity CreateRawDisconnectedState()
+    {
+        return new()
+        {
+            Status = VpnStatusIpcEntity.Disconnected,
+            Error = VpnErrorTypeIpcEntity.NoneKeepEnabledKillSwitch,
+        };
     }
 }
