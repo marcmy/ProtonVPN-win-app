@@ -33,6 +33,7 @@ $ErrorActionPreference = 'Stop'
 
 $diagnosticScript = Join-Path $PSScriptRoot 'Invoke-GuestHoleDiagnostic.ps1'
 $captureScript = Join-Path $PSScriptRoot 'Capture-GuestHoleWindowsState.ps1'
+$clientLogPath = Join-Path $env:LOCALAPPDATA 'Proton\Proton VPN\Logs\client-logs.txt'
 
 function Test-IsAdministrator
 {
@@ -51,6 +52,55 @@ function Test-IsAdministrator
 function Get-DiagnosticStatus
 {
     return ((& $diagnosticScript Status) | Select-Object -Last 1).Trim()
+}
+
+function Wait-ForRealGuestHoleDisconnection
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [DateTimeOffset]$NotBeforeUtc,
+
+        [Parameter(Mandatory = $true)]
+        [int]$WaitSeconds
+    )
+
+    if (-not (Test-Path -LiteralPath $clientLogPath -PathType Leaf))
+    {
+        return $false
+    }
+
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds($WaitSeconds)
+    while ([DateTimeOffset]::UtcNow -lt $deadline)
+    {
+        try
+        {
+            $matches = @(
+                Get-Content -LiteralPath $clientLogPath -Tail 500 -ErrorAction Stop |
+                    Select-String -Pattern 'CONN\.GUEST_HOLE \| Disconnected from guest hole\.'
+            )
+
+            foreach ($match in $matches)
+            {
+                if ($match.Line -match '^(?<Timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)')
+                {
+                    $timestamp = [DateTimeOffset]::MinValue
+                    if ([DateTimeOffset]::TryParse($Matches.Timestamp, [ref]$timestamp) -and
+                        $timestamp -ge $NotBeforeUtc)
+                    {
+                        return $true
+                    }
+                }
+            }
+        }
+        catch
+        {
+            # The client can be writing/rotating its log while we poll. Retry until timeout.
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    return $false
 }
 
 function Invoke-StateCapture
@@ -128,11 +178,22 @@ try
 
     Write-Host ''
     Write-Host 'Guest Hole capture is complete. Releasing the held callback through the genuine manager teardown...'
+    $releaseStartedUtc = [DateTimeOffset]::UtcNow
     & $diagnosticScript Release -TimeoutSeconds $TimeoutSeconds
     $releaseCompleted = $true
 
     $status = Get-DiagnosticStatus
-    if ($status -ne 'Idle')
+    if ($status -eq 'Failed')
+    {
+        Write-Warning 'GuestHoleManager returned before the real Disconnected event. Waiting for positive late-disconnect evidence from the client log before phase C...'
+        if (-not (Wait-ForRealGuestHoleDisconnection -NotBeforeUtc $releaseStartedUtc -WaitSeconds $TimeoutSeconds))
+        {
+            throw "Guest Hole remained in diagnostic Failed state and no real post-release Guest Hole Disconnected event was observed within $TimeoutSeconds seconds. The disconnected-state capture was not started."
+        }
+
+        Write-Host 'The real Guest Hole Disconnected event was observed after the manager timeout; continuing with the immediate disconnected-state capture.'
+    }
+    elseif ($status -ne 'Idle')
     {
         throw "Guest Hole did not reach Idle after release (status: $status). The disconnected-state capture was not started."
     }

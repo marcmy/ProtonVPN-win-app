@@ -195,6 +195,8 @@ The cycle performs these guarded steps locally without synthesizing any network 
 
 If Guest Hole disappears during the capture, the cycle **does not issue Release against a replacement tunnel**. If a capture error occurs while Guest Hole is still positively `Active`, its guarded cleanup releases that held Guest Hole before exiting.
 
+The production `GuestHoleManager` currently waits up to 30 seconds for its requested disconnect to report the real `Disconnected` state. If that wait expires first, the diagnostic controller latches `Failed` even though Windows/service teardown can still complete later. In that case the local cycle does **not** immediately treat `Failed` as permission to capture phase C: it waits for a new post-release `CONN.GUEST_HOLE | Disconnected from guest hole.` client-log event. Only that positive late-disconnect evidence allows the disconnected snapshot to proceed; otherwise the cycle stops without capturing phase C.
+
 Use `-KillSwitchMode Hard` for the Hard matrix. The manual steps below remain useful for a machine with an independent local/out-of-band control channel.
 
 1. With the diagnostic-branch client running, start and hold the genuine Guest Hole:
