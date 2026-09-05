@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
@@ -24,6 +26,7 @@ using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
 using ProtonVPN.Common.Legacy.Vpn;
 using ProtonVPN.Configurations.Contracts;
+using ProtonVPN.Configurations.Contracts.Entities;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.OperatingSystems.Network.Contracts;
 using ProtonVPN.OperatingSystems.Network.Contracts.Routing;
@@ -102,6 +105,68 @@ public class SplitTunnelRoutingTest
         Assert.AreEqual(physicalInterfaceIndex, route.InterfaceIndex);
         Assert.AreEqual(1u, route.Metric);
         Assert.IsFalse(route.IsIpv6);
+    }
+
+    [TestMethod]
+    public void SetUpRoutingTable_PermitMode_ShouldDeleteProtonProtocolHalfDefaultRoutesWithoutTrackingThem()
+    {
+        // Arrange
+        const uint tunnelInterfaceIndex = 99;
+        OpenVpnAdapter openVpnAdapter = default;
+        List<RouteConfiguration> deletedRoutes = [];
+        List<RouteConfiguration> reconciledRoutes = [];
+        IWireGuardConfigurations wireGuardConfig = Substitute.For<IWireGuardConfigurations>();
+        wireGuardConfig.DefaultServerGatewayIpv6Address.Returns("2a07:b944::2:1");
+        _config.WireGuard.Returns(wireGuardConfig);
+        _gatewayCache.Get().Returns(IPAddress.Parse("192.168.1.1"));
+        _routingTableHelper
+            .When(helper => helper.DeleteRoute(Arg.Any<RouteConfiguration>()))
+            .Do(callInfo => deletedRoutes.Add((RouteConfiguration)callInfo[0]));
+
+        INetworkInterface tunnelInterface = Substitute.For<INetworkInterface>();
+        tunnelInterface.Index.Returns(tunnelInterfaceIndex);
+        _networkInterfaceProvider.GetByVpnProtocol(VpnProtocol.ProTunUdp, openVpnAdapter).Returns(tunnelInterface);
+        _networkInterfaces.GetInterfaces().Returns([tunnelInterface]);
+
+        VpnConfig vpnConfig = new(new VpnConfigParameters
+        {
+            SplitTunnelMode = SplitTunnelMode.Permit,
+            VpnProtocol = VpnProtocol.ProTunUdp,
+            OpenVpnAdapter = openVpnAdapter,
+            PreferredProtocols = [],
+        });
+
+        using SplitTunnelRouting sut = CreateSut();
+
+        // Act
+        sut.SetUpRoutingTable(vpnConfig, "10.2.0.2", isIpv6Supported: true);
+
+        // Assert
+        string[] deletedDestinations = ["0.0.0.0/0", "0.0.0.0/1", "128.0.0.0/1", "::/0", "::/1", "8000::/1"];
+        foreach (string destination in deletedDestinations)
+        {
+            Assert.AreEqual(
+                1,
+                deletedRoutes.Count(route => route.Destination.ToString() == destination && route.InterfaceIndex == tunnelInterfaceIndex),
+                $"Expected permit-mode setup to delete {destination} exactly once. Actual: {string.Join(", ", deletedRoutes.Select(route => $"{route.Destination}@{route.InterfaceIndex}"))}");
+        }
+
+        _routingTableHelper.ClearReceivedCalls();
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(callInfo =>
+        {
+            reconciledRoutes.Add((RouteConfiguration)callInfo[0]);
+            return false;
+        });
+
+        sut.ReconcileTrackedRoutes();
+
+        string[] halfDefaultDestinations = ["0.0.0.0/1", "128.0.0.0/1", "::/1", "8000::/1"];
+        foreach (string destination in halfDefaultDestinations)
+        {
+            Assert.IsFalse(
+                reconciledRoutes.Any(route => route.Destination.ToString() == destination),
+                $"The removed Proton Protocol route {destination} must not be tracked for reconciliation.");
+        }
     }
 
     [TestMethod]

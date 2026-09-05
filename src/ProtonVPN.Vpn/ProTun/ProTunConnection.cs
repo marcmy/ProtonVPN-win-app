@@ -205,7 +205,7 @@ public class ProTunConnection : IProTunConnection
         {
             WireGuardPrivateKey = GetX25519SecretKey().Bytes,
             Peers = CreatePeers(config, endpoint),
-            IsIpv6Enabled = config.IsIpv6Enabled,
+            IsIpv6Enabled = config.IsIpv6Enabled && endpoint.Server.IsIpv6Supported,
             CustomDnsServers = config.CustomDns
         };
     }

@@ -22,6 +22,7 @@ using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.ConnectionLogs;
 using ProtonVPN.Logging.Contracts.Events.DisconnectLogs;
+using ProtonVPN.OperatingSystems.Network.Contracts;
 using ProtonVPN.ProTun.Adapters;
 using ProtonVPN.ProTun.Contracts;
 using ProtonVPN.ProTun.Contracts.Adapters;
@@ -48,6 +49,7 @@ public class ProTunManager : IProTunManager
     private readonly IProTunStateChangeHandler _proTunStateChangeHandler;
     private readonly IProTunEventsResponseHandler _proTunEventsResponseHandler;
     private readonly IAdapterDetailsCache _adapterDetailsCache;
+    private readonly IProTunAdapterConfigurator _proTunAdapterConfigurator;
     private readonly ILogger _logger;
 
     private readonly SemaphoreSlim _protunSemaphore = new(1, 1);
@@ -64,12 +66,14 @@ public class ProTunManager : IProTunManager
         IProTunStateChangeHandler proTunStateChangeHandler,
         IProTunEventsResponseHandler proTunEventsResponseHandler,
         IAdapterDetailsCache adapterDetailsCache,
+        IProTunAdapterConfigurator proTunAdapterConfigurator,
         ILogger logger)
     {
         _proTunLogger = proTunLogger;
         _proTunStateChangeHandler = proTunStateChangeHandler;
         _proTunEventsResponseHandler = proTunEventsResponseHandler;
         _adapterDetailsCache = adapterDetailsCache;
+        _proTunAdapterConfigurator = proTunAdapterConfigurator;
         _logger = logger;
 
         ProTunDllLoader.Register();
@@ -123,6 +127,7 @@ public class ProTunManager : IProTunManager
                 _proTunEventsResponseHandler.SetCancellationToken(cancellationToken);
                 _windowsConnection = ProTunWindowsConnection.Connect(initialConnectionConfig, networkConfig,
                     _proTunStateChangeHandler, _proTunEventsResponseHandler);
+                _proTunAdapterConfigurator.Configure();
                 AdapterDetails adapterDetails = _windowsConnection.GetAdapterDetails().Map();
                 _adapterDetailsCache.Set(adapterDetails);
                 _connection = _windowsConnection.GetConnection();
