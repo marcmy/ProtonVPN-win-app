@@ -113,7 +113,11 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
         }
 
         NetworkAddress.TryParse("0.0.0.0/0", out NetworkAddress defaultIpv4NetworkAddress);
+        NetworkAddress.TryParse("0.0.0.0/1", out NetworkAddress firstHalfIpv4NetworkAddress);
+        NetworkAddress.TryParse("128.0.0.0/1", out NetworkAddress secondHalfIpv4NetworkAddress);
         NetworkAddress.TryParse("::/0", out NetworkAddress defaultIpv6NetworkAddress);
+        NetworkAddress.TryParse("::/1", out NetworkAddress firstHalfIpv6NetworkAddress);
+        NetworkAddress.TryParse("8000::/1", out NetworkAddress secondHalfIpv6NetworkAddress);
         NetworkAddress.TryParse(localIpv4Address, out NetworkAddress localNetworkIpv4Address);
         NetworkAddress serverGatewayIpv4Address = new(gatewayAddress);
 
@@ -122,6 +126,22 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
         _routingTableHelper.DeleteRoute(new()
         {
             Destination = defaultIpv4NetworkAddress,
+            Gateway = localNetworkIpv4Address,
+            InterfaceIndex = tunnelInterface.Index,
+            IsIpv6 = false,
+        });
+
+        _routingTableHelper.DeleteRoute(new()
+        {
+            Destination = firstHalfIpv4NetworkAddress,
+            Gateway = localNetworkIpv4Address,
+            InterfaceIndex = tunnelInterface.Index,
+            IsIpv6 = false,
+        });
+
+        _routingTableHelper.DeleteRoute(new()
+        {
+            Destination = secondHalfIpv4NetworkAddress,
             Gateway = localNetworkIpv4Address,
             InterfaceIndex = tunnelInterface.Index,
             IsIpv6 = false,
@@ -150,6 +170,22 @@ public class SplitTunnelRouting : ISplitTunnelRouting, IDisposable
             _routingTableHelper.DeleteRoute(new()
             {
                 Destination = defaultIpv6NetworkAddress,
+                Gateway = defaultIpv6NetworkAddress,
+                InterfaceIndex = tunnelInterface.Index,
+                IsIpv6 = true,
+            });
+
+            _routingTableHelper.DeleteRoute(new()
+            {
+                Destination = firstHalfIpv6NetworkAddress,
+                Gateway = defaultIpv6NetworkAddress,
+                InterfaceIndex = tunnelInterface.Index,
+                IsIpv6 = true,
+            });
+
+            _routingTableHelper.DeleteRoute(new()
+            {
+                Destination = secondHalfIpv6NetworkAddress,
                 Gateway = defaultIpv6NetworkAddress,
                 InterfaceIndex = tunnelInterface.Index,
                 IsIpv6 = true,
