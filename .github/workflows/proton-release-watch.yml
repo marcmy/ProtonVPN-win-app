@@ -36,7 +36,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          HANDLED_THROUGH_VERSION: '5.1.7'
+          HANDLED_THROUGH_VERSION: '5.1.8'
         run: |
           set -euo pipefail
           python3 <<'PY'
@@ -163,6 +163,26 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          title="Proton VPN Windows ${VERSION} detected"
+          existing_titles="$(gh issue list \
+            --repo "$GH_REPO" \
+            --state all \
+            --search "\"${title}\" in:title" \
+            --json title \
+            --limit 100 \
+            --jq '.[].title')"
+          issue_exists=false
+          while IFS= read -r existing_title; do
+            if [[ "$existing_title" == "$title" ]]; then
+              issue_exists=true
+              break
+            fi
+          done <<<"$existing_titles"
+          if [[ "$issue_exists" == "true" ]]; then
+            echo "Release issue already exists for ${VERSION}; skipping duplicate announcement."
+            exit 0
+          fi
+
           python3 <<'PY'
           import base64
           import json
@@ -200,5 +220,5 @@ jobs:
 
           gh issue create \
             --repo "$GH_REPO" \
-            --title "Proton VPN Windows ${VERSION} detected" \
+            --title "$title" \
             --body-file issue.md
