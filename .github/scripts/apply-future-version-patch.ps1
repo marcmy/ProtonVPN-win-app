@@ -3,6 +3,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $BaseBranch,
 
+    [string] $BaseRepositoryUrl = '',
+
+    [string] $BaseRef = '',
+
     [Parameter(Mandatory = $true)]
     [string] $SourcePatchBranch,
 
@@ -178,6 +182,20 @@ function Apply-ForkPatch {
 $baseBranch = Normalize-BranchName $BaseBranch
 $sourcePatchBranch = Normalize-BranchName $SourcePatchBranch
 $targetBranch = Normalize-BranchName $TargetBranch
+$baseRepositoryUrl = $BaseRepositoryUrl.Trim()
+$baseRef = $BaseRef.Trim()
+
+if ([string]::IsNullOrWhiteSpace($baseRepositoryUrl) -xor [string]::IsNullOrWhiteSpace($baseRef)) {
+    throw 'base_repository_url and base_ref must be provided together.'
+}
+
+$usesExternalBase = -not [string]::IsNullOrWhiteSpace($baseRepositoryUrl)
+if ($usesExternalBase) {
+    & git check-ref-format $baseRef
+    if ($LASTEXITCODE -ne 0) {
+        throw "Invalid base ref: $baseRef"
+    }
+}
 
 $protectedTargets = @(
     'main',
@@ -207,11 +225,20 @@ if ($env:GITHUB_ACTIONS -eq 'true') {
     Invoke-Git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 }
 
-Write-Host "Fetching base branch origin/$baseBranch"
-Invoke-Git fetch --no-tags origin "+refs/heads/${baseBranch}:refs/remotes/origin/${baseBranch}"
+if ($usesExternalBase) {
+    $baseTrackingRef = 'refs/remotes/codex-base/source'
+    Write-Host "Fetching external base $baseRepositoryUrl@$baseRef"
+    Invoke-Git fetch --no-tags $baseRepositoryUrl "+${baseRef}:${baseTrackingRef}"
+}
+else {
+    $baseTrackingRef = "refs/remotes/origin/$baseBranch"
+    Write-Host "Fetching base branch origin/$baseBranch"
+    Invoke-Git fetch --no-tags origin "+refs/heads/${baseBranch}:${baseTrackingRef}"
+}
 
 Write-Host "Fetching source patch branch origin/$sourcePatchBranch"
 Invoke-Git fetch --no-tags origin "+refs/heads/${sourcePatchBranch}:refs/remotes/origin/${sourcePatchBranch}"
+$baseCommit = Get-GitOutput rev-parse "${baseTrackingRef}^{commit}"
 
 $targetExists = Test-RemoteBranch $targetBranch
 $localTargetExists = Test-LocalBranch $targetBranch
@@ -229,15 +256,15 @@ elseif ($localTargetExists -and -not $ForceResetTarget) {
 }
 
 if ($ForceResetTarget) {
-    Write-Host "Creating/resetting $targetBranch from origin/$baseBranch"
-    Invoke-Git switch -C $targetBranch "origin/$baseBranch"
+    Write-Host "Creating/resetting $targetBranch from $baseTrackingRef ($baseCommit)"
+    Invoke-Git switch -C $targetBranch $baseCommit
 }
 else {
-    Write-Host "Creating $targetBranch from origin/$baseBranch"
-    Invoke-Git switch -c $targetBranch "origin/$baseBranch"
+    Write-Host "Creating $targetBranch from $baseTrackingRef ($baseCommit)"
+    Invoke-Git switch -c $targetBranch $baseCommit
 }
 
-$sourceBase = Get-GitOutput merge-base "origin/$baseBranch" "origin/$sourcePatchBranch"
+$sourceBase = Get-GitOutput merge-base $baseCommit "origin/$sourcePatchBranch"
 $sourceRef = "origin/$sourcePatchBranch"
 
 Apply-ForkPatch -SourceBase $sourceBase -SourceRef $sourceRef
@@ -261,6 +288,8 @@ if ([string]::IsNullOrWhiteSpace($targetSlug)) {
 }
 
 Write-GitHubOutput -Name 'base_branch' -Value $baseBranch
+Write-GitHubOutput -Name 'base_commit' -Value $baseCommit
+Write-GitHubOutput -Name 'base_ref' -Value $(if ($usesExternalBase) { $baseRef } else { "refs/heads/$baseBranch" })
 Write-GitHubOutput -Name 'source_patch_branch' -Value $sourcePatchBranch
 Write-GitHubOutput -Name 'source_base' -Value $sourceBase
 Write-GitHubOutput -Name 'target_branch' -Value $targetBranch

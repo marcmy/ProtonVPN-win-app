@@ -1,0 +1,163 @@
+name: Proton public source watch
+
+on:
+  schedule:
+    - cron: '43 9 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - marc/proton
+    paths:
+      - .github/workflows/proton-source-release-watch.yml
+      - .github/workflows/future-version-patch.yml
+      - .github/scripts/apply-future-version-patch.ps1
+
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+
+concurrency:
+  group: proton-public-source-watch
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    name: Check Proton public source tags
+    runs-on: ubuntu-24.04
+    outputs:
+      should_dispatch: ${{ steps.detect.outputs.should_dispatch }}
+      version: ${{ steps.detect.outputs.version }}
+      tag: ${{ steps.detect.outputs.tag }}
+      target_branch: ${{ steps.detect.outputs.target_branch }}
+    steps:
+      - name: Detect unhandled public source release
+        id: detect
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import tempfile
+
+          official_url = "https://github.com/ProtonVPN/win-app.git"
+          fork_url = f"https://github.com/{os.environ['GH_REPO']}.git"
+
+          output = subprocess.check_output(
+              ["git", "ls-remote", "--tags", "--refs", official_url, "refs/tags/v*"],
+              text=True,
+          )
+
+          versions = []
+          for line in output.splitlines():
+              _, ref = line.split("\t", 1)
+              match = re.fullmatch(r"refs/tags/v(\d+)\.(\d+)\.(\d+)", ref)
+              if match:
+                  versions.append((tuple(int(part) for part in match.groups()), ref.removeprefix("refs/tags/")))
+
+          if not versions:
+              raise SystemExit("No semantic Proton VPN source tags were found")
+
+          version_key, tag = max(versions)
+          version = ".".join(str(part) for part in version_key)
+          target_branch = f"future/proton-v{version}"
+          should_dispatch = True
+
+          with tempfile.TemporaryDirectory(prefix="proton-source-watch-") as repository:
+              subprocess.check_call(["git", "-C", repository, "init", "--quiet"])
+              subprocess.check_call(
+                  [
+                      "git", "-C", repository, "fetch", "--quiet", "--filter=blob:none", "--no-tags",
+                      fork_url, "+refs/heads/marc/proton:refs/remotes/fork/marc/proton",
+                  ]
+              )
+              subprocess.check_call(
+                  [
+                      "git", "-C", repository, "fetch", "--quiet", "--filter=blob:none", "--no-tags",
+                      official_url, f"+refs/tags/{tag}:refs/tags/{tag}",
+                  ]
+              )
+              ancestry = subprocess.run(
+                  [
+                      "git", "-C", repository, "merge-base", "--is-ancestor",
+                      f"refs/tags/{tag}", "refs/remotes/fork/marc/proton",
+                  ],
+                  check=False,
+              )
+              if ancestry.returncode == 0:
+                  should_dispatch = False
+                  print(f"Public source tag is already in marc/proton: {tag}")
+              elif ancestry.returncode != 1:
+                  raise SystemExit("Unable to compare the public source tag with marc/proton")
+
+          if should_dispatch:
+              branch_check = subprocess.run(
+                  ["git", "ls-remote", "--exit-code", "--heads", fork_url, f"refs/heads/{target_branch}"],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.PIPE,
+                  text=True,
+              )
+              if branch_check.returncode == 0:
+                  should_dispatch = False
+                  print(f"Tested target branch already exists: {target_branch}")
+              elif branch_check.returncode != 2:
+                  raise SystemExit(branch_check.stderr or "Unable to check the target branch")
+
+          if should_dispatch:
+              merged_prs = json.loads(
+                  subprocess.check_output(
+                      [
+                          "gh", "pr", "list", "--repo", os.environ["GH_REPO"], "--state", "merged",
+                          "--head", target_branch, "--json", "number", "--limit", "1",
+                      ],
+                      text=True,
+                  )
+              )
+              if merged_prs:
+                  should_dispatch = False
+                  print(f"A generated future-source PR was already merged from {target_branch}")
+
+          values = {
+              "should_dispatch": str(should_dispatch).lower(),
+              "version": version,
+              "tag": tag,
+              "target_branch": target_branch,
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              for key, value in values.items():
+                  handle.write(f"{key}={value}\n")
+
+          print(f"Newest public source tag: {tag}")
+          print(f"Dispatch future-version port: {should_dispatch}")
+          PY
+
+      - name: Start tested future-version port
+        if: github.event_name != 'pull_request' && steps.detect.outputs.should_dispatch == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.detect.outputs.version }}
+          TAG: ${{ steps.detect.outputs.tag }}
+          TARGET_BRANCH: ${{ steps.detect.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          gh workflow run future-version-patch.yml \
+            --repo "$GH_REPO" \
+            --ref marc/proton \
+            -f base_branch="official/$TAG" \
+            -f base_repository_url="https://github.com/ProtonVPN/win-app.git" \
+            -f base_ref="refs/tags/$TAG" \
+            -f source_patch_branch="marc/proton" \
+            -f target_branch="$TARGET_BRANCH" \
+            -f target_version="$VERSION" \
+            -f force_reset_target=false \
+            -f upload_full_bin=false
+
+          echo "Dispatched future-version port for Proton VPN $VERSION source tag $TAG."
