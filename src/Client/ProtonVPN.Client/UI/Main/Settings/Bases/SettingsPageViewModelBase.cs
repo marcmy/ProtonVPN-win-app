@@ -249,16 +249,16 @@ public abstract partial class SettingsPageViewModelBase : PageViewModelBase<ISet
 
         if (conflict != null)
         {
-            HandleSettingsConflictAsync(e, conflict).FireAndForget();
+            HandleSettingsConflictAsync(e.PropertyName, conflict).FireAndForget();
         }
     }
 
-    private async Task HandleSettingsConflictAsync(PropertyChangedEventArgs e, ISettingsConflict conflict)
+    private async Task HandleSettingsConflictAsync(string propertyName, ISettingsConflict conflict)
     {
         ContentDialogResult result = await MainWindowOverlayActivator.ShowMessageAsync(conflict.MessageParameters);
         if (result != ContentDialogResult.Primary)
         {
-            GetType()?.GetProperty(e.PropertyName)?.SetValue(this, conflict.SettingsResetValue);
+            GetType()?.GetProperty(propertyName)?.SetValue(this, conflict.SettingsResetValue);
         }
     }
 
