@@ -7,6 +7,14 @@ on:
         description: Upstream release branch to use as the unpatched base
         required: true
         default: master
+      base_repository_url:
+        description: Optional external Git repository containing the unpatched base
+        required: false
+        default: ''
+      base_ref:
+        description: Optional full Git ref in base_repository_url (for example refs/tags/v5.1.6)
+        required: false
+        default: ''
       source_patch_branch:
         description: Branch containing the complete maintained fork
         required: true
@@ -109,26 +117,36 @@ jobs:
             Copy-Item -LiteralPath $tool.Source -Destination (Join-Path $env:RUNNER_TEMP $tool.Name) -Force
           }
 
+      - name: Port complete maintained fork
+        id: apply_patch
+        env:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          BASE_REPOSITORY_URL: ${{ inputs.base_repository_url }}
+          BASE_REF: ${{ inputs.base_ref }}
+          SOURCE_PATCH_BRANCH: ${{ inputs.source_patch_branch }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $forceResetTarget = [System.Convert]::ToBoolean($env:FORCE_RESET_TARGET)
+
+          .\.github\scripts\apply-future-version-patch.ps1 `
+            -BaseBranch $env:BASE_BRANCH `
+            -BaseRepositoryUrl $env:BASE_REPOSITORY_URL `
+            -BaseRef $env:BASE_REF `
+            -SourcePatchBranch $env:SOURCE_PATCH_BRANCH `
+            -TargetBranch $env:TARGET_BRANCH `
+            -ForceResetTarget:$forceResetTarget
+
       - name: Snapshot unpatched dependency baseline
         id: base-deps
         env:
-          BASE_BRANCH: ${{ inputs.base_branch }}
+          BASE_COMMIT: ${{ steps.apply_patch.outputs.base_commit }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $baseBranch = $env:BASE_BRANCH.Trim() -replace '^refs/heads/', '' -replace '^origin/', ''
-          git check-ref-format --branch $baseBranch | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            throw "Invalid base branch: $baseBranch"
-          }
-
-          git fetch --no-tags origin "refs/heads/$baseBranch`:refs/remotes/origin/$baseBranch"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Unable to fetch unpatched base branch origin/$baseBranch."
-          }
-
-          $baseCommit = (git rev-parse "refs/remotes/origin/$baseBranch").Trim()
+          $baseCommit = $env:BASE_COMMIT.Trim()
           if ($baseCommit -notmatch '^[0-9a-f]{40}$') {
-            throw "Unable to resolve a valid base commit for origin/$baseBranch."
+            throw "Unable to resolve a valid unpatched base commit: '$baseCommit'."
           }
 
           $baselinePath = Join-Path $env:RUNNER_TEMP 'upstream-Directory.Packages.props'
@@ -139,25 +157,8 @@ jobs:
           [IO.File]::WriteAllLines($baselinePath, $baselineLines, [Text.UTF8Encoding]::new($false))
           [xml] (Get-Content -LiteralPath $baselinePath -Raw) | Out-Null
 
-          Write-Host "Future-version dependency baseline: origin/$baseBranch@$baseCommit"
+          Write-Host "Future-version dependency baseline: $baseCommit"
           "upstream_base_commit=$baseCommit" >> $env:GITHUB_OUTPUT
-
-      - name: Port complete maintained fork
-        id: apply_patch
-        env:
-          BASE_BRANCH: ${{ inputs.base_branch }}
-          SOURCE_PATCH_BRANCH: ${{ inputs.source_patch_branch }}
-          TARGET_BRANCH: ${{ inputs.target_branch }}
-          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $forceResetTarget = [System.Convert]::ToBoolean($env:FORCE_RESET_TARGET)
-
-          .\.github\scripts\apply-future-version-patch.ps1 `
-            -BaseBranch $env:BASE_BRANCH `
-            -SourcePatchBranch $env:SOURCE_PATCH_BRANCH `
-            -TargetBranch $env:TARGET_BRANCH `
-            -ForceResetTarget:$forceResetTarget
 
       - name: Stamp target app version
         id: target-version

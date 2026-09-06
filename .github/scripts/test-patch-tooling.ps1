@@ -550,6 +550,54 @@ function Test-CompleteForkPort {
     Write-TestText (Join-Path $workingRepo 'future-upstream.txt') 'future-release'
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'future upstream release'
+    $futureCommit = Get-GitOutput $workingRepo rev-parse HEAD
+
+    $officialRepo = Join-Path $fixtureRoot 'official.git'
+    & git init --bare $officialRepo | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to initialize future-port official repository.'
+    }
+    & git -C $workingRepo tag -a 'v9.9.9' -m 'future source tag' $futureCommit
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to create the annotated future source tag.'
+    }
+    Invoke-Git $workingRepo push $officialRepo 'refs/tags/v9.9.9:refs/tags/v9.9.9'
+
+    $externalOutputPath = Join-Path $fixtureRoot 'github-output-external.txt'
+    $previousGitHubOutput = $env:GITHUB_OUTPUT
+    try {
+        $env:GITHUB_OUTPUT = $externalOutputPath
+        Push-Location $workingRepo
+        try {
+            & $applyPatchScript `
+                -BaseBranch 'official/v9.9.9' `
+                -BaseRepositoryUrl $officialRepo `
+                -BaseRef 'refs/tags/v9.9.9' `
+                -SourcePatchBranch 'marc/proton' `
+                -TargetBranch 'codex/future-external'
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    finally {
+        $env:GITHUB_OUTPUT = $previousGitHubOutput
+    }
+
+    Assert-Condition ((Get-GitOutput $workingRepo branch --show-current) -eq 'codex/future-external') `
+        'Future-port automation did not create the external-base target branch.'
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $workingRepo 'future-upstream.txt') -PathType Leaf) `
+        'Future-port automation did not use the external tagged base.'
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $workingRepo 'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs') -PathType Leaf) `
+        'Future-port automation omitted fork changes when using an external tagged base.'
+
+    $externalOutputs = Get-Content -LiteralPath $externalOutputPath -Raw
+    Assert-Condition ($externalOutputs -match "(?m)^base_commit=$futureCommit\r?$") `
+        'Future-port automation did not publish the resolved external base commit.'
+    Assert-Condition ($externalOutputs -match '(?m)^base_ref=refs/tags/v9\.9\.9\r?$') `
+        'Future-port automation did not publish the resolved external base ref.'
+
+    Invoke-Git $workingRepo switch master
     Invoke-Git $workingRepo push
 
     $outputPath = Join-Path $fixtureRoot 'github-output.txt'
