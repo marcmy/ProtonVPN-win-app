@@ -46,6 +46,7 @@ public class GrpcServer : IGrpcServer
     // AUTHENTICATED_USERS - A group that includes all users whose identities were authenticated
     // when they logged on. Users authenticated as Guest or Anonymous are not members of this group.
     private const string AUTHENTICATED_USERS_SID = "S-1-5-11";
+    private const string LOCAL_SYSTEM_SID = "S-1-5-18";
 
     private readonly RegistryUri _registryUri = RegistryUri.CreateLocalMachineUri(
         NamedPipeConfiguration.REGISTRY_PATH, NamedPipeConfiguration.REGISTRY_KEY);
@@ -208,12 +209,20 @@ public class GrpcServer : IGrpcServer
 
     private PipeSecurity CreatePipeSecurity()
     {
-        SecurityIdentifier targetSid = new(AUTHENTICATED_USERS_SID);
+        SecurityIdentifier authenticatedUsersSid = new(AUTHENTICATED_USERS_SID);
+        SecurityIdentifier localSystemSid = new(LOCAL_SYSTEM_SID);
 
         PipeSecurity pipeSecurity = new();
         pipeSecurity.AddAccessRule(
             new PipeAccessRule(
-                targetSid,
+                authenticatedUsersSid,
+                PipeAccessRights.ReadWrite,
+                AccessControlType.Allow
+            )
+        );
+        pipeSecurity.AddAccessRule(
+            new PipeAccessRule(
+                localSystemSid,
                 PipeAccessRights.ReadWrite | PipeAccessRights.CreateNewInstance,
                 AccessControlType.Allow
             )
