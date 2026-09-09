@@ -164,7 +164,7 @@ public partial class SsoLoginOverlayViewModel :  OverlayViewModelBase<IMainWindo
             return;
         }
 
-        CoreWebView2Deferral deferral = args.GetDeferral();
+        var deferral = args.GetDeferral();
         try
         {
             using HttpRequestMessage request = new(HttpMethod.Get, _ssoBootstrapUri);
