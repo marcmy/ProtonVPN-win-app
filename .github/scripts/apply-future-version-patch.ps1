@@ -221,6 +221,124 @@ function Resolve-MergeConflictsToTarget {
     }
 }
 
+function Test-UpstreamBackportSubject {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Subject
+    )
+
+    if ($Subject -notmatch '^(Port|Backport)\s+') {
+        return $false
+    }
+
+    return $Subject -notmatch '^Port complete (fork|maintained fork)\b'
+}
+
+function New-CleanForkSourceRef {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $SourceBase,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SourceRef,
+
+        [Parameter(Mandatory = $true)]
+        [string] $TargetBranch
+    )
+
+    $logLines = @(& git log --format='%H%x09%s' "$SourceBase..$SourceRef")
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate fork commits for upstream-backport cleanup.'
+    }
+
+    $backports = [System.Collections.Generic.List[object]]::new()
+    foreach ($line in $logLines) {
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+
+        $parts = $line -split "`t", 2
+        if ($parts.Count -ne 2 -or -not (Test-UpstreamBackportSubject -Subject $parts[1])) {
+            continue
+        }
+
+        $parentLine = Get-GitOutput rev-list --parents -n 1 $parts[0]
+        $parentParts = @($parentLine -split '\s+')
+        if ($parentParts.Count -ne 2) {
+            throw "Upstream backport '$($parts[0])' is not a single-parent commit: $($parts[1])"
+        }
+
+        $backports.Add([pscustomobject]@{
+            Sha = $parts[0]
+            Subject = $parts[1]
+        })
+    }
+
+    if ($backports.Count -eq 0) {
+        Write-Host 'No explicit upstream backport commits found in the fork delta.'
+        return $SourceRef
+    }
+
+    Write-Host 'Preparing fork source with explicit upstream backports removed:'
+    foreach ($backport in $backports) {
+        Write-Host "  $($backport.Sha.Substring(0, 12))  $($backport.Subject)"
+    }
+
+    $cleanSourceRef = ''
+    try {
+        Invoke-Git switch --detach $SourceRef
+
+        foreach ($backport in $backports) {
+            $revertOutput = @(& git revert --no-commit $backport.Sha 2>&1)
+            $revertExitCode = $LASTEXITCODE
+            if ($revertOutput.Count -gt 0) {
+                $revertOutput | Out-Host
+            }
+
+            if ($revertExitCode -ne 0) {
+                Write-Host "Unable to remove upstream backport $($backport.Sha): $($backport.Subject)"
+                & git status --short
+                & git revert --abort 2>$null
+                throw "git revert --no-commit failed with exit code $revertExitCode"
+            }
+        }
+
+        $unmergedPaths = @(& git diff --name-only --diff-filter=U)
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to inspect cleaned fork source for unresolved conflicts.'
+        }
+        if ($unmergedPaths.Count -gt 0) {
+            throw "Cleaned fork source still contains unresolved conflicts:`n$($unmergedPaths -join "`n")"
+        }
+
+        $unstagedPaths = @(& git diff --name-only)
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to inspect cleaned fork source for unstaged changes.'
+        }
+        if ($unstagedPaths.Count -gt 0) {
+            throw "Cleaned fork source contains unstaged changes:`n$($unstagedPaths -join "`n")"
+        }
+
+        Assert-StagedDiffIsSafe
+        $cleanTree = Get-GitOutput write-tree
+        $cleanSourceRef = Get-GitOutput commit-tree $cleanTree -p $SourceBase -m 'Synthetic fork source without explicit upstream backports'
+        Write-Host "Cleaned fork source commit: $cleanSourceRef"
+    }
+    finally {
+        & git reset --hard $SourceRef | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to reset temporary cleaned fork source.'
+        }
+
+        & git switch $TargetBranch | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to return to target branch '$TargetBranch'."
+        }
+    }
+
+    return $cleanSourceRef
+}
+
 function Get-WhitespaceEquivalentPaths {
     param(
         [Parameter(Mandatory = $true)]
@@ -488,10 +606,14 @@ else {
 
 $sourceBase = Get-GitOutput merge-base $baseCommit "origin/$sourcePatchBranch"
 $sourceRef = "origin/$sourcePatchBranch"
+$cleanSourceRef = New-CleanForkSourceRef `
+    -SourceBase $sourceBase `
+    -SourceRef $sourceRef `
+    -TargetBranch $targetBranch
 
 $forkPatchCommit = Merge-ForkTree `
     -SourceBase $sourceBase `
-    -SourceRef $sourceRef `
+    -SourceRef $cleanSourceRef `
     -Message "Port complete fork from $sourcePatchBranch onto $baseBranch"
 
 Invoke-Git diff --check
@@ -516,6 +638,7 @@ Write-GitHubOutput -Name 'base_commit' -Value $baseCommit
 Write-GitHubOutput -Name 'base_ref' -Value $(if ($usesExternalBase) { $baseRef } else { "refs/heads/$baseBranch" })
 Write-GitHubOutput -Name 'source_patch_branch' -Value $sourcePatchBranch
 Write-GitHubOutput -Name 'source_base' -Value $sourceBase
+Write-GitHubOutput -Name 'clean_source_ref' -Value $cleanSourceRef
 Write-GitHubOutput -Name 'target_branch' -Value $targetBranch
 Write-GitHubOutput -Name 'target_sha' -Value $targetSha
 Write-GitHubOutput -Name 'target_slug' -Value $targetSlug
