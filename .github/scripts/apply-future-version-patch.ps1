@@ -162,8 +162,11 @@ function Merge-ForkTree {
 
     $beforeMerge = Get-GitOutput rev-parse HEAD
 
-    & git -c merge.renames=true merge --no-ff --no-edit -m $Message $SourceRef
+    $mergeOutput = @(
+        & git -c merge.renames=true merge --no-ff --no-edit -m $Message $SourceRef 2>&1
+    )
     $mergeExitCode = $LASTEXITCODE
+    $mergeOutput | Out-Host
 
     if ($mergeExitCode -ne 0) {
         $conflictedPaths = @(& git diff --name-only --diff-filter=U)
