@@ -289,17 +289,35 @@ function New-CleanForkSourceRef {
         Invoke-Git switch --detach $SourceRef
 
         foreach ($backport in $backports) {
-            $revertOutput = @(& git revert --no-commit $backport.Sha 2>&1)
-            $revertExitCode = $LASTEXITCODE
-            if ($revertOutput.Count -gt 0) {
-                $revertOutput | Out-Host
-            }
+            $patchFile = Join-Path ([System.IO.Path]::GetTempPath()) "future-port-backport-$($backport.Sha)-$([System.Guid]::NewGuid()).patch"
+            try {
+                & git diff --binary --full-index --unified=0 "$($backport.Sha)^" $backport.Sha --output=$patchFile -- .
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Unable to generate inverse patch for upstream backport $($backport.Sha)."
+                }
 
-            if ($revertExitCode -ne 0) {
-                Write-Host "Unable to remove upstream backport $($backport.Sha): $($backport.Subject)"
-                & git status --short
-                & git revert --abort 2>$null
-                throw "git revert --no-commit failed with exit code $revertExitCode"
+                if (-not (Test-Path -LiteralPath $patchFile -PathType Leaf) -or
+                    (Get-Item -LiteralPath $patchFile).Length -eq 0) {
+                    Write-Host "  no tree delta: $($backport.Sha.Substring(0, 12))"
+                    continue
+                }
+
+                $applyOutput = @(
+                    & git apply --reverse --index --unidiff-zero --whitespace=nowarn $patchFile 2>&1
+                )
+                $applyExitCode = $LASTEXITCODE
+                if ($applyOutput.Count -gt 0) {
+                    $applyOutput | Out-Host
+                }
+
+                if ($applyExitCode -ne 0) {
+                    Write-Host "Unable to remove upstream backport $($backport.Sha): $($backport.Subject)"
+                    & git status --short
+                    throw "git apply --reverse failed with exit code $applyExitCode"
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $patchFile -Force -ErrorAction SilentlyContinue
             }
         }
 
