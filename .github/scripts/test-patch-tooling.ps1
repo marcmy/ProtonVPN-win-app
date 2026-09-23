@@ -716,6 +716,13 @@ namespace Demo;
 
 public class MixedBehavior
 {
+    public string ForkArea() => "base";
+
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
     public bool UpstreamBehavior() => false;
 }
 '@
@@ -724,6 +731,13 @@ namespace Demo;
 
 public class MixedBehavior
 {
+    public string ForkArea() => "base";
+
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
     public bool UpstreamBehavior() => true;
 }
 '@
@@ -732,9 +746,14 @@ namespace Demo;
 
 public class MixedBehavior
 {
-    public bool UpstreamBehavior() => true;
+    public string ForkArea() => "fork";
 
-    public string ForkOnlyLabel => "fork";
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
+    public bool UpstreamBehavior() => true;
 }
 '@
     $targetMixed = @'
@@ -742,6 +761,13 @@ namespace Demo;
 
 public class MixedBehavior
 {
+    public string ForkArea() => "base";
+
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
     public bool UpstreamBehavior()
     {
         return true;
@@ -800,7 +826,7 @@ public class MixedBehavior
     $mixedContent = Get-Content -LiteralPath (Join-Path $workingRepo 'mixed-backport.cs') -Raw
     Assert-Condition ($mixedContent.Contains('return true;')) 'Known-backport cleanup did not preserve the target-release implementation.'
     Assert-Condition (-not $mixedContent.Contains('UpstreamBehavior() => true;')) 'Known-backport cleanup replayed the old fork backport implementation.'
-    Assert-Condition ($mixedContent.Contains('ForkOnlyLabel')) 'Known-backport cleanup discarded a later fork-only edit from the same file.'
+    Assert-Condition ($mixedContent.Contains('ForkArea() => "fork";')) 'Known-backport cleanup discarded a later fork-only edit from the same file.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'pure-backport.txt') -Raw).Trim() -eq 'value=future-upstream') 'Known-backport cleanup did not keep the target copy of a pure upstream backport.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-only.txt') -Raw).Trim() -eq 'keep-me') 'Known-backport cleanup discarded an unrelated fork-only file.'
 }
