@@ -221,6 +221,170 @@ function Resolve-MergeConflictsToTarget {
     }
 }
 
+function Get-TargetReleaseVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $BaseBranch,
+
+        [string] $BaseRef = ''
+    )
+
+    foreach ($candidate in @($BaseRef, $BaseBranch)) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and
+            $candidate -match '(?<!\d)v?(?<version>\d+\.\d+\.\d+)(?!\d)') {
+            return [Version]$Matches['version']
+        }
+    }
+
+    return $null
+}
+
+function Get-UpstreamBackportCommits {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $SourceBase,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SourceRef,
+
+        [AllowNull()]
+        [Version] $TargetVersion
+    )
+
+    # These historical "Port ..." commits were manual backports from Proton
+    # releases through 5.1.8. Once the official target is 5.1.8 or newer,
+    # replaying them is both unnecessary and unsafe because the upstream
+    # implementation may have evolved structurally.
+    if ($null -eq $TargetVersion -or $TargetVersion -lt [Version]'5.1.8') {
+        return @()
+    }
+
+    $defaultCutoff = '183630b0029c256b23913a91d86710c29af0fc92'
+    $cutoff = if ([string]::IsNullOrWhiteSpace($env:FUTURE_PORT_BACKPORT_CUTOFF)) {
+        $defaultCutoff
+    }
+    else {
+        $env:FUTURE_PORT_BACKPORT_CUTOFF.Trim()
+    }
+
+    & git cat-file -e "${cutoff}^{commit}" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        if (-not [string]::IsNullOrWhiteSpace($env:FUTURE_PORT_BACKPORT_CUTOFF)) {
+            throw "Configured upstream-backport cutoff '$cutoff' is not available."
+        }
+
+        Write-Host 'Known upstream-backport cutoff is not present in this source history; skipping backport cleanup.'
+        return @()
+    }
+
+    & git merge-base --is-ancestor $cutoff $SourceRef
+    if ($LASTEXITCODE -eq 1) {
+        Write-Host 'Known upstream-backport cutoff is not an ancestor of the source branch; skipping backport cleanup.'
+        return @()
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to verify upstream-backport cutoff ancestry.'
+    }
+
+    $records = @(& git log --no-merges --format='%H%x09%s' "$SourceBase..$cutoff")
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate known upstream-backport commits.'
+    }
+
+    $commits = [System.Collections.Generic.List[string]]::new()
+    foreach ($record in $records) {
+        $parts = "$record" -split "`t", 2
+        if ($parts.Count -ne 2) {
+            continue
+        }
+
+        if ($parts[1] -match '^(Port|Backport)\b') {
+            $commits.Add($parts[0])
+        }
+    }
+
+    return @($commits)
+}
+
+function New-CleanForkSource {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $SourceBase,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SourceRef,
+
+        [Parameter(Mandatory = $true)]
+        [string] $TargetBranch,
+
+        [AllowNull()]
+        [Version] $TargetVersion
+    )
+
+    $backportCommits = @(
+        Get-UpstreamBackportCommits -SourceBase $SourceBase -SourceRef $SourceRef -TargetVersion $TargetVersion
+    )
+
+    if ($backportCommits.Count -eq 0) {
+        return [pscustomobject]@{
+            Ref = $SourceRef
+            TemporaryBranch = ''
+        }
+    }
+
+    $temporaryBranch = '__future_port_clean_source'
+    Write-Host "Preparing a fork source snapshot without $($backportCommits.Count) upstream backport commit(s)."
+    Invoke-Git switch -C $temporaryBranch $SourceRef | Out-Host
+
+    try {
+        foreach ($commit in $backportCommits) {
+            $subject = Get-GitOutput show -s --format=%s $commit
+            $parent = Get-GitOutput rev-parse "$commit^"
+            $patchPath = Join-Path ([System.IO.Path]::GetTempPath()) ("future-port-backport-{0}.patch" -f $commit.Substring(0, 12))
+            Write-Host "  Removing upstream backport patch: $($commit.Substring(0, 12)) $subject"
+
+            try {
+                & git diff --binary --full-index --find-renames --find-copies --unified=0 $parent $commit "--output=$patchPath"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Unable to build reverse patch for upstream backport $commit ('$subject')."
+                }
+
+                if ((Get-Item -LiteralPath $patchPath).Length -eq 0) {
+                    continue
+                }
+
+                & git apply --reverse --index --unidiff-zero --whitespace=nowarn $patchPath 2>&1 | Out-Host
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Unable to subtract upstream backport $commit ('$subject') from the current fork tree without touching later edits."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $patchPath -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        if (Test-StagedChanges) {
+            Assert-StagedDiffIsSafe
+            Invoke-Git commit -m 'Prepare fork source without upstream backports already in target release' | Out-Host
+        }
+
+        $cleanSourceRef = Get-GitOutput rev-parse HEAD
+    }
+    catch {
+        & git reset --hard $SourceRef | Out-Host
+        Invoke-Git switch $TargetBranch | Out-Host
+        & git branch -D $temporaryBranch 2>$null | Out-Host
+        throw
+    }
+
+    Invoke-Git switch $TargetBranch | Out-Host
+
+    return [pscustomobject]@{
+        Ref = $cleanSourceRef
+        TemporaryBranch = $temporaryBranch
+    }
+}
+
 function Get-WhitespaceEquivalentPaths {
     param(
         [Parameter(Mandatory = $true)]
@@ -327,20 +491,34 @@ function Merge-ForkTree {
         [string] $SourceRef,
 
         [Parameter(Mandatory = $true)]
-        [string] $Message
+        [string] $Message,
+
+        [bool] $PreferTargetContent = $true
     )
 
     Write-Host "Merging the complete fork tree from $SourceBase..$SourceRef"
-    Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
+    if ($PreferTargetContent) {
+        Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
+    }
+    else {
+        Write-Host 'Known upstream backports were removed; merging remaining fork changes normally and resolving only actual conflicts to the target release.'
+    }
 
     $beforeMerge = Get-GitOutput rev-parse HEAD
     $equivalentTargetPaths = @(
         Get-WhitespaceEquivalentPaths -SourceBase $SourceBase -SourceRef $SourceRef -TargetRef $beforeMerge
     )
 
-    $mergeOutput = @(
-        & git -c merge.renames=true merge --no-ff --no-commit --no-edit -X ours -m $Message $SourceRef 2>&1
-    )
+    if ($PreferTargetContent) {
+        $mergeOutput = @(
+            & git -c merge.renames=true merge --no-ff --no-commit --no-edit -X ours -m $Message $SourceRef 2>&1
+        )
+    }
+    else {
+        $mergeOutput = @(
+            & git -c merge.renames=true merge --no-ff --no-commit --no-edit -m $Message $SourceRef 2>&1
+        )
+    }
     $mergeExitCode = $LASTEXITCODE
     $mergeOutput | Out-Host
 
@@ -356,6 +534,13 @@ function Merge-ForkTree {
             & git status --short
             & git merge --abort 2>$null
             throw "git merge failed with exit code $mergeExitCode"
+        }
+
+        if (-not $PreferTargetContent) {
+            Write-Host 'The cleaned fork still has semantic conflicts with the target release:'
+            $conflictedPaths | ForEach-Object { Write-Host "  $_" }
+            & git merge --abort 2>$null
+            throw "Cleaned fork changes still conflict with the target release:`n$($conflictedPaths -join "`n")"
         }
 
         try {
@@ -381,7 +566,9 @@ function Merge-ForkTree {
     }
 
     try {
-        Restore-WhitespaceEquivalentTargetPaths -TargetRef $beforeMerge -Paths $equivalentTargetPaths
+        if ($equivalentTargetPaths.Count -gt 0) {
+            Restore-WhitespaceEquivalentTargetPaths -TargetRef $beforeMerge -Paths $equivalentTargetPaths
+        }
         Assert-StagedDiffIsSafe
         Invoke-Git commit --no-edit | Out-Host
     }
@@ -487,12 +674,24 @@ else {
 }
 
 $sourceBase = Get-GitOutput merge-base $baseCommit "origin/$sourcePatchBranch"
-$sourceRef = "origin/$sourcePatchBranch"
+$originalSourceRef = "origin/$sourcePatchBranch"
+$targetVersion = Get-TargetReleaseVersion -BaseBranch $baseBranch -BaseRef $baseRef
+if ($null -ne $targetVersion) {
+    Write-Host "Detected target release version $targetVersion."
+}
 
-$forkPatchCommit = Merge-ForkTree `
-    -SourceBase $sourceBase `
-    -SourceRef $sourceRef `
-    -Message "Port complete fork from $sourcePatchBranch onto $baseBranch"
+$sourceSelection = New-CleanForkSource -SourceBase $sourceBase -SourceRef $originalSourceRef -TargetBranch $targetBranch -TargetVersion $targetVersion
+$sourceRef = $sourceSelection.Ref
+
+try {
+    $preferTargetContent = [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)
+    $forkPatchCommit = Merge-ForkTree -SourceBase $sourceBase -SourceRef $sourceRef -Message "Port complete fork from $sourcePatchBranch onto $baseBranch" -PreferTargetContent $preferTargetContent
+}
+finally {
+    if (-not [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)) {
+        & git branch -D $sourceSelection.TemporaryBranch 2>$null | Out-Host
+    }
+}
 
 Invoke-Git diff --check
 

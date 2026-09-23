@@ -698,6 +698,139 @@ function Test-CompleteForkPort {
         'Future-port automation did not publish the complete fork patch commit output.'
 }
 
+function Test-KnownBackportCleanup {
+    $fixtureRoot = Join-Path $testRoot 'known-backport-cleanup'
+    $workingRepo = Join-Path $fixtureRoot 'working'
+    $remoteRepo = Join-Path $fixtureRoot 'origin.git'
+
+    New-Item -ItemType Directory -Force -Path $fixtureRoot | Out-Null
+    & git init --initial-branch=master $workingRepo | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to initialize known-backport working repository.'
+    }
+    Invoke-Git $workingRepo config user.name 'Patch Tooling Tests'
+    Invoke-Git $workingRepo config user.email 'patch-tooling@example.invalid'
+
+    $baseMixed = @'
+namespace Demo;
+
+public class MixedBehavior
+{
+    public string ForkArea() => "base";
+
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
+    public bool UpstreamBehavior() => false;
+}
+'@
+    $backportedMixed = @'
+namespace Demo;
+
+public class MixedBehavior
+{
+    public string ForkArea() => "base";
+
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
+    public bool UpstreamBehavior() => true;
+}
+'@
+    $customMixed = @'
+namespace Demo;
+
+public class MixedBehavior
+{
+    public string ForkArea() => "fork";
+
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
+    public bool UpstreamBehavior() => true;
+}
+'@
+    $targetMixed = @'
+namespace Demo;
+
+public class MixedBehavior
+{
+    public string ForkArea() => "base";
+
+    public bool Unchanged1() => true;
+    public bool Unchanged2() => true;
+    public bool Unchanged3() => true;
+    public bool Unchanged4() => true;
+
+    public bool UpstreamBehavior()
+    {
+        return true;
+    }
+}
+'@
+
+    Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $baseMixed
+    Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=old`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'old upstream release'
+
+    & git init --bare $remoteRepo | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to initialize known-backport origin repository.'
+    }
+    Invoke-Git $workingRepo remote add origin $remoteRepo
+    Invoke-Git $workingRepo push -u origin master
+
+    Invoke-Git $workingRepo switch -c 'marc/proton'
+    Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $backportedMixed
+    Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=backported`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Port Proton synthetic future behavior'
+    $backportCommit = Get-GitOutput $workingRepo rev-parse HEAD
+
+    Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $customMixed
+    Write-TestText (Join-Path $workingRepo 'fork-only.txt') "keep-me`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Add fork-only behavior after upstream backport'
+    Invoke-Git $workingRepo push -u origin 'marc/proton'
+
+    Invoke-Git $workingRepo switch master
+    Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $targetMixed
+    Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=future-upstream`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'future upstream release'
+    Invoke-Git $workingRepo branch 'release/v9.9.9'
+    Invoke-Git $workingRepo push origin 'release/v9.9.9'
+
+    $previousCutoff = $env:FUTURE_PORT_BACKPORT_CUTOFF
+    try {
+        $env:FUTURE_PORT_BACKPORT_CUTOFF = $backportCommit
+        Push-Location $workingRepo
+        try {
+            & $applyPatchScript -BaseBranch 'release/v9.9.9' -SourcePatchBranch 'marc/proton' -TargetBranch 'codex/backport-clean'
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    finally {
+        $env:FUTURE_PORT_BACKPORT_CUTOFF = $previousCutoff
+    }
+
+    $mixedContent = Get-Content -LiteralPath (Join-Path $workingRepo 'mixed-backport.cs') -Raw
+    Assert-Condition ($mixedContent.Contains('return true;')) 'Known-backport cleanup did not preserve the target-release implementation.'
+    Assert-Condition (-not $mixedContent.Contains('UpstreamBehavior() => true;')) 'Known-backport cleanup replayed the old fork backport implementation.'
+    Assert-Condition ($mixedContent.Contains('ForkArea() => "fork";')) 'Known-backport cleanup discarded a later fork-only edit from the same file.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'pure-backport.txt') -Raw).Trim() -eq 'value=future-upstream') 'Known-backport cleanup did not keep the target copy of a pure upstream backport.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-only.txt') -Raw).Trim() -eq 'keep-me') 'Known-backport cleanup discarded an unrelated fork-only file.'
+}
+
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 
 try {
@@ -705,6 +838,7 @@ try {
     Test-PackageComposition
     Test-InstallerRuntimeDataPreservation
     Test-CompleteForkPort
+    Test-KnownBackportCleanup
     Write-Host 'Patch tooling regression tests passed.'
 }
 finally {
