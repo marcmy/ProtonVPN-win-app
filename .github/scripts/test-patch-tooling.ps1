@@ -523,6 +523,7 @@ function Test-CompleteForkPort {
     Write-TestText (Join-Path $workingRepo 'rename-me.txt') "upstream=old`n$renamedMiddle`nfork=old`n"
     Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=old`n"
     Write-TestText (Join-Path $workingRepo 'deleted-upstream.txt') "value=old`n"
+    Write-TestText (Join-Path $workingRepo 'fork-whitespace.txt') "value=old`n"
     Write-TestText (Join-Path $workingRepo 'remove-on-fork.txt') "remove me`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'old upstream release'
@@ -539,6 +540,7 @@ function Test-CompleteForkPort {
     Write-TestText (Join-Path $workingRepo 'rename-me.txt') "upstream=old`n$renamedMiddle`nfork=complete`n"
     Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=fork-backport`n"
     Write-TestText (Join-Path $workingRepo 'deleted-upstream.txt') "value=fork-modified`n"
+    Write-TestText (Join-Path $workingRepo 'fork-whitespace.txt') "value=fork-only-trailing   `n"
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs') 'nat-pmp'
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Service/SplitTunneling/SplitFeature.cs') 'split-tunnel'
     Write-TestText (Join-Path $workingRepo 'src/Client/ServerHealth/ServerHealthFeature.cs') 'server-health'
@@ -610,6 +612,8 @@ function Test-CompleteForkPort {
         'Future-port automation did not prefer the external target release for overlapping changes.'
     Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $workingRepo 'deleted-upstream.txt'))) `
         'Future-port automation resurrected a path deleted by the external target release.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-whitespace.txt') -Raw).Contains('value=fork-only-trailing   ')) `
+        'Future-port automation rejected or discarded a fork-only whitespace diagnostic.'
 
     $externalOutputs = Get-Content -LiteralPath $externalOutputPath -Raw
     Assert-Condition ($externalOutputs -match "(?m)^base_commit=$futureCommit\r?$") `
@@ -659,6 +663,8 @@ function Test-CompleteForkPort {
         'Future-port automation did not prefer the target release for overlapping changes.'
     Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $workingRepo 'deleted-upstream.txt'))) `
         'Future-port automation resurrected a path deleted by the target release.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-whitespace.txt') -Raw).Contains('value=fork-only-trailing   ')) `
+        'Future-port automation rejected or discarded a fork-only whitespace diagnostic.'
 
     $requiredForkPaths = @(
         'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs',
