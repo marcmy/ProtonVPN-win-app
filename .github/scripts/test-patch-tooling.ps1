@@ -519,11 +519,15 @@ function Test-CompleteForkPort {
 
     $sharedMiddle = (1..10 | ForEach-Object { "unchanged=$_" }) -join "`n"
     $renamedMiddle = (1..10 | ForEach-Object { "rename-unchanged=$_" }) -join "`n"
+    $equivalentBase = "public class Message`n{`n    public int Status { get; }`n}`n"
+    $equivalentFork = "public class Message`n{`n    public int Status { get; }`n    public bool HasStatusChanged { get; }`n    public bool HasIntentChanged { get; }`n}`n"
+    $equivalentTarget = "public class Message`n{`n    public int Status { get; }`n`n    public bool HasStatusChanged { get; }`n    public bool HasIntentChanged { get; }`n}`n"
     Write-TestText (Join-Path $workingRepo 'shared.txt') "upstream=old`n$sharedMiddle`nfork=old`n"
     Write-TestText (Join-Path $workingRepo 'rename-me.txt') "upstream=old`n$renamedMiddle`nfork=old`n"
     Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=old`n"
     Write-TestText (Join-Path $workingRepo 'deleted-upstream.txt') "value=old`n"
     Write-TestText (Join-Path $workingRepo 'fork-whitespace.txt') "value=old`n"
+    Write-TestText (Join-Path $workingRepo 'equivalent-backport.cs') $equivalentBase
     Write-TestText (Join-Path $workingRepo 'remove-on-fork.txt') "remove me`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'old upstream release'
@@ -541,6 +545,7 @@ function Test-CompleteForkPort {
     Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=fork-backport`n"
     Write-TestText (Join-Path $workingRepo 'deleted-upstream.txt') "value=fork-modified`n"
     Write-TestText (Join-Path $workingRepo 'fork-whitespace.txt') "value=fork-only-trailing   `n"
+    Write-TestText (Join-Path $workingRepo 'equivalent-backport.cs') $equivalentFork
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs') 'nat-pmp'
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Service/SplitTunneling/SplitFeature.cs') 'split-tunnel'
     Write-TestText (Join-Path $workingRepo 'src/Client/ServerHealth/ServerHealthFeature.cs') 'server-health'
@@ -560,6 +565,7 @@ function Test-CompleteForkPort {
     Write-TestText (Join-Path $workingRepo 'renamed-upstream.txt') "upstream=future`n$renamedMiddle`nfork=old`n"
     Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=future-upstream`n"
     Remove-Item -LiteralPath (Join-Path $workingRepo 'deleted-upstream.txt') -Force
+    Write-TestText (Join-Path $workingRepo 'equivalent-backport.cs') $equivalentTarget
     Write-TestText (Join-Path $workingRepo 'future-upstream.txt') 'future-release'
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'future upstream release'
@@ -614,6 +620,8 @@ function Test-CompleteForkPort {
         'Future-port automation resurrected a path deleted by the external target release.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-whitespace.txt') -Raw).Contains('value=fork-only-trailing   ')) `
         'Future-port automation rejected or discarded a fork-only whitespace diagnostic.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'equivalent-backport.cs') -Raw) -eq $equivalentTarget) `
+        'Future-port automation replayed an already-upstream whitespace-equivalent backport.'
 
     $externalOutputs = Get-Content -LiteralPath $externalOutputPath -Raw
     Assert-Condition ($externalOutputs -match "(?m)^base_commit=$futureCommit\r?$") `
@@ -665,6 +673,8 @@ function Test-CompleteForkPort {
         'Future-port automation resurrected a path deleted by the target release.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-whitespace.txt') -Raw).Contains('value=fork-only-trailing   ')) `
         'Future-port automation rejected or discarded a fork-only whitespace diagnostic.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'equivalent-backport.cs') -Raw) -eq $equivalentTarget) `
+        'Future-port automation replayed an already-upstream whitespace-equivalent backport.'
 
     $requiredForkPaths = @(
         'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs',
