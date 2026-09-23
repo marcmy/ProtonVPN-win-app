@@ -545,7 +545,9 @@ function Merge-ForkTree {
     }
 
     try {
-        Restore-WhitespaceEquivalentTargetPaths -TargetRef $beforeMerge -Paths $equivalentTargetPaths
+        if ($equivalentTargetPaths.Count -gt 0) {
+            Restore-WhitespaceEquivalentTargetPaths -TargetRef $beforeMerge -Paths $equivalentTargetPaths
+        }
         Assert-StagedDiffIsSafe
         Invoke-Git commit --no-edit | Out-Host
     }
