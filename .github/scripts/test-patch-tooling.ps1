@@ -521,6 +521,8 @@ function Test-CompleteForkPort {
     $renamedMiddle = (1..10 | ForEach-Object { "rename-unchanged=$_" }) -join "`n"
     Write-TestText (Join-Path $workingRepo 'shared.txt') "upstream=old`n$sharedMiddle`nfork=old`n"
     Write-TestText (Join-Path $workingRepo 'rename-me.txt') "upstream=old`n$renamedMiddle`nfork=old`n"
+    Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=old`n"
+    Write-TestText (Join-Path $workingRepo 'deleted-upstream.txt') "value=old`n"
     Write-TestText (Join-Path $workingRepo 'remove-on-fork.txt') "remove me`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'old upstream release'
@@ -535,6 +537,8 @@ function Test-CompleteForkPort {
     Invoke-Git $workingRepo switch -c 'marc/proton'
     Write-TestText (Join-Path $workingRepo 'shared.txt') "upstream=old`n$sharedMiddle`nfork=complete`n"
     Write-TestText (Join-Path $workingRepo 'rename-me.txt') "upstream=old`n$renamedMiddle`nfork=complete`n"
+    Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=fork-backport`n"
+    Write-TestText (Join-Path $workingRepo 'deleted-upstream.txt') "value=fork-modified`n"
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs') 'nat-pmp'
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Service/SplitTunneling/SplitFeature.cs') 'split-tunnel'
     Write-TestText (Join-Path $workingRepo 'src/Client/ServerHealth/ServerHealthFeature.cs') 'server-health'
@@ -552,6 +556,8 @@ function Test-CompleteForkPort {
     Write-TestText (Join-Path $workingRepo 'shared.txt') "upstream=future`n$sharedMiddle`nfork=old`n"
     Invoke-Git $workingRepo mv 'rename-me.txt' 'renamed-upstream.txt'
     Write-TestText (Join-Path $workingRepo 'renamed-upstream.txt') "upstream=future`n$renamedMiddle`nfork=old`n"
+    Write-TestText (Join-Path $workingRepo 'overlap.txt') "policy=future-upstream`n"
+    Remove-Item -LiteralPath (Join-Path $workingRepo 'deleted-upstream.txt') -Force
     Write-TestText (Join-Path $workingRepo 'future-upstream.txt') 'future-release'
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'future upstream release'
@@ -600,6 +606,10 @@ function Test-CompleteForkPort {
         'Future-port automation discarded the external upstream side of a renamed file.'
     Assert-Condition ($externalRenamedContent.Contains('fork=complete')) `
         'Future-port automation failed to carry fork edits across an external upstream rename.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'overlap.txt') -Raw).Trim() -eq 'policy=future-upstream') `
+        'Future-port automation did not prefer the external target release for overlapping changes.'
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $workingRepo 'deleted-upstream.txt'))) `
+        'Future-port automation resurrected a path deleted by the external target release.'
 
     $externalOutputs = Get-Content -LiteralPath $externalOutputPath -Raw
     Assert-Condition ($externalOutputs -match "(?m)^base_commit=$futureCommit\r?$") `
@@ -645,6 +655,10 @@ function Test-CompleteForkPort {
         'Future-port automation discarded the upstream side of a renamed file.'
     Assert-Condition ($renamedContent.Contains('fork=complete')) `
         'Future-port automation failed to carry fork edits across an upstream rename.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'overlap.txt') -Raw).Trim() -eq 'policy=future-upstream') `
+        'Future-port automation did not prefer the target release for overlapping changes.'
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $workingRepo 'deleted-upstream.txt'))) `
+        'Future-port automation resurrected a path deleted by the target release.'
 
     $requiredForkPaths = @(
         'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs',
