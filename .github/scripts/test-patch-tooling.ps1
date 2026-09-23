@@ -518,7 +518,9 @@ function Test-CompleteForkPort {
     Invoke-Git $workingRepo config user.email 'patch-tooling@example.invalid'
 
     $sharedMiddle = (1..10 | ForEach-Object { "unchanged=$_" }) -join "`n"
+    $renamedMiddle = (1..10 | ForEach-Object { "rename-unchanged=$_" }) -join "`n"
     Write-TestText (Join-Path $workingRepo 'shared.txt') "upstream=old`n$sharedMiddle`nfork=old`n"
+    Write-TestText (Join-Path $workingRepo 'rename-me.txt') "upstream=old`n$renamedMiddle`nfork=old`n"
     Write-TestText (Join-Path $workingRepo 'remove-on-fork.txt') "remove me`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'old upstream release'
@@ -532,6 +534,7 @@ function Test-CompleteForkPort {
 
     Invoke-Git $workingRepo switch -c 'marc/proton'
     Write-TestText (Join-Path $workingRepo 'shared.txt') "upstream=old`n$sharedMiddle`nfork=complete`n"
+    Write-TestText (Join-Path $workingRepo 'rename-me.txt') "upstream=old`n$renamedMiddle`nfork=complete`n"
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs') 'nat-pmp'
     Write-TestText (Join-Path $workingRepo 'src/ProtonVPN.Service/SplitTunneling/SplitFeature.cs') 'split-tunnel'
     Write-TestText (Join-Path $workingRepo 'src/Client/ServerHealth/ServerHealthFeature.cs') 'server-health'
@@ -547,6 +550,8 @@ function Test-CompleteForkPort {
 
     Invoke-Git $workingRepo switch master
     Write-TestText (Join-Path $workingRepo 'shared.txt') "upstream=future`n$sharedMiddle`nfork=old`n"
+    Invoke-Git $workingRepo mv 'rename-me.txt' 'renamed-upstream.txt'
+    Write-TestText (Join-Path $workingRepo 'renamed-upstream.txt') "upstream=future`n$renamedMiddle`nfork=old`n"
     Write-TestText (Join-Path $workingRepo 'future-upstream.txt') 'future-release'
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'future upstream release'
@@ -590,6 +595,11 @@ function Test-CompleteForkPort {
         'Future-port automation did not use the external tagged base.'
     Assert-Condition (Test-Path -LiteralPath (Join-Path $workingRepo 'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs') -PathType Leaf) `
         'Future-port automation omitted fork changes when using an external tagged base.'
+    $externalRenamedContent = Get-Content -LiteralPath (Join-Path $workingRepo 'renamed-upstream.txt') -Raw
+    Assert-Condition ($externalRenamedContent.Contains('upstream=future')) `
+        'Future-port automation discarded the external upstream side of a renamed file.'
+    Assert-Condition ($externalRenamedContent.Contains('fork=complete')) `
+        'Future-port automation failed to carry fork edits across an external upstream rename.'
 
     $externalOutputs = Get-Content -LiteralPath $externalOutputPath -Raw
     Assert-Condition ($externalOutputs -match "(?m)^base_commit=$futureCommit\r?$") `
@@ -627,6 +637,14 @@ function Test-CompleteForkPort {
         'Future-port automation discarded the future upstream change.'
     Assert-Condition ($sharedContent.Contains('fork=complete')) `
         'Future-port automation discarded the maintained fork change.'
+
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $workingRepo 'rename-me.txt'))) `
+        'Future-port automation resurrected the pre-rename upstream path.'
+    $renamedContent = Get-Content -LiteralPath (Join-Path $workingRepo 'renamed-upstream.txt') -Raw
+    Assert-Condition ($renamedContent.Contains('upstream=future')) `
+        'Future-port automation discarded the upstream side of a renamed file.'
+    Assert-Condition ($renamedContent.Contains('fork=complete')) `
+        'Future-port automation failed to carry fork edits across an upstream rename.'
 
     $requiredForkPaths = @(
         'src/ProtonVPN.Vpn/PortMapping/NatPmpFeature.cs',

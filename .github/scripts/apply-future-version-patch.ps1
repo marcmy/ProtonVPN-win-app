@@ -146,37 +146,53 @@ function Commit-StagedChanges {
     return Get-GitOutput rev-parse HEAD
 }
 
-function Apply-ForkPatch {
+function Merge-ForkTree {
     param(
         [Parameter(Mandatory = $true)]
         [string] $SourceBase,
 
         [Parameter(Mandatory = $true)]
-        [string] $SourceRef
+        [string] $SourceRef,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Message
     )
 
-    Write-Host "Preparing the complete fork patch from $SourceBase..$SourceRef"
+    Write-Host "Merging the complete fork tree from $SourceBase..$SourceRef"
 
-    $patchFile = Join-Path ([System.IO.Path]::GetTempPath()) "complete-fork-$([System.Guid]::NewGuid()).patch"
+    $beforeMerge = Get-GitOutput rev-parse HEAD
 
-    try {
-        Invoke-Git diff --binary --full-index "--output=$patchFile" $SourceBase $SourceRef -- .
-        if (-not (Test-Path -LiteralPath $patchFile -PathType Leaf) -or
-            (Get-Item -LiteralPath $patchFile).Length -eq 0) {
-            Write-Host 'The source branch contains no fork changes to port.'
-            return
+    $mergeOutput = @(
+        & git -c merge.renames=true merge --no-ff --no-edit -m $Message $SourceRef 2>&1
+    )
+    $mergeExitCode = $LASTEXITCODE
+    $mergeOutput | Out-Host
+
+    if ($mergeExitCode -ne 0) {
+        $conflictedPaths = @(& git diff --name-only --diff-filter=U)
+        Write-Host 'The complete fork tree could not be merged cleanly.'
+
+        if ($conflictedPaths.Count -gt 0) {
+            Write-Host 'Conflicted paths:'
+            foreach ($path in $conflictedPaths) {
+                Write-Host "  $path"
+            }
         }
 
-        Invoke-Git apply --3way --index --whitespace=nowarn $patchFile
-    }
-    catch {
-        Write-Host 'The complete fork patch could not be applied cleanly. Current status:'
+        Write-Host 'Current status:'
         & git status --short
-        throw
+
+        & git merge --abort 2>$null
+        throw "git merge failed with exit code $mergeExitCode"
     }
-    finally {
-        Remove-Item -LiteralPath $patchFile -Force -ErrorAction SilentlyContinue
+
+    $afterMerge = Get-GitOutput rev-parse HEAD
+    if ($afterMerge -eq $beforeMerge) {
+        Write-Host 'The source branch contains no fork changes to port.'
+        return ''
     }
+
+    return $afterMerge
 }
 
 $baseBranch = Normalize-BranchName $BaseBranch
@@ -267,8 +283,10 @@ else {
 $sourceBase = Get-GitOutput merge-base $baseCommit "origin/$sourcePatchBranch"
 $sourceRef = "origin/$sourcePatchBranch"
 
-Apply-ForkPatch -SourceBase $sourceBase -SourceRef $sourceRef
-$forkPatchCommit = Commit-StagedChanges "Port complete fork from $sourcePatchBranch onto $baseBranch"
+$forkPatchCommit = Merge-ForkTree `
+    -SourceBase $sourceBase `
+    -SourceRef $sourceRef `
+    -Message "Port complete fork from $sourcePatchBranch onto $baseBranch"
 
 Invoke-Git diff --check
 
