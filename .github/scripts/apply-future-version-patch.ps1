@@ -334,7 +334,7 @@ function New-CleanForkSource {
 
     $temporaryBranch = '__future_port_clean_source'
     Write-Host "Preparing a fork source snapshot without $($backportCommits.Count) upstream backport commit(s)."
-    Invoke-Git switch -C $temporaryBranch $SourceRef
+    Invoke-Git switch -C $temporaryBranch $SourceRef | Out-Host
 
     try {
         foreach ($commit in $backportCommits) {
@@ -372,12 +372,12 @@ function New-CleanForkSource {
     }
     catch {
         & git reset --hard $SourceRef | Out-Host
-        Invoke-Git switch $TargetBranch
+        Invoke-Git switch $TargetBranch | Out-Host
         & git branch -D $temporaryBranch 2>$null | Out-Host
         throw
     }
 
-    Invoke-Git switch $TargetBranch
+    Invoke-Git switch $TargetBranch | Out-Host
 
     return [pscustomobject]@{
         Ref = $cleanSourceRef
