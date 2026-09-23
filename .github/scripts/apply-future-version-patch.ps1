@@ -221,6 +221,85 @@ function Resolve-MergeConflictsToTarget {
     }
 }
 
+function Get-WhitespaceEquivalentPaths {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $SourceBase,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SourceRef,
+
+        [Parameter(Mandatory = $true)]
+        [string] $TargetRef
+    )
+
+    $sourceChanged = @(& git diff --name-only $SourceBase $SourceRef --)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate source-fork changes.'
+    }
+
+    $targetChanged = @(& git diff --name-only $SourceBase $TargetRef --)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate target-release changes.'
+    }
+
+    $targetChangedSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($path in $targetChanged) {
+        [void]$targetChangedSet.Add($path)
+    }
+
+    $equivalentPaths = [System.Collections.Generic.List[string]]::new()
+    foreach ($path in $sourceChanged) {
+        if (-not $targetChangedSet.Contains($path)) {
+            continue
+        }
+
+        & git cat-file -e "${SourceRef}:$path" 2>$null
+        $sourceExists = $LASTEXITCODE -eq 0
+        & git cat-file -e "${TargetRef}:$path" 2>$null
+        $targetExists = $LASTEXITCODE -eq 0
+
+        if (-not $sourceExists -or -not $targetExists) {
+            continue
+        }
+
+        & git diff --quiet --ignore-all-space --ignore-blank-lines $TargetRef $SourceRef -- $path
+        $diffExitCode = $LASTEXITCODE
+        if ($diffExitCode -eq 0) {
+            $equivalentPaths.Add($path)
+        }
+        elseif ($diffExitCode -ne 1) {
+            throw "Unable to compare source and target versions of '$path'."
+        }
+    }
+
+    return @($equivalentPaths)
+}
+
+function Restore-WhitespaceEquivalentTargetPaths {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $TargetRef,
+
+        [Parameter(Mandatory = $true)]
+        [string[]] $Paths
+    )
+
+    if ($Paths.Count -eq 0) {
+        return
+    }
+
+    Write-Host 'Keeping target-release copies for fork backports already present upstream:'
+    foreach ($path in $Paths) {
+        Write-Host "  $path"
+        & git checkout $TargetRef -- $path | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to restore target-release copy of '$path'."
+        }
+        Invoke-Git add -- $path
+    }
+}
+
 function Merge-ForkTree {
     param(
         [Parameter(Mandatory = $true)]
@@ -237,9 +316,12 @@ function Merge-ForkTree {
     Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
 
     $beforeMerge = Get-GitOutput rev-parse HEAD
+    $equivalentTargetPaths = @(
+        Get-WhitespaceEquivalentPaths -SourceBase $SourceBase -SourceRef $SourceRef -TargetRef $beforeMerge
+    )
 
     $mergeOutput = @(
-        & git -c merge.renames=true merge --no-ff --no-edit -X ours -m $Message $SourceRef 2>&1
+        & git -c merge.renames=true merge --no-ff --no-commit --no-edit -X ours -m $Message $SourceRef 2>&1
     )
     $mergeExitCode = $LASTEXITCODE
     $mergeOutput | Out-Host
@@ -260,8 +342,6 @@ function Merge-ForkTree {
 
         try {
             Resolve-MergeConflictsToTarget
-            Assert-StagedDiffIsSafe
-            Invoke-Git commit --no-edit | Out-Host
         }
         catch {
             Write-Host 'Target-preferred merge resolution failed. Current status:'
@@ -269,6 +349,29 @@ function Merge-ForkTree {
             & git merge --abort 2>$null
             throw
         }
+    }
+
+    $mergeHead = & git rev-parse -q --verify MERGE_HEAD 2>$null
+    $mergeInProgress = $LASTEXITCODE -eq 0
+    if ($mergeExitCode -eq 0 -and -not $mergeInProgress) {
+        $afterMerge = Get-GitOutput rev-parse HEAD
+        if ($afterMerge -eq $beforeMerge) {
+            Write-Host 'The source branch contains no fork changes to port.'
+            return ''
+        }
+        return $afterMerge
+    }
+
+    try {
+        Restore-WhitespaceEquivalentTargetPaths -TargetRef $beforeMerge -Paths $equivalentTargetPaths
+        Assert-StagedDiffIsSafe
+        Invoke-Git commit --no-edit | Out-Host
+    }
+    catch {
+        Write-Host 'Finalizing the target-preferred fork merge failed. Current status:'
+        & git status --short
+        & git merge --abort 2>$null
+        throw
     }
 
     $afterMerge = Get-GitOutput rev-parse HEAD
