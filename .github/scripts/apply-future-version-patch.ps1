@@ -130,6 +130,34 @@ function Test-StagedChanges {
     throw 'Unable to inspect staged changes.'
 }
 
+function Assert-StagedDiffIsSafe {
+    $checkOutput = @(& git diff --cached --check 2>&1)
+    $checkExitCode = $LASTEXITCODE
+
+    if ($checkExitCode -eq 0) {
+        return
+    }
+
+    if ($checkOutput.Count -gt 0) {
+        $checkOutput | Out-Host
+    }
+
+    $hasConflictMarkers = @(
+        $checkOutput | Where-Object { "$_" -match 'leftover conflict marker' }
+    ).Count -gt 0
+
+    if ($hasConflictMarkers) {
+        throw 'Staged merge contains leftover conflict markers.'
+    }
+
+    if ($checkExitCode -eq 2) {
+        Write-Warning 'Staged merge contains whitespace diagnostics; continuing because no conflict markers remain.'
+        return
+    }
+
+    throw "git diff --cached --check failed with exit code $checkExitCode"
+}
+
 function Commit-StagedChanges {
     param(
         [Parameter(Mandatory = $true)]
@@ -141,7 +169,7 @@ function Commit-StagedChanges {
         return ''
     }
 
-    Invoke-Git diff --cached --check
+    Assert-StagedDiffIsSafe
     Invoke-Git commit -m $Message | Out-Host
     return Get-GitOutput rev-parse HEAD
 }
@@ -232,7 +260,7 @@ function Merge-ForkTree {
 
         try {
             Resolve-MergeConflictsToTarget
-            Invoke-Git diff --cached --check
+            Assert-StagedDiffIsSafe
             Invoke-Git commit --no-edit | Out-Host
         }
         catch {
