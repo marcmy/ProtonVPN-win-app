@@ -306,6 +306,87 @@ function Get-UpstreamBackportCommits {
     return @($commits)
 }
 
+function Get-DeferredForkCommits {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $SourceBase,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SourceRef,
+
+        [Parameter(Mandatory = $true)]
+        [string[]] $BackportCommits
+    )
+
+    # Reverting these descendants first lets the backport patches be removed
+    # from their original tree. They are replayed later, when the target release
+    # supplies the upstream code those fork-specific changes were based on.
+    $backportSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($commit in $BackportCommits) {
+        [void]$backportSet.Add($commit)
+    }
+
+    $candidateCommits = @(& git rev-list --reverse --topo-order --no-merges "$SourceBase..$SourceRef")
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate fork commits for backport cleanup.'
+    }
+
+    $candidatePaths = @{}
+    foreach ($candidate in $candidateCommits) {
+        $paths = @(& git diff-tree --no-commit-id --name-only --no-renames -r $candidate)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to enumerate paths changed by fork commit $candidate."
+        }
+
+        $pathSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($path in $paths) {
+            if (-not [string]::IsNullOrWhiteSpace($path)) {
+                [void]$pathSet.Add("$path")
+            }
+        }
+        $candidatePaths[$candidate] = $pathSet
+    }
+
+    $deferredSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($backport in $BackportCommits) {
+        $backportPaths = @(& git diff-tree --no-commit-id --name-only --no-renames -r $backport)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to enumerate paths changed by upstream backport $backport."
+        }
+
+        $backportPathSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($path in $backportPaths) {
+            if (-not [string]::IsNullOrWhiteSpace($path)) {
+                [void]$backportPathSet.Add("$path")
+            }
+        }
+        if ($backportPathSet.Count -eq 0) {
+            continue
+        }
+
+        $descendants = @(& git rev-list --no-merges "$backport..$SourceRef")
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to enumerate commits after upstream backport $backport."
+        }
+
+        foreach ($candidate in $descendants) {
+            if ($backportSet.Contains($candidate) -or -not $candidatePaths.ContainsKey($candidate)) {
+                continue
+            }
+
+            $changedPaths = $candidatePaths[$candidate]
+            foreach ($path in $backportPathSet) {
+                if ($changedPaths.Contains($path)) {
+                    [void]$deferredSet.Add($candidate)
+                    break
+                }
+            }
+        }
+    }
+
+    return @($candidateCommits | Where-Object { $deferredSet.Contains("$_") })
+}
+
 function New-CleanForkSource {
     param(
         [Parameter(Mandatory = $true)]
@@ -329,14 +410,29 @@ function New-CleanForkSource {
         return [pscustomobject]@{
             Ref = $SourceRef
             TemporaryBranch = ''
+            DeferredCommits = @()
         }
     }
 
+    $deferredCommits = @(
+        Get-DeferredForkCommits -SourceBase $SourceBase -SourceRef $SourceRef -BackportCommits $backportCommits
+    )
+
     $temporaryBranch = '__future_port_clean_source'
     Write-Host "Preparing a fork source snapshot without $($backportCommits.Count) upstream backport commit(s)."
+    if ($deferredCommits.Count -gt 0) {
+        Write-Host "Temporarily deferring $($deferredCommits.Count) later fork commit(s) that modify backported files until after the target merge."
+    }
     Invoke-Git switch -C $temporaryBranch $SourceRef | Out-Host
 
     try {
+        for ($index = $deferredCommits.Count - 1; $index -ge 0; $index--) {
+            $commit = $deferredCommits[$index]
+            $subject = Get-GitOutput show -s --format=%s $commit
+            Write-Host "  Temporarily deferring later fork change: $($commit.Substring(0, 12)) $subject"
+            Invoke-Git revert --no-commit --no-edit $commit | Out-Host
+        }
+
         foreach ($commit in $backportCommits) {
             $subject = Get-GitOutput show -s --format=%s $commit
             $parent = Get-GitOutput rev-parse "$commit^"
@@ -371,6 +467,7 @@ function New-CleanForkSource {
         $cleanSourceRef = Get-GitOutput rev-parse HEAD
     }
     catch {
+        & git revert --abort 2>$null | Out-Host
         & git reset --hard $SourceRef | Out-Host
         Invoke-Git switch $TargetBranch | Out-Host
         & git branch -D $temporaryBranch 2>$null | Out-Host
@@ -382,6 +479,38 @@ function New-CleanForkSource {
     return [pscustomobject]@{
         Ref = $cleanSourceRef
         TemporaryBranch = $temporaryBranch
+        DeferredCommits = $deferredCommits
+    }
+}
+
+function Apply-DeferredForkCommits {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Commits
+    )
+
+    foreach ($commit in $Commits) {
+        $subject = Get-GitOutput show -s --format=%s $commit
+        Write-Host "Replaying deferred fork-specific change after the target merge: $($commit.Substring(0, 12)) $subject"
+
+        & git cherry-pick --empty=drop --no-edit $commit 2>&1 | Out-Host
+        if ($LASTEXITCODE -eq 0) {
+            continue
+        }
+
+        $conflictedPaths = @(& git diff --name-only --diff-filter=U)
+        $conflictInspectionExitCode = $LASTEXITCODE
+        & git cherry-pick --abort 2>$null | Out-Host
+
+        if ($conflictInspectionExitCode -ne 0) {
+            throw "Unable to inspect conflicts while replaying deferred fork commit $commit ('$subject')."
+        }
+
+        if ($conflictedPaths.Count -gt 0) {
+            throw "Deferred fork commit $commit ('$subject') conflicts with the target release in:`n$($conflictedPaths -join "`n")"
+        }
+
+        throw "Unable to replay deferred fork commit $commit ('$subject')."
     }
 }
 
@@ -686,6 +815,10 @@ $sourceRef = $sourceSelection.Ref
 try {
     $preferTargetContent = [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)
     $forkPatchCommit = Merge-ForkTree -SourceBase $sourceBase -SourceRef $sourceRef -Message "Port complete fork from $sourcePatchBranch onto $baseBranch" -PreferTargetContent $preferTargetContent
+    if ($sourceSelection.DeferredCommits.Count -gt 0) {
+        Apply-DeferredForkCommits -Commits $sourceSelection.DeferredCommits
+        $forkPatchCommit = Get-GitOutput rev-parse HEAD
+    }
 }
 finally {
     if (-not [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)) {

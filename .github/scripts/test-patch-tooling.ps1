@@ -775,7 +775,41 @@ public class MixedBehavior
 }
 '@
 
+    $dependentBase = @'
+namespace Demo;
+
+public class DependentBackport
+{
+    public bool UpstreamBehavior() => false;
+}
+'@
+    $dependentBackported = @'
+namespace Demo;
+
+public class DependentBackport
+{
+    public bool UpstreamBehavior() => true;
+}
+'@
+    $dependentCustom = @'
+namespace Demo;
+
+public class DependentBackport
+{
+    public bool UpstreamBehavior(bool forkPolicy) => true && forkPolicy;
+}
+'@
+    $dependentRefined = @'
+namespace Demo;
+
+public class DependentBackport
+{
+    public bool UpstreamBehavior(bool forkPolicy, bool additionalPolicy) => true && forkPolicy && additionalPolicy;
+}
+'@
+
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $baseMixed
+    Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentBase
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=old`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'old upstream release'
@@ -789,19 +823,25 @@ public class MixedBehavior
 
     Invoke-Git $workingRepo switch -c 'marc/proton'
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $backportedMixed
+    Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentBackported
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=backported`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'Port Proton synthetic future behavior'
     $backportCommit = Get-GitOutput $workingRepo rev-parse HEAD
 
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $customMixed
+    Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentCustom
     Write-TestText (Join-Path $workingRepo 'fork-only.txt') "keep-me`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'Add fork-only behavior after upstream backport'
+    Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentRefined
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Refine dependent fork behavior'
     Invoke-Git $workingRepo push -u origin 'marc/proton'
 
     Invoke-Git $workingRepo switch master
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $targetMixed
+    Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentBackported
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=future-upstream`n"
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'future upstream release'
@@ -827,6 +867,9 @@ public class MixedBehavior
     Assert-Condition ($mixedContent.Contains('return true;')) 'Known-backport cleanup did not preserve the target-release implementation.'
     Assert-Condition (-not $mixedContent.Contains('UpstreamBehavior() => true;')) 'Known-backport cleanup replayed the old fork backport implementation.'
     Assert-Condition ($mixedContent.Contains('ForkArea() => "fork";')) 'Known-backport cleanup discarded a later fork-only edit from the same file.'
+    $dependentContent = Get-Content -LiteralPath (Join-Path $workingRepo 'dependent-backport.cs') -Raw
+    Assert-Condition ($dependentContent.Contains('UpstreamBehavior(bool forkPolicy, bool additionalPolicy) => true && forkPolicy && additionalPolicy;')) `
+        'Known-backport cleanup did not replay later fork-specific changes in their original order.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'pure-backport.txt') -Raw).Trim() -eq 'value=future-upstream') 'Known-backport cleanup did not keep the target copy of a pure upstream backport.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-only.txt') -Raw).Trim() -eq 'keep-me') 'Known-backport cleanup discarded an unrelated fork-only file.'
 }
