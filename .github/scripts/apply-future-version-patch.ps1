@@ -536,6 +536,13 @@ function Merge-ForkTree {
             throw "git merge failed with exit code $mergeExitCode"
         }
 
+        if (-not $PreferTargetContent) {
+            Write-Host 'The cleaned fork still has semantic conflicts with the target release:'
+            $conflictedPaths | ForEach-Object { Write-Host "  $_" }
+            & git merge --abort 2>$null
+            throw "Cleaned fork changes still conflict with the target release:`n$($conflictedPaths -join "`n")"
+        }
+
         try {
             Resolve-MergeConflictsToTarget
         }
