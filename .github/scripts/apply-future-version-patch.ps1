@@ -449,9 +449,17 @@ function New-CleanForkSource {
                     continue
                 }
 
-                & git apply --reverse --index --unidiff-zero --whitespace=nowarn $patchPath 2>&1 | Out-Host
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Unable to subtract upstream backport $commit ('$subject') from the current fork tree without touching later edits."
+                # Apply to the temporary worktree and stage the complete cleaned
+                # snapshot once all reversals finish. --index can reject a valid
+                # reverse patch when earlier deferred reverts already changed
+                # the index for the same tree.
+                $applyOutput = @(& git apply --reverse --unidiff-zero --whitespace=nowarn $patchPath 2>&1)
+                $applyExitCode = $LASTEXITCODE
+                $applyOutput | Out-Host
+                if ($applyExitCode -ne 0) {
+                    $failureDetails = @($applyOutput | ForEach-Object { "$($_)".Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                    $failureSuffix = if ($failureDetails.Count -gt 0) { "`n$($failureDetails -join "`n")" } else { '' }
+                    throw "Unable to subtract upstream backport $commit ('$subject') from the current fork tree without touching later edits.$failureSuffix"
                 }
             }
             finally {
@@ -459,6 +467,7 @@ function New-CleanForkSource {
             }
         }
 
+        Invoke-Git add '--all' | Out-Host
         if (Test-StagedChanges) {
             Assert-StagedDiffIsSafe
             Invoke-Git commit -m 'Prepare fork source without upstream backports already in target release' | Out-Host
