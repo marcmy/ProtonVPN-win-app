@@ -263,13 +263,31 @@ function Get-WhitespaceEquivalentPaths {
             continue
         }
 
+        & git diff --quiet $TargetRef $SourceRef -- $path
+        $exactDiffExitCode = $LASTEXITCODE
+        if ($exactDiffExitCode -eq 0) {
+            $equivalentPaths.Add($path)
+            continue
+        }
+        if ($exactDiffExitCode -ne 1) {
+            throw "Unable to compare source and target versions of '$path'."
+        }
+
+        $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
+        $whitespaceInsensitiveExtensions = @(
+            '.cs', '.csproj', '.props', '.targets', '.xaml', '.xml', '.resw', '.json'
+        )
+        if ($extension -notin $whitespaceInsensitiveExtensions) {
+            continue
+        }
+
         & git diff --quiet --ignore-all-space --ignore-blank-lines $TargetRef $SourceRef -- $path
-        $diffExitCode = $LASTEXITCODE
-        if ($diffExitCode -eq 0) {
+        $whitespaceDiffExitCode = $LASTEXITCODE
+        if ($whitespaceDiffExitCode -eq 0) {
             $equivalentPaths.Add($path)
         }
-        elseif ($diffExitCode -ne 1) {
-            throw "Unable to compare source and target versions of '$path'."
+        elseif ($whitespaceDiffExitCode -ne 1) {
+            throw "Unable to compare whitespace-normalized versions of '$path'."
         }
     }
 
