@@ -146,6 +146,53 @@ function Commit-StagedChanges {
     return Get-GitOutput rev-parse HEAD
 }
 
+function Resolve-MergeConflictsToTarget {
+    $conflictedPaths = @(& git diff --name-only --diff-filter=U)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate unresolved merge conflicts.'
+    }
+
+    if ($conflictedPaths.Count -eq 0) {
+        return
+    }
+
+    Write-Host 'Resolving remaining structural conflicts in favor of the target release:'
+    foreach ($path in $conflictedPaths) {
+        Write-Host "  $path"
+
+        $stageEntries = @(& git ls-files --unmerged -- $path)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect merge stages for '$path'."
+        }
+
+        $hasTargetVersion = @(
+            $stageEntries | Where-Object { $_ -match '^[0-9]+ [0-9a-f]+ 2\t' }
+        ).Count -gt 0
+
+        if ($hasTargetVersion) {
+            & git checkout --ours -- $path | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "Unable to restore target-release version of '$path'."
+            }
+            Invoke-Git add -- $path
+        }
+        else {
+            & git rm -f --ignore-unmatch -- $path | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "Unable to preserve target-release deletion of '$path'."
+            }
+        }
+    }
+
+    $remainingConflicts = @(& git diff --name-only --diff-filter=U)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to verify merge conflict resolution.'
+    }
+    if ($remainingConflicts.Count -gt 0) {
+        throw "Unresolved merge conflicts remain:`n$($remainingConflicts -join "`n")"
+    }
+}
+
 function Merge-ForkTree {
     param(
         [Parameter(Mandatory = $true)]
@@ -159,31 +206,41 @@ function Merge-ForkTree {
     )
 
     Write-Host "Merging the complete fork tree from $SourceBase..$SourceRef"
+    Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
 
     $beforeMerge = Get-GitOutput rev-parse HEAD
 
     $mergeOutput = @(
-        & git -c merge.renames=true merge --no-ff --no-edit -m $Message $SourceRef 2>&1
+        & git -c merge.renames=true merge --no-ff --no-edit -X ours -m $Message $SourceRef 2>&1
     )
     $mergeExitCode = $LASTEXITCODE
     $mergeOutput | Out-Host
 
     if ($mergeExitCode -ne 0) {
         $conflictedPaths = @(& git diff --name-only --diff-filter=U)
-        Write-Host 'The complete fork tree could not be merged cleanly.'
-
-        if ($conflictedPaths.Count -gt 0) {
-            Write-Host 'Conflicted paths:'
-            foreach ($path in $conflictedPaths) {
-                Write-Host "  $path"
-            }
+        if ($LASTEXITCODE -ne 0) {
+            & git merge --abort 2>$null
+            throw 'Unable to inspect merge conflicts.'
         }
 
-        Write-Host 'Current status:'
-        & git status --short
+        if ($conflictedPaths.Count -eq 0) {
+            Write-Host 'Merge failed without producing resolvable file conflicts. Current status:'
+            & git status --short
+            & git merge --abort 2>$null
+            throw "git merge failed with exit code $mergeExitCode"
+        }
 
-        & git merge --abort 2>$null
-        throw "git merge failed with exit code $mergeExitCode"
+        try {
+            Resolve-MergeConflictsToTarget
+            Invoke-Git diff --cached --check
+            Invoke-Git commit --no-edit | Out-Host
+        }
+        catch {
+            Write-Host 'Target-preferred merge resolution failed. Current status:'
+            & git status --short
+            & git merge --abort 2>$null
+            throw
+        }
     }
 
     $afterMerge = Get-GitOutput rev-parse HEAD
