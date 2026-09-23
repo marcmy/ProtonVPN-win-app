@@ -491,20 +491,34 @@ function Merge-ForkTree {
         [string] $SourceRef,
 
         [Parameter(Mandatory = $true)]
-        [string] $Message
+        [string] $Message,
+
+        [bool] $PreferTargetContent = $true
     )
 
     Write-Host "Merging the complete fork tree from $SourceBase..$SourceRef"
-    Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
+    if ($PreferTargetContent) {
+        Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
+    }
+    else {
+        Write-Host 'Known upstream backports were removed; merging remaining fork changes normally and resolving only actual conflicts to the target release.'
+    }
 
     $beforeMerge = Get-GitOutput rev-parse HEAD
     $equivalentTargetPaths = @(
         Get-WhitespaceEquivalentPaths -SourceBase $SourceBase -SourceRef $SourceRef -TargetRef $beforeMerge
     )
 
-    $mergeOutput = @(
-        & git -c merge.renames=true merge --no-ff --no-commit --no-edit -X ours -m $Message $SourceRef 2>&1
-    )
+    if ($PreferTargetContent) {
+        $mergeOutput = @(
+            & git -c merge.renames=true merge --no-ff --no-commit --no-edit -X ours -m $Message $SourceRef 2>&1
+        )
+    }
+    else {
+        $mergeOutput = @(
+            & git -c merge.renames=true merge --no-ff --no-commit --no-edit -m $Message $SourceRef 2>&1
+        )
+    }
     $mergeExitCode = $LASTEXITCODE
     $mergeOutput | Out-Host
 
@@ -663,7 +677,8 @@ $sourceSelection = New-CleanForkSource -SourceBase $sourceBase -SourceRef $origi
 $sourceRef = $sourceSelection.Ref
 
 try {
-    $forkPatchCommit = Merge-ForkTree -SourceBase $sourceBase -SourceRef $sourceRef -Message "Port complete fork from $sourcePatchBranch onto $baseBranch"
+    $preferTargetContent = [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)
+    $forkPatchCommit = Merge-ForkTree -SourceBase $sourceBase -SourceRef $sourceRef -Message "Port complete fork from $sourcePatchBranch onto $baseBranch" -PreferTargetContent $preferTargetContent
 }
 finally {
     if (-not [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)) {
