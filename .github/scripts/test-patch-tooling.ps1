@@ -922,6 +922,89 @@ public struct WindowLocation
         'Known-backport cleanup discarded the target-release copy of a modified source file.'
 }
 
+function Test-KnownBackportCleanupFailsClosed {
+    $fixtureRoot = Join-Path $testRoot 'known-backport-conflict'
+    $workingRepo = Join-Path $fixtureRoot 'working'
+    $remoteRepo = Join-Path $fixtureRoot 'origin.git'
+
+    New-Item -ItemType Directory -Force -Path $fixtureRoot | Out-Null
+    & git init --initial-branch=master $workingRepo | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to initialize known-backport conflict working repository.'
+    }
+    Invoke-Git $workingRepo config user.name 'Patch Tooling Tests'
+    Invoke-Git $workingRepo config user.email 'patch-tooling@example.invalid'
+
+    Write-TestText (Join-Path $workingRepo 'semantic-conflict.cs') ('public string Choice() => "base";' + [Environment]::NewLine)
+    Write-TestText (Join-Path $workingRepo 'upstream-backport.txt') "value=old`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'old upstream release'
+
+    & git init --bare $remoteRepo | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to initialize known-backport conflict origin repository.'
+    }
+    Invoke-Git $workingRepo remote add origin $remoteRepo
+    Invoke-Git $workingRepo push -u origin master
+
+    Invoke-Git $workingRepo switch -c 'marc/proton'
+    Write-TestText (Join-Path $workingRepo 'upstream-backport.txt') "value=backported`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Port Proton synthetic upstream behavior'
+    $backportCommit = Get-GitOutput $workingRepo rev-parse HEAD
+
+    Write-TestText (Join-Path $workingRepo 'semantic-conflict.cs') ('public string Choice() => "fork";' + [Environment]::NewLine)
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Add fork-specific semantic change'
+    Invoke-Git $workingRepo push -u origin 'marc/proton'
+
+    Invoke-Git $workingRepo switch master
+    Write-TestText (Join-Path $workingRepo 'semantic-conflict.cs') ('public string Choice() { return "target"; }' + [Environment]::NewLine)
+    Write-TestText (Join-Path $workingRepo 'upstream-backport.txt') "value=future-upstream`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'future upstream release'
+    Invoke-Git $workingRepo branch 'release/v9.9.9'
+    Invoke-Git $workingRepo push origin 'release/v9.9.9'
+
+    $previousCutoff = $env:FUTURE_PORT_BACKPORT_CUTOFF
+    $failureMessage = ''
+    try {
+        $env:FUTURE_PORT_BACKPORT_CUTOFF = $backportCommit
+        Push-Location $workingRepo
+        try {
+            try {
+                & $applyPatchScript -BaseBranch 'release/v9.9.9' -SourcePatchBranch 'marc/proton' -TargetBranch 'codex/backport-conflict'
+                throw 'Future-port automation unexpectedly accepted a genuine semantic conflict.'
+            }
+            catch {
+                $failureMessage = "$($_.Exception.Message)"
+            }
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    finally {
+        $env:FUTURE_PORT_BACKPORT_CUTOFF = $previousCutoff
+    }
+
+    Assert-Condition ($failureMessage.Contains('Cleaned fork changes still conflict with the target release')) `
+        'Future-port automation did not fail closed on a cleaned semantic conflict.'
+    Assert-Condition ($failureMessage.Contains('semantic-conflict.cs')) `
+        'Future-port automation did not name the path containing the semantic conflict.'
+    Assert-Condition ((Get-GitOutput $workingRepo branch --show-current) -eq 'codex/backport-conflict') `
+        'Future-port automation did not leave the target branch checked out after the failed merge.'
+    Assert-Condition ([string]::IsNullOrWhiteSpace((Get-GitOutput $workingRepo status --porcelain))) `
+        'Future-port automation left merge changes in the target working tree after failing closed.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'semantic-conflict.cs') -Raw).Contains('return "target";')) `
+        'Fail-closed merge handling changed the target-release file contents.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'upstream-backport.txt') -Raw).Trim() -eq 'value=future-upstream') `
+        'Fail-closed merge handling changed the target-release backport file contents.'
+
+    & git -C $workingRepo show-ref --verify --quiet 'refs/heads/__future_port_clean_source'
+    Assert-Condition ($LASTEXITCODE -ne 0) 'Future-port automation left its temporary cleaned-source branch behind after failure.'
+}
+
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 
 try {
@@ -930,6 +1013,7 @@ try {
     Test-InstallerRuntimeDataPreservation
     Test-CompleteForkPort
     Test-KnownBackportCleanup
+    Test-KnownBackportCleanupFailsClosed
     Write-Host 'Patch tooling regression tests passed.'
 }
 finally {
