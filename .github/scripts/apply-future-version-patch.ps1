@@ -339,11 +339,27 @@ function New-CleanForkSource {
     try {
         foreach ($commit in $backportCommits) {
             $subject = Get-GitOutput show -s --format=%s $commit
-            Write-Host "  Removing upstream backport: $($commit.Substring(0, 12)) $subject"
+            $parent = Get-GitOutput rev-parse "$commit^"
+            $patchPath = Join-Path ([System.IO.Path]::GetTempPath()) ("future-port-backport-{0}.patch" -f $commit.Substring(0, 12))
+            Write-Host "  Removing upstream backport patch: $($commit.Substring(0, 12)) $subject"
 
-            & git revert --no-commit $commit 2>&1 | Out-Host
-            if ($LASTEXITCODE -ne 0) {
-                throw "Unable to remove upstream backport $commit ('$subject') without losing later fork changes."
+            try {
+                & git diff --binary --full-index --find-renames --find-copies --unified=0 $parent $commit "--output=$patchPath"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Unable to build reverse patch for upstream backport $commit ('$subject')."
+                }
+
+                if ((Get-Item -LiteralPath $patchPath).Length -eq 0) {
+                    continue
+                }
+
+                & git apply --reverse --index --unidiff-zero --whitespace=nowarn $patchPath 2>&1 | Out-Host
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Unable to subtract upstream backport $commit ('$subject') from the current fork tree without touching later edits."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $patchPath -Force -ErrorAction SilentlyContinue
             }
         }
 
@@ -355,7 +371,6 @@ function New-CleanForkSource {
         $cleanSourceRef = Get-GitOutput rev-parse HEAD
     }
     catch {
-        & git revert --abort 2>$null
         & git reset --hard $SourceRef | Out-Host
         Invoke-Git switch $TargetBranch
         & git branch -D $temporaryBranch 2>$null | Out-Host
