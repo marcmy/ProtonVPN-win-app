@@ -440,7 +440,10 @@ function New-CleanForkSource {
             Write-Host "  Removing upstream backport patch: $($commit.Substring(0, 12)) $subject"
 
             try {
-                & git diff --binary --full-index --find-renames --find-copies --unified=0 $parent $commit "--output=$patchPath"
+                # Copy detection can turn a newly added upstream file into a
+                # copy from an existing file. Reversing that metadata can make
+                # git apply try to recreate the existing source path on Windows.
+                & git diff --binary --full-index --find-renames --unified=0 $parent $commit "--output=$patchPath"
                 if ($LASTEXITCODE -ne 0) {
                     throw "Unable to build reverse patch for upstream backport $commit ('$subject')."
                 }

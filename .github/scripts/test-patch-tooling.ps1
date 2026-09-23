@@ -808,9 +808,45 @@ public class DependentBackport
 }
 '@
 
+    $windowPositionBase = @'
+namespace Demo;
+
+public struct WindowPositionParameters
+{
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int? XPosition { get; set; }
+    public int? YPosition { get; set; }
+}
+'@
+    $windowPositionBackported = @'
+namespace Demo;
+
+public struct WindowPositionParameters
+{
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int? XPosition { get; set; }
+    public int? YPosition { get; set; }
+    public bool IsCentered { get; set; }
+}
+'@
+    $windowLocationBackported = @'
+namespace Demo;
+
+public struct WindowLocation
+{
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int? XPosition { get; set; }
+    public int? YPosition { get; set; }
+}
+'@
+
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $baseMixed
     Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentBase
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=old`n"
+    Write-TestText (Join-Path $workingRepo 'window-position.cs') $windowPositionBase
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'old upstream release'
 
@@ -825,9 +861,15 @@ public class DependentBackport
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $backportedMixed
     Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentBackported
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=backported`n"
+    Write-TestText (Join-Path $workingRepo 'window-position.cs') $windowPositionBackported
+    Write-TestText (Join-Path $workingRepo 'window-location.cs') $windowLocationBackported
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'Port Proton synthetic future behavior'
     $backportCommit = Get-GitOutput $workingRepo rev-parse HEAD
+    $backportParent = Get-GitOutput $workingRepo rev-parse "$backportCommit^"
+    $copyDetectionSummary = Get-GitOutput $workingRepo diff --summary --find-copies $backportParent $backportCommit
+    Assert-Condition ($copyDetectionSummary -match 'copy .*window-position\.cs => window-location\.cs') `
+        'Known-backport regression fixture did not create a detectable copy-shaped addition.'
 
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $customMixed
     Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentCustom
@@ -843,6 +885,8 @@ public class DependentBackport
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $targetMixed
     Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentBackported
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=future-upstream`n"
+    Write-TestText (Join-Path $workingRepo 'window-position.cs') $windowPositionBackported
+    Write-TestText (Join-Path $workingRepo 'window-location.cs') $windowLocationBackported
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'future upstream release'
     Invoke-Git $workingRepo branch 'release/v9.9.9'
@@ -872,6 +916,10 @@ public class DependentBackport
         'Known-backport cleanup did not replay later fork-specific changes in their original order.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'pure-backport.txt') -Raw).Trim() -eq 'value=future-upstream') 'Known-backport cleanup did not keep the target copy of a pure upstream backport.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-only.txt') -Raw).Trim() -eq 'keep-me') 'Known-backport cleanup discarded an unrelated fork-only file.'
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $workingRepo 'window-location.cs')) `
+        'Known-backport cleanup discarded a target-release file copied from a fork backport file.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'window-position.cs') -Raw).Contains('IsCentered')) `
+        'Known-backport cleanup discarded the target-release copy of a modified source file.'
 }
 
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
