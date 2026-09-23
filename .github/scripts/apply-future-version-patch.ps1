@@ -339,7 +339,7 @@ function New-CleanForkSourceRef {
 
         Assert-StagedDiffIsSafe
         $cleanTree = Get-GitOutput write-tree
-        $cleanSourceRef = Get-GitOutput commit-tree $cleanTree -p $SourceBase -m 'Synthetic fork source without explicit upstream backports'
+        $cleanSourceRef = Get-GitOutput commit-tree $cleanTree '-p' $SourceBase '-m' 'Synthetic fork source without explicit upstream backports'
         Write-Host "Cleaned fork source commit: $cleanSourceRef"
     }
     finally {
