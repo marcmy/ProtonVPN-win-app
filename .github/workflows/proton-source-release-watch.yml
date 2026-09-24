@@ -11,6 +11,8 @@ on:
       - .github/workflows/proton-source-release-watch.yml
       - .github/workflows/future-version-patch.yml
       - .github/scripts/apply-future-version-patch.ps1
+      - .github/scripts/proton_source_release_watch.py
+      - .github/scripts/test_proton_source_release_watch.py
 
 permissions:
   contents: read
@@ -30,7 +32,16 @@ jobs:
       version: ${{ steps.detect.outputs.version }}
       tag: ${{ steps.detect.outputs.tag }}
       target_branch: ${{ steps.detect.outputs.target_branch }}
+      source_patch_branch: ${{ steps.detect.outputs.source_patch_branch }}
     steps:
+      - name: Checkout release-watch helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Test reviewed port source selection
+        run: python3 -m unittest discover -s .github/scripts -p 'test_proton_source_release_watch.py' -v
+
       - name: Detect unhandled public source release
         id: detect
         shell: bash
@@ -42,9 +53,17 @@ jobs:
           python3 <<'PY'
           import json
           import os
+          from pathlib import Path
           import re
           import subprocess
+          import sys
           import tempfile
+
+          sys.path.insert(0, str(Path(".github/scripts").resolve()))
+          from proton_source_release_watch import (
+              find_latest_shared_release_tag,
+              select_source_patch_branch,
+          )
 
           official_url = "https://github.com/ProtonVPN/win-app.git"
           fork_url = f"https://github.com/{os.environ['GH_REPO']}.git"
@@ -67,6 +86,7 @@ jobs:
           version_key, tag = max(versions)
           version = ".".join(str(part) for part in version_key)
           target_branch = f"future/proton-v{version}"
+          source_patch_branch = "marc/proton"
           should_dispatch = True
 
           with tempfile.TemporaryDirectory(prefix="proton-source-watch-") as repository:
@@ -123,11 +143,87 @@ jobs:
                   should_dispatch = False
                   print(f"A generated future-source PR was already merged from {target_branch}")
 
+          if should_dispatch:
+              candidate_listing = subprocess.check_output(
+                  ["git", "ls-remote", "--heads", fork_url, "refs/heads/future/proton/v*"],
+                  text=True,
+              )
+              candidate_versions = []
+              for line in candidate_listing.splitlines():
+                  _, ref = line.split("\t", 1)
+                  match = re.fullmatch(r"refs/heads/future/proton/v(\d+\.\d+\.\d+)", ref)
+                  if match:
+                      candidate_version = match.group(1)
+                      if tuple(int(part) for part in candidate_version.split(".")) <= version_key:
+                          candidate_versions.append(candidate_version)
+
+              compatible_candidate_versions = []
+              if candidate_versions:
+                  candidate_version = max(
+                      candidate_versions,
+                      key=lambda value: tuple(int(part) for part in value.split(".")),
+                  )
+                  candidate_branch = f"future/proton/v{candidate_version}"
+                  candidate_ref = f"refs/remotes/fork/{candidate_branch}"
+                  subprocess.check_call(
+                      [
+                          "git", "-C", repository, "fetch", "--quiet", "--filter=blob:none", "--no-tags",
+                          fork_url, f"+refs/heads/{candidate_branch}:{candidate_ref}",
+                      ]
+                  )
+
+                  fetched_tags = {f"refs/tags/{tag}"}
+
+                  def is_ancestor(ancestor_ref, descendant_ref):
+                      if ancestor_ref not in fetched_tags:
+                          base_tag = ancestor_ref.removeprefix("refs/tags/")
+                          subprocess.check_call(
+                              [
+                                  "git", "-C", repository, "fetch", "--quiet", "--filter=blob:none", "--no-tags",
+                                  official_url, f"+refs/tags/{base_tag}:{ancestor_ref}",
+                              ]
+                          )
+                          fetched_tags.add(ancestor_ref)
+
+                      ancestry = subprocess.run(
+                          [
+                              "git", "-C", repository, "merge-base", "--is-ancestor",
+                              ancestor_ref, descendant_ref,
+                          ],
+                          check=False,
+                      )
+                      if ancestry.returncode not in (0, 1):
+                          raise SystemExit(f"Unable to inspect release ancestry for {ancestor_ref}")
+                      return ancestry.returncode == 0
+
+                  common_tag = find_latest_shared_release_tag(
+                      candidate_version,
+                      version,
+                      [base_tag.removeprefix("v") for _, base_tag in versions],
+                      candidate_ref=candidate_ref,
+                      target_ref=f"refs/tags/{tag}",
+                      is_ancestor=is_ancestor,
+                  )
+                  if common_tag:
+                      compatible_candidate_versions.append(candidate_version)
+                      print(f"Candidate {candidate_branch} shares official base v{common_tag} with {tag}")
+
+              try:
+                  source_patch_branch = select_source_patch_branch(
+                      version,
+                      candidate_versions=candidate_versions,
+                      compatible_candidate_versions=compatible_candidate_versions,
+                  )
+              except ValueError as error:
+                  raise SystemExit(str(error)) from error
+              print(f"Using complete fork source branch: {source_patch_branch}")
+
           values = {
               "should_dispatch": str(should_dispatch).lower(),
               "version": version,
               "tag": tag,
               "target_branch": target_branch,
+              "source_patch_branch": source_patch_branch,
           }
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
               for key, value in values.items():
@@ -146,6 +242,7 @@ jobs:
           VERSION: ${{ steps.detect.outputs.version }}
           TAG: ${{ steps.detect.outputs.tag }}
           TARGET_BRANCH: ${{ steps.detect.outputs.target_branch }}
+          SOURCE_PATCH_BRANCH: ${{ steps.detect.outputs.source_patch_branch }}
         run: |
           set -euo pipefail
           gh workflow run future-version-patch.yml \
@@ -154,7 +251,7 @@ jobs:
             -f base_branch="official/$TAG" \
             -f base_repository_url="https://github.com/ProtonVPN/win-app.git" \
             -f base_ref="refs/tags/$TAG" \
-            -f source_patch_branch="marc/proton" \
+            -f source_patch_branch="$SOURCE_PATCH_BRANCH" \
             -f target_branch="$TARGET_BRANCH" \
             -f target_version="$VERSION" \
             -f force_reset_target=false \

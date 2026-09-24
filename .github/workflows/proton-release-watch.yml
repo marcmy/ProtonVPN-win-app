@@ -214,6 +214,10 @@ jobs:
               "## Next step",
               "",
               "Download the `protonvpn-<version>-archaeology` artifact from the linked workflow run and review the changed first-party assemblies/decompiled source before porting any unpublished fixes.",
+              "",
+              "## Early source candidate",
+              "",
+              "If you prepare a complete, feature-reviewed port before Proton publishes this source tag, keep it on `future/proton/v<version>` and record conflict decisions in the versioned `docs/FUTURE_PORT_V<version>_CONFLICT_RESOLUTIONS.md` ledger. The public-source watcher will reuse the newest eligible versioned candidate that shares an official source-tag ancestor with the new release, then run its normal tests. Candidates without a verified shared source history fail closed.",
           ]
           Path("issue.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
           PY
