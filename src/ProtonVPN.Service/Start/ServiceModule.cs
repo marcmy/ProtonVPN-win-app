@@ -39,9 +39,12 @@ using ProtonVPN.Serialization.Installers;
 using ProtonVPN.Service.ControllerRetries;
 using ProtonVPN.Service.Driver;
 using ProtonVPN.Service.Firewall;
+using ProtonVPN.Service.PortMapping;
 using ProtonVPN.Service.ProcessCommunication;
+using ProtonVPN.Service.ServerHealth;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Service.SplitTunneling;
+using ProtonVPN.Service.SplitTunneling.DomainSplitTunneling;
 using ProtonVPN.Service.StateMachine;
 using ProtonVPN.Service.StateMachine.SideEffects;
 using ProtonVPN.Service.Update;
@@ -87,6 +90,13 @@ internal class ServiceModule : Module
 
         builder.RegisterType<IpFilter>().AsImplementedInterfaces().AsSelf().SingleInstance();
         builder.RegisterType<IpLayer>().AsSelf().SingleInstance();
+        builder.RegisterType<PortForwardingRouteOperations>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<PortForwardingForAppsRouteShim>().SingleInstance();
+        builder.RegisterType<ServerHealthPermitManager>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<ServerHealthPingProbe>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<ServerHealthProbeService>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<SystemDnsCacheReader>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<SplitTunnelDomainPoller>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SplitTunnel>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SystemProcesses>().As<IOsProcesses>().SingleInstance();
         builder.RegisterType<PermittedRemoteAddress>().AsImplementedInterfaces().SingleInstance();

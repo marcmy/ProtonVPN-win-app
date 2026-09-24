@@ -49,7 +49,7 @@ public class ControllerRetryManager : IControllerRetryManager
         _timer.Enabled = true;
     }
 
-    private void OnTimedEvent(object sender, EventArgs e)
+    private void OnTimedEvent(object? sender, EventArgs e)
     {
         lock (_lock)
         {

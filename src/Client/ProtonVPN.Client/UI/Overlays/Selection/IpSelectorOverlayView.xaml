@@ -70,7 +70,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                  AutomationProperties.AutomationId="IpAddressTextBox"
                  Description="{x:Bind ViewModel.Caption}"
                  KeyDown="{x:Bind ViewModel.OnCurrentAddressKeyDownHandler, Mode=OneTime}"
-                 PlaceholderText="{x:Bind ViewModel.Localizer.Get('Settings_Common_IpAddresses_Watermark')}"
+                 PlaceholderText="IP address, CIDR range, or domain"
                  Style="{StaticResource ValidationTextBoxStyle}"
                  Text="{x:Bind ViewModel.CurrentAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -80,7 +80,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                 VerticalAlignment="Top"
                 AutomationProperties.AutomationId="AddButton"
                 Command="{x:Bind ViewModel.AddAddressCommand, Mode=OneTime}"
-                Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Add')}" 
+                Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Add')}"
                 Style="{ThemeResource PrimaryButtonStyle}"/>
 
         <ListView x:Name="AddressesListView"
@@ -103,7 +103,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                 </TransitionCollection>
             </ListView.ItemContainerTransitions>
             <ListView.ItemTemplate>
-                <DataTemplate x:DataType="models:SelectableNetworkAddress">
+                <DataTemplate x:DataType="models:SelectableSplitTunnelingAddress">
                     <Grid>
 
                         <Grid.ColumnDefinitions>
@@ -126,7 +126,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                         <CheckBox Grid.Column="1"
                                   Margin="0,0,8,0"
                                   AutomationProperties.AutomationId="AddressItemToggle"
-                                  Content="{x:Bind Value}"
+                                  Content="{x:Bind FormattedAddress}"
                                   IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
 
                         <StackPanel Grid.Column="2"

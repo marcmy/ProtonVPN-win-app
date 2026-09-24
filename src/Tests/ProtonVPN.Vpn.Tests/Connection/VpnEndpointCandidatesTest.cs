@@ -229,4 +229,48 @@ public class VpnEndpointCandidatesTest
             PreferredProtocols = [VpnProtocol.WireGuardTls, VpnProtocol.OpenVpnTcp]
         });
     }
+
+    [TestMethod]
+    public void NextIp_ShouldSkipHost_WhenAllPreferredProtocolIpsWereAlreadyTried()
+    {
+        // Arrange
+        VpnEndpointCandidates subject = new();
+        subject.Set([
+            CreateHost("server-1.test", "10.0.0.1", "10.0.0.2"),
+            CreateHost("server-2.test", "10.0.0.2", "10.0.0.1"),
+            CreateHost("server-3.test", "10.0.0.3", "10.0.0.4")
+        ]);
+
+        VpnConfig config = new(new VpnConfigParameters
+        {
+            VpnProtocol = VpnProtocol.OpenVpnTcp,
+            PreferredProtocols = [VpnProtocol.OpenVpnTcp, VpnProtocol.OpenVpnUdp],
+            Ports = new Dictionary<VpnProtocol, IReadOnlyCollection<int>>()
+        });
+
+        // Act
+        VpnEndpoint first = subject.NextIp(config);
+        VpnEndpoint second = subject.NextIp(config);
+        VpnEndpoint third = subject.NextIp(config);
+
+        // Assert
+        first.Server.Ip.Should().Be("10.0.0.1");
+        second.Server.Ip.Should().Be("10.0.0.3");
+        third.IsEmpty.Should().BeTrue();
+    }
+
+    private static VpnHost CreateHost(string name, string ip, string tcpRelayIp)
+    {
+        return new VpnHost(
+            name: name,
+            ip: ip,
+            label: string.Empty,
+            x25519PublicKey: null,
+            signature: string.Empty,
+            isIpv6Supported: false,
+            relayIpByProtocol: new Dictionary<VpnProtocol, string>
+            {
+                [VpnProtocol.OpenVpnTcp] = tcpRelayIp
+            });
+    }
 }

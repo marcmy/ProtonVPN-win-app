@@ -42,6 +42,11 @@ public class RoutingTableHelper : IRoutingTableHelper
 
     public void CreateRoute(RouteConfiguration route)
     {
+        _ = TryCreateRoute(route);
+    }
+
+    public bool TryCreateRoute(RouteConfiguration route)
+    {
         InitializeIpForwardEntry(out MIB_IPFORWARD_ROW2 row);
 
         row.DestinationPrefix = GetDestinationPrefix(route);
@@ -52,7 +57,7 @@ public class RoutingTableHelper : IRoutingTableHelper
         row.PreferredLifetime = uint.MaxValue;
         row.Loopback = route.Gateway is null;
 
-        CreateIpForwardEntry2(ref row);
+        return CreateIpForwardEntry2(ref row).Succeeded;
     }
 
     public uint? GetLoopbackInterfaceIndex()
@@ -127,6 +132,11 @@ public class RoutingTableHelper : IRoutingTableHelper
 
     public void DeleteRoute(RouteConfiguration route)
     {
+        _ = TryDeleteRoute(route);
+    }
+
+    public bool TryDeleteRoute(RouteConfiguration route)
+    {
         MIB_IPFORWARD_ROW2 routeToDelete = new()
         {
             DestinationPrefix = GetDestinationPrefix(route),
@@ -134,7 +144,14 @@ public class RoutingTableHelper : IRoutingTableHelper
             InterfaceIndex = route.InterfaceIndex,
         };
 
-        DeleteIpForwardEntry2(ref routeToDelete);
+        Win32Error result = DeleteIpForwardEntry2(ref routeToDelete);
+        if (result.Failed)
+        {
+            _logger.Error<RoutingTableLog>("Failed to delete an exact route from the routing table.", result.GetException());
+            return false;
+        }
+
+        return true;
     }
 
     public bool DeleteRoute(string destinationIpAddress, bool isIpv6)

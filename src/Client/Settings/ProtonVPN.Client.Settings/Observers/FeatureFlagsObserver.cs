@@ -104,7 +104,7 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
     {
         FeatureFlag featureFlag = GetFeatureFlag(propertyName);
 
-        return featureFlag.IsEnabled 
+        return featureFlag.IsEnabled
             ? featureFlag.Payload
             : string.Empty;
     }
@@ -156,18 +156,18 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
                 continue;
             }
 
-            FeatureFlag? oldFlag = GetFeatureFlag(_settings.FeatureFlags, featureFlagName);
-            FeatureFlag? newFlag = GetFeatureFlag(updatedFeatureFlags, featureFlagName);
-
+            FeatureFlag? oldFeatureFlag = GetFeatureFlag(_settings.FeatureFlags, featureFlagName);
+            FeatureFlag? newFeatureFlag = GetFeatureFlag(updatedFeatureFlags, featureFlagName);
+            bool tracksPayload = featureFlagPropertyInfo.Name == nameof(IFeatureFlagsObserver.ConnectionFeedback);
             FeatureFlagChange featureFlagChange = new()
-            {                    
+            {
                 // Use property name instead of attribute name so that later we can compare
-                // using nameof(IFeatureFlagsObserver.FeatureFlag)
+                // using nameof(IFeatureFlagsObserver.ConnectionFeedback)
                 Name = featureFlagPropertyInfo.Name,
-                OldValue = oldFlag?.IsEnabled,
-                NewValue = newFlag?.IsEnabled,
-                OldPayload = oldFlag?.Payload,
-                NewPayload = newFlag?.Payload
+                OldValue = oldFeatureFlag?.IsEnabled,
+                NewValue = newFeatureFlag?.IsEnabled,
+                OldPayload = tracksPayload ? oldFeatureFlag?.Payload : null,
+                NewPayload = tracksPayload ? newFeatureFlag?.Payload : null,
             };
 
             if (featureFlagChange.HasChanged)

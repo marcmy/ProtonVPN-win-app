@@ -46,14 +46,13 @@ internal class Bootstrapper
 {
     private readonly ServiceGlobalExceptionHandler _globalExceptionHandler = new();
 
-    private IContainer _container;
-    private T Resolve<T>() => _container.Resolve<T>();
+    private IContainer _container = null!;
+    private T Resolve<T>() where T : notnull => _container.Resolve<T>();
 
     public Bootstrapper()
     {
         _globalExceptionHandler.Initialize();
         _globalExceptionHandler.OnFatalException += OnFatalException;
-        
         IssueReportingInitializer.Run();
     }
 
@@ -78,7 +77,6 @@ internal class Bootstrapper
                .RegisterAssemblyModule<IPv6Module>()
                .RegisterAssemblyModule<UpdateModule>();
         _container = builder.Build();
-
         _globalExceptionHandler.SetLogger(Resolve<ILogger>());
     }
 
@@ -131,7 +129,7 @@ internal class Bootstrapper
         TryCleanup<IOsProcesses>(p => p.KillProcesses(Resolve<IStaticConfiguration>().ClientName));
     }
 
-    private void TryCleanup<T>(Action<T> action)
+    private void TryCleanup<T>(Action<T> action) where T : notnull
     {
         try
         {

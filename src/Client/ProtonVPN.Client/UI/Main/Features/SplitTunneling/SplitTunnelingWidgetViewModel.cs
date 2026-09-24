@@ -97,14 +97,14 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
 
     public bool IsInverseSplitTunnelingEnabled => IsSplitTunnelingEnabled && IsInverseSplitTunneling;
 
-    public SmartObservableCollection<SelectableNetworkAddress> IncludedIpAddresses { get; } = [];
-    public SmartObservableCollection<SelectableNetworkAddress> ExcludedIpAddresses { get; } = [];
+    public SmartObservableCollection<SelectableSplitTunnelingAddress> IncludedIpAddresses { get; } = [];
+    public SmartObservableCollection<SelectableSplitTunnelingAddress> ExcludedIpAddresses { get; } = [];
 
-    public SmartObservableCollection<SelectableNetworkAddress> IpAddresses
+    public SmartObservableCollection<SelectableSplitTunnelingAddress> IpAddresses
         => IsStandardSplitTunneling ? ExcludedIpAddresses : IncludedIpAddresses;
 
-    public IEnumerable<NetworkAddress> SelectedIpAddresses
-        => IpAddresses.Where(ip => ip.IsSelected).Select(ip => ip.Value);
+    public IEnumerable<SelectableSplitTunnelingAddress> SelectedIpAddresses
+        => IpAddresses.Where(ip => ip.IsSelected);
 
     public bool HasSelectedIpAddresses => SelectedIpAddresses.Any();
 
@@ -308,20 +308,20 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         }
     }
 
-    private List<SplitTunnelingIpAddress> GetSettingsIpAddresses(IEnumerable<SelectableNetworkAddress> ipAddresses)
+    private List<SplitTunnelingIpAddress> GetSettingsIpAddresses(IEnumerable<SelectableSplitTunnelingAddress> ipAddresses)
     {
-        return ipAddresses.Select(ip => new SplitTunnelingIpAddress(ip.Value.ToString(), ip.IsSelected)).ToList();
+        return ipAddresses.Select(ip => new SplitTunnelingIpAddress(ip.Value, ip.IsSelected)).ToList();
     }
 
-    private List<SelectableNetworkAddress> GetObservableIpAddresses(List<SplitTunnelingIpAddress> settingsIpAddresses)
+    private List<SelectableSplitTunnelingAddress> GetObservableIpAddresses(List<SplitTunnelingIpAddress> settingsIpAddresses)
     {
-        List<SelectableNetworkAddress> addresses = [];
+        List<SelectableSplitTunnelingAddress> addresses = [];
 
         foreach (SplitTunnelingIpAddress ip in settingsIpAddresses)
         {
-            if (NetworkAddress.TryParse(ip.IpAddress, out NetworkAddress address))
+            if (SelectableSplitTunnelingAddress.TryCreate(ip.IpAddress, ip.IsActive, out SelectableSplitTunnelingAddress? address) && address != null)
             {
-                addresses.Add(new SelectableNetworkAddress(address, ip.IsActive));
+                addresses.Add(address);
             }
         }
 
@@ -423,7 +423,7 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         _ipSelector.CanReorder = false;
         _ipSelector.IsAddressRangeAuthorized = true;
 
-        List<SelectableNetworkAddress>? result = await _ipSelector.SelectAsync(IpAddresses.Select(ip => ip.Clone()).ToList());
+        List<SelectableSplitTunnelingAddress>? result = await _ipSelector.SelectSplitTunnelingAddressesAsync(IpAddresses.Select(ip => ip.Clone()).ToList());
         if (result == null)
         {
             return;

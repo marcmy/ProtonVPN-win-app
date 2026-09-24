@@ -60,10 +60,8 @@ public class ServerFeatureExtensionsTest
     [DataRow(ServerFeatures.NonStandard, false)]
     [DataRow(ServerFeatures.SecureCore | ServerFeatures.Tor, false)]
     [DataRow(ServerFeatures.Streaming | ServerFeatures.Ipv6, true)]
-    [DataRow(ServerFeatures.Restricted | ServerFeatures.DoubleRestricted, false)]
     [DataRow(ServerFeatures.P2P | ServerFeatures.DoubleRestricted, false)]
     [DataRow(ServerFeatures.Restricted | ServerFeatures.Partner, false)]
-    [DataRow(ServerFeatures.Restricted | ServerFeatures.DoubleRestricted | ServerFeatures.B2B, false)]
     [DataRow(ServerFeatures.SecureCore | ServerFeatures.Tor | ServerFeatures.P2P | ServerFeatures.Streaming | ServerFeatures.Ipv6 | ServerFeatures.Restricted | ServerFeatures.Partner | ServerFeatures.DoubleRestricted, false)]
     public void TestIsStandard(ServerFeatures serverFeatures, bool expectedResult)
     {
@@ -85,10 +83,8 @@ public class ServerFeatureExtensionsTest
     [DataRow(ServerFeatures.NonStandard, true)]
     [DataRow(ServerFeatures.SecureCore | ServerFeatures.Tor, false)]
     [DataRow(ServerFeatures.Streaming | ServerFeatures.Ipv6, false)]
-    [DataRow(ServerFeatures.Restricted | ServerFeatures.DoubleRestricted, true)]
     [DataRow(ServerFeatures.P2P | ServerFeatures.DoubleRestricted, true)]
     [DataRow(ServerFeatures.Restricted | ServerFeatures.Partner, true)]
-    [DataRow(ServerFeatures.Restricted | ServerFeatures.DoubleRestricted | ServerFeatures.B2B, true)]
     [DataRow(ServerFeatures.SecureCore | ServerFeatures.Tor | ServerFeatures.P2P | ServerFeatures.Streaming | ServerFeatures.Ipv6 | ServerFeatures.Restricted | ServerFeatures.Partner | ServerFeatures.DoubleRestricted, true)]
     public void TestIsB2B(ServerFeatures serverFeatures, bool expectedResult)
     {

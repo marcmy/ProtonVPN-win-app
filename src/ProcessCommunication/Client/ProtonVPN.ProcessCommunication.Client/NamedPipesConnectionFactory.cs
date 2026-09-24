@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using System.IO.Pipes;
 using System.Security.Principal;
 using ProtonVPN.Common.Core.Extensions;

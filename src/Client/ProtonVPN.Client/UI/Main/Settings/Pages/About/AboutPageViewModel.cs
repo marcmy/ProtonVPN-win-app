@@ -81,7 +81,7 @@ public partial class AboutPageViewModel : SettingsPageViewModelBase,
         _updatesManager = updatesManager;
         _releaseViewModelFactory = releaseViewModelFactory;
 
-        ClientVersion = AssemblyVersion.Get();
+        ClientVersion = AssemblyVersion.GetDisplayVersion();
     }
 
     public void Receive(ClientUpdateStateChangedMessage message)
@@ -93,7 +93,7 @@ public partial class AboutPageViewModel : SettingsPageViewModelBase,
     {
         LatestAppUpdateStatus = message.State?.Status ?? AppUpdateStatus.None;
 
-        if (message.State?.ReleaseHistory.Count > 0)
+        if (message.State is not null)
         {
             Releases.Reset(_releaseViewModelFactory.GetReleases(message.State.ReleaseHistory));
         }
@@ -104,6 +104,8 @@ public partial class AboutPageViewModel : SettingsPageViewModelBase,
     public override void OnNavigatedTo(object parameter, bool isBackNavigation)
     {
         base.OnNavigatedTo(parameter, isBackNavigation);
+
+        Releases.Reset(_releaseViewModelFactory.GetReleases([]));
 
         StartCheckingForUpdate();
     }

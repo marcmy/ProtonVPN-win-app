@@ -28,9 +28,9 @@ public class CurrentAppVersionProvider : ICurrentAppVersionProvider
 
     public Version GetVersion()
     {
-        using (RegistryKey subkey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey(PATH))
+        using (RegistryKey? subkey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey(PATH))
         {
-            object value = subkey?.GetValue("DisplayVersion");
+            object? value = subkey?.GetValue("DisplayVersion");
             string versionString = value?.ToString() ?? string.Empty;
             return new Version(versionString);
         }

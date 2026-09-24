@@ -23,6 +23,7 @@ using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.Settings.Contracts.Enums;
 using ProtonVPN.Client.Settings.Contracts.Models;
 using ProtonVPN.Client.Settings.Repositories.Contracts;
+using ProtonVPN.Common.Core.Dns;
 using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Core.Networking;
 
@@ -171,8 +172,21 @@ public class UserSettings : GlobalSettings, IUserSettings
     }
 
     public bool IsLocalDnsEnabled
-    {   
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsLocalDnsEnabled;
+    {
+        // Migrate users who still have the legacy DNS mode but no value for the newer boolean setting.
+        get
+        {
+            bool? isLocalDnsEnabled = _userCache.GetValueType<bool>(SettingEncryption.Unencrypted);
+            if (isLocalDnsEnabled is null)
+            {
+                DnsBlockMode legacyMode = _userCache.GetValueType<DnsBlockMode>(SettingEncryption.Unencrypted)
+                    ?? DefaultSettings.DnsBlockMode;
+                isLocalDnsEnabled = legacyMode == global::ProtonVPN.Common.Core.Dns.DnsBlockMode.Callout;
+                _userCache.SetValueType<bool>(isLocalDnsEnabled, SettingEncryption.Unencrypted);
+            }
+
+            return isLocalDnsEnabled.Value;
+        }
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
@@ -462,6 +476,13 @@ public class UserSettings : GlobalSettings, IUserSettings
     {
         get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
+    }
+
+    [Obsolete("Use IsLocalDnsEnabled instead. DnsBlockMode is maintained in order to migrate the value for existing users.")]
+    public DnsBlockMode DnsBlockMode
+    {
+        get => _userCache.GetValueType<DnsBlockMode>(SettingEncryption.Unencrypted) ?? DefaultSettings.DnsBlockMode;
+        set => _userCache.SetValueType<DnsBlockMode>(value, SettingEncryption.Unencrypted);
     }
 
     public UserSettings(IGlobalSettingsCache globalSettingsCache, IUserSettingsCache userSettingsCache)

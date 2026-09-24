@@ -35,6 +35,7 @@ using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 using ProtonVPN.Service.ControllerRetries;
 using ProtonVPN.Service.ProcessCommunication;
+using ProtonVPN.Service.ServerHealth;
 using ProtonVPN.Service.Settings;
 using ProtonVPN.Service.StateMachine;
 using ProtonVPN.Service.Vpn;
@@ -54,6 +55,7 @@ public class VpnController : IVpnController
     private readonly IEntityMapper _entityMapper;
     private readonly ILocalAgentTlsCredentialsCache _localAgentTlsCredentialsCache;
     private readonly IControllerRetryManager _controllerRetryManager;
+    private readonly IServerHealthProbeService _serverHealthProbeService;
     private readonly IVpnConnectionStateMachine _stateMachine;
     private readonly ITunnelOrchestrator _tunnelOrchestrator;
     private readonly ILocalAgent _localAgent;
@@ -71,7 +73,8 @@ public class VpnController : IVpnController
         IVpnConnectionStateMachine stateMachine,
         ITunnelOrchestrator tunnelOrchestrator,
         ILocalAgent localAgent,
-        ILocalAgentEventReceiver localAgentEventReceiver)
+        ILocalAgentEventReceiver localAgentEventReceiver,
+        IServerHealthProbeService serverHealthProbeService)
     {
         _logger = logger;
         _serviceSettings = serviceSettings;
@@ -85,6 +88,7 @@ public class VpnController : IVpnController
         _tunnelOrchestrator = tunnelOrchestrator;
         _localAgent = localAgent;
         _localAgentEventReceiver = localAgentEventReceiver;
+        _serverHealthProbeService = serverHealthProbeService;
     }
 
     public async Task Connect(ConnectionRequestIpcEntity connectionRequest, CancellationToken cancelToken)
@@ -155,6 +159,14 @@ public class VpnController : IVpnController
     public Task<NetworkTrafficIpcEntity> GetNetworkTraffic(CancellationToken cancelToken)
     {
         return Task.FromResult(_entityMapper.Map<NetworkTraffic, NetworkTrafficIpcEntity>(_tunnelOrchestrator.NetworkTraffic));
+    }
+
+    public Task<ServerHealthProbeResultIpcEntity> ProbeServerHealth(
+        ServerHealthProbeRequestIpcEntity request,
+        CancellationToken cancelToken)
+    {
+        Ensure.NotNull(request, nameof(request));
+        return _serverHealthProbeService.ProbeAsync(request.Address, cancelToken);
     }
 
     public async Task ApplySettings(MainSettingsIpcEntity settings, CancellationToken cancelToken)

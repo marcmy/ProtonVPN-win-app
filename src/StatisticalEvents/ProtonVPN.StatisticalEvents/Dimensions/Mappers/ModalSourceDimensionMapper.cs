@@ -65,6 +65,7 @@ public class ModalSourceDimensionMapper : DimensionMapperBase, IModalSourceDimen
     private const string DEFAULT_CONNECTION = "default_connection";
     private const string EXCLUDE_LOCATIONS = "exclude_locations";
 
+#pragma warning disable CS0618 // Keep telemetry mappings for legacy carousel sources.
     public string Map(ModalSource? modalSource)
     {
         return modalSource switch
@@ -112,4 +113,5 @@ public class ModalSourceDimensionMapper : DimensionMapperBase, IModalSourceDimen
             _ => NOT_AVAILABLE
         };
     }
+#pragma warning restore CS0618
 }

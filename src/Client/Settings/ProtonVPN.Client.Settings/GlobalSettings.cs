@@ -176,6 +176,12 @@ public class GlobalSettings : TransientSettings, IGlobalSettings
         set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
+    public string? SkippedUpdateVersion
+    {
+        get => _globalCache.GetReferenceType<string>(SettingEncryption.Unencrypted);
+        set => _globalCache.SetReferenceType(value, SettingEncryption.Unencrypted);
+    }
+
     public bool IsGlobalSettingsMigrationDone
     {
         get => _globalCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsGlobalSettingsMigrationDone;
@@ -290,6 +296,12 @@ public class GlobalSettings : TransientSettings, IGlobalSettings
         }
         //get => _globalCache.GetValueType<WindowLocation>(SettingEncryption.Unencrypted) ?? DefaultSettings.WindowLocation;
         set => _globalCache.SetValueType<WindowLocation>(value, SettingEncryption.Unencrypted);
+    }
+
+    public bool IsPortForwardingForAppsEnabled
+    {
+        get => _globalCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public GlobalSettings(IGlobalSettingsCache globalSettingsCache)

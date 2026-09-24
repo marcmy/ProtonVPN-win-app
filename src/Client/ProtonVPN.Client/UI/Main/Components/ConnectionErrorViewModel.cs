@@ -86,11 +86,12 @@ public partial class ConnectionErrorViewModel : ViewModelBase,
         _applicationIconSelector = applicationIconSelector;
         _conflictingNetworkInterfacesProvider = conflictingNetworkInterfacesProvider;
 
-        _conflictingAdapterCheckerDebouncer = new(() => new(_config.ConflictingAdapterCheckerDelay,
-            input => TriggerConflictingAdapterCheckAsync(input)));
+        _conflictingAdapterCheckerDebouncer = new(() => new(
+            _config.ConflictingAdapterCheckerDelay,
+            TriggerConflictingAdapterCheck));
     }
 
-    private async Task TriggerConflictingAdapterCheckAsync(ConnectionStatus connectionStatus)
+    private void TriggerConflictingAdapterCheck(ConnectionStatus connectionStatus)
     {
         if (connectionStatus is not ConnectionStatus.Connecting)
         {

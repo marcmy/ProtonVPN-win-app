@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <!-- GitHub's automatic dependency submission restores the solution on Linux.
+         Permit restore of Windows-targeted projects without changing Windows builds. -->
+    <EnableWindowsTargeting Condition="'$(OS)' != 'Windows_NT'">true</EnableWindowsTargeting>
+
+    <!-- Parallel patch builds occasionally retry copies into the shared output directory.
+         Keep the retry visible without treating the transient contention as a warning. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3026</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ProtonVPN.Client' Or
+                            '$(MSBuildProjectName)' == 'ProtonVPN.Client.Localization' Or
+                            '$(MSBuildProjectName)' == 'ProtonVPN.Client.Localization.Installers'">
+    <!-- ReswPlusLib 2.0.0 requests unavailable NETStandard.Library 1.5.0;
+         NuGet deterministically resolves the compatible 1.6.0 package. -->
+    <NoWarn>$(NoWarn);NU1603</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -74,6 +74,9 @@ public class MainSettingsIpcEntity
     [DataMember(Order = 16)]
     public bool ShouldDisableWeakHostSetting { get; set; }
 
+    [DataMember(Order = 17)]
+    public bool PortForwardingForApps { get; set; }
+
     public MainSettingsIpcEntity()
     {
         SplitTunnel = new();

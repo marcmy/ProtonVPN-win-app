@@ -1,0 +1,502 @@
+name: Future version patch automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: Upstream release branch to use as the unpatched base
+        required: true
+        default: master
+      base_repository_url:
+        description: Optional external Git repository containing the unpatched base
+        required: false
+        default: ''
+      base_ref:
+        description: Optional full Git ref in base_repository_url (for example refs/tags/v5.1.6)
+        required: false
+        default: ''
+      source_patch_branch:
+        description: Branch containing the complete maintained fork
+        required: true
+        default: marc/proton
+      target_branch:
+        description: New branch to create for the patched version
+        required: true
+      target_version:
+        description: Proton VPN release version to patch
+        required: true
+      force_reset_target:
+        description: Reset target_branch from base_branch if it already exists
+        type: boolean
+        required: true
+        default: false
+      upload_full_bin:
+        description: Upload full src/bin output
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: future-version-patch-${{ inputs.target_branch }}
+  cancel-in-progress: false
+
+jobs:
+  patch_build:
+    name: Port complete fork and build versioned installer
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    outputs:
+      target_branch: ${{ steps.apply_patch.outputs.target_branch }}
+      target_exists: ${{ steps.apply_patch.outputs.target_exists }}
+      target_version: ${{ steps.target-version.outputs.target_version }}
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout automation branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.23.x'
+          cache: false
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.config', '**/global.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Test patch automation
+        run: |
+          .\.github\scripts\test-patch-tooling.ps1
+          .\.github\scripts\test-complete-fast-patch.ps1
+
+      - name: Preserve automation and installer tools
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $tools = @(
+            @{ Source = '.github/scripts/set-assembly-version.ps1'; Name = 'set-assembly-version.ps1' },
+            @{ Source = '.github/scripts/stage-client-patch-output.ps1'; Name = 'stage-client-patch-output.ps1' },
+            @{ Source = '.github/scripts/stage-runtime-dependency-delta.ps1'; Name = 'stage-runtime-dependency-delta.ps1' },
+            @{ Source = '.github/scripts/package-patch-artifacts.ps1'; Name = 'package-patch-artifacts.ps1' },
+            @{ Source = '.github/scripts/package-complete-fast-patch.ps1'; Name = 'package-complete-fast-patch.ps1' },
+            @{ Source = '.github/scripts/test-fork-regressions.ps1'; Name = 'test-fork-regressions.ps1' },
+            @{ Source = 'scripts/New-ProtonVPNPatchSfx.ps1'; Name = 'New-ProtonVPNPatchSfx.ps1' },
+            @{ Source = 'scripts/Install-ProtonVPNPatch.ps1'; Name = 'Install-ProtonVPNPatch.ps1' },
+            @{ Source = 'scripts/Install-ProtonVPNPatch.cmd'; Name = 'Install-ProtonVPNPatch.cmd' }
+          )
+
+          foreach ($tool in $tools) {
+            if (-not (Test-Path -LiteralPath $tool.Source -PathType Leaf)) {
+              throw "Required automation tool was not found: $($tool.Source)"
+            }
+
+            Copy-Item -LiteralPath $tool.Source -Destination (Join-Path $env:RUNNER_TEMP $tool.Name) -Force
+          }
+
+      - name: Port complete maintained fork
+        id: apply_patch
+        env:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          BASE_REPOSITORY_URL: ${{ inputs.base_repository_url }}
+          BASE_REF: ${{ inputs.base_ref }}
+          SOURCE_PATCH_BRANCH: ${{ inputs.source_patch_branch }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $forceResetTarget = [System.Convert]::ToBoolean($env:FORCE_RESET_TARGET)
+
+          .\.github\scripts\apply-future-version-patch.ps1 `
+            -BaseBranch $env:BASE_BRANCH `
+            -BaseRepositoryUrl $env:BASE_REPOSITORY_URL `
+            -BaseRef $env:BASE_REF `
+            -SourcePatchBranch $env:SOURCE_PATCH_BRANCH `
+            -TargetBranch $env:TARGET_BRANCH `
+            -ForceResetTarget:$forceResetTarget
+
+      - name: Snapshot unpatched dependency baseline
+        id: base-deps
+        env:
+          BASE_COMMIT: ${{ steps.apply_patch.outputs.base_commit }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $baseCommit = $env:BASE_COMMIT.Trim()
+          if ($baseCommit -notmatch '^[0-9a-f]{40}$') {
+            throw "Unable to resolve a valid unpatched base commit: '$baseCommit'."
+          }
+
+          $baselinePath = Join-Path $env:RUNNER_TEMP 'upstream-Directory.Packages.props'
+          $baselineLines = @(& git show "$baseCommit`:Directory.Packages.props")
+          if ($LASTEXITCODE -ne 0 -or $baselineLines.Count -eq 0) {
+            throw "Unable to read Directory.Packages.props from unpatched base $baseCommit."
+          }
+          [IO.File]::WriteAllLines($baselinePath, $baselineLines, [Text.UTF8Encoding]::new($false))
+          [xml] (Get-Content -LiteralPath $baselinePath -Raw) | Out-Null
+
+          Write-Host "Future-version dependency baseline: $baseCommit"
+          "upstream_base_commit=$baseCommit" >> $env:GITHUB_OUTPUT
+
+      - name: Stamp target app version
+        id: target-version
+        env:
+          REQUESTED_TARGET_VERSION: ${{ inputs.target_version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $requestedVersion = $env:REQUESTED_TARGET_VERSION.Trim()
+          if ($requestedVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') {
+            throw "target_version must be a numeric three- or four-part version. Received '$requestedVersion'."
+          }
+
+          $parsedVersion = [Version]::Parse($requestedVersion)
+          $targetVersion = '{0}.{1}.{2}' -f $parsedVersion.Major, $parsedVersion.Minor, $parsedVersion.Build
+
+          & (Join-Path $env:RUNNER_TEMP 'set-assembly-version.ps1') -TargetVersion $targetVersion
+
+          git add src/GlobalAssemblyInfo.cs
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Target app version was already $targetVersion."
+          }
+          elseif ($LASTEXITCODE -eq 1) {
+            git diff --cached --check
+            git commit -m "Set app version to $targetVersion"
+          }
+          else {
+            throw 'Unable to inspect staged app version changes.'
+          }
+
+          Write-Host "Exact installed target folder: v$targetVersion"
+          "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Update submodules for patched branch
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
+      - name: Prepare artifact folders
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/logs | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/ProtonVPN.Client.Patch | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/Installer | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/launcher-build-output | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/runtime-dependency-output | Out-Null
+
+      - name: Clean previous build output
+        run: |
+          Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/client-build-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/launcher-build-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/runtime-dependency-output -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath artifacts/runtime-dependency-metadata.json -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path artifacts/launcher-build-output | Out-Null
+          New-Item -ItemType Directory -Force -Path artifacts/runtime-dependency-output | Out-Null
+
+      - name: Restore client project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64 -bl:artifacts/logs/client-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/client-restore.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Client restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Restore application launcher project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet restore src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj --runtime win-x64 -bl:artifacts/logs/launcher-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/launcher-restore.log
+          if ($LASTEXITCODE -ne 0) {
+            throw "Application launcher restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Restore service project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64 -bl:artifacts/logs/service-restore.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/service-restore.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Service restore failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Build client project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/client-build.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/client-build.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Client build failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Publish self-contained application launcher
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --no-restore `
+            --output artifacts/launcher-build-output `
+            -p:Platform=x64 `
+            -p:SelfContained=true `
+            -p:PublishSingleFile=true `
+            -p:PublishTrimmed=true `
+            -v:minimal `
+            -bl:artifacts/logs/launcher-publish.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/launcher-publish.log
+          if ($LASTEXITCODE -ne 0) {
+            throw "Application launcher publish failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path -LiteralPath artifacts/launcher-build-output/ProtonVPN.Launcher.exe -PathType Leaf)) {
+            throw 'Published ProtonVPN.Launcher.exe was not produced.'
+          }
+
+      - name: Stage client patch build output
+        run: |
+          & (Join-Path $env:RUNNER_TEMP 'stage-client-patch-output.ps1')
+
+      - name: Build service project
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/service-build.binlog *>&1 |
+            Tee-Object -FilePath artifacts/logs/service-build.log
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Service build failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Stage changed runtime dependency closure
+        env:
+          UPSTREAM_BASE_COMMIT: ${{ steps.base-deps.outputs.upstream_base_commit }}
+        run: |
+          & (Join-Path $env:RUNNER_TEMP 'stage-runtime-dependency-delta.ps1') `
+            -BuildMode both `
+            -BaselinePackagesPath (Join-Path $env:RUNNER_TEMP 'upstream-Directory.Packages.props') `
+            -UpstreamBaseCommit $env:UPSTREAM_BASE_COMMIT
+
+      - name: Run complete fork regression tests
+        run: |
+          & (Join-Path $env:RUNNER_TEMP 'test-fork-regressions.ps1') `
+            -Scope All `
+            -LogsDirectory artifacts/logs `
+            -RepeatServerHealth
+
+      - name: Package versioned patch artifacts
+        id: package
+        env:
+          TARGET_VERSION: ${{ steps.target-version.outputs.target_version }}
+          TARGET_BRANCH: ${{ steps.apply_patch.outputs.target_branch }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceCommit = (git rev-parse HEAD).Trim()
+
+          & (Join-Path $env:RUNNER_TEMP 'package-complete-fast-patch.ps1') `
+            -BuildMode both `
+            -TargetVersion $env:TARGET_VERSION `
+            -SourceCommit $sourceCommit `
+            -SourceRef $env:TARGET_BRANCH `
+            -WorkflowRunId $env:WORKFLOW_RUN_ID `
+            -BuilderPath (Join-Path $env:RUNNER_TEMP 'New-ProtonVPNPatchSfx.ps1') `
+            -InstallerScriptPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.ps1') `
+            -InstallerLauncherPath (Join-Path $env:RUNNER_TEMP 'Install-ProtonVPNPatch.cmd')
+
+      - name: Create verified patched-branch bundle
+        env:
+          TARGET_BRANCH: ${{ steps.apply_patch.outputs.target_branch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bundlePath = 'artifacts/patched-branch.bundle'
+          $targetRef = "refs/heads/$env:TARGET_BRANCH"
+
+          git bundle create $bundlePath $targetRef
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to create patched branch bundle for $targetRef."
+          }
+
+          git bundle verify $bundlePath
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Patched branch bundle verification failed.'
+          }
+
+      - name: Upload patched-branch bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: future-version-patched-branch
+          path: artifacts/patched-branch.bundle
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload raw patch artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-client-patch-${{ steps.target-version.outputs.target_version }}-both
+          path: artifacts/ProtonVPN.Client.Patch
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-custom-patch-installer-${{ steps.target-version.outputs.target_version }}-both
+          path: artifacts/Installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload full bin artifact
+        if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-client-bin-${{ steps.target-version.outputs.target_version }}-both
+          path: src/bin
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build logs
+        if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: protonvpn-client-patch-logs-${{ steps.target-version.outputs.target_version }}-both
+          path: artifacts/logs
+          if-no-files-found: ignore
+          retention-days: 7
+
+  push_branch:
+    name: Push tested target branch
+    needs: patch_build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download patched-branch bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: future-version-patched-branch
+          path: branch-bundle
+
+      - name: Push tested commit
+        env:
+          FORCE_RESET_TARGET: ${{ inputs.force_reset_target }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_BRANCH: ${{ needs.patch_build.outputs.target_branch }}
+          TARGET_EXISTS: ${{ needs.patch_build.outputs.target_exists }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git check-ref-format --branch "$TARGET_BRANCH" >/dev/null
+          case "$TARGET_BRANCH" in
+            main|master|marc/proton)
+              echo "Refusing to push protected target branch '$TARGET_BRANCH'." >&2
+              exit 1
+              ;;
+          esac
+
+          git init push-repository
+          git -C push-repository remote add origin "https://github.com/$REPOSITORY.git"
+          git -C push-repository fetch \
+            "$GITHUB_WORKSPACE/branch-bundle/patched-branch.bundle" \
+            "refs/heads/$TARGET_BRANCH:refs/remotes/bundle/patched"
+
+          basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          auth_header="AUTHORIZATION: basic $basic_auth"
+          target_ref="refs/heads/$TARGET_BRANCH"
+
+          if [[ "$TARGET_EXISTS" == "true" ]]; then
+            if [[ "$FORCE_RESET_TARGET" != "true" ]]; then
+              echo "Existing target branch requires force_reset_target=true." >&2
+              exit 1
+            fi
+
+            git -c "http.https://github.com/.extraheader=$auth_header" \
+              -C push-repository fetch origin \
+              "$target_ref:refs/remotes/origin/$TARGET_BRANCH"
+            git -c "http.https://github.com/.extraheader=$auth_header" \
+              -C push-repository push \
+              --force-with-lease="$target_ref" \
+              origin "refs/remotes/bundle/patched:$target_ref"
+          else
+            git -c "http.https://github.com/.extraheader=$auth_header" \
+              -C push-repository push \
+              origin "refs/remotes/bundle/patched:$target_ref"
+          fi
+
+  attest:
+    name: Attest future-version artifacts
+    needs: patch_build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download raw patch artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: protonvpn-client-patch-${{ needs.patch_build.outputs.target_version }}-both
+          path: artifacts-to-attest/raw-patch
+
+      - name: Download installer artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: protonvpn-custom-patch-installer-${{ needs.patch_build.outputs.target_version }}-both
+          path: artifacts-to-attest/installer
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            artifacts-to-attest/raw-patch/patch-manifest.json
+            artifacts-to-attest/installer/*.exe

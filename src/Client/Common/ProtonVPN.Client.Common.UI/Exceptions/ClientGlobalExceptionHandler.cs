@@ -36,8 +36,13 @@ public sealed class ClientGlobalExceptionHandler : GlobalExceptionHandlerBase
 
     private void OnUiUnhandledException(object? sender, UnhandledExceptionEventArgs ex)
     {
-        TryLogException("UI unhandled exception", ex.Exception, isFatal: false);
-        ex.Handled = true;
+        HandleUiUnhandledException(ex.Exception, handled => ex.Handled = handled);
+    }
+
+    private void HandleUiUnhandledException(Exception exception, Action<bool> setHandled)
+    {
+        TryLogException("UI unhandled exception", exception, isFatal: false);
+        setHandled(true);
     }
 
     protected override void LogFatal(string handler, Exception exception)

@@ -1,10 +1,43 @@
 # Proton VPN Windows app
 
+> [!IMPORTANT]
+> This is an unofficial, independently maintained fork. It is not built, signed,
+> distributed, or supported by Proton AG. For Proton's supported client, use the
+> [official download](https://protonvpn.com/download).
+
+## About this fork
+
+The maintained branch is based on Proton VPN Windows **5.1.5** at upstream commit
+[`4d9ac60d1`](https://github.com/ProtonVPN/win-app/commit/4d9ac60d1db5d3f2908498470a9d1646723afcfd).
+It preserves the complete fork delta, including:
+
+- NAT-PMP port forwarding and app-specific port-forwarding routes
+- live split-tunneling updates and domain-based exclusions
+- server-list search, presentation, health checks, and health history
+- fork-aware updater behavior and version-safe patch/install automation
+
+Domain split tunneling observes the Windows system DNS cache. `example.com` covers
+the apex and suffix-boundary subdomains, but private DNS or browser DNS-over-HTTPS
+can bypass observation. Derived IPv4 exclusions are temporary: the observed TTL is
+clamped to at least 60 seconds, receives a five-minute grace period, and is capped
+at one hour total.
+
+Use the [Windows fast patch build workflow](https://github.com/marcmy/ProtonVPN-win-app/actions/workflows/windows-client-fast-patch.yml)
+to build a patch for an already installed matching official version. The patch
+manifest records every payload path, size, and SHA-256 digest; the installer
+validates the complete payload before it stops services or changes the installed
+runtime. See [custom patch installer](docs/custom-patch-installer.md) and
+[fork maintenance](docs/FORK_MAINTENANCE.md) for the operating and release rules.
+
+Official Proton updates can replace fork-patched files. Do not apply a patch to a
+different release folder; wait for a fork build based on that exact upstream
+version. Disabling Proton's automatic security updates is not recommended.
+
 Copyright (c) 2023 Proton AG
 
 This repository holds the Proton VPN Windows app.
 For a detailed build information see [BUILD](BUILD.md).
-For licensing information see [COPYING](COPYING.md).
+For licensing information see [LICENSE](LICENSE).
 For contribution policy see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Description

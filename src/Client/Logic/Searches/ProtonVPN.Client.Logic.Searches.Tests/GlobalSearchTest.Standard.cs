@@ -25,6 +25,16 @@ namespace ProtonVPN.Client.Logic.Searches.Tests;
 public partial class GlobalSearchTest
 {
     [TestMethod]
+    public async Task SearchAsync_HonorsCancellationToken_Async()
+    {
+        using CancellationTokenSource cancellationTokenSource = new();
+        cancellationTokenSource.Cancel();
+
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () =>
+            await _globalSearch!.SearchAsync("United States", cancellationToken: cancellationTokenSource.Token));
+    }
+
+    [TestMethod]
     [DataRow(null)]
     [DataRow("")]
     [DataRow(" ")]
@@ -97,17 +107,59 @@ public partial class GlobalSearchTest
     }
 
     [TestMethod]
+    [DataRow("US-")]
+    [DataRow("us-")]
+    public async Task TestStandard_ServerPrefix_Async(string input)
+    {
+        List<ILocation> result = await _globalSearch!.SearchAsync(input);
+
+        Assert.IsNotNull(result);
+        Assert.HasCount(5, result);
+        Assert.IsTrue(result.All(l => l is Server server && server.Name.StartsWith("US-", StringComparison.InvariantCultureIgnoreCase)));
+    }
+
+    [TestMethod]
+    [DataRow("456")]
+    [DataRow("#456")]
+    public async Task TestStandard_ServerNumber_Async(string input)
+    {
+        List<ILocation> result = await _globalSearch!.SearchAsync(input);
+
+        Assert.IsNotNull(result);
+        Assert.HasCount(2, result);
+        Assert.IsNotNull(result.Single(l => l is Server server && server.Name == "US-FL#456"));
+        Assert.IsNotNull(result.Single(l => l is Server server && server.Name == "PK#456"));
+    }
+
+    [TestMethod]
     [DataRow("FL#456")]
     [DataRow("fl456")]
     [DataRow("US#")]
     [DataRow("#")]
-    [DataRow("456")]
     public async Task TestStandard_Servers_NotStartsWith_DoesNotReturn_Async(string input)
     {
         List<ILocation> result = await _globalSearch!.SearchAsync(input);
 
         Assert.IsNotNull(result);
         Assert.IsEmpty(result);
+    }
+
+    [TestMethod]
+    [DataRow("United States", "US", 6)]
+    [DataRow("Alaska", "US-AK#345", 2)]
+    [DataRow("Anchorage", "US-AK#345", 2)]
+    public async Task TestStandard_ExactLocation_ReturnsMatchingServers_Async(
+        string input,
+        string expectedServerOrCountry,
+        int expectedCount)
+    {
+        List<ILocation> result = await _globalSearch!.SearchAsync(input);
+
+        Assert.IsNotNull(result);
+        Assert.HasCount(expectedCount, result);
+        Assert.IsTrue(result.Any(l =>
+            l is Server server && server.Name == expectedServerOrCountry
+            || l is Country country && country.Code == expectedServerOrCountry));
     }
 
     [TestMethod]
@@ -131,7 +183,6 @@ public partial class GlobalSearchTest
     [DataRow(" states")]
     [DataRow(" sTaTeS ")]
     [DataRow("united state")]
-    [DataRow("UNITED STATES")]
     [DataRow("nited s")]
     [DataRow("Nited State")]
     [DataRow("D S")]
