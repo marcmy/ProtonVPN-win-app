@@ -28,18 +28,12 @@ namespace ProtonVPN.Crypto.Tests;
 [TestClass]
 public class Ed25519Asn1KeyGeneratorTest
 {
-    private IEd25519Asn1KeyGenerator _generator;
+    private IEd25519Asn1KeyGenerator _generator = null!;
 
     [TestInitialize]  
     public void Initialize()  
     {  
         _generator = new Ed25519Asn1KeyGenerator();
-    }
-
-    [TestCleanup]  
-    public void Cleanup()  
-    {  
-        _generator = null;
     }
 
     [TestMethod]
