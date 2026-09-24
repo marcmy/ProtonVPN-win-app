@@ -1043,6 +1043,16 @@ function Test-KnownBackportCleanupFailsClosed {
     Assert-Condition ($LASTEXITCODE -ne 0) 'Future-port automation left its temporary cleaned-source branch behind after failure.'
 }
 
+function Test-ForkRegressionOutputIsolation {
+    $regressionScriptPath = Join-Path $PSScriptRoot 'test-fork-regressions.ps1'
+    $regressionScript = Get-Content -LiteralPath $regressionScriptPath -Raw
+
+    Assert-Condition ($regressionScript -match '\$projectOutputPath\s*=\s*Resolve-RepositoryPath\s*\(\s*Join-Path\s+\$TestOutputDirectory\s+\$projectName\s*\)') `
+        'Fork regression projects must use a stable, project-specific output directory.'
+    Assert-Condition ($regressionScript -match '"-p:OutputPath=\$projectOutputPath"') `
+        'Fork regression projects must pass their isolated output directory to MSBuild.'
+}
+
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 
 try {
@@ -1052,6 +1062,7 @@ try {
     Test-CompleteForkPort
     Test-RedundantForkChangeCleanup
     Test-KnownBackportCleanupFailsClosed
+    Test-ForkRegressionOutputIsolation
     Write-Host 'Patch tooling regression tests passed.'
 }
 finally {

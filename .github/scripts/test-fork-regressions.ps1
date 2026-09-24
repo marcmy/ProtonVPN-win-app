@@ -15,8 +15,8 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $LogsDirectory = 'artifacts/logs',
 
-    # Kept for compatibility with existing callers. Regression tests now use
-    # normal project output paths so MSBuild can reuse shared dependencies.
+    # Each test project gets an isolated output directory because WinUI and
+    # non-WinUI MSTest projects can deploy incompatible runtime assemblies.
     [ValidateNotNullOrEmpty()]
     [string] $TestOutputDirectory = 'artifacts/test-bin',
 
@@ -150,6 +150,7 @@ function Invoke-TestProject {
 
     $projectName = [System.IO.Path]::GetFileNameWithoutExtension($ProjectPath)
     $logName = "$projectName$LogSuffix"
+    $projectOutputPath = Resolve-RepositoryPath (Join-Path $TestOutputDirectory $projectName)
     $textLogPath = Join-Path $logsDir "$logName.log"
     $trxName = "$logName.trx"
 
@@ -158,6 +159,7 @@ function Invoke-TestProject {
         $resolvedProjectPath,
         '--configuration', $Configuration,
         "-p:Platform=$Platform",
+        "-p:OutputPath=$projectOutputPath",
         '-p:RestoreUseStaticGraphEvaluation=true',
         '--logger', "trx;LogFileName=$trxName",
         '--results-directory', $logsDir,
