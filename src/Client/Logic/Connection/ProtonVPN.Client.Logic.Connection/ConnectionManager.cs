@@ -464,7 +464,14 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
 
     public void Receive(GuestHoleStatusChangedMessage message)
     {
+        bool wasActive = _isGuestHoleActive;
         _isGuestHoleActive = message.IsActive;
+
+        if (wasActive && !message.IsActive &&
+            _cachedMessage is { Status: VpnStatusIpcEntity.Pinging or VpnStatusIpcEntity.Connected } cachedMessage)
+        {
+            HandleAsync(cachedMessage).FireAndForget();
+        }
     }
 
     private IConnectionIntent ChangeConnectionIntent(IConnectionIntent connectionIntent, Func<IConnectionIntent, IConnectionIntent> changeIntentFunc)

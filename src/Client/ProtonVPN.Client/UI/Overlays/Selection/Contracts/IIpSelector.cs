@@ -28,4 +28,8 @@ public interface IIpSelector : ISelector<SelectableNetworkAddress>
     bool CanReorder { get; set; }
 
     bool IsAddressRangeAuthorized { get; set; }
+
+    bool IsHostnameAuthorized { get; set; }
+
+    Task<List<SelectableSplitTunnelingAddress>?> SelectSplitTunnelingAddressesAsync(List<SelectableSplitTunnelingAddress> addresses);
 }

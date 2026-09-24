@@ -81,6 +81,7 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
             IsShareCrashReportsEnabled = _settings.IsShareCrashReportsEnabled,
             IsLocalAreaNetworkAccessEnabled = _settings.IsLocalAreaNetworkAccessEnabled,
             PortForwarding = _settings.IsPortForwardingEnabled,
+            PortForwardingForApps = _settings.IsPortForwardingForAppsEnabled,
             SplitTcp = _settings.IsVpnAcceleratorEnabled,
             OpenVpnAdapter = _entityMapper.Map<OpenVpnAdapter, OpenVpnAdapterIpcEntity>(_settings.OpenVpnAdapter),
             WireGuardConnectionTimeout = _settings.WireGuardConnectionTimeout,
@@ -182,6 +183,11 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
 
     private string[] GetSplitTunnelingIpAddresses(List<SplitTunnelingIpAddress> settingsIpAddresses)
     {
-        return settingsIpAddresses.Where(ip => ip.IsActive).Select(ip => ip.IpAddress).ToArray();
+        return settingsIpAddresses
+            .Where(ip => ip.IsActive)
+            .Select(ip => ip.IpAddress.Trim())
+            .Where(ip => !string.IsNullOrWhiteSpace(ip))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

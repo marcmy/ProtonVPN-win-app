@@ -18,6 +18,7 @@
  */
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using ProtonVPN.NetworkFilter;
 
@@ -32,8 +33,8 @@ public class SplitTunnelNetworkFilters
     private static readonly Guid _bindRedirectV4CalloutKey = Guid.Parse("{10636af3-50d6-4f53-acb7-d5af33217fca}");
     private static readonly Guid _bindRedirectV6CalloutKey = Guid.Parse("{10636af3-50d6-4f53-acb7-d5af33217faa}");
 
-    private IpFilter _ipFilter;
-    private Sublayer _subLayer;
+    private IpFilter? _ipFilter;
+    private Sublayer? _subLayer;
 
     public void EnableExcludeMode(string[] apps, IPAddress localIpv4Address, IPAddress? localIpv6Address)
     {
@@ -93,7 +94,7 @@ public class SplitTunnelNetworkFilters
 
     private ProviderContext GetProviderContext(IPAddress ipAddress)
     {
-        return _ipFilter.CreateProviderContext(
+        return GetRequiredIpFilter().CreateProviderContext(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel redirect context",
@@ -107,6 +108,7 @@ public class SplitTunnelNetworkFilters
         Remove();
     }
 
+    [MemberNotNull(nameof(_ipFilter), nameof(_subLayer))]
     private void Create()
     {
         _ipFilter = IpFilter.Create(
@@ -146,7 +148,8 @@ public class SplitTunnelNetworkFilters
 
     private void CreateAppFilter(string app, Callout callout, Layer layer, ProviderContext providerContext)
     {
-        _subLayer.CreateAppCalloutFilter(
+        Sublayer subLayer = _subLayer ?? throw new InvalidOperationException("Split tunnel filters are not initialized.");
+        subLayer.CreateAppCalloutFilter(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel redirect app",
@@ -162,7 +165,7 @@ public class SplitTunnelNetworkFilters
 
     private Callout CreateConnectRedirectCallout(Layer layer, Guid calloutKey)
     {
-        return _ipFilter.CreateCallout(
+        return GetRequiredIpFilter().CreateCallout(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel callout",
@@ -175,7 +178,7 @@ public class SplitTunnelNetworkFilters
 
     private Callout CreateUDPRedirectCallout(Layer layer, Guid calloutKey)
     {
-        return _ipFilter.CreateCallout(
+        return GetRequiredIpFilter().CreateCallout(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel callout",
@@ -184,5 +187,10 @@ public class SplitTunnelNetworkFilters
             calloutKey,
             layer
         );
+    }
+
+    private IpFilter GetRequiredIpFilter()
+    {
+        return _ipFilter ?? throw new InvalidOperationException("Split tunnel filters are not initialized.");
     }
 }

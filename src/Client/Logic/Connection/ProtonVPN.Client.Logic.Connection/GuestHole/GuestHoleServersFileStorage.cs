@@ -77,8 +77,8 @@ public class GuestHoleServersFileStorage: IGuestHoleServersFileStorage
                 $"expected at least {TAG_SIZE_IN_BYTES} bytes, got {encryptedData.Length}.");
         }
 
-        byte[] key1 = HexStringToByteArray(GlobalConfig.GuestHoleKey1);
-        byte[] key2 = HexStringToByteArray(GlobalConfig.GuestHoleKey2);
+        byte[] key1 = HexStringToByteArray(GetBuildVariableValue(typeof(GlobalConfig), nameof(GlobalConfig.GuestHoleKey1)));
+        byte[] key2 = HexStringToByteArray(GetBuildVariableValue(typeof(GlobalConfig), nameof(GlobalConfig.GuestHoleKey2)));
         byte[] combinedKey = InterleaveBytes(key1, key2);
         byte[] nonce = new byte[12];
 
@@ -97,6 +97,16 @@ public class GuestHoleServersFileStorage: IGuestHoleServersFileStorage
         }
 
         return new MemoryStream(plainText);
+    }
+
+    private static string GetBuildVariableValue(Type declaringType, string fieldName)
+    {
+        // Guest Hole keys are release-injected const fields. Reading them directly would inline the
+        // public-source placeholders into this assembly at compile time, even when FastPatch preserves
+        // Proton's matching release-injected Builds.Variables assembly at runtime.
+        object? value = declaringType.GetField(fieldName)?.GetRawConstantValue();
+        return value as string
+            ?? throw new InvalidOperationException($"Build variable '{declaringType.FullName}.{fieldName}' is unavailable.");
     }
 
     private byte[] InterleaveBytes(byte[] a, byte[] b)

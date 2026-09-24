@@ -35,10 +35,13 @@ public class RequiredReconnectionSettings : IRequiredReconnectionSettings
         {
             {nameof(ISettings.IsSplitTunnelingEnabled), () => true},
             {nameof(ISettings.SplitTunnelingMode), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingStandardAppsList), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingInverseAppsList), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => settings.IsSplitTunnelingEnabled},
-            {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => settings.IsSplitTunnelingEnabled},
+            // The fork applies app and IP/domain list changes to the running service. Existing app
+            // sockets may need to reconnect naturally, but rebuilding the WFP filters does not
+            // require reconnecting the VPN tunnel itself.
+            {nameof(ISettings.SplitTunnelingStandardAppsList), () => false},
+            {nameof(ISettings.SplitTunnelingInverseAppsList), () => false},
+            {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => false},
+            {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => false},
 
             {nameof(ISettings.AreProtonProtocolsEnabled), () => true},
             {nameof(ISettings.VpnProtocol), () => true},

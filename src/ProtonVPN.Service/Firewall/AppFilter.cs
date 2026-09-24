@@ -85,7 +85,7 @@ public class AppFilter : IAppFilter
 
     public void Remove(string path)
     {
-        if (!_list.TryGetValue(path, out List<Guid> guids))
+        if (!_list.TryGetValue(path, out List<Guid>? guids) || guids is null)
         {
             return;
         }

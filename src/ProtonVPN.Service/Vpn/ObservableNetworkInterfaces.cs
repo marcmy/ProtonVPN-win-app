@@ -37,9 +37,9 @@ public class ObservableNetworkInterfaces : IObservableNetworkInterfaces
         networkInterfaces.NetworkAddressChanged += NetworkInterfaces_NetworkAddressChanged;
     }
 
-    public event EventHandler NetworkInterfacesAdded;
+    public event EventHandler? NetworkInterfacesAdded;
 
-    private void NetworkInterfaces_NetworkAddressChanged(object sender, EventArgs e)
+    private void NetworkInterfaces_NetworkAddressChanged(object? sender, EventArgs e)
     {
         INetworkInterface[] adapters = _networkInterfaces.GetInterfaces();
         if (adapters.Length == 0)

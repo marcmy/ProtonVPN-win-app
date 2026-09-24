@@ -49,6 +49,7 @@ namespace ProtonVPN.Api.Installers
             builder.RegisterType<ApiAvailabilityVerifier>().AsImplementedInterfaces().SingleInstance();
             builder.RegisterType<HttpClients>().As<IHttpClients>().SingleInstance();
             builder.RegisterType<HumanVerificationHttpClientFactory>().AsImplementedInterfaces().SingleInstance();
+            builder.RegisterType<SsoWebViewHttpClientFactory>().AsImplementedInterfaces().SingleInstance();
             builder.Register(c =>
                     new CachingReportClient(
                         new ReportClient(c.Resolve<IReportClientUriProvider>())))

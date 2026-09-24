@@ -1,0 +1,30 @@
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    allow:
+      - dependency-type: "all"
+        update-types:
+          - "version-update:semver-patch"
+          - "version-update:semver-minor"
+    ignore:
+      # Proton VPN 5.1.5 installs the strongly named log4net 3.2.0 assembly.
+      # Suppress only the currently incompatible 3.3.x line. A future 3.4+
+      # release should surface as a fresh compatibility-review signal.
+      - dependency-name: "log4net"
+        versions:
+          - "3.3.*"
+      # Major upgrades require an explicit compatibility review against the installed runtime.
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    open-pull-requests-limit: 3

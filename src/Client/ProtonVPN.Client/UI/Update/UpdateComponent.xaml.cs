@@ -67,10 +67,17 @@ public sealed partial class UpdateComponent : IContextAware
         ViewModel = App.GetService<UpdateViewModel>();
 
         InitializeComponent();
+
+        Loaded += OnLoaded;
     }
 
     public object GetContext()
     {
         return ViewModel;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.InvalidateUpdateCommands();
     }
 }

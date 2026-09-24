@@ -83,12 +83,36 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
 
     partial void OnSearchTextChanged(string value)
     {
-        _searchInputReceiver.SearchAsync(value).FireAndForget();
+        _ = HandleSearchTextChangedAsync(value);
+    }
+
+    private async Task HandleSearchTextChangedAsync(string value)
+    {
+        // SearchTextBox lives outside the child navigation frame, so the frame can be
+        // showing Recents/Connections while the text box still owns keyboard focus.
+        // Start the search immediately to preserve keystroke/cancellation ordering,
+        // while independently ensuring that any non-empty query makes Search visible.
+        Task searchTask = _searchInputReceiver.SearchAsync(value);
+
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            await Task.WhenAll(ChildViewNavigator.NavigateToSearchViewAsync(), searchTask);
+        }
+        else
+        {
+            await searchTask;
+        }
     }
 
     public void ClearSearch()
     {
+        bool wasAlreadyEmpty = string.IsNullOrEmpty(SearchText);
         SearchText = string.Empty;
+
+        if (wasAlreadyEmpty)
+        {
+            _ = _searchInputReceiver.SearchAsync(string.Empty);
+        }
     }
 
     public void OnSearchTextBoxGotFocus(object sender, RoutedEventArgs _)
@@ -101,7 +125,9 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
 
     public void OnSearchTextBoxLostFocus(object sender, RoutedEventArgs _)
     {
-        if (sender is TextBox && string.IsNullOrWhiteSpace(SearchText))
+        if (sender is TextBox
+            && string.IsNullOrWhiteSpace(SearchText)
+            && !_searchInputReceiver.IsBrowsingAllServers)
         {
             _serverFinder.ClearSearchBlock();
             ChildViewNavigator.NavigateToConnectionsViewAsync();

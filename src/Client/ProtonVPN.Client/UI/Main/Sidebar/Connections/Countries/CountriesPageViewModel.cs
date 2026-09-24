@@ -17,10 +17,12 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Controls;
 using ProtonVPN.Client.Common.UI.Assets.Icons.Base;
 using ProtonVPN.Client.Common.UI.Assets.Icons.PathIcons;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Enums;
 using ProtonVPN.Client.Core.Services.Navigation;
@@ -47,6 +49,8 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 
     public List<ICountriesComponent> CountriesComponents { get; }
 
+    public ServerPingFilterSession PingFilter { get; } = ServerPingFilterSession.Current;
+
     public override bool IsAvailable => ParentViewNavigator.CanNavigateToCountriesView();
 
     public CountriesPageViewModel(
@@ -67,6 +71,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
         CountriesComponents = new(countriesComponents.OrderBy(p => p.SortIndex));
 
         _selectedCountriesComponent = CountriesComponents.First();
+        PingFilter.PropertyChanged += OnPingFilterPropertyChanged;
     }
 
     protected override void OnLoggedIn()
@@ -90,5 +95,18 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
         FetchItems();
+    }
+
+    private void OnPingFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ServerPingFilterSession.SelectedOption))
+        {
+            return;
+        }
+
+        foreach (IHostLocationItem host in Items.OfType<IHostLocationItem>())
+        {
+            host.RefreshPingFilter();
+        }
     }
 }

@@ -17,7 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Text.RegularExpressions;
+using System.Threading;
 using ProtonVPN.Client.Localization.Contracts;
 using ProtonVPN.Client.Localization.Extensions;
 using ProtonVPN.Client.Logic.Searches.Contracts;
@@ -27,12 +27,8 @@ using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 
 namespace ProtonVPN.Client.Logic.Searches;
 
-public partial class GlobalSearch : IGlobalSearch
+public class GlobalSearch : IGlobalSearch
 {
-    [GeneratedRegex(@"^.{2,}(#\d*|\d+)$")]
-    private static partial Regex GenerateCompileTimeRegex();
-    private readonly Regex _serverSearchTriggerRegex = GenerateCompileTimeRegex();
-
     private readonly IServersLoader _serversLoader;
     //private readonly IProfilesManager _profilesManager;
     private readonly ILocalizationProvider _localizer;
@@ -47,9 +43,10 @@ public partial class GlobalSearch : IGlobalSearch
     }
 
     public async Task<List<ILocation>> SearchAsync(
-        string? input, 
+        string? input,
         ServerFeatures? serverFeatures = null,
-        SearchCategory categories = SearchCategory.All)
+        SearchCategory categories = SearchCategory.All,
+        CancellationToken cancellationToken = default)
     {
         input = input.NormalizeInput();
 
@@ -58,99 +55,164 @@ public partial class GlobalSearch : IGlobalSearch
             return [];
         }
 
-        Task<IEnumerable<ILocation>> serversTask = categories.HasFlag(SearchCategory.Servers) && _serverSearchTriggerRegex.IsMatch(input)
-            ? Task.Run(() => SearchServers(input, serverFeatures))
-            : Task.FromResult<IEnumerable<ILocation>>([]);
+        Task<List<ILocation>> serversTask = categories.HasFlag(SearchCategory.Servers)
+            ? Task.Run(() => SearchServers(input, serverFeatures, cancellationToken), cancellationToken)
+            : Task.FromResult(new List<ILocation>());
 
-        Task<IEnumerable<ILocation>> countriesTask = categories.HasFlag(SearchCategory.Countries)
-            ? Task.Run(() => SearchCountries(input, serverFeatures))
-            : Task.FromResult<IEnumerable<ILocation>>([]);
+        Task<List<ILocation>> countriesTask = categories.HasFlag(SearchCategory.Countries)
+            ? Task.Run(() => SearchCountries(input, serverFeatures, cancellationToken), cancellationToken)
+            : Task.FromResult(new List<ILocation>());
 
-        Task<IEnumerable<ILocation>> statesTask = categories.HasFlag(SearchCategory.States)
-            ? Task.Run(() => SearchStates(input, serverFeatures))
-            : Task.FromResult<IEnumerable<ILocation>>([]);
+        Task<List<ILocation>> statesTask = categories.HasFlag(SearchCategory.States)
+            ? Task.Run(() => SearchStates(input, serverFeatures, cancellationToken), cancellationToken)
+            : Task.FromResult(new List<ILocation>());
 
-        Task<IEnumerable<ILocation>> citiesTask = categories.HasFlag(SearchCategory.Cities)
-            ? Task.Run(() => SearchCities(input, serverFeatures))
-            : Task.FromResult<IEnumerable<ILocation>>([]);
+        Task<List<ILocation>> citiesTask = categories.HasFlag(SearchCategory.Cities)
+            ? Task.Run(() => SearchCities(input, serverFeatures, cancellationToken), cancellationToken)
+            : Task.FromResult(new List<ILocation>());
 
-        //Task<IEnumerable<IConnectionIntent>> gatewaysTask = Task.Run(() => SearchGateways(input));
-        //Task<IEnumerable<IConnectionIntent>> profilesTask = Task.Run(() => SearchProfiles(input));
+        await Task.WhenAll(serversTask, citiesTask, statesTask, countriesTask).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        Task.WaitAll(serversTask, citiesTask, statesTask, countriesTask/*, gatewaysTask, profilesTask*/);
+        List<ILocation> result = new(
+            countriesTask.Result.Count
+            + statesTask.Result.Count
+            + citiesTask.Result.Count
+            + serversTask.Result.Count);
 
-        IEnumerable<ILocation> servers = await serversTask;
-        IEnumerable<ILocation> cities = await citiesTask;
-        IEnumerable<ILocation> states = await statesTask;
-        IEnumerable<ILocation> countries = await countriesTask;
-        //IEnumerable<IConnectionIntent> gateways = await gatewaysTask;
-        //IEnumerable<IConnectionIntent> profiles = await profilesTask;
-
-        //return profiles.Concat(gateways).Concat(countries).Concat(states).Concat(cities).Concat(servers).ToList();
-        return countries
-            .Concat(states)
-            .Concat(cities)
-            .Concat(servers)
-            .ToList();
+        result.AddRange(countriesTask.Result);
+        result.AddRange(statesTask.Result);
+        result.AddRange(citiesTask.Result);
+        result.AddRange(serversTask.Result);
+        return result;
     }
 
-    private IEnumerable<ILocation> SearchServers(string input, ServerFeatures? serverFeatures)
+    private List<ILocation> SearchServers(
+        string input,
+        ServerFeatures? serverFeatures,
+        CancellationToken cancellationToken)
     {
         IEnumerable<Server> servers = serverFeatures is null
             ? _serversLoader.GetServers()
             : _serversLoader.GetServersByFeatures(serverFeatures.Value);
-        return servers.Where(s => SearchMatcher.MatchesServer(s, input));
+
+        bool isServerNameSearch = IsServerNameSearch(input);
+        string? serverNumberInput = GetServerNumberInput(input);
+        List<ILocation> result = [];
+
+        foreach (Server server in servers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if ((isServerNameSearch && SearchMatcher.MatchesServer(server, input))
+                || (serverNumberInput is not null && MatchesServerNumber(server.Name, serverNumberInput))
+                || MatchesServerLocation(server, input))
+            {
+                result.Add(server);
+            }
+        }
+
+        return result;
     }
 
-    private IEnumerable<ILocation> SearchCities(string input, ServerFeatures? serverFeatures)
+    private bool MatchesServerLocation(Server server, string input)
+    {
+        return SearchMatcher.Equals(_localizer.GetCountryName(server.ExitCountry), input)
+            || SearchMatcher.Equals(_localizer.GetCityName(server.City, server.ExitCountry), input)
+            || (!string.IsNullOrWhiteSpace(server.State)
+                && SearchMatcher.Equals(_localizer.GetStateName(server.State, server.ExitCountry), input));
+    }
+
+    private static bool IsServerNameSearch(string input)
+    {
+        return input.Contains('#')
+            || input.Contains('-')
+            || input.Any(char.IsDigit);
+    }
+
+    private static string? GetServerNumberInput(string input)
+    {
+        string serverNumberInput = input.TrimStart('#');
+        return serverNumberInput.Length > 0 && serverNumberInput.All(char.IsDigit)
+            ? serverNumberInput
+            : null;
+    }
+
+    private static bool MatchesServerNumber(string serverName, string serverNumberInput)
+    {
+        int separatorIndex = serverName.LastIndexOf('#');
+        return separatorIndex >= 0
+            && separatorIndex < serverName.Length - 1
+            && serverName[(separatorIndex + 1)..].StartsWith(serverNumberInput, StringComparison.InvariantCultureIgnoreCase);
+    }
+
+    private List<ILocation> SearchCities(
+        string input,
+        ServerFeatures? serverFeatures,
+        CancellationToken cancellationToken)
     {
         IEnumerable<City> cities = serverFeatures is null
             ? _serversLoader.GetCities()
             : _serversLoader.GetCitiesByFeatures(serverFeatures.Value);
 
-        List<LocalizedLocation> localizedCities = cities.Select(city => new LocalizedLocation()
+        List<ILocation> result = [];
+        foreach (City city in cities)
         {
-            Location = city,
-            LocalizedName = _localizer.GetCityName(city.Name, city.CountryCode)
-        }).ToList();
+            cancellationToken.ThrowIfCancellationRequested();
+            string localizedName = _localizer.GetCityName(city.Name, city.CountryCode);
+            if (SearchMatcher.MatchesCity(localizedName, input))
+            {
+                result.Add(city);
+            }
+        }
 
-        return localizedCities
-            .Where(c => SearchMatcher.MatchesCity(c.LocalizedName, input))
-            .Select(c => c.Location);
+        return result;
     }
 
-    private IEnumerable<ILocation> SearchStates(string input, ServerFeatures? serverFeatures)
+    private List<ILocation> SearchStates(
+        string input,
+        ServerFeatures? serverFeatures,
+        CancellationToken cancellationToken)
     {
         IEnumerable<State> states = serverFeatures is null
             ? _serversLoader.GetStates()
             : _serversLoader.GetStatesByFeatures(serverFeatures.Value);
 
-        List<LocalizedLocation> localizedStates = states.Select(state => new LocalizedLocation()
+        List<ILocation> result = [];
+        foreach (State state in states)
         {
-            Location = state,
-            LocalizedName = _localizer.GetStateName(state.Name, state.CountryCode)
-        }).ToList();
+            cancellationToken.ThrowIfCancellationRequested();
+            string localizedName = _localizer.GetStateName(state.Name, state.CountryCode);
+            if (SearchMatcher.MatchesState(localizedName, input))
+            {
+                result.Add(state);
+            }
+        }
 
-        return localizedStates
-            .Where(s => SearchMatcher.MatchesState(s.LocalizedName, input))
-            .Select(s => s.Location);
+        return result;
     }
 
-    private IEnumerable<ILocation> SearchCountries(string input, ServerFeatures? serverFeatures)
+    private List<ILocation> SearchCountries(
+        string input,
+        ServerFeatures? serverFeatures,
+        CancellationToken cancellationToken)
     {
         IEnumerable<Country> countries = serverFeatures is null
             ? _serversLoader.GetCountries()
             : _serversLoader.GetCountriesByFeatures(serverFeatures.Value);
 
-        List<LocalizedCountry> localizedCountries = countries.Select(c => new LocalizedCountry()
+        List<ILocation> result = [];
+        foreach (Country country in countries)
         {
-            Country = c,
-            LocalizedName = _localizer.GetCountryName(c.Code)
-        }).ToList();
+            cancellationToken.ThrowIfCancellationRequested();
+            string localizedName = _localizer.GetCountryName(country.Code);
+            if (SearchMatcher.MatchesCountry(country, localizedName, input))
+            {
+                result.Add(country);
+            }
+        }
 
-        return localizedCountries
-            .Where(c => SearchMatcher.MatchesCountry(c.Country, c.LocalizedName, input))
-            .Select(c => c.Country);
+        return result;
     }
 
     //private IEnumerable<ILocation> SearchGateways(string input)

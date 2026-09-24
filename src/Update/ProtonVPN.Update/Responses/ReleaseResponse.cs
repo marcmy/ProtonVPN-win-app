@@ -29,6 +29,7 @@ public class ReleaseResponse
     public string Version { get; set; }
     public DateTime? ReleaseDate { get; set; }
     public FileResponse File { get; set; }
+    public IReadOnlyList<string> ChangeLog { get; set; }
     public IReadOnlyList<ReleaseNote> ReleaseNotes { get; set; }
     public SystemVersion SystemVersion { get; set; }
     public decimal? RolloutProportion { get; set; }

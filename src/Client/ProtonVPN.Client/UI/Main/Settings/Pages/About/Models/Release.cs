@@ -21,7 +21,7 @@ namespace ProtonVPN.Client.UI.Settings.Pages.About.Models;
 
 public class Release
 {
-    public required Version Version { get; set; }
+    public required string Version { get; set; }
 
     public required string NewVersionLabel { get; set; }
 

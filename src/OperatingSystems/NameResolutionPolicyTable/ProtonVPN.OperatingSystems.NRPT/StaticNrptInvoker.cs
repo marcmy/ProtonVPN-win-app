@@ -81,7 +81,7 @@ public static class StaticNrptInvoker
             {
                 bool result = false;
 
-                using (RegistryKey pathKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey(NRPT_RULES_PATH, writable: true))
+                using (RegistryKey? pathKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey(NRPT_RULES_PATH, writable: true))
                 {
                     if (pathKey == null)
                     {
@@ -115,23 +115,23 @@ public static class StaticNrptInvoker
     {
         try
         {
-            using (RegistryKey nrptRuleKey = pathKey.OpenSubKey(nrptRuleKeyName))
+            using (RegistryKey? nrptRuleKey = pathKey.OpenSubKey(nrptRuleKeyName))
             {
                 if (nrptRuleKey == null)
                 {
                     return false; // NRPT rule key name doesn't exist
                 }
 
-                object displayNameObj = nrptRuleKey.GetValue(NRPT_DISPLAY_NAME_KEY_NAME);
-                string displayName = displayNameObj?.ToString();
+                object? displayNameObj = nrptRuleKey.GetValue(NRPT_DISPLAY_NAME_KEY_NAME);
+                string? displayName = displayNameObj?.ToString();
                 if (displayName is not null && displayName.Equals(NRPT_DISPLAY_NAME_VALUE, StringComparison.InvariantCultureIgnoreCase))
                 {
                     DeleteKey(pathKey, nrptRuleKeyName, onSuccess);
                     return true;
                 }
 
-                object commentObj = nrptRuleKey.GetValue(NRPT_COMMENT_KEY_NAME);
-                string comment = commentObj?.ToString();
+                object? commentObj = nrptRuleKey.GetValue(NRPT_COMMENT_KEY_NAME);
+                string? comment = commentObj?.ToString();
                 if (comment is not null && comment.Equals(NRPT_COMMENT_VALUE, StringComparison.InvariantCultureIgnoreCase))
                 {
                     DeleteKey(pathKey, nrptRuleKeyName, onSuccess);

@@ -23,6 +23,7 @@ using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.ConnectLogs;
 using ProtonVPN.Service.KillSwitch;
+using ProtonVPN.Service.PortMapping;
 using ProtonVPN.Service.SplitTunneling;
 using ProtonVPN.Service.Vpn;
 using ProtonVPN.Vpn.PortMapping;
@@ -36,6 +37,7 @@ internal sealed class VpnStateSideEffects : IVpnStateSideEffects
     private readonly ISplitTunnel _splitTunnel;
     private readonly IIPv6Manager _ipv6Manager;
     private readonly IPortMappingProtocolClient _portMappingProtocolClient;
+    private readonly PortForwardingForAppsRouteShim _portForwardingForAppsRouteShim;
 
     private VpnStatus? _vpnStatus;
     private State? _state;
@@ -45,18 +47,21 @@ internal sealed class VpnStateSideEffects : IVpnStateSideEffects
         IKillSwitch killSwitch,
         ISplitTunnel splitTunnel,
         IIPv6Manager ipv6Manager,
-        IPortMappingProtocolClient portMappingProtocolClient)
+        IPortMappingProtocolClient portMappingProtocolClient,
+        PortForwardingForAppsRouteShim portForwardingForAppsRouteShim)
     {
         _logger = logger;
         _killSwitch = killSwitch;
         _splitTunnel = splitTunnel;
         _ipv6Manager = ipv6Manager;
         _portMappingProtocolClient = portMappingProtocolClient;
+        _portForwardingForAppsRouteShim = portForwardingForAppsRouteShim;
     }
 
     public async Task ApplyAsync(VpnState state, State stateMachineState)
     {
-        await HandlePortForwardingAsync(state);
+        _portForwardingForAppsRouteShim.SetVpnState(state);
+        HandlePortForwarding(state);
 
         if (_vpnStatus == state.Status && _state == stateMachineState)
         {
@@ -97,7 +102,7 @@ internal sealed class VpnStateSideEffects : IVpnStateSideEffects
         _splitTunnel.UpdateContext(context);
     }
 
-    private async Task HandlePortForwardingAsync(VpnState state)
+    private void HandlePortForwarding(VpnState state)
     {
         _portMappingProtocolClient.SetVpnState(state);
 

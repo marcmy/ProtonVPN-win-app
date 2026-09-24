@@ -22,6 +22,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
+using ProtonVPN.Api.Contracts;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Bases.ViewModels;
 using ProtonVPN.Client.Core.Services.Activation;
@@ -39,6 +40,7 @@ public partial class SsoLoginOverlayViewModel :  OverlayViewModelBase<IMainWindo
     private readonly IUserAuthenticator _userAuthenticator;
     private readonly ISettings _settings;
     private readonly IConfiguration _configuration;
+    private readonly HttpClient _ssoHttpClient;
     private readonly Regex _uriRegex = new(".+\\/sso\\/login#token=(?<token>.+)&uid=(?<uid>.+)");
 
     [ObservableProperty]
@@ -48,18 +50,21 @@ public partial class SsoLoginOverlayViewModel :  OverlayViewModelBase<IMainWindo
     private WebView2? _ssoWebView;
 
     private string? _ssoResponseToken;
+    private Uri? _ssoBootstrapUri;
 
     public SsoLoginOverlayViewModel(
         IMainWindowOverlayActivator overlayActivator,
         IUserAuthenticator userAuthenticator,
         ISettings settings,
         IConfiguration configuration,
+        ISsoWebViewHttpClientFactory ssoWebViewHttpClientFactory,
         IViewModelHelper viewModelHelper)
         : base(overlayActivator, viewModelHelper)
     {
         _userAuthenticator = userAuthenticator;
         _settings = settings;
         _configuration = configuration;
+        _ssoHttpClient = ssoWebViewHttpClientFactory.GetHttpClient();
     }
 
     protected override void OnDeactivated()
@@ -135,20 +140,76 @@ public partial class SsoLoginOverlayViewModel :  OverlayViewModelBase<IMainWindo
             webView.CoreWebView2.CookieManager.DeleteAllCookies();
 
             Uri requestUri = new(new Uri(_configuration.Urls.ApiUrl), $"auth/sso/{ssoChallengeToken}");
+            _ssoBootstrapUri = requestUri;
 
-            CoreWebView2WebResourceRequest request = webView.CoreWebView2.Environment.CreateWebResourceRequest(
+            webView.CoreWebView2.AddWebResourceRequestedFilter(
                 requestUri.AbsoluteUri,
-                "GET",
-                null,
-                $"x-pm-uid: {_settings.UnauthUniqueSessionId}\r\n" +
-                $"Authorization: Bearer {_settings.UnauthAccessToken}");
+                CoreWebView2WebResourceContext.Document);
+            webView.CoreWebView2.WebResourceRequested += OnWebResourceRequested;
 
-            webView.CoreWebView2.NavigateWithWebResourceRequest(request);
+            webView.CoreWebView2.Navigate(requestUri.AbsoluteUri);
         }
         catch (Exception e)
         {
             Logger.Error<AppLog>($"Error occured when trying to navigate to the SSO login page.", e);
         }
+    }
+
+    private async void OnWebResourceRequested(CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs args)
+    {
+        if (_ssoBootstrapUri is null ||
+            !Uri.TryCreate(args.Request.Uri, UriKind.Absolute, out Uri? requestUri) ||
+            requestUri != _ssoBootstrapUri)
+        {
+            return;
+        }
+
+        var deferral = args.GetDeferral();
+        try
+        {
+            using HttpRequestMessage request = new(HttpMethod.Get, _ssoBootstrapUri);
+            request.Headers.TryAddWithoutValidation("x-pm-uid", _settings.UnauthUniqueSessionId);
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {_settings.UnauthAccessToken}");
+
+            using HttpResponseMessage response = await _ssoHttpClient.SendAsync(request);
+            byte[] content = await response.Content.ReadAsByteArrayAsync();
+            args.Response = CreateWebResourceResponse(sender, response, content);
+        }
+        catch (Exception e)
+        {
+            Logger.Error<AppLog>("Failed to fetch the SSO bootstrap through the pinned HTTP client.", e);
+            args.Response = sender.Environment.CreateWebResourceResponse(
+                new MemoryStream().AsRandomAccessStream(),
+                502,
+                "Bad Gateway",
+                string.Empty);
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    private static CoreWebView2WebResourceResponse CreateWebResourceResponse(
+        CoreWebView2 webView,
+        HttpResponseMessage response,
+        byte[] content)
+    {
+        CoreWebView2WebResourceResponse webViewResponse = webView.Environment.CreateWebResourceResponse(
+            new MemoryStream(content).AsRandomAccessStream(),
+            (int)response.StatusCode,
+            response.ReasonPhrase ?? string.Empty,
+            string.Empty);
+
+        foreach (KeyValuePair<string, IEnumerable<string>> header in response.Headers.Concat(response.Content.Headers))
+        {
+            foreach (string value in header.Value)
+            {
+                webViewResponse.Headers.AppendHeader(header.Key, value);
+            }
+        }
+
+        return webViewResponse;
     }
 
     private void CreateWebView()
@@ -169,9 +230,15 @@ public partial class SsoLoginOverlayViewModel :  OverlayViewModelBase<IMainWindo
 
         WebView2 webView = SsoWebView;
         SsoWebView = null;
+        _ssoBootstrapUri = null;
 
         webView.NavigationStarting -= OnNavigationStarting;
         webView.NavigationCompleted -= OnNavigationCompleted;
+
+        if (webView.CoreWebView2 is not null)
+        {
+            webView.CoreWebView2.WebResourceRequested -= OnWebResourceRequested;
+        }
 
         try
         {

@@ -21,6 +21,7 @@ using ProtonVPN.Client.Logic.Auth.Contracts.Models;
 using ProtonVPN.Client.Logic.Users.Contracts.Messages;
 using ProtonVPN.Client.Settings.Contracts.Enums;
 using ProtonVPN.Client.Settings.Contracts.Models;
+using ProtonVPN.Common.Core.Dns;
 using ProtonVPN.Common.Core.Networking;
 
 namespace ProtonVPN.Client.Settings.Contracts;
@@ -58,6 +59,7 @@ public interface IUserSettings
     NetShieldMode NetShieldMode { get; set; }
     bool IsPortForwardingEnabled { get; set; }
     bool IsPortForwardingNotificationEnabled { get; set; }
+    bool IsPortForwardingForAppsEnabled { get; set; }
     bool IsSplitTunnelingEnabled { get; set; }
     bool IsSmartReconnectEnabled { get; set; }
     bool IsUserSettingsMigrationDone { get; set; }
@@ -86,4 +88,6 @@ public interface IUserSettings
     List<ExcludedLocation> ExcludedLocationsList { get; set; }
     bool WasExcludedLocationsSmartDiscoveryPromptDisplayed { get; set; }
     bool WasExcludedLocationsTeachingTipDisplayed { get; set; }
+    [Obsolete("Use IsLocalDnsEnabled instead. DnsBlockMode is maintained in order to migrate the value for existing users.")]
+    DnsBlockMode DnsBlockMode { get; set; }
 }

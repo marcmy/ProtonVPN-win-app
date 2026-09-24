@@ -17,5 +17,5 @@ using System.Runtime.Versioning;
 [assembly: AssemblyVersion("5.1.8.0")]
 [assembly: AssemblyFileVersion("5.1.8.0")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyInformationalVersion("$AssemblyVersion")]
+[assembly: AssemblyInformationalVersion("5.1.5.1-marcmy-split-tunnel")]
 [assembly: SupportedOSPlatform("windows")]
