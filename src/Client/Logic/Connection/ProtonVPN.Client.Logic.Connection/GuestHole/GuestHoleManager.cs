@@ -25,24 +25,29 @@ using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Common.Legacy.Abstract;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.GuestHoleLogs;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
 
 namespace ProtonVPN.Client.Logic.Connection.GuestHole;
 
-public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<ConnectionStatusChangedMessage>
+public class GuestHoleManager : IGuestHoleManager,
+    IEventMessageReceiver<ConnectionStatusChangedMessage>,
+    IEventMessageReceiver<VpnStateIpcEntity>
 {
     private const int CONNECTED_FUNC_DELAY_IN_MS = 1000;
+
     private static readonly TimeSpan _semaphoreTimeout = TimeSpan.FromSeconds(30);
 
     private readonly ILogger _logger;
     private readonly IEventMessageSender _eventMessageSender;
     private readonly IGuestHoleConnector _guestHoleConnector;
-
     private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private readonly object _disconnectSync = new();
 
     private bool _isActive;
     private bool _wasConnected;
     private Func<Task<Result>>? _onConnectedFunc;
     private TaskCompletionSource<Result?>? _tcs;
+    private TaskCompletionSource<bool>? _disconnectCompletionSource;
     private ConnectionStatus _lastVpnStatus = ConnectionStatus.Disconnected;
 
     public bool IsActive => _isActive;
@@ -105,19 +110,81 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
         }
         finally
         {
+            await WaitForPendingDisconnectAsync();
             _semaphore.Release();
+        }
+    }
+
+    private async Task WaitForPendingDisconnectAsync()
+    {
+        TaskCompletionSource<bool>? disconnectCompletionSource;
+        lock (_disconnectSync)
+        {
+            disconnectCompletionSource = _disconnectCompletionSource;
+        }
+
+        if (disconnectCompletionSource is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await disconnectCompletionSource.Task.WaitAsync(_semaphoreTimeout);
+        }
+        catch (TimeoutException)
+        {
+            lock (_disconnectSync)
+            {
+                if (ReferenceEquals(_disconnectCompletionSource, disconnectCompletionSource))
+                {
+                    _disconnectCompletionSource = null;
+                }
+            }
+
+            _logger.Warn<GuestHoleLog>("Timed out waiting for Guest Hole to report the Disconnected state after disconnect was requested.");
         }
     }
 
     private void SetStatus(bool isActive)
     {
-        _isActive = isActive;
+        lock (_disconnectSync)
+        {
+            _isActive = isActive;
+        }
+
         _eventMessageSender.Send(new GuestHoleStatusChangedMessage(isActive));
     }
 
     public void Receive(ConnectionStatusChangedMessage message)
     {
         HandleConnectionStatusChangedAsync(message).FireAndForget();
+    }
+
+    public void Receive(VpnStateIpcEntity message)
+    {
+        if (message.Status != VpnStatusIpcEntity.Disconnected)
+        {
+            return;
+        }
+
+        bool shouldHandleDisconnection;
+        lock (_disconnectSync)
+        {
+            // Guest Hole startup first tears down the ordinary VPN with
+            // NoneKeepEnabledKillSwitch. That raw Disconnected state must not be
+            // mistaken for Guest Hole teardown. Once Guest Hole has actually
+            // connected, or once this manager has requested its own disconnect,
+            // the raw service state is authoritative even though the normal
+            // VpnStateIpcEntityHandler filters it from the connection-status stream.
+            shouldHandleDisconnection = _isActive &&
+                (_wasConnected || _disconnectCompletionSource is not null);
+        }
+
+        if (shouldHandleDisconnection)
+        {
+            HandleDisconnection();
+        }
     }
 
     private async Task HandleConnectionStatusChangedAsync(ConnectionStatusChangedMessage message)
@@ -140,7 +207,10 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
                                                  _onConnectedFunc is not null:
                 _logger.Info<GuestHoleLog>("Connected to guest hole");
 
-                _wasConnected = true;
+                lock (_disconnectSync)
+                {
+                    _wasConnected = true;
+                }
                 Result? result;
                 try
                 {
@@ -163,13 +233,38 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
 
     private void HandleDisconnection()
     {
-        if (!_wasConnected)
+        bool wasConnected;
+        lock (_disconnectSync)
+        {
+            if (!_isActive)
+            {
+                return;
+            }
+
+            _isActive = false;
+            wasConnected = _wasConnected;
+        }
+
+        if (!wasConnected)
         {
             SetTaskCompletionSourceResult(null);
         }
 
-        SetStatus(false);
+        _eventMessageSender.Send(new GuestHoleStatusChangedMessage(false));
+        CompletePendingDisconnect();
         _logger.Info<GuestHoleLog>("Disconnected from guest hole.");
+    }
+
+    private void CompletePendingDisconnect()
+    {
+        TaskCompletionSource<bool>? disconnectCompletionSource;
+        lock (_disconnectSync)
+        {
+            disconnectCompletionSource = _disconnectCompletionSource;
+            _disconnectCompletionSource = null;
+        }
+
+        disconnectCompletionSource?.TrySetResult(true);
     }
 
     private void SetTaskCompletionSourceResult(Result? result)
@@ -182,11 +277,22 @@ public class GuestHoleManager : IGuestHoleManager, IEventMessageReceiver<Connect
         _tcs.TrySetResult(result);
         _tcs = null;
         _onConnectedFunc = null;
-        _wasConnected = false;
+        lock (_disconnectSync)
+        {
+            _wasConnected = false;
+        }
     }
 
     public async Task DisconnectAsync()
     {
+        lock (_disconnectSync)
+        {
+            if (_isActive)
+            {
+                _disconnectCompletionSource ??= new(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
         await _guestHoleConnector.DisconnectFromGuestHoleAsync();
     }
 }

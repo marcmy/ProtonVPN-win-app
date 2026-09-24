@@ -108,6 +108,8 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
             IsShareCrashReportsEnabled = _settings.IsShareCrashReportsEnabled,
             IsLocalAreaNetworkAccessEnabled = DefaultSettings.IsLocalAreaNetworkAccessAllowed(isPaidUser),
             PortForwarding = DefaultSettings.IsPortForwardingEnabled,
+            // Preserve the user's preference without enabling port forwarding for Guest Hole itself.
+            PortForwardingForApps = _settings.IsPortForwardingForAppsEnabled,
             SplitTcp = DefaultSettings.IsVpnAcceleratorEnabled,
             OpenVpnAdapter = OpenVpnAdapterIpcEntity.Tap,
             WireGuardConnectionTimeout = DefaultSettings.ProlongedWireGuardConnectionTimeout,
