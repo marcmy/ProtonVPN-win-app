@@ -306,6 +306,59 @@ function Get-UpstreamBackportCommits {
     return @($commits)
 }
 
+function Get-TargetEquivalentForkCommits {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $SourceBase,
+
+        [Parameter(Mandatory = $true)]
+        [string] $SourceRef,
+
+        [AllowNull()]
+        [Version] $TargetVersion
+    )
+
+    # This exact fork commit adds the feedback-dismissal animation already
+    # present in official v5.1.8 (commit 96775c9d3). Keep this mapping scoped
+    # to the release whose implementation was compared; do not infer that a
+    # later release contains the same behavior.
+    if ($null -eq $TargetVersion -or $TargetVersion -ne [Version]'5.1.8') {
+        return @()
+    }
+
+    $knownEquivalentCommits = @(
+        'a2cb79dcd57a538f198dcfb0a2a2e217b5dfbe79'
+    )
+
+    # Test-only seam for synthetic histories. Production workflow runs leave
+    # this unset and use only the reviewed, exact commit mapping above.
+    if (-not [string]::IsNullOrWhiteSpace($env:FUTURE_PORT_EQUIVALENT_FORK_COMMITS)) {
+        $knownEquivalentCommits += @(
+            $env:FUTURE_PORT_EQUIVALENT_FORK_COMMITS -split '[,;\s]+' |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+    }
+
+    $sourceCommits = @(& git rev-list --no-merges "$SourceBase..$SourceRef")
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate fork commits for target-equivalent change cleanup.'
+    }
+
+    $sourceCommitSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($commit in $sourceCommits) {
+        [void]$sourceCommitSet.Add("$commit")
+    }
+
+    $matchingCommits = [System.Collections.Generic.List[string]]::new()
+    foreach ($commit in $knownEquivalentCommits) {
+        if ($sourceCommitSet.Contains("$commit")) {
+            $matchingCommits.Add("$commit")
+        }
+    }
+
+    return @($matchingCommits | Select-Object -Unique)
+}
+
 function Get-DeferredForkCommits {
     param(
         [Parameter(Mandatory = $true)]
@@ -315,20 +368,20 @@ function Get-DeferredForkCommits {
         [string] $SourceRef,
 
         [Parameter(Mandatory = $true)]
-        [string[]] $BackportCommits
+        [string[]] $RemovedForkCommits
     )
 
-    # Reverting these descendants first lets the backport patches be removed
-    # from their original tree. They are replayed later, when the target release
-    # supplies the upstream code those fork-specific changes were based on.
-    $backportSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($commit in $BackportCommits) {
-        [void]$backportSet.Add($commit)
+    # Reverting these descendants first lets the already-present fork changes
+    # be removed from their original tree. They are replayed later, when the
+    # target release supplies the upstream code those changes were based on.
+    $removedCommitSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($commit in $RemovedForkCommits) {
+        [void]$removedCommitSet.Add($commit)
     }
 
     $candidateCommits = @(& git rev-list --reverse --topo-order --no-merges "$SourceBase..$SourceRef")
     if ($LASTEXITCODE -ne 0) {
-        throw 'Unable to enumerate fork commits for backport cleanup.'
+        throw 'Unable to enumerate fork commits for target-equivalent cleanup.'
     }
 
     $candidatePaths = @{}
@@ -348,34 +401,34 @@ function Get-DeferredForkCommits {
     }
 
     $deferredSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($backport in $BackportCommits) {
-        $backportPaths = @(& git diff-tree --no-commit-id --name-only --no-renames -r $backport)
+    foreach ($removedCommit in $RemovedForkCommits) {
+        $removedPaths = @(& git diff-tree --no-commit-id --name-only --no-renames -r $removedCommit)
         if ($LASTEXITCODE -ne 0) {
-            throw "Unable to enumerate paths changed by upstream backport $backport."
+            throw "Unable to enumerate paths changed by already-present fork change $removedCommit."
         }
 
-        $backportPathSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($path in $backportPaths) {
+        $removedPathSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($path in $removedPaths) {
             if (-not [string]::IsNullOrWhiteSpace($path)) {
-                [void]$backportPathSet.Add("$path")
+                [void]$removedPathSet.Add("$path")
             }
         }
-        if ($backportPathSet.Count -eq 0) {
+        if ($removedPathSet.Count -eq 0) {
             continue
         }
 
-        $descendants = @(& git rev-list --no-merges "$backport..$SourceRef")
+        $descendants = @(& git rev-list --no-merges "$removedCommit..$SourceRef")
         if ($LASTEXITCODE -ne 0) {
-            throw "Unable to enumerate commits after upstream backport $backport."
+            throw "Unable to enumerate commits after already-present fork change $removedCommit."
         }
 
         foreach ($candidate in $descendants) {
-            if ($backportSet.Contains($candidate) -or -not $candidatePaths.ContainsKey($candidate)) {
+            if ($removedCommitSet.Contains($candidate) -or -not $candidatePaths.ContainsKey($candidate)) {
                 continue
             }
 
             $changedPaths = $candidatePaths[$candidate]
-            foreach ($path in $backportPathSet) {
+            foreach ($path in $removedPathSet) {
                 if ($changedPaths.Contains($path)) {
                     [void]$deferredSet.Add($candidate)
                     break
@@ -405,8 +458,12 @@ function New-CleanForkSource {
     $backportCommits = @(
         Get-UpstreamBackportCommits -SourceBase $SourceBase -SourceRef $SourceRef -TargetVersion $TargetVersion
     )
+    $equivalentForkCommits = @(
+        Get-TargetEquivalentForkCommits -SourceBase $SourceBase -SourceRef $SourceRef -TargetVersion $TargetVersion
+    )
+    $removedForkCommits = @($backportCommits + $equivalentForkCommits | Select-Object -Unique)
 
-    if ($backportCommits.Count -eq 0) {
+    if ($removedForkCommits.Count -eq 0) {
         return [pscustomobject]@{
             Ref = $SourceRef
             TemporaryBranch = ''
@@ -415,13 +472,13 @@ function New-CleanForkSource {
     }
 
     $deferredCommits = @(
-        Get-DeferredForkCommits -SourceBase $SourceBase -SourceRef $SourceRef -BackportCommits $backportCommits
+        Get-DeferredForkCommits -SourceBase $SourceBase -SourceRef $SourceRef -RemovedForkCommits $removedForkCommits
     )
 
     $temporaryBranch = '__future_port_clean_source'
-    Write-Host "Preparing a fork source snapshot without $($backportCommits.Count) upstream backport commit(s)."
+    Write-Host "Preparing a fork source snapshot without $($backportCommits.Count) known upstream backport(s) and $($equivalentForkCommits.Count) exact target-equivalent fork change(s)."
     if ($deferredCommits.Count -gt 0) {
-        Write-Host "Temporarily deferring $($deferredCommits.Count) later fork commit(s) that modify backported files until after the target merge."
+        Write-Host "Temporarily deferring $($deferredCommits.Count) later fork commit(s) that modify already-present change files until after the target merge."
     }
     Invoke-Git switch -C $temporaryBranch $SourceRef | Out-Host
 
@@ -433,11 +490,12 @@ function New-CleanForkSource {
             Invoke-Git revert --no-commit --no-edit $commit | Out-Host
         }
 
-        foreach ($commit in $backportCommits) {
+        foreach ($commit in $removedForkCommits) {
             $subject = Get-GitOutput show -s --format=%s $commit
             $parent = Get-GitOutput rev-parse "$commit^"
-            $patchPath = Join-Path ([System.IO.Path]::GetTempPath()) ("future-port-backport-{0}.patch" -f $commit.Substring(0, 12))
-            Write-Host "  Removing upstream backport patch: $($commit.Substring(0, 12)) $subject"
+            $changeKind = if ($backportCommits -contains $commit) { 'known upstream backport' } else { 'exact target-equivalent fork change' }
+            $patchPath = Join-Path ([System.IO.Path]::GetTempPath()) ("future-port-redundant-change-{0}.patch" -f $commit.Substring(0, 12))
+            Write-Host "  Removing ${changeKind}: $($commit.Substring(0, 12)) $subject"
 
             try {
                 # Copy detection can turn a newly added upstream file into a
@@ -445,7 +503,7 @@ function New-CleanForkSource {
                 # git apply try to recreate the existing source path on Windows.
                 & git diff --binary --full-index --find-renames --unified=0 $parent $commit "--output=$patchPath"
                 if ($LASTEXITCODE -ne 0) {
-                    throw "Unable to build reverse patch for upstream backport $commit ('$subject')."
+                    throw "Unable to build reverse patch for $changeKind $commit ('$subject')."
                 }
 
                 if ((Get-Item -LiteralPath $patchPath).Length -eq 0) {
@@ -462,7 +520,7 @@ function New-CleanForkSource {
                 if ($applyExitCode -ne 0) {
                     $failureDetails = @($applyOutput | ForEach-Object { "$($_)".Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
                     $failureSuffix = if ($failureDetails.Count -gt 0) { "`n$($failureDetails -join "`n")" } else { '' }
-                    throw "Unable to subtract upstream backport $commit ('$subject') from the current fork tree without touching later edits.$failureSuffix"
+                    throw "Unable to subtract $changeKind $commit ('$subject') from the current fork tree without touching later edits.$failureSuffix"
                 }
             }
             finally {
@@ -473,7 +531,7 @@ function New-CleanForkSource {
         Invoke-Git add '--all' | Out-Host
         if (Test-StagedChanges) {
             Assert-StagedDiffIsSafe
-            Invoke-Git commit -m 'Prepare fork source without upstream backports already in target release' | Out-Host
+            Invoke-Git commit -m 'Prepare fork source without changes already present in target release' | Out-Host
         }
 
         $cleanSourceRef = Get-GitOutput rev-parse HEAD
@@ -642,7 +700,7 @@ function Merge-ForkTree {
         Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
     }
     else {
-        Write-Host 'Known upstream backports were removed; merging remaining fork changes normally and resolving only actual conflicts to the target release.'
+        Write-Host 'Already-present changes were removed; merging remaining fork changes normally and resolving only actual conflicts to the target release.'
     }
 
     $beforeMerge = Get-GitOutput rev-parse HEAD

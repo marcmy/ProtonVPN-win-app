@@ -698,7 +698,7 @@ function Test-CompleteForkPort {
         'Future-port automation did not publish the complete fork patch commit output.'
 }
 
-function Test-KnownBackportCleanup {
+function Test-RedundantForkChangeCleanup {
     $fixtureRoot = Join-Path $testRoot 'known-backport-cleanup'
     $workingRepo = Join-Path $fixtureRoot 'working'
     $remoteRepo = Join-Path $fixtureRoot 'origin.git'
@@ -842,11 +842,34 @@ public struct WindowLocation
     public int? YPosition { get; set; }
 }
 '@
+    $feedbackBase = @'
+<VisualStateGroup>
+    <VisualState x:Name="Visible" />
+</VisualStateGroup>
+'@
+    $feedbackEquivalent = @'
+<VisualStateGroup>
+    <VisualState x:Name="Visible" />
+    <VisualState x:Name="DismissingFeedback">
+        <Storyboard Duration="0.5" />
+    </VisualState>
+</VisualStateGroup>
+'@
+    $feedbackForkRefined = @'
+<VisualStateGroup>
+    <VisualState x:Name="Visible" />
+    <VisualState x:Name="DismissingFeedback">
+        <Setter Property="ForkMarker" Value="true" />
+        <Storyboard Duration="0.5" />
+    </VisualState>
+</VisualStateGroup>
+'@
 
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $baseMixed
     Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentBase
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=old`n"
     Write-TestText (Join-Path $workingRepo 'window-position.cs') $windowPositionBase
+    Write-TestText (Join-Path $workingRepo 'feedback.xaml') $feedbackBase
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'old upstream release'
 
@@ -871,9 +894,15 @@ public struct WindowLocation
     Assert-Condition ($copyDetectionSummary -match 'copy .*window-position\.cs => window-location\.cs') `
         'Known-backport regression fixture did not create a detectable copy-shaped addition.'
 
+    Write-TestText (Join-Path $workingRepo 'feedback.xaml') $feedbackEquivalent
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Add feedback animation already present in target release'
+    $equivalentForkCommit = Get-GitOutput $workingRepo rev-parse HEAD
+
     Write-TestText (Join-Path $workingRepo 'mixed-backport.cs') $customMixed
     Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentCustom
     Write-TestText (Join-Path $workingRepo 'fork-only.txt') "keep-me`n"
+    Write-TestText (Join-Path $workingRepo 'feedback.xaml') $feedbackForkRefined
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'Add fork-only behavior after upstream backport'
     Write-TestText (Join-Path $workingRepo 'dependent-backport.cs') $dependentRefined
@@ -887,17 +916,20 @@ public struct WindowLocation
     Write-TestText (Join-Path $workingRepo 'pure-backport.txt') "value=future-upstream`n"
     Write-TestText (Join-Path $workingRepo 'window-position.cs') $windowPositionBackported
     Write-TestText (Join-Path $workingRepo 'window-location.cs') $windowLocationBackported
+    Write-TestText (Join-Path $workingRepo 'feedback.xaml') $feedbackEquivalent
     Invoke-Git $workingRepo add .
     Invoke-Git $workingRepo commit -m 'future upstream release'
-    Invoke-Git $workingRepo branch 'release/v9.9.9'
-    Invoke-Git $workingRepo push origin 'release/v9.9.9'
+    Invoke-Git $workingRepo branch 'release/v5.1.8'
+    Invoke-Git $workingRepo push origin 'release/v5.1.8'
 
     $previousCutoff = $env:FUTURE_PORT_BACKPORT_CUTOFF
+    $previousEquivalentCommits = $env:FUTURE_PORT_EQUIVALENT_FORK_COMMITS
     try {
         $env:FUTURE_PORT_BACKPORT_CUTOFF = $backportCommit
+        $env:FUTURE_PORT_EQUIVALENT_FORK_COMMITS = $equivalentForkCommit
         Push-Location $workingRepo
         try {
-            & $applyPatchScript -BaseBranch 'release/v9.9.9' -SourcePatchBranch 'marc/proton' -TargetBranch 'codex/backport-clean'
+            & $applyPatchScript -BaseBranch 'release/v5.1.8' -SourcePatchBranch 'marc/proton' -TargetBranch 'codex/backport-clean'
         }
         finally {
             Pop-Location
@@ -905,6 +937,7 @@ public struct WindowLocation
     }
     finally {
         $env:FUTURE_PORT_BACKPORT_CUTOFF = $previousCutoff
+        $env:FUTURE_PORT_EQUIVALENT_FORK_COMMITS = $previousEquivalentCommits
     }
 
     $mixedContent = Get-Content -LiteralPath (Join-Path $workingRepo 'mixed-backport.cs') -Raw
@@ -920,6 +953,11 @@ public struct WindowLocation
         'Known-backport cleanup discarded a target-release file copied from a fork backport file.'
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'window-position.cs') -Raw).Contains('IsCentered')) `
         'Known-backport cleanup discarded the target-release copy of a modified source file.'
+    $feedbackContent = Get-Content -LiteralPath (Join-Path $workingRepo 'feedback.xaml') -Raw
+    Assert-Condition ($feedbackContent.Contains('DismissingFeedback')) `
+        'Target-equivalent cleanup removed behavior already present in the release.'
+    Assert-Condition ($feedbackContent.Contains('ForkMarker')) `
+        'Target-equivalent cleanup discarded a later fork-only edit in the same file.'
 }
 
 function Test-KnownBackportCleanupFailsClosed {
@@ -1022,7 +1060,7 @@ try {
     Test-PackageComposition
     Test-InstallerRuntimeDataPreservation
     Test-CompleteForkPort
-    Test-KnownBackportCleanup
+    Test-RedundantForkChangeCleanup
     Test-KnownBackportCleanupFailsClosed
     Test-ForkRegressionOutputIsolation
     Write-Host 'Patch tooling regression tests passed.'
