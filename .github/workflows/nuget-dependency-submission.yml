@@ -1,0 +1,40 @@
+name: NuGet dependency submission
+
+on:
+  push:
+    paths:
+      - '**/*.csproj'
+      - '**/*.props'
+      - '**/*.targets'
+      - '**/*.sln'
+      - '**/*.slnx'
+      - '**/packages.config'
+      - '**/NuGet.Config'
+      - '**/nuget.config'
+      - '**/global.json'
+      - '.github/dependabot.yml'
+      - '.github/workflows/nuget-dependency-submission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  submit-nuget:
+    name: Submit supported NuGet dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Submit dependency snapshot
+        uses: advanced-security/component-detection-dependency-submission-action@b282c67b1008fde9b60da4bdfcd8849613e293b2 # v0.1.6
+        with:
+          detectorsCategories: NuGet
+          # These legacy projects are documented as off-solution and unsupported by
+          # the broad suite because their packages were removed from central management.
+          # Exclude only those projects rather than restoring obsolete dependencies.
+          directoryExclusionList: >-
+            src/ProcessCommunication/ProtonVPN.ProcessCommunication.Common/**
+            --DirectoryExclusionList src/ProcessCommunication/ProtonVPN.ProcessCommunication.Common.Tests/**
+            --DirectoryExclusionList src/Tests/ProtonVPN.Core.Tests/**

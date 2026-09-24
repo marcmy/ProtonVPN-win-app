@@ -35,20 +35,21 @@ namespace ProtonVPN.Dns.Tests.Mocks
             _appSettings = appSettings;
         }
 
-        public async Task<bool> AddOrReplaceAsync(string host, DnsResponse dnsResponse)
+        public Task<bool> AddOrReplaceAsync(string host, DnsResponse dnsResponse)
         {
             if (_appSettings.DnsCache is null)
             {
                 _appSettings.DnsCache = new ConcurrentDictionary<string, DnsResponse>() { [host] = dnsResponse };
-                return true;
+                return Task.FromResult(true);
             }
             else
             {
-                return _appSettings.DnsCache.AddOrUpdate(host, dnsResponse, (_, _) => dnsResponse) == dnsResponse;
+                return Task.FromResult(
+                    _appSettings.DnsCache.AddOrUpdate(host, dnsResponse, (_, _) => dnsResponse) == dnsResponse);
             }
         }
 
-        public async Task<DnsResponse> UpdateAsync(string host, Func<DnsResponse, DnsResponse> dnsResponseUpdateFactory)
+        public Task<DnsResponse> UpdateAsync(string host, Func<DnsResponse, DnsResponse> dnsResponseUpdateFactory)
         {
             DnsResponse result = null;
             if (_appSettings.DnsCache is not null)
@@ -63,7 +64,7 @@ namespace ProtonVPN.Dns.Tests.Mocks
                 }
             }
 
-            return result;
+            return Task.FromResult(result);
         }
     }
 }

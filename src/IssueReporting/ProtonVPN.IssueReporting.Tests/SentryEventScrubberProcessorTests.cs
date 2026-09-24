@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using FluentAssertions;
 using ProtonVPN.IssueReporting.DataScrubbing;
 
