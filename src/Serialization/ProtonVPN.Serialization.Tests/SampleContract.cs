@@ -22,5 +22,5 @@ namespace ProtonVPN.Serialization.Tests;
 public class SampleContract
 {
     public int Number { get; set; }
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
 }
