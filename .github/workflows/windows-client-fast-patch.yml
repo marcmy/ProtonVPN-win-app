@@ -17,11 +17,6 @@ on:
         type: boolean
         required: true
         default: false
-      target_version:
-        description: Optional Proton VPN release version
-        type: string
-        required: false
-        default: ''
   pull_request:
     branches:
       - marc/proton
@@ -105,45 +100,38 @@ jobs:
 
       - name: Resolve target app version
         id: app-version
-        env:
-          REQUESTED_TARGET_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.target_version || '' }}
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $requestedVersion = $env:REQUESTED_TARGET_VERSION.Trim()
           $assemblyInfoPath = 'src/GlobalAssemblyInfo.cs'
-
-          if ($requestedVersion -eq '') {
-            if (-not (Test-Path -LiteralPath $assemblyInfoPath -PathType Leaf)) {
-              throw "Assembly info file was not found: $assemblyInfoPath"
-            }
-
-            $content = Get-Content -LiteralPath $assemblyInfoPath -Raw
-            $match = [regex]::Match($content, '\[assembly:\s*AssemblyVersion\("(?<version>[^"\)]+)"\)\]')
-            if (-not $match.Success) {
-              throw "Could not determine the Proton VPN release version from $assemblyInfoPath"
-            }
-
-            $requestedVersion = $match.Groups['version'].Value
-            Write-Host "No target_version override provided; using AssemblyVersion $requestedVersion."
+          if (-not (Test-Path -LiteralPath $assemblyInfoPath -PathType Leaf)) {
+            throw "Assembly info file was not found: $assemblyInfoPath"
           }
 
-          if ($requestedVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') {
-            throw "target_version must be a numeric three- or four-part version. Received '$requestedVersion'."
+          $content = Get-Content -LiteralPath $assemblyInfoPath -Raw
+          $match = [regex]::Match($content, '\[assembly:\s*AssemblyVersion\("(?<version>[^"\)]+)"\)\]')
+          if (-not $match.Success) {
+            throw "Could not determine the Proton VPN release version from $assemblyInfoPath"
           }
 
-          $parsedVersion = [Version]::Parse($requestedVersion)
+          $assemblyVersion = $match.Groups['version'].Value
+          if ($assemblyVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') {
+            throw "AssemblyVersion must be a numeric three- or four-part version. Received '$assemblyVersion'."
+          }
+
+          $parsedVersion = [Version]::Parse($assemblyVersion)
           if ($parsedVersion.Build -lt 0) {
-            throw "target_version must contain at least three numeric parts. Received '$requestedVersion'."
+            throw "AssemblyVersion must contain at least three numeric parts. Received '$assemblyVersion'."
           }
 
           $targetVersion = '{0}.{1}.{2}' -f $parsedVersion.Major, $parsedVersion.Minor, $parsedVersion.Build
-
-          if ($env:REQUESTED_TARGET_VERSION.Trim() -ne '') {
-            Write-Host "Stamping build output for Proton VPN release $targetVersion."
-            .\.github\scripts\set-assembly-version.ps1 -TargetVersion $targetVersion
+          $informationalMatch = [regex]::Match($content, '\[assembly:\s*AssemblyInformationalVersion\("(?<version>[^"\)]+)"\)\]')
+          $expectedDisplayVersion = "${targetVersion}-marc-custom"
+          if (-not $informationalMatch.Success -or $informationalMatch.Groups['version'].Value -ne $expectedDisplayVersion) {
+            throw "AssemblyInformationalVersion must be '$expectedDisplayVersion' for the current source branch."
           }
 
+          Write-Host "Building current fork version $expectedDisplayVersion from $assemblyInfoPath."
           Write-Host "Exact installed target folder: v$targetVersion"
           "target_version=$targetVersion" >> $env:GITHUB_OUTPUT
 

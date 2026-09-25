@@ -30,19 +30,25 @@ jobs:
       comparison_sha256: ${{ steps.detect.outputs.comparison_sha256 }}
       release_notes_b64: ${{ steps.detect.outputs.release_notes_b64 }}
     steps:
+      - name: Checkout current fork version
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
       - name: Detect unhandled Proton release
         id: detect
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          HANDLED_THROUGH_VERSION: '5.1.8'
         run: |
           set -euo pipefail
           python3 <<'PY'
           import base64
           import json
           import os
+          from pathlib import Path
+          import re
           import subprocess
           import urllib.request
 
@@ -70,7 +76,11 @@ jobs:
 
           versions = sorted({release["Version"] for release in releases}, key=version_key, reverse=True)
           newest_version = versions[0]
-          handled_version = os.environ["HANDLED_THROUGH_VERSION"]
+          assembly_info = Path("src/GlobalAssemblyInfo.cs").read_text(encoding="utf-8")
+          current_version_match = re.search(r'AssemblyVersion\("(\d+\.\d+\.\d+)(?:\.\d+)?"\)', assembly_info)
+          if current_version_match is None:
+              raise SystemExit("Could not determine the current fork version from src/GlobalAssemblyInfo.cs")
+          handled_version = current_version_match.group(1)
           newest = choose(newest_version)
 
           older_versions = [version for version in versions if version_key(version) < version_key(newest_version)]

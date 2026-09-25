@@ -234,7 +234,8 @@ public abstract partial class SettingsPageViewModelBase : PageViewModelBase<ISet
     {
         base.OnPropertyChanged(e);
 
-        if (string.IsNullOrEmpty(e?.PropertyName) || e.PropertyName == nameof(ApplyCommandText))
+        string? propertyName = e?.PropertyName;
+        if (string.IsNullOrEmpty(propertyName) || propertyName == nameof(ApplyCommandText))
         {
             return;
         }
@@ -242,23 +243,23 @@ public abstract partial class SettingsPageViewModelBase : PageViewModelBase<ISet
         ApplyCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ApplyCommandText));
 
-        string settingName = SettingNameAttribute.GetSettingName(this, e.PropertyName);
-        object? settingValue = GetType()?.GetProperty(e.PropertyName)?.GetValue(this);
+        string settingName = SettingNameAttribute.GetSettingName(this, propertyName);
+        object? settingValue = GetType().GetProperty(propertyName)?.GetValue(this);
 
         ISettingsConflict? conflict = SettingsConflictResolver.GetConflict(settingName, settingValue);
 
         if (conflict != null)
         {
-            HandleSettingsConflictAsync(e, conflict).FireAndForget();
+            HandleSettingsConflictAsync(propertyName, conflict).FireAndForget();
         }
     }
 
-    private async Task HandleSettingsConflictAsync(PropertyChangedEventArgs e, ISettingsConflict conflict)
+    private async Task HandleSettingsConflictAsync(string propertyName, ISettingsConflict conflict)
     {
         ContentDialogResult result = await MainWindowOverlayActivator.ShowMessageAsync(conflict.MessageParameters);
         if (result != ContentDialogResult.Primary)
         {
-            GetType()?.GetProperty(e.PropertyName)?.SetValue(this, conflict.SettingsResetValue);
+            GetType().GetProperty(propertyName)?.SetValue(this, conflict.SettingsResetValue);
         }
     }
 

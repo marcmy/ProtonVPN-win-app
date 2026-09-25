@@ -24,17 +24,17 @@ namespace ProtonVPN.Client.Logic.Connection.Contracts.GuestHole;
 public class GuestHoleEntryPerProtocolContract
 {
     [JsonProperty("OpenVPNUDP")]
-    public GuestHoleEntryPerProtocolEntryContract OpenVpnUdp { get; set; }
+    public GuestHoleEntryPerProtocolEntryContract? OpenVpnUdp { get; set; }
 
     [JsonProperty("OpenVPNTCP")]
-    public GuestHoleEntryPerProtocolEntryContract OpenVpnTcp { get; set; }
+    public GuestHoleEntryPerProtocolEntryContract? OpenVpnTcp { get; set; }
 
     [JsonProperty("WireGuardUDP")]
-    public GuestHoleEntryPerProtocolEntryContract WireGuardUdp { get; set; }
+    public GuestHoleEntryPerProtocolEntryContract? WireGuardUdp { get; set; }
 
     [JsonProperty("WireGuardTCP")]
-    public GuestHoleEntryPerProtocolEntryContract WireGuardTcp { get; set; }
+    public GuestHoleEntryPerProtocolEntryContract? WireGuardTcp { get; set; }
 
     [JsonProperty("WireGuardTLS")]
-    public GuestHoleEntryPerProtocolEntryContract WireGuardTls { get; set; }
+    public GuestHoleEntryPerProtocolEntryContract? WireGuardTls { get; set; }
 }

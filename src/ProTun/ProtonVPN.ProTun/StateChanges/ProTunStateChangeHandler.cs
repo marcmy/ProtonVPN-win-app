@@ -58,7 +58,14 @@ public class ProTunStateChangeHandler : IProTunStateChangeHandler
             Connecting connectingState => HandleConnectingStateAsync(connectingState),
             ConnectingToLocalAgent connectingToLocalAgentState => HandleConnectingToLocalAgentAsync(connectingToLocalAgentState),
             Connected connectedState => HandleConnectedStateAsync(connectedState),
+            _ => HandleUnknownStateAsync(connectionState),
         });
+    }
+
+    private Task HandleUnknownStateAsync(ConnectionState? connectionState)
+    {
+        _logger.Error<ConnectionErrorLog>($"ProTUN reported an unsupported connection state: {connectionState?.GetType().FullName ?? "<null>"}.");
+        return Task.CompletedTask;
     }
 
     private async Task HandleConnectedStateAsync(Connected connectedState)
@@ -106,6 +113,7 @@ public class ProTunStateChangeHandler : IProTunStateChangeHandler
         return error switch
         {
             TunEstablishError e => $"Tun error: {e.Message}",
+            _ => $"Unknown disconnect reason: {error.GetType().FullName}",
         };
     }
 

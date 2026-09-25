@@ -24,8 +24,8 @@ namespace ProtonVPN.Client.Logic.Connection.Contracts.GuestHole;
 public class GuestHoleEntryPerProtocolEntryContract
 {
     [JsonProperty("IPv4")]
-    public string Ipv4 { get; set; }
+    public string? Ipv4 { get; set; }
 
     [JsonProperty("Ports")]
-    public List<int> Ports { get; set; }
+    public List<int>? Ports { get; set; }
 }

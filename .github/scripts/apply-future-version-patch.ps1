@@ -239,6 +239,29 @@ function Get-TargetReleaseVersion {
     return $null
 }
 
+function Test-OfficialV518SourceBase {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $SourceBase
+    )
+
+    $officialTag = 'refs/tags/v5.1.8'
+    & git rev-parse --verify --quiet "$officialTag^{commit}" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    & git merge-base --is-ancestor $officialTag $SourceBase
+    if ($LASTEXITCODE -eq 0) {
+        return $true
+    }
+    if ($LASTEXITCODE -eq 1) {
+        return $false
+    }
+
+    throw 'Unable to verify whether the fork source base contains official v5.1.8.'
+}
+
 function Get-UpstreamBackportCommits {
     param(
         [Parameter(Mandatory = $true)]
@@ -256,6 +279,11 @@ function Get-UpstreamBackportCommits {
     # replaying them is both unnecessary and unsafe because the upstream
     # implementation may have evolved structurally.
     if ($null -eq $TargetVersion -or $TargetVersion -lt [Version]'5.1.8') {
+        return @()
+    }
+
+    if (Test-OfficialV518SourceBase -SourceBase $SourceBase) {
+        Write-Host 'The fork source base already contains official v5.1.8; historical backports are outside the active fork delta.'
         return @()
     }
 
@@ -323,6 +351,10 @@ function Get-TargetEquivalentForkCommits {
     # to the release whose implementation was compared; do not infer that a
     # later release contains the same behavior.
     if ($null -eq $TargetVersion -or $TargetVersion -ne [Version]'5.1.8') {
+        return @()
+    }
+
+    if (Test-OfficialV518SourceBase -SourceBase $SourceBase) {
         return @()
     }
 
@@ -700,7 +732,7 @@ function Merge-ForkTree {
         Write-Host 'Overlapping changes prefer the target release; non-conflicting fork changes are retained.'
     }
     else {
-        Write-Host 'Already-present changes were removed; merging remaining fork changes normally and resolving only actual conflicts to the target release.'
+        Write-Host 'Merging fork changes normally; semantic conflicts require review.'
     }
 
     $beforeMerge = Get-GitOutput rev-parse HEAD
@@ -736,10 +768,10 @@ function Merge-ForkTree {
         }
 
         if (-not $PreferTargetContent) {
-            Write-Host 'The cleaned fork still has semantic conflicts with the target release:'
+            Write-Host 'Fork changes still have semantic conflicts with the target release:'
             $conflictedPaths | ForEach-Object { Write-Host "  $_" }
             & git merge --abort 2>$null
-            throw "Cleaned fork changes still conflict with the target release:`n$($conflictedPaths -join "`n")"
+            throw "Fork changes still conflict with the target release:`n$($conflictedPaths -join "`n")"
         }
 
         try {
@@ -873,6 +905,7 @@ else {
 }
 
 $sourceBase = Get-GitOutput merge-base $baseCommit "origin/$sourcePatchBranch"
+$sourceBaseIncludesOfficialV518 = Test-OfficialV518SourceBase -SourceBase $sourceBase
 $originalSourceRef = "origin/$sourcePatchBranch"
 $targetVersion = Get-TargetReleaseVersion -BaseBranch $baseBranch -BaseRef $baseRef
 if ($null -ne $targetVersion) {
@@ -883,7 +916,7 @@ $sourceSelection = New-CleanForkSource -SourceBase $sourceBase -SourceRef $origi
 $sourceRef = $sourceSelection.Ref
 
 try {
-    $preferTargetContent = [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)
+    $preferTargetContent = -not $sourceBaseIncludesOfficialV518 -and [string]::IsNullOrWhiteSpace($sourceSelection.TemporaryBranch)
     $forkPatchCommit = Merge-ForkTree -SourceBase $sourceBase -SourceRef $sourceRef -Message "Port complete fork from $sourcePatchBranch onto $baseBranch" -PreferTargetContent $preferTargetContent
     if ($sourceSelection.DeferredCommits.Count -gt 0) {
         Apply-DeferredForkCommits -Commits $sourceSelection.DeferredCommits

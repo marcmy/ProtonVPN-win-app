@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using ProtonVPN.Logging.Contracts;

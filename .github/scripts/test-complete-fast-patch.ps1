@@ -175,7 +175,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
 
     & $completePackager `
         -BuildMode client `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -SourceCommit '0123456789abcdef' `
         -SourceRef 'test/complete-runtime' `
         -WorkflowRunId '4321' `
@@ -220,7 +220,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
         -ExecutionPolicy Bypass `
         -File $baseInstallerScript `
         -PatchPath $patchDir `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -ValidateOnly 2>&1)
     $oldInstallerExitCode = $LASTEXITCODE
     Assert-Condition ($oldInstallerExitCode -ne 0) 'Schema-v1 installer accepted a schema-v2 complete FastPatch payload.'
@@ -231,7 +231,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
         -ExecutionPolicy Bypass `
         -File $completeInstallerScript `
         -PatchPath $patchDir `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -ValidateOnly
     Assert-Condition ($LASTEXITCODE -eq 0) 'Complete installer rejected an untampered schema-v2 payload.'
 
@@ -243,7 +243,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
     try {
         & $completePackager `
             -BuildMode client `
-            -TargetVersion '5.1.5' `
+            -TargetVersion '5.1.8' `
             -SourceCommit '0123456789abcdef' `
             -SourceRef 'test/complete-runtime' `
             -WorkflowRunId '4322' `

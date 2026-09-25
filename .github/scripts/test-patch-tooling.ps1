@@ -92,15 +92,15 @@ function Test-VersionStamping {
     New-Item -ItemType Directory -Force -Path (Split-Path -Path $assemblyInfoPath -Parent) | Out-Null
     Copy-Item -LiteralPath (Join-Path $repositoryRoot 'src/GlobalAssemblyInfo.cs') -Destination $assemblyInfoPath -Force
 
-    & $setVersionScript -TargetVersion '5.1.6' -AssemblyInfoPath $assemblyInfoPath
+    & $setVersionScript -TargetVersion '5.1.9' -AssemblyInfoPath $assemblyInfoPath
     $content = Get-Content -LiteralPath $assemblyInfoPath -Raw
 
-    Assert-Condition ($content.Contains('[assembly: AssemblyVersion("5.1.6.0")]')) `
-        'Version stamping did not set AssemblyVersion to 5.1.6.0.'
-    Assert-Condition ($content.Contains('[assembly: AssemblyFileVersion("5.1.6.0")]')) `
-        'Version stamping did not set AssemblyFileVersion to 5.1.6.0.'
-    Assert-Condition ($content.Contains('[assembly: AssemblyInformationalVersion("5.1.6.1-marcmy-split-tunnel")]')) `
-        'Version stamping discarded the fork informational-version suffix.'
+    Assert-Condition ($content.Contains('[assembly: AssemblyVersion("5.1.9.0")]')) `
+        'Version stamping did not set AssemblyVersion to 5.1.9.0.'
+    Assert-Condition ($content.Contains('[assembly: AssemblyFileVersion("5.1.9.0")]')) `
+        'Version stamping did not set AssemblyFileVersion to 5.1.9.0.'
+    Assert-Condition ($content.Contains('[assembly: AssemblyInformationalVersion("5.1.9-marc-custom")]')) `
+        'Version stamping did not set the fork display version.'
 }
 
 function New-PackageFixture {
@@ -206,7 +206,7 @@ function Invoke-PackageFixture {
 
     & $packageScript `
         -BuildMode both `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -SourceCommit '0123456789abcdef' `
         -SourceRef 'test/full-fork' `
         -WorkflowRunId '1234' `
@@ -274,7 +274,7 @@ function Test-PackageComposition {
     try {
         & $packageScript `
             -BuildMode both `
-            -TargetVersion '5.1.5' `
+            -TargetVersion '5.1.8' `
             -SourceCommit '0123456789abcdef' `
             -SourceRef 'test/full-fork' `
             -WorkflowRunId '1234' `
@@ -323,12 +323,12 @@ function Test-PackageComposition {
         -ExecutionPolicy Bypass `
         -File $installerScript `
         -PatchPath $patchDir `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -ValidateOnly
     Assert-Condition ($LASTEXITCODE -eq 0) `
         'Installer rejected an untampered patch payload.'
 
-    $realInstallerPath = Join-Path $fixture.Root 'real-installer/ProtonVPN-Custom-Patch-5.1.5.exe'
+    $realInstallerPath = Join-Path $fixture.Root 'real-installer/ProtonVPN-Custom-Patch-5.1.8.exe'
     & $sfxBuilderScript `
         -PatchPath $patchDir `
         -OutputPath $realInstallerPath `
@@ -367,7 +367,7 @@ function Test-PackageComposition {
         -ExecutionPolicy Bypass `
         -File $installerScript `
         -PatchPath $runtimeDataPatchDir `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -ValidateOnly 2>&1)
     $runtimeDataValidationExitCode = $LASTEXITCODE
     Assert-Condition ($runtimeDataValidationExitCode -ne 0) `
@@ -384,7 +384,7 @@ function Test-PackageComposition {
         -ExecutionPolicy Bypass `
         -File $installerScript `
         -PatchPath $patchDir `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -ValidateOnly 2>$null
     Assert-Condition ($LASTEXITCODE -ne 0) `
         'Installer accepted a patch payload whose manifest hash no longer matched.'
@@ -408,8 +408,8 @@ function Test-PackageComposition {
 
 function Test-InstallerRuntimeDataPreservation {
     $fixtureRoot = Join-Path $testRoot 'installer-runtime-data'
-    $targetDirectory = Join-Path $fixtureRoot 'v5.1.5'
-    $backupDirectory = Join-Path $fixtureRoot 'v5.1.5-backup'
+    $targetDirectory = Join-Path $fixtureRoot 'v5.1.8'
+    $backupDirectory = Join-Path $fixtureRoot 'v5.1.8-backup'
     $serviceDataDirectory = Join-Path $targetDirectory 'ServiceData'
     $wireGuardDirectory = Join-Path $serviceDataDirectory 'WireGuard'
 
@@ -1026,7 +1026,7 @@ function Test-KnownBackportCleanupFailsClosed {
         $env:FUTURE_PORT_BACKPORT_CUTOFF = $previousCutoff
     }
 
-    Assert-Condition ($failureMessage.Contains('Cleaned fork changes still conflict with the target release')) `
+    Assert-Condition ($failureMessage.Contains('Fork changes still conflict with the target release')) `
         'Future-port automation did not fail closed on a cleaned semantic conflict.'
     Assert-Condition ($failureMessage.Contains('semantic-conflict.cs')) `
         'Future-port automation did not name the path containing the semantic conflict.'
@@ -1041,6 +1041,125 @@ function Test-KnownBackportCleanupFailsClosed {
 
     & git -C $workingRepo show-ref --verify --quiet 'refs/heads/__future_port_clean_source'
     Assert-Condition ($LASTEXITCODE -ne 0) 'Future-port automation left its temporary cleaned-source branch behind after failure.'
+}
+
+function Test-PromotedOfficialSourcePort {
+    $fixtureRoot = Join-Path $testRoot 'promoted-official-source'
+    $workingRepo = Join-Path $fixtureRoot 'working'
+    $remoteRepo = Join-Path $fixtureRoot 'origin.git'
+
+    New-Item -ItemType Directory -Force -Path $fixtureRoot | Out-Null
+    & git init --initial-branch=master $workingRepo | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to initialize promoted-source working repository.'
+    }
+    Invoke-Git $workingRepo config user.name 'Patch Tooling Tests'
+    Invoke-Git $workingRepo config user.email 'patch-tooling@example.invalid'
+
+    Write-TestText (Join-Path $workingRepo 'upstream-behavior.txt') "value=old`n"
+    Write-TestText (Join-Path $workingRepo 'fork-behavior.txt') "policy=old`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'old official source'
+    $oldOfficial = Get-GitOutput $workingRepo rev-parse HEAD
+
+    Invoke-Git $workingRepo switch -c legacy-fork
+    Write-TestText (Join-Path $workingRepo 'upstream-behavior.txt') "value=backported`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Port Proton synthetic 5.1.8 behavior'
+    $backportCommit = Get-GitOutput $workingRepo rev-parse HEAD
+    Write-TestText (Join-Path $workingRepo 'fork-behavior.txt') "policy=fork`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Add original fork behavior'
+
+    Invoke-Git $workingRepo switch master
+    Write-TestText (Join-Path $workingRepo 'upstream-behavior.txt') "value=official-5.1.8`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'official v5.1.8 source'
+    Invoke-Git $workingRepo tag v5.1.8
+
+    Invoke-Git $workingRepo switch -c 'marc/proton'
+    Write-TestText (Join-Path $workingRepo 'fork-behavior.txt') "policy=fork`n"
+    Write-TestText (Join-Path $workingRepo 'fork-only.txt') "custom=retained`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'Review fork behavior on official v5.1.8'
+    Invoke-Git $workingRepo merge -s ours --no-ff legacy-fork -m 'Record reviewed legacy fork history'
+
+    $officialBase = Get-GitOutput $workingRepo merge-base v5.1.8 'marc/proton'
+    Assert-Condition ($officialBase -eq (Get-GitOutput $workingRepo rev-parse v5.1.8)) `
+        'Promoted-source fixture does not have official v5.1.8 as its active source base.'
+    Assert-Condition ((Get-GitOutput $workingRepo merge-base $oldOfficial 'marc/proton') -eq $oldOfficial) `
+        'Promoted-source fixture did not retain legacy fork ancestry.'
+
+    & git init --bare $remoteRepo | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to initialize promoted-source origin repository.'
+    }
+    Invoke-Git $workingRepo remote add origin $remoteRepo
+    Invoke-Git $workingRepo push origin 'marc/proton'
+
+    Invoke-Git $workingRepo switch master
+    Write-TestText (Join-Path $workingRepo 'release.txt') "version=5.1.9`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'official v5.1.9 source'
+    Invoke-Git $workingRepo branch 'release/v5.1.9'
+    Invoke-Git $workingRepo push origin 'release/v5.1.9'
+
+    $previousCutoff = $env:FUTURE_PORT_BACKPORT_CUTOFF
+    try {
+        $env:FUTURE_PORT_BACKPORT_CUTOFF = $backportCommit
+        Push-Location $workingRepo
+        try {
+            & $applyPatchScript -BaseBranch 'release/v5.1.9' -SourcePatchBranch 'marc/proton' -TargetBranch 'future/proton-v5.1.9'
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    finally {
+        $env:FUTURE_PORT_BACKPORT_CUTOFF = $previousCutoff
+    }
+
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'upstream-behavior.txt') -Raw).Trim() -eq 'value=official-5.1.8') `
+        'Post-promotion port replayed the historical backport instead of retaining official behavior.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-behavior.txt') -Raw).Trim() -eq 'policy=fork') `
+        'Post-promotion port discarded reviewed fork behavior.'
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $workingRepo 'fork-only.txt') -PathType Leaf) `
+        'Post-promotion port discarded a fork-only file.'
+    Assert-Condition (Test-Path -LiteralPath (Join-Path $workingRepo 'release.txt') -PathType Leaf) `
+        'Post-promotion port discarded the new upstream release.'
+    & git -C $workingRepo show-ref --verify --quiet 'refs/heads/__future_port_clean_source'
+    Assert-Condition ($LASTEXITCODE -ne 0) 'Post-promotion port unnecessarily created a historical cleanup snapshot.'
+
+    Invoke-Git $workingRepo switch master
+    Write-TestText (Join-Path $workingRepo 'fork-behavior.txt') "policy=upstream-reworked`n"
+    Invoke-Git $workingRepo add .
+    Invoke-Git $workingRepo commit -m 'official v5.1.10 source conflicts with fork policy'
+    Invoke-Git $workingRepo branch 'release/v5.1.10'
+    Invoke-Git $workingRepo push origin 'release/v5.1.10'
+
+    $failureMessage = ''
+    Push-Location $workingRepo
+    try {
+        try {
+            & $applyPatchScript -BaseBranch 'release/v5.1.10' -SourcePatchBranch 'marc/proton' -TargetBranch 'future/proton-v5.1.10'
+            throw 'Post-promotion port unexpectedly accepted a genuine semantic conflict.'
+        }
+        catch {
+            $failureMessage = "$($_.Exception.Message)"
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
+    Assert-Condition ($failureMessage.Contains('Fork changes still conflict with the target release')) `
+        'Post-promotion port did not fail closed on a semantic conflict.'
+    Assert-Condition ($failureMessage.Contains('fork-behavior.txt')) `
+        'Post-promotion port did not identify the conflicting path.'
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $workingRepo 'fork-behavior.txt') -Raw).Trim() -eq 'policy=upstream-reworked') `
+        'Fail-closed post-promotion port changed the target-release implementation.'
+    Assert-Condition ([string]::IsNullOrWhiteSpace((Get-GitOutput $workingRepo status --porcelain))) `
+        'Fail-closed post-promotion port left merge changes in the working tree.'
 }
 
 function Test-ForkRegressionOutputIsolation {
@@ -1062,6 +1181,7 @@ try {
     Test-CompleteForkPort
     Test-RedundantForkChangeCleanup
     Test-KnownBackportCleanupFailsClosed
+    Test-PromotedOfficialSourcePort
     Test-ForkRegressionOutputIsolation
     Write-Host 'Patch tooling regression tests passed.'
 }

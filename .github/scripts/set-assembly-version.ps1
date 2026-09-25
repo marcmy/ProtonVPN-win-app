@@ -13,7 +13,7 @@ Set-StrictMode -Version Latest
 
 $version = $TargetVersion.Trim()
 if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
-    throw "TargetVersion must be a numeric 3- or 4-part version such as 5.1.5 or 5.1.5.0. Received '$TargetVersion'."
+    throw "TargetVersion must be a numeric 3- or 4-part version such as 1.2.3 or 1.2.3.0. Received '$TargetVersion'."
 }
 
 $parsedVersion = [Version]::Parse($version)
@@ -23,8 +23,7 @@ $fileVersion = "$releaseVersion.$fileRevision"
 $assemblyVersion = "$releaseVersion.0"
 
 if ([string]::IsNullOrWhiteSpace($InformationalVersion)) {
-    $informationalRevision = [Math]::Max(1, $fileRevision)
-    $InformationalVersion = "$releaseVersion.$informationalRevision-marcmy-split-tunnel"
+    $InformationalVersion = "$releaseVersion-marc-custom"
 } else {
     $InformationalVersion = $InformationalVersion.Trim()
 }
