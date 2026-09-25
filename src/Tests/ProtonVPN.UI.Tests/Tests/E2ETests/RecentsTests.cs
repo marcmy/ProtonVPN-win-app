@@ -18,9 +18,12 @@
  */
 
 using NUnit.Framework;
+using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.Enums.Locations;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -28,90 +31,83 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("3")]
 [Category("ARM")]
 [Category("SMOKE_3")]
-public class RecentsTests : BaseTest
+public class RecentsTests : FreshSessionSetUp
 {
-    private const string CONNECTION_NAME = "Fastest country";
-    private const string COUNTRY_NAME = "Austria";
-    private const string PROFILE_NAME = "Gaming";
+    private const Country COUNTRY_NAME = Country.Austria;
+    private static readonly string _fastestCountry = LanguageHelper.GetTranslatedString("Country_Fastest");
+    private static readonly string _profileName = DefaultProfile.Gaming.GetEnumValue();
 
-    [OneTimeSetUp]
+    [SetUp]
     public void SetUp()
     {
-        LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
     }
 
     [Test, Order(0)]
     [Property("TestCaseId", "602418")]
+    [Retry(3)]
     public void RecentIsAddedToList()
     {
         SidebarRobot
             .NavigateToRecents()
             .Verify.IsNoRecentsLabelDisplayed();
 
-        HomeRobot
-            .ConnectViaConnectionCard()
-            .Verify.IsConnected()
-            .Disconnect()
-            .Verify.IsDisconnected();
+        RecentsFlow.PopulateRecentsListWithFastestConnection();
 
         SidebarRobot
             .Verify.HasNoRecentsLabel()
-                   .IsConnectionOptionDisplayed(CONNECTION_NAME)
-                   .IsRecentsCountDisplayed(1)
-           .NavigateToAllCountriesTab()
-           .ConnectToCountry(COUNTRY_NAME);
+                   .IsConnectionOptionDisplayed(_fastestCountry)
+                   .IsRecentsCountDisplayed(1);
 
-        HomeRobot
-            .Verify.IsConnected()
-            .Disconnect()
-            .Verify.IsDisconnected();
+        RecentsFlow.PopulateRecentsListWithCountry(COUNTRY_NAME);
 
         SidebarRobot
             .NavigateToRecents()
-            .Verify.IsConnectionOptionDisplayed(COUNTRY_NAME)
+            .Verify.IsConnectionOptionDisplayed(COUNTRY_NAME.GetName())
                    .IsRecentsCountDisplayed(2);
     }
 
     [Test, Order(1)]
     [Property("TestCaseId", "602425")]
+    [Retry(3)]
     public void ProfilesAreAddedToRecentList()
     {
-        SidebarRobot
-            .NavigateToProfiles()
-            .ConnectToProfile(PROFILE_NAME);
-
-        HomeRobot
-            .Verify.IsConnected()
-            .Disconnect()
-            .Verify.IsDisconnected();
+        RecentsFlow.PopulateRecentsListWithProfile(_profileName);
 
         SidebarRobot
             .NavigateToRecents()
-            .Verify.IsConnectionOptionDisplayed(PROFILE_NAME)
-            .IsRecentsCountDisplayed(3);
+            .Verify.IsConnectionOptionDisplayed(_profileName)
+            .IsRecentsCountDisplayed(1);
     }
 
     [Test, Order(2)]
     [Property("TestCaseId", "602419")]
     public void RemoveRecentFromList()
     {
+        RecentsFlow.PopulateRecentsListWithFastestConnection();
+        RecentsFlow.PopulateRecentsListWithCountry(COUNTRY_NAME);
+
         SidebarRobot
-            .ExpandSecondaryActionsForRecents(CONNECTION_NAME)
+            .NavigateToRecents()
+            .ExpandSecondaryActionsForRecents(_fastestCountry)
             .RemoveRecent()
-            .Verify.IsConnectionOptionMissing(CONNECTION_NAME)
-                   .IsRecentsCountDisplayed(2);
+            .Verify.IsConnectionOptionMissing(_fastestCountry)
+                   .IsRecentsCountDisplayed(1);
     }
 
     [Test, Order(3)]
     [Property("TestCaseId", "602420")]
     public void PinRecentFromList()
     {
+        RecentsFlow.PopulateRecentsListWithCountry(COUNTRY_NAME);
+        RecentsFlow.PopulateRecentsListWithProfile(_profileName);
+
         SidebarRobot
-            .Verify.IsConnectionOptionDisplayed(PROFILE_NAME)
+            .NavigateToRecents()
+            .Verify.IsConnectionOptionDisplayed(_profileName)
                    .IsRecentsCountDisplayed(2)
                    .IsPinnedCountMissing()
-            .ExpandSecondaryActionsForRecents(PROFILE_NAME)
+            .ExpandSecondaryActionsForRecents(_profileName)
             .PinRecent()
             .Verify.IsPinnedCountDisplayed(1)
                    .IsRecentsCountDisplayed(1);
@@ -121,19 +117,19 @@ public class RecentsTests : BaseTest
     [Property("TestCaseId", "800922")]
     public void UnpinRecentFromList()
     {
+        RecentsFlow.PopulateRecentsListWithCountry(COUNTRY_NAME);
+        RecentsFlow.PopulateRecentsListWithProfile(_profileName);
+
         SidebarRobot
-            .Verify.IsConnectionOptionDisplayed(PROFILE_NAME)
-                   .IsRecentsCountDisplayed(1)
+            .NavigateToRecents()
+            .Verify.IsConnectionOptionDisplayed(_profileName)
+            .ExpandSecondaryActionsForRecents(_profileName)
+            .PinRecent()
+            .Verify.IsRecentsCountDisplayed(1)
                    .IsPinnedCountDisplayed(1)
-            .ExpandSecondaryActionsForRecents(PROFILE_NAME)
+            .ExpandSecondaryActionsForRecents(_profileName)
             .UnpinRecent()
             .Verify.IsPinnedCountMissing()
                    .IsRecentsCountDisplayed(2);
-    }
-
-    [OneTimeTearDown]
-    public void TearDown()
-    {
-        Cleanup();
     }
 }

@@ -18,6 +18,7 @@
  */
 
 using System;
+using System.Linq;
 using System.Threading;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.AutomationElements;
@@ -30,41 +31,40 @@ public class SupportRobot
 {
     private readonly Func<Window?> _windowFunc;
 
-    protected Element ContactUsButton => Element.ByName("Contact us");
+    private static readonly string _connectionHelpHeaderTranslated = LanguageHelper.GetTranslatedString("Dialogs_Troubleshooting_Title");
+    private static readonly string _reportSentLabelTranslated = LanguageHelper.GetTranslatedString("Dialogs_ReportIssue_Result_Success");
+
+    protected Element ConnectionHelpHeader => Element.ByName(_connectionHelpHeaderTranslated);
+    protected Element ReportSentLabel => Element.ByName(_reportSentLabelTranslated);
+    protected Element ContactUsButton => Element.ByAutomationId("ContactUsButton");
     protected Element SendReportButton => Element.ByAutomationId("SendReportButton");
-    protected Element ReportSentLabel => Element.ByName("Report sent");
     protected Element NoLogsAttachedWarning => Element.ByAutomationId("Message");
     protected Element IncludeLogsCheckbox => Element.ByAutomationId("IncludeLogsCheckbox");
-    protected Element EmailInputField => Element.ByAutomationId("EmailInputField");
-    protected Element DoneButton => Element.ByName("Done");
+    public Element EmailInputField => Element.ByAutomationId("EmailInputField");
+    protected Element DoneButton => Element.ByAutomationId("ReportIssueCloseButton");
     protected Element CloseButton => Element.ByAutomationId("Close");
-    protected Element ConnectionHelpHeader => Element.ByName("Connection help");
 
     public SupportRobot(Func<Window?> windowFunc)
     {
         _windowFunc = windowFunc;
     }
 
-    public SupportRobot FillBugReportForm()
+    public SupportRobot FillEmailInBugReportForm(string emailField = "testing@email.com")
     {
-        Thread.Sleep(TestConstants.NavigationDelay);
         EmailInputField.WaitUntilDisplayed();
-        AutomationElement[]? bugReportInputFields = _windowFunc()?.FindAllDescendants(cf => cf.ByControlType(ControlType.Edit));
+        EmailInputField.SetText(emailField);
+        return this;
+    }
 
-        if (bugReportInputFields is null || bugReportInputFields.Length == 0)
+    public SupportRobot FillOtherFieldsInBugReportForm(string otherFields = "Ignore report. Testing")
+    {
+        foreach (AutomationElement field in GetOtherFieldsElements())
         {
-            throw new Exception("Could not find input fields for bug report.");
-        }
-
-        TextBox emailTextBox = bugReportInputFields[0]?.AsTextBox() ?? throw new Exception("Could not find email input field for bug report.");
-        emailTextBox.Text = "testing@email.com";
-
-        for (int i = 1; i < bugReportInputFields.Length; i++)
-        {
-            TextBox? textBox = bugReportInputFields[i]?.AsTextBox();
+            field.Patterns.ScrollItem.Pattern.ScrollIntoView();
+            TextBox textBox = field.AsTextBox();
             if (textBox is not null)
             {
-                textBox.Text = "Ignore report. Testing";
+                textBox.Text = otherFields;
             }
         }
         return this;
@@ -103,6 +103,20 @@ public class SupportRobot
         return this;
     }
 
+    public SupportRobot ScrollUpAndDown()
+    {
+        EmailInputField.ScrollIntoView();
+        Thread.Sleep(TestConstants.OneSecondTimeout);
+        IncludeLogsCheckbox.ScrollIntoView();
+        Thread.Sleep(TestConstants.OneSecondTimeout);
+        EmailInputField.ScrollIntoView();
+        Thread.Sleep(TestConstants.OneSecondTimeout);
+        IncludeLogsCheckbox.ScrollIntoView();
+        Thread.Sleep(TestConstants.OneSecondTimeout);
+        EmailInputField.ScrollIntoView();
+        return this;
+    }
+
     public class Verifications : SupportRobot
     {
         public Verifications(Func<Window?> windowFunc) : base(windowFunc)
@@ -117,9 +131,10 @@ public class SupportRobot
             return this;
         }
 
-        public Verifications IsConnectionHelpDisplayed()
+        public Verifications IsConnectionHelpDisplayed(TimeSpan? timeout = null)
         {
-            ConnectionHelpHeader.WaitUntilExists(TestConstants.TwoMinutesTimeout);
+            timeout ??= TestConstants.TwoMinutesTimeout;
+            ConnectionHelpHeader.WaitUntilExists(timeout);
             return this;
         }
 
@@ -128,6 +143,18 @@ public class SupportRobot
             NoLogsAttachedWarning.WaitUntilDisplayed();
             return this;
         }
+    }
+
+    public AutomationElement[] GetOtherFieldsElements()
+    {
+        AutomationElement[]? allEditFields = _windowFunc()?.FindAllDescendants(cf => cf.ByControlType(ControlType.Edit));
+
+        if (allEditFields is null || allEditFields.Length == 0)
+        {
+            throw new Exception("Could not find input fields for bug report.");
+        }
+
+        return allEditFields.Where(e => e.Properties.AutomationId.ValueOrDefault != "EmailInputField").ToArray();
     }
 
     public Verifications Verify => new(_windowFunc);

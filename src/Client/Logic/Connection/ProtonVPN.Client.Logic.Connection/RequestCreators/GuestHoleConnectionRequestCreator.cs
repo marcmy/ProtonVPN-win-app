@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2025 Proton AG
+﻿/*
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -84,12 +84,12 @@ public class GuestHoleConnectionRequestCreator : ConnectionRequestCreatorBase, I
             NetShieldMode = settings.NetShieldMode,
             PortForwarding = settings.PortForwarding,
             SplitTcp = settings.SplitTcp,
-            PreferredProtocols =
+            PreferredProtocols = 
             [
                 VpnProtocolIpcEntity.WireGuardTls,
                 VpnProtocolIpcEntity.OpenVpnTcp,
             ],
-            Ports =
+            Ports = 
             {
                 { VpnProtocolIpcEntity.WireGuardTls, Settings.WireGuardTlsPorts },
                 { VpnProtocolIpcEntity.OpenVpnTcp, Settings.OpenVpnTcpPorts },
@@ -122,7 +122,7 @@ public class GuestHoleConnectionRequestCreator : ConnectionRequestCreatorBase, I
     private VpnServerIpcEntity[] GetVpnServers(IEnumerable<GuestHoleServerContract> servers)
     {
         return servers
-            .Select(s => EntityMapper.Map<GuestHoleServerContract, VpnServerIpcEntity>(s))
+            .Select(EntityMapper.Map<GuestHoleServerContract, VpnServerIpcEntity>)
             .Where(s => s is not null)
             .ToArray();
     }

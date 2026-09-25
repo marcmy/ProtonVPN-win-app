@@ -51,8 +51,8 @@ public class NavigationRobot
     protected Element ConnectionDetailsPage => Element.ByAutomationId("ConnectionDetailsPage");
     protected Element ConnectionPreferencesPage => Element.ByAutomationId("ConnectionPreferencesPage");
 
-    protected Element NoServerRefreshButton => Element.ByName("Refresh");
-    protected Element NoServerSignOutButton => Element.ByName("Sign out");
+    protected Element NoServerRefreshButton => Element.ByAutomationId("RefreshButton");
+    protected Element NoServerSignOutButton => Element.ByAutomationId("SignOutButton");
 
     public NavigationRobot ClickRefreshButtonOnNoServersPage()
     {
@@ -80,7 +80,7 @@ public class NavigationRobot
             return this;
         }
 
-        public Verifications IsOnLoginPage() => IsOnPage(LoginPage);
+        public Verifications IsOnLoginPage() => IsOnPage(LoginPage, TestConstants.TwoMinutesTimeout);
 
         public Verifications IsOnNoServersPage() => IsOnPage(NoServersPage, TestConstants.TwoMinutesTimeout);
 
@@ -90,7 +90,7 @@ public class NavigationRobot
 
         public Verifications IsOnLoadingPage() => IsOnPage(LoadingPage);
 
-        public Verifications IsOnMainPage() => IsOnPage(MainPage, TestConstants.TwoMinutesTimeout);
+        public Verifications IsOnMainPage() => IsOnPage(MainPage, TestConstants.FourMinutesTimeout);
 
         public Verifications IsOnHomePage()
         {

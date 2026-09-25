@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -39,7 +39,7 @@ public class ConnectionCertificateMapper : IMapper<ConnectionCertificate, Connec
     {
         return leftEntity is null
             ? null
-            : new ConnectionCertificateIpcEntity
+            : new ConnectionCertificateIpcEntity()
             {
                 Pem = leftEntity.Pem,
                 ExpirationDateUtc = leftEntity.ExpirationDateUtc,
@@ -58,13 +58,13 @@ public class ConnectionCertificateMapper : IMapper<ConnectionCertificate, Connec
         {
             try
             {
-                using X509Certificate2 certificate = X509Certificate2.CreateFromPem(pem);
-                pem = certificate.ExportCertificatePem();
+                using X509Certificate2 cert = X509Certificate2.CreateFromPem(pem);
+                pem = cert.ExportCertificatePem();
             }
             catch (Exception e)
             {
                 pem = string.Empty;
-                _logger.Error<ConnectionLog>("Failed to parse connection certificate.", e);
+                _logger.Error<ConnectionLog>($"Failed to parse connection certificate.", e);
             }
         }
 

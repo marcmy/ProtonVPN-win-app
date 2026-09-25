@@ -25,7 +25,6 @@ public readonly struct VpnPlan
 
     public string Title { get; }
     public string Name { get; }
-    public bool IsPaid { get; }
     public sbyte MaxTier { get; }
     public bool IsB2B { get; }
 
@@ -33,10 +32,11 @@ public readonly struct VpnPlan
     {
         Title = title ?? string.Empty;
         Name = name ?? string.Empty;
-        IsPaid = maxTier > 0;
         MaxTier = maxTier;
         IsB2B = isB2B;
     }
+
+    public bool IsPaid => MaxTier > 0;
 
     public bool IsDefaultPlan => string.IsNullOrEmpty(Title) && string.IsNullOrEmpty(Name) && MaxTier == 0;
 

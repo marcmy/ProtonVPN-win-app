@@ -48,7 +48,7 @@ public class ReleaseViewModelFactory
 
         releaseViewModels.Insert(0, new Release
         {
-            Version = AssemblyVersion.Get(),
+            Version = AssemblyVersion.GetDisplayVersion(),
             NewVersionLabel = string.Empty,
             BetaVersionLabel = string.Empty,
             ReleaseDate = null,

@@ -24,7 +24,9 @@ using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.Enums.Locations;
 using static ProtonVPN.UI.Tests.Robots.TrayRobot;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -32,21 +34,23 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("4")]
 public class TrayTests : BaseTest
 {
-    private const string PROFILE_NAME = "Streaming US";
+    private const Country COUNTRY_NAME = Country.Belgium;
+    private const Country SECURE_CORE_COUNTRY_NAME = Country.Australia;
+    private const Country VIA_COUNTRY_ICELAND = Country.Iceland;
 
-    private const string RANDOM_COUNTRY = "Random country";
+    private const DefaultProfile PROFILE_NAME = DefaultProfile.StreamingUS;
 
-    private const string COUNTRY_NAME = "Belgium";
-    private const string SECURE_CORE_COUNTRY_NAME = "Australia";
-    private const string VIA_COUNTRY_ICELAND = "via Iceland";
+    private static readonly string _randomCountry = LanguageHelper.GetTranslatedString("Country_Random");
+    private static readonly string _fastestCountry = LanguageHelper.GetTranslatedString("Country_Fastest");
 
-    [OneTimeSetUp]
+
+    [SetUp]
     public void SetUp()
     {
         LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
         HomeRobot.MinimizeClientViaMinimizeButton();
-        TrayRobot.Verify.IsTrayIconDisplayed();
+        DesktopRobot.Verify.IsTrayIconDisplayed();
     }
 
     [Test, Order(0)]
@@ -70,8 +74,6 @@ public class TrayTests : BaseTest
 
         SidebarRobot
             .Verify.IsSidebarAvailable();
-
-        HomeRobot.MinimizeClientViaMinimizeButton();
     }
 
     [Test, Order(1)]
@@ -84,7 +86,7 @@ public class TrayTests : BaseTest
             HomeRobot
                 .Verify.AssertAllVpnConnectionOptions()
                 .SelectDefaultConnectionOption(VpnConnectionOption.Random)
-                .Verify.ConnectionCardTitleEquals(RANDOM_COUNTRY);
+                .Verify.ConnectionCardTitleEquals(_randomCountry);
         }
     }
 
@@ -95,15 +97,13 @@ public class TrayTests : BaseTest
     {
         using (TrayApp)
         {
-            SidebarRobot
-                .Verify.IsNoRecentsLabelDisplayed();
             HomeRobot
-                .Verify.ConnectionCardTitleEquals(RANDOM_COUNTRY)
+                .Verify.ConnectionCardTitleEquals(_fastestCountry)
                        .IsDisconnected()
                 .ConnectViaConnectionCard()
                 .Verify.IsConnecting()
                        .IsConnected()
-                       .ConnectionCardTitleEquals(RANDOM_COUNTRY);
+                       .ConnectionCardTitleEquals(_fastestCountry);
         }
 
         //TODO: assert padlock color - handle in the future
@@ -114,10 +114,10 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void DisconnectFromAServerFromTray()
     {
-
         using (TrayApp)
         {
             HomeRobot
+                .ConnectViaConnectionCard()
                 .Verify.IsConnected()
                 .Disconnect()
                 .Verify.IsDisconnected();
@@ -128,43 +128,35 @@ public class TrayTests : BaseTest
 
     [Test, Order(4)]
     [Property("TestCaseId", "602463")]
-    [Ignore("Native WireGuard causes infinite connecting on the ProTUN build")]
     public void ConnectingErrorsInTray()
     {
-        ScriptHelper.CreateWireGuardConfigFile();
-        ScriptHelper.ConnectToWireGuard();
-        Thread.Sleep(TestConstants.TwoSecondsTimeout);
-        ScriptHelper.VerifyWireGuardIsConnected();
-
         try
         {
+            ScriptHelper.ConnectToWireGuard();
+
             using (TrayApp)
             {
                 HomeRobot
                     .ConnectViaConnectionCard()
                     .Verify.IsWireGuardErrorDisplayed()
-                           .CloseConnectionError()
-                    .Verify.IsDisconnected();
+                           .CloseConnectionError();
+                CommonUiFlows.EnsureUserIsDisconnected(shouldCancelConnection: true);
                 //TODO: assert icon color - handle in the future
             }
         }
         finally
         {
             ScriptHelper.DisconnectFromWireGuard();
-            ScriptHelper.RemoveWireGuardConfigFile();
         }
     }
 
     [Test, Order(5)]
     [Property("TestCaseId", "607014")]
+    [Category("5")]
     [Retry(3)]
     public void WarningsInTray()
     {
-        using (TrayApp)
-        {
-            TrayRobot
-                .DoubleClickTrayApp();
-        }
+        OpenMainWindow();
 
         ToggleKillSwitch(shouldBeEnabled: true);
         HomeRobot.MinimizeClientViaMinimizeButton();
@@ -220,18 +212,27 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void RecentIsAddedToListInTray()
     {
-        PopulateRecentsList();
+        using (TrayApp)
+        {
+            SidebarRobot
+                .Verify.IsNoRecentsLabelDisplayed();
+            TrayRobot.ClickTaskbar();
+        }
 
+        OpenMainWindow();
+        RecentsFlow.PopulateRecentsListWithProfile(PROFILE_NAME.GetEnumValue());
+        RecentsFlow.PopulateRecentsListWithCountry(COUNTRY_NAME);
+        RecentsFlow.PopulateRecentsListWithSecureCore(SECURE_CORE_COUNTRY_NAME, VIA_COUNTRY_ICELAND);
         HomeRobot.MinimizeClientViaMinimizeButton();
 
         using (TrayApp)
         {
             SidebarRobot
                 .Verify.HasNoRecentsLabel()
-                       .IsConnectionOptionDisplayed(COUNTRY_NAME)
-                       .IsConnectionOptionDisplayed(SECURE_CORE_COUNTRY_NAME)
-                       .IsConnectionOptionDisplayed(PROFILE_NAME)
-                       .IsRecentsCountDisplayed(4);
+                       .IsConnectionOptionDisplayed(COUNTRY_NAME.GetName())
+                       .IsConnectionOptionDisplayed(SECURE_CORE_COUNTRY_NAME.GetName())
+                       .IsConnectionOptionDisplayed(PROFILE_NAME.GetEnumValue())
+                       .IsRecentsCountDisplayed(3);
         }
     }
 
@@ -240,22 +241,24 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void RemoveRecentFromListInTray()
     {
+        OpenMainWindow();
+        RecentsFlow.PopulateRecentsListWithCountry(COUNTRY_NAME);
+        HomeRobot.MinimizeClientViaMinimizeButton();
+
         using (TrayApp)
         {
             SidebarRobot
-                .Verify.IsConnectionOptionDisplayed(COUNTRY_NAME)
-                .ExpandSecondaryActionsForRecents(COUNTRY_NAME)
+                .Verify.IsConnectionOptionDisplayed(COUNTRY_NAME.GetName())
+                .ExpandSecondaryActionsForRecents(COUNTRY_NAME.GetName())
                 .RemoveRecent()
-                .Verify.IsConnectionOptionMissing(COUNTRY_NAME);
+                .Verify.IsConnectionOptionMissing(COUNTRY_NAME.GetName());
             TrayRobot
                 .DoubleClickTrayApp();
         }
 
         SidebarRobot
            .NavigateToRecents()
-           .Verify.IsConnectionOptionMissing(COUNTRY_NAME);
-
-        HomeRobot.MinimizeClientViaMinimizeButton();
+           .Verify.IsConnectionOptionMissing(COUNTRY_NAME.GetName());
     }
 
     [Test, Order(9)]
@@ -263,11 +266,15 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void PinRecentFromListInTray()
     {
+        OpenMainWindow();
+        RecentsFlow.PopulateRecentsListWithSecureCore(SECURE_CORE_COUNTRY_NAME, VIA_COUNTRY_ICELAND);
+        HomeRobot.MinimizeClientViaMinimizeButton();
+
         using (TrayApp)
         {
             SidebarRobot
-                .Verify.IsConnectionOptionDisplayed(SECURE_CORE_COUNTRY_NAME)
-                .ExpandSecondaryActionsForRecents(SECURE_CORE_COUNTRY_NAME)
+                .Verify.IsConnectionOptionDisplayed(SECURE_CORE_COUNTRY_NAME.GetName())
+                .ExpandSecondaryActionsForRecents(SECURE_CORE_COUNTRY_NAME.GetName())
                 .PinRecent()
                 .Verify.IsPinnedCountDisplayed(1);
             TrayRobot
@@ -277,8 +284,6 @@ public class TrayTests : BaseTest
         SidebarRobot
             .NavigateToRecents()
             .Verify.IsPinnedCountDisplayed(1);
-
-        HomeRobot.MinimizeClientViaMinimizeButton();
     }
 
     [Test, Order(10)]
@@ -286,11 +291,18 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void UnpinRecentFromListInTray()
     {
+        OpenMainWindow();
+        RecentsFlow.PopulateRecentsListWithSecureCore(SECURE_CORE_COUNTRY_NAME, VIA_COUNTRY_ICELAND);
+        HomeRobot.MinimizeClientViaMinimizeButton();
+
         using (TrayApp)
         {
             SidebarRobot
-                .Verify.IsConnectionOptionDisplayed(SECURE_CORE_COUNTRY_NAME)
-                .ExpandSecondaryActionsForRecents(SECURE_CORE_COUNTRY_NAME)
+                .Verify.IsConnectionOptionDisplayed(SECURE_CORE_COUNTRY_NAME.GetName())
+                .ExpandSecondaryActionsForRecents(SECURE_CORE_COUNTRY_NAME.GetName())
+                .PinRecent()
+                .Verify.IsPinnedCountDisplayed(1)
+                .ExpandSecondaryActionsForRecents(SECURE_CORE_COUNTRY_NAME.GetName())
                 .UnpinRecent()
                 .Verify.IsPinnedCountMissing();
             TrayRobot
@@ -307,7 +319,7 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void ChangeServerFromTray()
     {
-        QuickLogout();
+        ReLaunchApp();
         CommonUiFlows.FullLogin(TestUserData.FreeUser);
         HomeRobot.MinimizeClientViaMinimizeButton();
 
@@ -331,12 +343,13 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void CheckTrayOnLogin()
     {
-        QuickLogout();
+        ReLaunchApp();
+        LoginRobot.Verify.IsLoginWindowDisplayed();
+        DesktopRobot.Verify.IsTrayIconDisplayed();
 
         using (TrayApp)
         {
             TrayRobot
-                .Verify.IsTrayIconDisplayed()
                 .ClickTaskbar()
                 .Verify.IsLoginWindowFocused(false);
 
@@ -352,20 +365,18 @@ public class TrayTests : BaseTest
     [Retry(3)]
     public void ExitAppFromTray()
     {
-        try
-        {
-            QuickLogout();
-        }
-        catch { }
-
-        CommonUiFlows.FullLogin(TestUserData.PlusUser);
-        HomeRobot.MinimizeClientViaMinimizeButton();
-
         using (TrayApp)
         {
             TrayRobot
                 .ClickExitAppButton();
         }
+
+        try
+        {
+            HomeRobot
+                .ExitViaKebabMenuWithConfirmation();
+        }
+        catch { }
 
         // give it time to exit
         Thread.Sleep(TestConstants.FiveSecondsTimeout);
@@ -373,15 +384,12 @@ public class TrayTests : BaseTest
         CommonAssertions.VerifyAppIsNotRunning();
     }
 
-    private void QuickLogout()
+    private void ReLaunchApp()
     {
-        using (TrayApp)
-        {
-            TrayRobot
-                .DoubleClickTrayApp();
-        }
-
-        CommonUiFlows.Logout();
+        OpenMainWindow();
+        Cleanup();
+        Thread.Sleep(TestConstants.FiveSecondsTimeout);
+        LaunchClient();
     }
 
     private void ToggleKillSwitch(bool shouldBeEnabled)
@@ -407,45 +415,24 @@ public class TrayTests : BaseTest
             .CloseSettings();
     }
 
-    private void PopulateRecentsList()
+    private void OpenMainWindow()
     {
         using (TrayApp)
         {
             TrayRobot
                 .DoubleClickTrayApp();
         }
-
-        SidebarRobot
-            .NavigateToAllCountriesTab()
-            .ConnectToCountry(COUNTRY_NAME);
-        VerifyIsConnectedThenDisconnect();
-
-        SidebarRobot
-            .NavigateToSecureCoreCountriesTab()
-            .ExpandCities(SECURE_CORE_COUNTRY_NAME)
-            .ConnectViaSecureCore(SECURE_CORE_COUNTRY_NAME, VIA_COUNTRY_ICELAND);
-        VerifyIsConnectedThenDisconnect();
-
-        SidebarRobot
-            .NavigateToProfiles()
-            .ConnectToProfile(PROFILE_NAME);
-        VerifyIsConnectedThenDisconnect();
+        Thread.Sleep(TestConstants.OneSecondTimeout);
     }
 
-    private void VerifyIsConnectedThenDisconnect()
-    {
-        HomeRobot
-            .Verify.IsConnected()
-            .Disconnect()
-            .Verify.IsDisconnected();
-    }
-
-    [OneTimeTearDown]
+    [TearDown]
     public void TearDown()
     {
+        ScriptHelper.EnableInternet();
+
         try
         {
-            TrayRobot.DoubleClickTrayApp();
+            OpenMainWindow();
         }
         catch (TimeoutException)
         {

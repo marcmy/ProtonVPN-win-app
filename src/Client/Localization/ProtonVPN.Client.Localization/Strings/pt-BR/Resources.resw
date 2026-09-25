@@ -1947,7 +1947,7 @@ Código de erro: {0}</value>
     <value>Excluir localizações</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Message">
-    <value>If there are locations you don't want to be automatically connected to, you can exclude them from Fastest and Random country.</value>
+    <value>Se houver locais aos quais você não deseja ser conectado automaticamente, é possível excluí-los da opção País mais rápido e Aleatório.</value>
   </data>
   <data name="ExcludedLocations_SmartDiscovery_Prompt_Skip">
     <value>Pular</value>
@@ -2744,10 +2744,8 @@ Uma carga alta de servidor pode tornar sua conexão mais lenta.</value>
     <value>O Smart Routing é geralmente utilizado para evitar leis anti privacidade e outras formas de censura.</value>
   </data>
   <data name="Overlay_SmartRouting_Header">
-    <value>Os servidores estão localizados fisicamente em {0}, mas você parece estar navegando em {1}</value>
-    <comment>{0} is a placeholder for the physical server location country. {1} is a placeholder for the destination country
-    Warning: country names are inserted in the nominative case. For INFLECTED languages, use alternative wording as follows:
-    Connects you to your destination country ({1}) through servers that are physically located somewhere else ({0})</comment>
+    <value>Connects you to your destination country through servers physically located elsewhere: {0}.</value>
+    <comment>{0} is a placeholder for the countries where the physical servers are. Can be either one country or multiple countries separated with comma.</comment>
   </data>
   <data name="Overlay_SmartRouting_LearnMore">
     <value>O que é Smart Routing?</value>

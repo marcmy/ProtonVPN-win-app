@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -176,8 +176,7 @@ public class GuestHoleManager : IGuestHoleManager,
             // mistaken for Guest Hole teardown. Once Guest Hole has actually
             // connected, or once this manager has requested its own disconnect,
             // the raw service state is authoritative even though the normal
-            // VpnStateIpcEntityHandler intentionally filters it from the UI-level
-            // ConnectionStatusChangedMessage stream.
+            // VpnStateIpcEntityHandler filters it from the connection-status stream.
             shouldHandleDisconnection = _isActive &&
                 (_wasConnected || _disconnectCompletionSource is not null);
         }
@@ -190,7 +189,12 @@ public class GuestHoleManager : IGuestHoleManager,
 
     private async Task HandleConnectionStatusChangedAsync(ConnectionStatusChangedMessage message)
     {
-        if (!_isActive || _lastVpnStatus == message.ConnectionStatus)
+        if (!_isActive)
+        {
+            return;
+        }
+
+        if (_lastVpnStatus == message.ConnectionStatus)
         {
             return;
         }

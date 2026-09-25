@@ -23,6 +23,8 @@ using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.Enums.Locations;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -30,7 +32,7 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("1")]
 public class TorTests : FreshSessionSetUp
 {
-    private const string BROWSER_APP = "Google Chrome";
+    private const Browser BROWSER_APP = Browser.GoogleChrome;
 
     [SetUp]
     public void TestInitialize()
@@ -40,9 +42,9 @@ public class TorTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "602368")]
-    [Retry(3)]
     [Category("ARM")]
     [Category("SMOKE_1")]
+    [Retry(3)]
     public void ConnectToATorServer()
     {
         NetworkUtils.AssertTorStatus(shouldBeAvailable: false);
@@ -56,6 +58,7 @@ public class TorTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "760479")]
+    [Category("5")]
     [Retry(4)]
     public void ConnectToATorServerWithKillSwitchEnabled()
     {
@@ -93,7 +96,7 @@ public class TorTests : FreshSessionSetUp
     {
         StringBuilder failureMessages = new();
 
-        foreach (string country in TestConstants.AvailableCountries)
+        foreach (Country country in TestConstants.AvailableCountries)
         {
             try
             {
@@ -111,8 +114,18 @@ public class TorTests : FreshSessionSetUp
             {
                 failureMessages.AppendLine($"Failed to connect to {country}: {e.Message}");
             }
+            catch (System.Exception e)
+            {
+                failureMessages.AppendLine($"Failed to connect to {country}: {e.GetType().Name}: {e.Message}");
+            }
         }
 
         Assert.Fail(failureMessages.ToString());
+    }
+
+    [OneTimeTearDown]
+    public void TearDown()
+    {
+        ScriptHelper.EnableInternet();
     }
 }

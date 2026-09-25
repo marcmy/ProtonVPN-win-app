@@ -19,11 +19,15 @@
 
 using System;
 using System.Threading;
+using FlaUI.Core.Input;
+using FlaUI.Core.WindowsAPI;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
+using ProtonVPN.UI.Tests.Enums.Locations;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -31,15 +35,14 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("2")]
 [Category("ARM")]
 [Category("SMOKE_4")]
-public class ProfileTests : BaseTest
+public class ProfileTests : FreshSessionSetUp
 {
     private const string PROFILE_NAME = "Profile A";
     private const string CUSTOM_SETTINGS_PROFILE_NAME = "Profile C";
     private const Protocol CUSTOM_SETTINGS_PROTOCOL = Protocol.WireGuardTcp;
 
-    private const string COUNTRY_NAME = "Australia";
-    private const string CITY_NAME = "Perth";
-    private const string CONNECTION_CARD_DESCRIPTION = $"{COUNTRY_NAME} - {CITY_NAME}";
+    private const Country COUNTRY_NAME = Country.Australia;
+    private const City CITY_NAME = City.Perth;
 
     private const string WEBSITE_PROFILE_NAME = "Open web Profile";
     private const string WEBSITE_TO_OPEN = "youtube.com";
@@ -49,35 +52,34 @@ public class ProfileTests : BaseTest
     private const string APP_TO_OPEN = "Google Chrome";
     private const string APP_TO_OPEN_PATH = @"C:\Program Files\Google\Chrome\Application\chrome.exe";
 
-    private static readonly string[] _defaultProfiles = { "Streaming US", "Gaming", "P2P", "Max security", "Work/School" };
+    private readonly string _connectionCardDescription = $"{COUNTRY_NAME.GetName()} - {CITY_NAME.GetEnumValue()}";
 
-    private static readonly (string profileName, ConnectionType connectionType, string countryName, Protocol protocol)[] _profiles =
+    private static readonly (string profileName, ConnectionType connectionType, Country countryName, Protocol protocol)[] _profiles =
     {
-        (profileName: "Profile 1", connectionType: ConnectionType.Standard, countryName: "Argentina", protocol: Protocol.OpenVpnUdp),
-        (profileName: "Profile 2", connectionType: ConnectionType.P2P, countryName: "Belgium", protocol: Protocol.WireGuardTcp),
-        (profileName: "Profile 3", connectionType: ConnectionType.SecureCore, countryName: "Egypt", protocol: Protocol.WireGuardUdp)
+        (profileName: "Profile 1", connectionType: ConnectionType.Standard, countryName: Country.Argentina, protocol: Protocol.OpenVpnUdp),
+        (profileName: "Profile 2", connectionType: ConnectionType.P2P, countryName: Country.Belgium, protocol: Protocol.WireGuardTcp),
+        (profileName: "Profile 3", connectionType: ConnectionType.SecureCore, countryName: Country.Egypt, protocol: Protocol.WireGuardUdp)
     };
 
-    [OneTimeSetUp]
+    [SetUp]
     public void SetUp()
     {
-        LaunchClient();
+        BrowserUtils.KillAllBrowsers();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
+        SidebarRobot
+            .NavigateToProfiles();
+        NavigationRobot
+            .Verify.IsOnProfilesPage();
     }
 
     [Test, Order(0)]
     [Property("TestCaseId", "247")]
     public void VerifyDefaultProfilesExist()
     {
-        NavigationRobot
-            .Verify.IsOnConnectionsPage();
-        SidebarRobot
-            .NavigateToProfiles();
-
-        foreach (string profile in _defaultProfiles)
+        foreach (DefaultProfile profile in Enum.GetValues(typeof(DefaultProfile)))
         {
             SidebarRobot
-                .Verify.DoesConnectionItemExist(profile);
+                .Verify.DoesConnectionItemExist(profile.GetEnumValue());
         }
     }
 
@@ -85,9 +87,6 @@ public class ProfileTests : BaseTest
     [Property("TestCaseId", "602398")]
     public void EmptyProfileList()
     {
-        NavigationRobot
-            .Verify.IsOnProfilesPage();
-
         RemoveProfiles();
 
         SidebarRobot
@@ -115,6 +114,8 @@ public class ProfileTests : BaseTest
     [Property("TestCaseId", "602400")]
     public void ConnectToProfileAndDisconnect()
     {
+        QuickCreateProfile(PROFILE_NAME);
+
         SidebarRobot
             .ConnectToProfile(PROFILE_NAME);
 
@@ -137,11 +138,10 @@ public class ProfileTests : BaseTest
     [Property("TestCaseId", "602401")]
     public void EditProfile()
     {
-        SidebarRobot
-            .ScrollToProfile(PROFILE_NAME)
-            .Verify.DoesConnectionItemExist(PROFILE_NAME)
-            .ConnectToProfile(PROFILE_NAME);
+        QuickCreateProfile(PROFILE_NAME);
 
+        SidebarRobot
+            .ConnectToProfile(PROFILE_NAME);
         HomeRobot
             .Verify.IsConnected();
 
@@ -168,12 +168,8 @@ public class ProfileTests : BaseTest
     [Property("TestCaseId", "602402")]
     public void DeleteProfile()
     {
-        SidebarRobot
-            .ScrollToProfile(PROFILE_NAME)
-            .Verify.DoesConnectionItemExist(PROFILE_NAME)
-            .DisconnectViaProfile(PROFILE_NAME);
-        HomeRobot
-            .Verify.IsDisconnected();
+        QuickCreateProfile(PROFILE_NAME);
+
         SidebarRobot
             .ExpandSecondaryActionsForProfile(PROFILE_NAME)
             .DeleteProfile();
@@ -210,6 +206,7 @@ public class ProfileTests : BaseTest
 
     [Test, Order(7)]
     [Property("TestCaseId", "610978")]
+    [Category("5")]
     [Retry(3)]
     public void ConnectAndGoWebsite()
     {
@@ -240,6 +237,7 @@ public class ProfileTests : BaseTest
 
     [Test, Order(8)]
     [Property("TestCaseId", "760486")]
+    [Category("5")]
     [Retry(3)]
     public void ConnectAndGoApp()
     {
@@ -273,12 +271,7 @@ public class ProfileTests : BaseTest
     [Property("TestCaseId", "610977")]
     public void ConnectWithCustomSettings()
     {
-        BrowserUtils.KillAllBrowsers();
-
-        CloseLeftoverProfilePage();
-
         SidebarRobot
-            .NavigateToProfiles()
             .ClickCreateProfile();
         NavigationRobot
             .Verify.IsOnProfilePage();
@@ -301,14 +294,16 @@ public class ProfileTests : BaseTest
             .Verify.IsConnecting()
                    .IsConnected()
                    .ConnectionCardTitleEquals(CUSTOM_SETTINGS_PROFILE_NAME)
-                   .ConnectionCardDescriptionContains(CONNECTION_CARD_DESCRIPTION);
+                   .ConnectionCardDescriptionContains(_connectionCardDescription);
         FeaturesRobot
             .Verify.IsPortForwardingEnabled();
         HomeRobot
             .Verify.IsProtocolDisplayed(CUSTOM_SETTINGS_PROTOCOL);
 
         SettingRobot
-            .Verify.IsNetshieldBlocking(NetShieldMode.BlockAdsMalwareTrackersAdultContent);
+            .Verify.IsNetshieldBlocking(NetShieldMode.BlockAdsMalwareTrackersAdultContent)
+            .OpenSettings()
+            .Verify.IsProfileTaglineDisplayed(CUSTOM_SETTINGS_PROFILE_NAME);
 
         //TODO: The map highlights the country of the server;
     }
@@ -317,7 +312,7 @@ public class ProfileTests : BaseTest
     [Property("TestCaseId", "602437")]
     [Retry(3)]
     [TestCaseSource(nameof(_profiles))]
-    public void ConnectToDifferentProfilesWithDifferentConnectionTypesAndProtocols((string profileName, ConnectionType connectionType, string countryName, Protocol protocol) profile)
+    public void ConnectToDifferentProfilesWithDifferentConnectionTypesAndProtocols((string profileName, ConnectionType connectionType, Country countryName, Protocol protocol) profile)
     {
         CloseLeftoverProfilePage();
 
@@ -332,7 +327,7 @@ public class ProfileTests : BaseTest
         HomeRobot
             .Verify.IsConnected()
                    .ConnectionCardTitleEquals(profile.profileName)
-                   .ConnectionCardDescriptionContains(profile.countryName)
+                   .ConnectionCardDescriptionContains(profile.countryName.GetName())
                    .IsProtocolDisplayed(profile.protocol);
 
         if (profile.connectionType == ConnectionType.P2P)
@@ -344,13 +339,24 @@ public class ProfileTests : BaseTest
         if (profile.connectionType == ConnectionType.SecureCore)
         {
             HomeRobot.Verify
-                .ConnectionCardDescriptionContains(" via ");
+                .ConnectionCardDescriptionContains(TestConstants.ViaPrefix);
         }
 
         //TODO: The map highlights the country of the server;
     }
 
-    private void CreateProfile(string profileName, ConnectionType connectionType, string country, Protocol protocol)
+    private void QuickCreateProfile(string profileName)
+    {
+        SidebarRobot
+            .ClickCreateProfile();
+        ProfileRobot
+            .SetProfileName(profileName);
+        SaveProfile();
+        SidebarRobot
+            .ScrollToProfile(PROFILE_NAME);
+    }
+
+    private void CreateProfile(string profileName, ConnectionType connectionType, Country country, Protocol protocol)
     {
         SidebarRobot
             .ClickCreateProfile();
@@ -407,10 +413,17 @@ public class ProfileTests : BaseTest
         }
     }
 
-    [OneTimeTearDown]
+    [TearDown]
     public void TearDown()
     {
+        Keyboard.Press(VirtualKeyShort.ESCAPE);
+        try
+        {
+            ConfirmationRobot
+                .Verify.IsOverlayDisplayed()
+                .CancelAction();
+        }
+        catch { }
         BrowserUtils.KillAllBrowsers();
-        Cleanup();
     }
 }

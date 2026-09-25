@@ -17,12 +17,12 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Collections.Generic;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 using static ProtonVPN.UI.Tests.TestsHelper.TestConstants;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
@@ -48,26 +48,26 @@ public class ProtocolTests : FreshSessionSetUp
     }
 
     [Test]
-	[Property("TestCaseId", "602365")]
+    [Property("TestCaseId", "602365")]
     [Category("SMOKE_3")]
-	[TestCaseSource(typeof(TestConstants), nameof(AllNonProTunProtocols))]
+    [TestCaseSource(typeof(TestConstants), nameof(AllNonProTunProtocols))]
     public void ConnectUsingDifferentProtocols(Protocol protocol)
     {
         PerformProtocolTest(protocol);
     }
 
     [Test]
-	[Property("TestCaseId", "841907")]
+    [Property("TestCaseId", "841907")]
     [Category("SMOKE_3")]
-	[TestCaseSource(typeof(TestConstants), nameof(ProTunProtocols))]
+    [TestCaseSource(typeof(TestConstants), nameof(ProTunProtocols))]
     public void ConnectUsingDifferentProTunProtocols(Protocol protocol)
     {
         PerformProtocolTest(protocol, shouldEnableProTun: true);
     }
 
     [Test]
-	[Property("TestCaseId", "602412")]
-	public void ChangeProtocolFromConnectionDetails()
+    [Property("TestCaseId", "602412")]
+    public void ChangeProtocolFromConnectionDetails()
     {
         PerformProtocolTest(Protocol.OpenVpnUdp);
 
@@ -85,22 +85,20 @@ public class ProtocolTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "602354")]
-    [Ignore("Native WireGuard causes infinite connecting on the ProTUN build")]
-    [TestCaseSource(nameof(WireGuardProtocols))]
+    [TestCaseSource(typeof(TestConstants), nameof(WireGuardProtocols))]
     public void ConnectUsingWireGuardWhileConnectedToNativeWireGuard(Protocol wireGuardProtocol)
     {
-        ScriptHelper.ConnectToWireGuard();
-        ScriptHelper.VerifyWireGuardIsConnected();
-
         try
         {
+            ScriptHelper.ConnectToWireGuard();
+
             CommonUiFlows.ChangeProtocol(wireGuardProtocol);
 
             HomeRobot
                 .ConnectViaConnectionCard()
                 .Verify.IsWireGuardErrorDisplayed()
-                .CloseConnectionError()
-                .Verify.IsDisconnected();
+                .CloseConnectionError();
+            CommonUiFlows.EnsureUserIsDisconnected(shouldCancelConnection: true);
         }
         finally
         {
@@ -116,6 +114,8 @@ public class ProtocolTests : FreshSessionSetUp
             OpenVpnAdapter.TAP,
             OPENVPN_TAP_ADAPTER_LOG_LINE,
             OPENVPN_TAP_ADAPTER_FULL_NAME);
+
+        CommonUiFlows.EnsureUserIsDisconnected();
     }
 
     [Test]
@@ -126,6 +126,8 @@ public class ProtocolTests : FreshSessionSetUp
             OpenVpnAdapter.TUN,
             OPENVPN_TUN_ADAPTER_LOG_LINE,
             OPENVPN_TUN_ADAPTER_FULL_NAME);
+
+        CommonUiFlows.EnsureUserIsDisconnected();
     }
 
     private void VerifyOpenVpnAdapter(
@@ -164,6 +166,6 @@ public class ProtocolTests : FreshSessionSetUp
             .Verify.IsConnected()
                    .IsProtocolDisplayed(protocol);
 
-        WindowsUtils.AssertLogFile(_serviceLogsPath, LINE_TO_LOOK_FOR, protocol.ToString());
+        WindowsUtils.AssertLogFile(_serviceLogsPath, LINE_TO_LOOK_FOR, protocol.GetEnumValue());
     }
 }

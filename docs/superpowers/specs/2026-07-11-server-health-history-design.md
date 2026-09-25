@@ -1,8 +1,8 @@
 # Server Health History Design
 
-**Status:** Approved  
-**Date:** 2026-07-11  
-**Branch:** `feature/server-health-history`  
+**Status:** Approved<br>
+**Date:** 2026-07-11<br>
+**Branch:** `feature/server-health-history`<br>
 **Base:** `marc/proton`
 
 ## Problem

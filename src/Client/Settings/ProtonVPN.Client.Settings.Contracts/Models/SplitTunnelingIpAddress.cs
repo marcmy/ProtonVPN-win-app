@@ -21,11 +21,10 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace ProtonVPN.Client.Settings.Contracts.Models;
 
-public struct SplitTunnelingIpAddress : IEquatable<SplitTunnelingIpAddress>
+public readonly struct SplitTunnelingIpAddress : IEquatable<SplitTunnelingIpAddress>
 {
-    public string IpAddress { get; set; }
-
-    public bool IsActive { get; set; }
+    public string IpAddress { get; init; }
+    public bool IsActive { get; init; }
 
     public SplitTunnelingIpAddress(string ipAddress, bool isActive)
     {

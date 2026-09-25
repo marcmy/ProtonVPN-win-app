@@ -175,7 +175,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
 
     & $completePackager `
         -BuildMode client `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -SourceCommit '0123456789abcdef' `
         -SourceRef 'test/complete-runtime' `
         -WorkflowRunId '4321' `
@@ -220,7 +220,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
         -ExecutionPolicy Bypass `
         -File $baseInstallerScript `
         -PatchPath $patchDir `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -ValidateOnly 2>&1)
     $oldInstallerExitCode = $LASTEXITCODE
     Assert-Condition ($oldInstallerExitCode -ne 0) 'Schema-v1 installer accepted a schema-v2 complete FastPatch payload.'
@@ -231,7 +231,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
         -ExecutionPolicy Bypass `
         -File $completeInstallerScript `
         -PatchPath $patchDir `
-        -TargetVersion '5.1.5' `
+        -TargetVersion '5.1.8' `
         -ValidateOnly
     Assert-Condition ($LASTEXITCODE -eq 0) 'Complete installer rejected an untampered schema-v2 payload.'
 
@@ -243,7 +243,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
     try {
         & $completePackager `
             -BuildMode client `
-            -TargetVersion '5.1.5' `
+            -TargetVersion '5.1.8' `
             -SourceCommit '0123456789abcdef' `
             -SourceRef 'test/complete-runtime' `
             -WorkflowRunId '4322' `
@@ -273,7 +273,7 @@ function Test-InstallerLifecycleContracts {
         $content.Contains('return Invoke-ProcessAndWait') -and
         $content.Contains('-FilePath (Get-WindowsPowerShellPath)') -and
         $content.Contains('$startInfo.CreateNoWindow = $false')
-    ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.' 
+    ) 'Complete FastPatch base-installer delegation must reuse the existing console through the trusted process helper.'
     Assert-Condition (-not $content.Contains("'-File', (ConvertTo-QuotedProcessArgument -Value `$PSCommandPath)")) `
         'Complete FastPatch must not cross UAC by reopening the mutable original script path.'
     Assert-Condition ($content.Contains('-EncodedCommand')) `

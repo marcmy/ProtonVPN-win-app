@@ -63,36 +63,6 @@ public class UserSettings : GlobalSettings, IUserSettings
         set => _userCache.SetReferenceType(value, SettingEncryption.Unencrypted);
     }
 
-    public int WindowWidth
-    {
-        get => _userCache.GetValueType<int>(SettingEncryption.Unencrypted) ?? DefaultSettings.WindowWidth;
-        set => _userCache.SetValueType<int>(value, SettingEncryption.Unencrypted);
-    }
-
-    public int WindowHeight
-    {
-        get => _userCache.GetValueType<int>(SettingEncryption.Unencrypted) ?? DefaultSettings.WindowHeight;
-        set => _userCache.SetValueType<int>(value, SettingEncryption.Unencrypted);
-    }
-
-    public int? WindowXPosition
-    {
-        get => _userCache.GetValueType<int>(SettingEncryption.Unencrypted);
-        set => _userCache.SetValueType<int>(value, SettingEncryption.Unencrypted);
-    }
-
-    public int? WindowYPosition
-    {
-        get => _userCache.GetValueType<int>(SettingEncryption.Unencrypted);
-        set => _userCache.SetValueType<int>(value, SettingEncryption.Unencrypted);
-    }
-
-    public bool IsWindowMaximized
-    {
-        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsWindowMaximized;
-        set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
-    }
-
     public bool IsNavigationPaneOpened
     {
         get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsNavigationPaneOpened;
@@ -193,29 +163,30 @@ public class UserSettings : GlobalSettings, IUserSettings
         {
             if (VpnPlan.IsPaid)
             {
-                return _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsLocalAreaNetworkAccessAllowed(true);
+                return _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsLocalAreaNetworkAccessAllowed(isPaidUser: true);
             }
 
-            // Free users can't use this feature
-            return false;
+            return DefaultSettings.IsLocalAreaNetworkAccessAllowed(isPaidUser: false);
         }
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public bool IsLocalDnsEnabled
     {
-        // Get the value from cache if it exists, otherwise set it based on the DnsBlockMode. To be removed in future versions.
+        // Migrate users who still have the legacy DNS mode but no value for the newer boolean setting.
         get
         {
             bool? isLocalDnsEnabled = _userCache.GetValueType<bool>(SettingEncryption.Unencrypted);
             if (isLocalDnsEnabled is null)
             {
-                isLocalDnsEnabled = DnsBlockMode == DnsBlockMode.Callout;
+                DnsBlockMode legacyMode = _userCache.GetValueType<DnsBlockMode>(SettingEncryption.Unencrypted)
+                    ?? DefaultSettings.DnsBlockMode;
+                isLocalDnsEnabled = legacyMode == global::ProtonVPN.Common.Core.Dns.DnsBlockMode.Callout;
                 _userCache.SetValueType<bool>(isLocalDnsEnabled, SettingEncryption.Unencrypted);
             }
+
             return isLocalDnsEnabled.Value;
-        }        
-        // get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsLocalDnsEnabled;
+        }
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
@@ -275,10 +246,10 @@ public class UserSettings : GlobalSettings, IUserSettings
         {
             if (VpnPlan.IsPaid)
             {
-                return _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsNetShieldEnabled(true);
+                return _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsNetShieldEnabled(isPaidUser: true);
             }
 
-            return DefaultSettings.IsNetShieldEnabled(false);
+            return DefaultSettings.IsNetShieldEnabled(isPaidUser: false);
         }
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
@@ -520,20 +491,23 @@ public class UserSettings : GlobalSettings, IUserSettings
         _userCache = userSettingsCache;
     }
 
+    // TODO: Remove once fully rolled out to stable
     protected override WindowLocation? GetWindowLocationFromUserSettings()
     {
-        if (UserId is null)
+        // No user logged in yet
+        if (UserId is null) 
         {
             return null;
         }
 
+        // Get the window location from the legacy user settings values
         return new()
         {
-            Width = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowWidth)) ?? DefaultSettings.WindowLocation.Width,
-            Height = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowHeight)) ?? DefaultSettings.WindowLocation.Height,
-            XPosition = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowXPosition)) ?? DefaultSettings.WindowLocation.XPosition,
-            YPosition = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, nameof(WindowYPosition)) ?? DefaultSettings.WindowLocation.YPosition,
-            IsMaximized = _userCache.GetValueType<bool>(SettingEncryption.Unencrypted, nameof(IsWindowMaximized)) ?? DefaultSettings.WindowLocation.IsMaximized,
+            Width = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, "WindowWidth") ?? DefaultSettings.WindowLocation.Width,
+            Height = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, "WindowHeight") ?? DefaultSettings.WindowLocation.Height,
+            XPosition = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, "WindowXPosition") ?? DefaultSettings.WindowLocation.XPosition,
+            YPosition = _userCache.GetValueType<int>(SettingEncryption.Unencrypted, "WindowYPosition") ?? DefaultSettings.WindowLocation.YPosition,
+            IsMaximized = _userCache.GetValueType<bool>(SettingEncryption.Unencrypted, "IsWindowMaximized") ?? DefaultSettings.WindowLocation.IsMaximized,
         };
     }
 }

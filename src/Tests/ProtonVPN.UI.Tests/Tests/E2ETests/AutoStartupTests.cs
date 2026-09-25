@@ -25,6 +25,7 @@ using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.UiTools;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -85,9 +86,9 @@ public class AutoStartupTests : FreshSessionSetUp
 
         RestartApp();
 
+        DesktopRobot.Verify.IsTrayIconDisplayed();
         TrayRobot
-            .Verify.IsTrayIconDisplayed()
-                   .IsHomeFocused(true);
+            .Verify.IsHomeFocused(true);
     }
 
     [Test]
@@ -100,9 +101,9 @@ public class AutoStartupTests : FreshSessionSetUp
 
         RestartApp(shouldRefreshWindow: false);
 
+        DesktopRobot.Verify.IsTrayIconDisplayed();
         TrayRobot
-            .Verify.IsTrayIconDisplayed()
-                   .IsHomeFocused(false)
+            .Verify.IsHomeFocused(false)
             .DoubleClickTrayApp()
             .Verify.IsHomeFocused(true);
     }

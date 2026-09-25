@@ -63,7 +63,7 @@ public class RecentConnectionMapper : IMapper<IRecentConnection, SerializableRec
             ConnectionIntent = connectionIntent,
             ProfileId = leftEntity.ConnectionIntent is IConnectionProfile cnp ? cnp.Id : null,
             IsPinned = leftEntity.IsPinned,
-            PinTime = leftEntity.PinTime,
+            PinTime = leftEntity.PinTimeUtc,
             LastConnectionTime = leftEntity.LastConnectionTimeUtc,
         };
     }
@@ -86,7 +86,7 @@ public class RecentConnectionMapper : IMapper<IRecentConnection, SerializableRec
                 : new RecentConnection(rightEntity.RecentId ?? Guid.NewGuid(), connectionIntent)
                 {
                     IsPinned = rightEntity.IsPinned,
-                    PinTime = rightEntity.PinTime,
+                    PinTimeUtc = rightEntity.PinTime,
                     LastConnectionTimeUtc = rightEntity.LastConnectionTime ?? DateTime.MinValue,
                 };
         }

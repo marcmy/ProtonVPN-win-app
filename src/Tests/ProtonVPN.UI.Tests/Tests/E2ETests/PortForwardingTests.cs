@@ -18,15 +18,15 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.Text;
-using System.Threading;
-using System.Windows.Forms;
+using System.Collections.Generic;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.Enums.Locations;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -35,15 +35,15 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("ARM")]
 public class PortForwardingTests : FreshSessionSetUp
 {
-    private const string COUNTRY_NAME = "Austria";
+    private const Country COUNTRY_NAME = Country.Austria;
 
-    private const string ENABLE_MODERATE_NAT_TITLE = "Enable Moderate NAT?";
-    private const string ENABLE_MODERATE_NAT_DESCRIPTION = "You won't be able to use port forwarding with Moderate NAT.";
+    private static readonly string _enableModerateNatTitle = LanguageHelper.GetTranslatedString("Settings_Connection_Advanced_NatType_Conflict_Title");
+    private static readonly string _enableModerateNatDescription = LanguageHelper.GetTranslatedString("Settings_Connection_Advanced_NatType_Conflict_Description");
 
-    private const string ENABLE_PORT_FORWARDING_TITLE = "Enable port forwarding?";
-    private const string ENABLE_PORT_FORWARDING_DESCRIPTION = "You won't be able to use Moderate NAT when port forwarding is enabled.";
+    private static readonly string _enablePortForwardingTitle = LanguageHelper.GetTranslatedString("Settings_Connection_PortForwarding_Conflict_Title");
+    private static readonly string _enablePortForwardingDescription = LanguageHelper.GetTranslatedString("Settings_Connection_PortForwarding_Conflict_Description");
 
-    private const string ENABLE_BUTTON = "Enable";
+    private static readonly string _enableButton = LanguageHelper.GetTranslatedString("Common_Actions_Enable");
 
     private const string MODERATE_NAT_ENABLED_LINE_TO_LOOK_FOR = "\"randomized-nat\": false, \"port-forwarding\": false";
     private const string MODERATE_NAT_DISABLED_LINE_TO_LOOK_FOR = "\"randomized-nat\": true, \"port-forwarding\": true";
@@ -102,9 +102,9 @@ public class PortForwardingTests : FreshSessionSetUp
 
         ConfirmationRobot
             .Verify.IsOverlayDisplayed()
-                   .OverlayTextContains(ENABLE_MODERATE_NAT_TITLE)
-                   .OverlayTextContains(ENABLE_MODERATE_NAT_DESCRIPTION)
-                   .OverlayButtonsEquals(primary: ENABLE_BUTTON)
+                   .OverlayTextContains(_enableModerateNatTitle)
+                   .OverlayTextContains(_enableModerateNatDescription)
+                   .OverlayButtonsEquals(primary: _enableButton)
             .PrimaryAction()
             .Verify.IsOverlayClosed();
 
@@ -136,9 +136,9 @@ public class PortForwardingTests : FreshSessionSetUp
 
         ConfirmationRobot
             .Verify.IsOverlayDisplayed()
-                   .OverlayTextContains(ENABLE_PORT_FORWARDING_TITLE)
-                   .OverlayTextContains(ENABLE_PORT_FORWARDING_DESCRIPTION)
-                   .OverlayButtonsEquals(primary: ENABLE_BUTTON)
+                   .OverlayTextContains(_enablePortForwardingTitle)
+                   .OverlayTextContains(_enablePortForwardingDescription)
+                   .OverlayButtonsEquals(primary: _enableButton)
             .PrimaryAction()
             .Verify.IsOverlayClosed();
 
@@ -154,11 +154,13 @@ public class PortForwardingTests : FreshSessionSetUp
     }
 
     [Test]
-    [Retry(3)]
     [Property("TestCaseId", "602441")]
     [Category("SMOKE_3")]
+    [Retry(3)]
     public void VerifyP2PServerGeneratesPortNumber()
     {
+        DesktopRobot.DismissOldToastsIfVisible();
+
         SettingRobot
             .OpenSettings()
             .Verify.AreNotificationsEnabled()
@@ -270,18 +272,11 @@ public class PortForwardingTests : FreshSessionSetUp
 
     private static int GetForwardedPortFromClipboard()
     {
-        string portText = string.Empty;
-        Thread staThread = new(() =>
-        {
-            portText = Clipboard.GetText().Trim();
-        });
-        staThread.SetApartmentState(ApartmentState.STA);
-        staThread.Start();
-        staThread.Join();
+        string clipboardPortText = DesktopRobot.ReadClipboardText();
 
-        if (!int.TryParse(portText, out int port))
+        if (!int.TryParse(clipboardPortText, out int port))
         {
-            Assert.Fail($"Invalid port number copied: '{portText}'");
+            Assert.Fail($"Invalid port number copied: '{clipboardPortText}'");
         }
 
         return port;

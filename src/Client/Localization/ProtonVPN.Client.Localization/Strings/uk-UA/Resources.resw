@@ -2679,10 +2679,10 @@
     <value>Неправильний код. Повторіть спробу.</value>
   </data>
   <data name="Login_Error_MissingSrpDll_Message">
-    <value>A file required for sign-in is missing from your installation. Please reinstall Proton VPN to fix this issue.</value>
+    <value>Не знайдено файл, необхідний для входу в систему. Щоб виправити цю проблему, перевстановіть Proton VPN.</value>
   </data>
   <data name="Login_Error_MissingSrpDll_Title">
-    <value>Unable to sign in</value>
+    <value>Не вдається увійти</value>
   </data>
   <data name="Login_Error_SessionExpired">
     <value>Термін дії вашого сеансу завершився. Увійдіть знову.</value>
@@ -2936,10 +2936,8 @@ VPN-з'єднання</value>
     <value>Smart Routing зазвичай використовується для обходу законів, що порушують приватність, та інших форм цензури.</value>
   </data>
   <data name="Overlay_SmartRouting_Header">
-    <value>Сервери фізично розташовані в {0}, але здаватиметься, що ви користуєтеся інтернетом з {1}</value>
-    <comment>{0} is a placeholder for the physical server location country. {1} is a placeholder for the destination country
-    Warning: country names are inserted in the nominative case. For INFLECTED languages, use alternative wording as follows:
-    Connects you to your destination country ({1}) through servers that are physically located somewhere else ({0})</comment>
+    <value>З'єднання з країною призначення через сервери, які фізично розташовані в іншому місці: {0}.</value>
+    <comment>{0} is a placeholder for the countries where the physical servers are. Can be either one country or multiple countries separated with comma.</comment>
   </data>
   <data name="Overlay_SmartRouting_LearnMore">
     <value>Що таке Smart Routing?</value>
@@ -3823,16 +3821,16 @@ VPN-з'єднання</value>
     <value>Заблокований вебсайт?</value>
   </data>
   <data name="System_Tray_Actions_Connect">
-    <value>Connect</value>
+    <value>З'єднатися</value>
   </data>
   <data name="System_Tray_Actions_Disconnect">
-    <value>Disconnect</value>
+    <value>Від'єднатися</value>
   </data>
   <data name="System_Tray_Actions_ExitApplication">
-    <value>Exit</value>
+    <value>Вийти</value>
   </data>
   <data name="System_Tray_Actions_OpenApplication">
-    <value>Open {0}</value>
+    <value>Відкрити {0}</value>
     <comment>Button displayed in the tray icon to open the Proton VPN application. {0} is a placeholder for the name of the application (eg. "Open Proton VPN")</comment>
   </data>
   <data name="Tray_Actions_ExitApplication">

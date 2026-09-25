@@ -38,11 +38,11 @@ public abstract class DisconnectionRequestCreatorBase : RequestCreatorBase
 
     public DisconnectionRequestIpcEntity Create(VpnError vpnError)
     {
-        return new()
+        return new DisconnectionRequestIpcEntity
         {
             RetryId = Guid.NewGuid(),
             Settings = GetSettings(),
-            ErrorType = EntityMapper.Map<VpnError, VpnErrorTypeIpcEntity>(vpnError),
+            ErrorType = EntityMapper.Map<VpnError, VpnErrorTypeIpcEntity>(vpnError)
         };
     }
 }

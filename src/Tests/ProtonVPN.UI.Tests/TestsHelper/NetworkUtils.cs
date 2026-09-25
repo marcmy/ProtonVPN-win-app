@@ -27,6 +27,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using FlaUI.Core.Tools;
 using NUnit.Framework;
+using ProtonVPN.UI.Tests.Enums.Locations;
 
 namespace ProtonVPN.UI.Tests.TestsHelper;
 
@@ -50,13 +51,6 @@ public class NetworkUtils
         {
             Assert.That(isAvailable, Is.False, "Expected internet to not be available.");
         }
-    }
-
-    private static bool IsInternetAvailable(bool shouldBeAvailable)
-    {
-        Thread.Sleep(TestConstants.TenSecondsTimeout);
-        JObject? connectionData = GetConnectionDataAsync(shouldBeAvailable).GetAwaiter().GetResult();
-        return connectionData?["status"]?.ToString() == "success";
     }
 
     public static string GetIpAddressWithRetry()
@@ -83,10 +77,10 @@ public class NetworkUtils
         return retry.Result ?? throw new HttpRequestException($"Failed to get country name. \n {retry.LastException?.Message} \n {retry.LastException?.StackTrace}");
     }
 
-    public static void VerifyUserIsConnectedToExpectedCountry(string countryNameToCompare)
+    public static void VerifyUserIsConnectedToExpectedCountry(Country countryNameToCompare)
     {
         string countryName = GetCountryNameWithRetry();
-        Assert.That(countryName.Equals(countryNameToCompare), Is.True, $"User was connected to unexpected country." +
+        Assert.That(countryName.Equals(countryNameToCompare.GetName()), Is.True, $"User was connected to unexpected country." +
             $"\n API returned: {countryName}" +
             $"\n Expected result: {countryNameToCompare}");
     }
@@ -148,7 +142,8 @@ public class NetworkUtils
         NetworkInterface[] adapters = NetworkInterface.GetAllNetworkInterfaces();
         NetworkInterface? matchingAdapter = adapters.FirstOrDefault(a => a.Description.Contains(adapterName));
 
-        Assert.That(matchingAdapter, Is.Not.Null, $"No network adapter found with description containing '{adapterName}'");
+        Assert.That(matchingAdapter, Is.Not.Null, $"No network adapter found with description containing '{adapterName}'" +
+            $"\nAvailable adapters: {string.Join(", ", adapters.Select(a => a.Description))}");
         Assert.That(matchingAdapter!.OperationalStatus, Is.EqualTo(OperationalStatus.Up), $"Adapter '{matchingAdapter.Description}' is not up");
     }
 
@@ -171,29 +166,56 @@ public class NetworkUtils
     private static async Task<string?> GetIpAddressAsync()
     {
         JObject? response = await GetConnectionDataAsync();
-        return response?["query"]?.ToString();
+        return response?["query"]?.ToString()
+            ?? response?["ip"]?.ToString();
+    }
+
+    private static bool IsInternetAvailable(bool shouldBeAvailable)
+    {
+        DateTime timeoutDate = DateTime.UtcNow + TestConstants.ThirtySecondsTimeout;
+        bool lastResult = !shouldBeAvailable;
+
+        while (DateTime.UtcNow < timeoutDate)
+        {
+            JObject? connectionData = GetConnectionDataAsync(shouldBeAvailable).GetAwaiter().GetResult();
+            lastResult = connectionData?["status"]?.ToString() == "success"
+            || connectionData?["success"]?.Value<bool>() == true;
+
+            if (lastResult == shouldBeAvailable)
+            {
+                return lastResult;
+            }
+
+            Thread.Sleep(TestConstants.FiveSecondsTimeout);
+        }
+
+        return lastResult;
     }
 
     private static async Task<JObject?> GetConnectionDataAsync(bool errorIsNotExpected = true)
     {
-        string endpoint = "http://ip-api.com/json/";
-        // Make sure that fresh socket is created when requesting connection data
-        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(10) };
+        string[] endpoints = { "http://ip-api.com/json/", "https://ipwho.is/" };
 
-        try
+        foreach (string endpoint in endpoints)
         {
-            string response = await client.GetStringAsync(endpoint);
-            JObject json = JObject.Parse(response);
-            return json;
-        }
-        catch (Exception e)
-        {
-            if (errorIsNotExpected)
+            // Make sure that fresh socket is created when requesting connection data
+            using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+            try
             {
-                TestContext.WriteLine($"GetIpAddressWithRetry failed. Result: {e.Message}");
+                string response = await client.GetStringAsync(endpoint);
+                JObject json = JObject.Parse(response);
+                return json;
             }
-            return null;
+            catch (Exception e)
+            {
+                if (errorIsNotExpected)
+                {
+                    TestContext.WriteLine($"GetConnectionDataAsync failed for {endpoint}. Result: {e.Message}");
+                }
+            }
         }
+        return null;
     }
 
     public static void AssertTorStatus(bool shouldBeAvailable, string? vpnIp = null)
@@ -204,13 +226,14 @@ public class NetworkUtils
         RetryResult<string> retry = Retry.WhileEmpty(
             () =>
             {
+                DnsHelper.FlushDns();
                 JObject? result = GetTorStatusAsync().GetAwaiter().GetResult();
                 ip = result?["IP"]?.Value<string>();
                 isTor = result?["IsTor"]?.Value<bool>();
                 // Returning only the IP, since IP and IsTor are always returned together
                 return ip ?? string.Empty;
             },
-            TestConstants.ThirtySecondsTimeout, TestConstants.ApiRetryInterval);
+            TestConstants.ThirtySecondsTimeout, TestConstants.ApiRetryInterval, ignoreException: true);
 
         Assert.That(retry.Success, Is.True, "Failed to retrieve Tor status within timeout.");
 

@@ -278,14 +278,9 @@ public class GlobalSettings : TransientSettings, IGlobalSettings
         set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
-    public bool IsPortForwardingForAppsEnabled
-    {
-        get => _globalCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
-        set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
-    }
-
     public WindowLocation WindowLocation
     {
+        // TODO: Remove once fully rolled out to stable
         get
         {
             WindowLocation? windowLocation = _globalCache.GetValueType<WindowLocation>(SettingEncryption.Unencrypted);
@@ -297,10 +292,16 @@ public class GlobalSettings : TransientSettings, IGlobalSettings
                     _globalCache.SetValueType<WindowLocation>(windowLocation, SettingEncryption.Unencrypted);
                 }
             }
-
             return windowLocation ?? DefaultSettings.WindowLocation;
         }
+        //get => _globalCache.GetValueType<WindowLocation>(SettingEncryption.Unencrypted) ?? DefaultSettings.WindowLocation;
         set => _globalCache.SetValueType<WindowLocation>(value, SettingEncryption.Unencrypted);
+    }
+
+    public bool IsPortForwardingForAppsEnabled
+    {
+        get => _globalCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false;
+        set => _globalCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
     public GlobalSettings(IGlobalSettingsCache globalSettingsCache)
@@ -308,6 +309,7 @@ public class GlobalSettings : TransientSettings, IGlobalSettings
         _globalCache = globalSettingsCache;
     }
 
+    // TODO: Remove once fully rolled out to stable
     protected virtual WindowLocation? GetWindowLocationFromUserSettings()
     {
         return null;

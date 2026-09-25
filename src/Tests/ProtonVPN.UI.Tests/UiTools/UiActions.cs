@@ -21,43 +21,185 @@ using System;
 using System.Linq;
 using System.Drawing;
 using System.Threading;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using FlaUI.Core.Input;
 using FlaUI.Core.Tools;
 using FlaUI.Core.Patterns;
+using FlaUI.Core.WindowsAPI;
 using FlaUI.Core.Conditions;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.AutomationElements;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.Enums.Locations;
 
 namespace ProtonVPN.UI.Tests.UiTools;
 
 public static class UiActions
 {
-    public static T Click<T>(this T desiredElement, TimeSpan? retryIntervalOverload = null) where T : Element
+    public static T BoundingRectangleMouseClick<T>(this T desiredElement, TimeSpan? retryIntervalOverload = null) where T : Element
     {
-        AutomationElement? elementToClick = WaitUntilExists(desiredElement, TestConstants.EighteenSecondsTimeout, retryIntervalOverload);
-        elementToClick?.WaitUntilClickable(TestConstants.EighteenSecondsTimeout);
+        AutomationElement? element = WaitUntilExists(desiredElement);
+
+        Rectangle rect = element!.BoundingRectangle;
+        int x = rect.Left + (rect.Width / 2);
+        int y = rect.Top + (rect.Height / 2);
+
+        Mouse.Click(new Point(x, y));
+
+        return desiredElement;
+    }
+
+    public static T Click<T>(this T desiredElement, TimeSpan? clickableTimeout = null) where T : Element
+    {
+        clickableTimeout ??= TestConstants.EighteenSecondsTimeout;
+        AutomationElement? elementToClick = WaitUntilExists(desiredElement, clickableTimeout);
+        elementToClick?.WaitUntilClickable(clickableTimeout);
         elementToClick?.Click();
         return desiredElement;
     }
 
     public static T ClickUntilElementDisappears<T>(this T desiredElement, TimeSpan? retryIntervalOverload = null) where T : Element
     {
-        AutomationElement? elementToClick = WaitUntilExists(desiredElement, TestConstants.EighteenSecondsTimeout, retryIntervalOverload);
-        elementToClick?.WaitUntilClickable(TestConstants.EighteenSecondsTimeout);
+        AutomationElement elementToClick = WaitUntilExists(desiredElement, TestConstants.EighteenSecondsTimeout, retryIntervalOverload)!;
+        elementToClick.WaitUntilClickable(TestConstants.EighteenSecondsTimeout);
+        elementToClick.Click();
 
         DateTime timeoutDate = DateTime.UtcNow + TestConstants.FiveSecondsTimeout;
-        while (FindFirstDescendantUsingChildren(desiredElement.Condition) != null && (DateTime.UtcNow < timeoutDate))
+
+        while (DateTime.UtcNow < timeoutDate)
         {
-            elementToClick?.Click();
-            Thread.Sleep(TestConstants.AnimationDelay);
+            Thread.Sleep(TestConstants.UserInputSimulationDelay);
+
+            BaseTest.RefreshWindow();
+            BaseTest.App?.WaitWhileBusy();
+
+            AutomationElement? element;
+            try
+            {
+                element = FindFirstDescendantUsingChildren(desiredElement.Condition);
+            }
+            catch (COMException)
+            {
+                return desiredElement;
+            }
+
+            if (element == null)
+            {
+                return desiredElement;
+            }
+
+            if (element.IsEnabled && !element.IsOffscreen)
+            {
+                try
+                {
+                    element.Click();
+                }
+                catch (COMException) { }
+            }
         }
 
-        return desiredElement;
+        throw new TimeoutException($"'{desiredElement.SelectorName}' did not disappear within {TestConstants.FiveSecondsTimeout.TotalSeconds} seconds after clicking.");
+    }
+
+    public static T ClickUntilElementExits<T>(this T desiredElement, TimeSpan? retryIntervalOverload = null) where T : Element
+    {
+        int processId = BaseTest.App!.ProcessId;
+
+        AutomationElement elementToClick = WaitUntilExists(desiredElement, TestConstants.EighteenSecondsTimeout, retryIntervalOverload)!;
+        elementToClick.WaitUntilClickable(TestConstants.EighteenSecondsTimeout);
+        elementToClick.Click();
+
+        bool retriedClick = false;
+        DateTime timeoutDate = DateTime.UtcNow + TestConstants.TenSecondsTimeout;
+        while (DateTime.UtcNow < timeoutDate)
+        {
+            Thread.Sleep(TestConstants.TwoSecondsTimeout);
+
+            try
+            {
+                Process process = Process.GetProcessById(processId);
+                if (process.HasExited)
+                {
+                    return desiredElement;
+                }
+            }
+            catch (ArgumentException)
+            {
+                return desiredElement;
+            }
+
+            if (!retriedClick)
+            {
+                try
+                {
+                    elementToClick.Click();
+                    retriedClick = true;
+                }
+                catch
+                {
+                    return desiredElement;
+                }
+            }
+        }
+
+        throw new TimeoutException($"Process (id {processId}) did not exit within {TestConstants.TenSecondsTimeout} seconds after clicking '{desiredElement.SelectorName}'.");
+    }
+
+    public static T ClickUntilAnotherElementAppears<T>(this T desiredElement, Element elementToAppear, TimeSpan? retryIntervalOverload = null) where T : Element
+    {
+        AutomationElement elementToClick = WaitUntilExists(desiredElement, TestConstants.EighteenSecondsTimeout, retryIntervalOverload)!;
+        elementToClick.WaitUntilClickable(TestConstants.EighteenSecondsTimeout);
+        elementToClick.Click();
+
+        DateTime timeoutDate = DateTime.UtcNow + TestConstants.FiveSecondsTimeout;
+        while (DateTime.UtcNow < timeoutDate)
+        {
+            BaseTest.RefreshWindow();
+            BaseTest.App?.WaitWhileBusy();
+
+            AutomationElement? appeared;
+            try
+            {
+                appeared = FindFirstDescendantUsingChildren(elementToAppear.Condition);
+            }
+            catch (COMException)
+            {
+                appeared = null;
+            }
+
+            if (appeared != null)
+            {
+                return desiredElement;
+            }
+
+            Thread.Sleep(TestConstants.UserInputSimulationDelay);
+
+            AutomationElement? freshTarget;
+            try
+            {
+                freshTarget = FindFirstDescendantUsingChildren(desiredElement.Condition);
+            }
+            catch (COMException)
+            {
+                continue;
+            }
+
+            if (freshTarget != null && freshTarget.IsEnabled && !freshTarget.IsOffscreen)
+            {
+                try
+                {
+                    freshTarget.Click();
+                }
+                catch (COMException) { }
+            }
+        }
+
+        throw new TimeoutException($"'{elementToAppear.SelectorName}' did not appear within {TestConstants.FiveSecondsTimeout.TotalSeconds} seconds " +
+            $"after repeatedly clicking '{desiredElement.SelectorName}'.");
     }
 
     public static T DoubleClick<T>(this T desiredElement) where T : Element
@@ -208,8 +350,7 @@ public static class UiActions
         DateTime timeoutDate = DateTime.UtcNow + TestConstants.TenSecondsTimeout;
         while (DateTime.UtcNow < timeoutDate)
         {
-            Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.NEXT);
-            Thread.Sleep(TestConstants.NavigationDelay);
+            Thread.Sleep(TestConstants.OneSecondTimeout);
 
             ComboBoxItem[]? items = comboBox.Items;
 
@@ -316,6 +457,43 @@ public static class UiActions
         return (windowPosition, windowSize);
     }
 
+    public static (Point Position, Size Size) GetElementSizeAndPosition<T>(T desiredElement) where T : Element
+    {
+        //give it time to stabilize the position
+        Thread.Sleep(TestConstants.TwoSecondsTimeout);
+
+        AutomationElement? element = WaitUntilExists(desiredElement);
+        Rectangle elementBoundingRectangle = element!.BoundingRectangle;
+
+        Point elementPosition = new(elementBoundingRectangle.X, elementBoundingRectangle.Y);
+        Size elementSize = new(elementBoundingRectangle.Width, elementBoundingRectangle.Height);
+
+        return (elementPosition, elementSize);
+    }
+
+    public static void VerifyElementSizeAndPosition(Element elementToVerify, (Point Position, Size Size) elementBeforeTyping, Action typeAction)
+    {
+        typeAction();
+
+        (Point Position, Size Size) elementAfterTyping = GetElementSizeAndPosition(elementToVerify);
+
+        bool hasSamePosition = elementBeforeTyping.Position.X == elementAfterTyping.Position.X && elementBeforeTyping.Position.Y == elementAfterTyping.Position.Y;
+        bool hasSameSize = elementBeforeTyping.Size.Width == elementAfterTyping.Size.Width && elementBeforeTyping.Size.Height == elementAfterTyping.Size.Height;
+
+        Assert.That(hasSamePosition, Is.True, "Element position changed." +
+            $"Before: X: {elementBeforeTyping.Position.X}, Y: {elementBeforeTyping.Position.Y}" +
+            $"After: X: {elementAfterTyping.Position.X}, Y: {elementAfterTyping.Position.Y}");
+
+        Assert.That(hasSameSize, Is.True, "Element size changed." +
+              $"Before: Width: {elementBeforeTyping.Size.Width}, Height: {elementBeforeTyping.Size.Height}" +
+              $"After: Width: {elementAfterTyping.Size.Width}, Height: {elementAfterTyping.Size.Height}");
+    }
+
+    public static void ClearInputWithKeyboard()
+    {
+        Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_A, VirtualKeyShort.DELETE);
+    }
+
     public static T ClearInput<T>(this T desiredElement) where T : Element
     {
         AutomationElement? element = WaitUntilExists(desiredElement);
@@ -368,6 +546,34 @@ public static class UiActions
         return desiredElement;
     }
 
+    public static T SiblingTextEquals<T>(this T desiredElement, string expectedSiblingText) where T : Element
+    {
+        List<string> siblingTexts = GetSiblingText(desiredElement);
+
+        Assert.That(siblingTexts.Contains(expectedSiblingText), Is.True,
+            $"Expected sibling text '{expectedSiblingText}' next to '{desiredElement.SelectorName}', but found: [{string.Join(", ", siblingTexts)}].");
+
+        return desiredElement;
+    }
+
+    public static void SiblingTextDoesNotEqual<T>(this T desiredElement, string unexpectedSiblingText) where T : Element
+    {
+        List<string> siblingTexts = GetSiblingText(desiredElement);
+
+        Assert.That(siblingTexts.Contains(unexpectedSiblingText), Is.False,
+            $"Sibling text '{unexpectedSiblingText}' next to '{desiredElement.SelectorName}' was found, but should not exist.");
+    }
+
+    private static List<string> GetSiblingText(Element desiredElement)
+    {
+        AutomationElement? anchor = WaitUntilExists(desiredElement);
+
+        return anchor?.Parent
+            ?.FindAllChildren(cf => cf.ByControlType(ControlType.Text))
+            .Select(t => t.Name)
+            .ToList() ?? [];
+    }
+
     public static Element TextEquals<T>(this T desiredElement, string text) where T : Element
     {
         AutomationElement? element = WaitUntilExists(desiredElement);
@@ -389,11 +595,19 @@ public static class UiActions
         return desiredElement;
     }
 
-    public static Element TextContainsOneOf<T>(this T desiredElement, List<string> texts) where T : Element
+    public static Element TextContainsOneOf<T>(this T desiredElement, Country[] texts) where T : Element
     {
         AutomationElement? element = WaitUntilExists(desiredElement);
         string? elementText = element?.AsLabel().Text;
-        Assert.That(texts.Any(oneOfText => elementText?.Contains(oneOfText) == true), Is.True, $"Expected string to contain at least one of: {string.Join(", ", texts)}, but was: {elementText}");
+        Assert.That(texts.Any(oneOfText => elementText?.Contains(oneOfText.GetName()) == true), Is.True, $"Expected string to contain at least one of: {string.Join(", ", texts)}, but was: {elementText}");
+        return desiredElement;
+    }
+
+    public static Element TextDoesNotContainOneOf<T>(this T desiredElement, Country[] texts) where T : Element
+    {
+        AutomationElement? element = WaitUntilExists(desiredElement);
+        string? elementText = element?.AsLabel().Text;
+        Assert.That(texts.Any(oneOfText => elementText?.Contains(oneOfText.GetName()) == true), Is.False, $"Expected string to not contain any of: {string.Join(", ", texts)}, but was: {elementText}");
         return desiredElement;
     }
 
@@ -485,6 +699,7 @@ public static class UiActions
         TimeSpan retryInterval = retryIntervalOverload ?? TestConstants.RetryInterval;
 
         AutomationElement? elementToWaitFor = null;
+        AutomationElement? parentElement = null;
 
         RetryResult<bool> retry = Retry.WhileFalse(
             () =>
@@ -500,6 +715,7 @@ public static class UiActions
 
                     if (desiredElement.ChildElement != null && elementToWaitFor != null)
                     {
+                        parentElement = elementToWaitFor;
                         elementToWaitFor = desiredElement.ChildElement.UseDescendantSearch
                             ? elementToWaitFor.FindFirstDescendant(desiredElement.ChildElement.Condition)
                             : elementToWaitFor.FindFirstChild(desiredElement.ChildElement.Condition);
@@ -518,10 +734,31 @@ public static class UiActions
 
         if (!retry.Success)
         {
-            string errorMessage = customMessage ??
-                (desiredElement.ChildElement != null
-                    ? $"Failed to get child element {desiredElement.ChildElement.SelectorName} inside {desiredElement.SelectorName} element within {time?.TotalSeconds} seconds."
-                    : $"Failed to get {desiredElement.SelectorName} element within {time?.TotalSeconds} seconds.");
+            string errorMessage;
+
+            if (desiredElement.ChildElement != null)
+            {
+                string availableElements = parentElement != null
+                    ? AutomationElementExtensions.DescribeAvailableElements(parentElement)
+                    : "parent element itself was never found, so its descendants could not be listed.";
+
+                errorMessage = customMessage ??
+                    $"Failed to get child element {desiredElement.ChildElement.SelectorName} inside " +
+                    $"{desiredElement.SelectorName} element within {time?.TotalSeconds} seconds. " +
+                    $"Available descendants of parent: {availableElements}";
+            }
+            else
+            {
+                AutomationElement? searchRoot = Element.Root ?? BaseTest.Window;
+
+                string availableElements = searchRoot != null
+                    ? AutomationElementExtensions.DescribeAvailableElements(searchRoot)
+                    : "neither Element.Root nor BaseTest.Window was available, so descendants could not be listed.";
+
+                errorMessage = customMessage ??
+                    $"Failed to get {desiredElement.SelectorName} element within {time?.TotalSeconds} seconds. " +
+                    $"Available descendants at {(Element.Root != null ? "Element.Root" : "BaseTest.Window")}: {availableElements}";
+            }
 
             throw new TimeoutException(errorMessage);
         }

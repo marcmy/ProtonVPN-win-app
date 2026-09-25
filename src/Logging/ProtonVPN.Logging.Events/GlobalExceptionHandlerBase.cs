@@ -28,15 +28,17 @@ namespace ProtonVPN.Logging.Events;
 
 public abstract class GlobalExceptionHandlerBase
 {
-    protected ILogger? Logger { get; private set; }
-
     public event Action<Exception>? OnFatalException;
+
+    protected ILogger? Logger { get; private set; }
 
     public void Initialize()
     {
         EventLogger.Initialize();
+
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
         TaskExtensions.SetDefaultExceptionHandler(ex =>
             TryLogException("Fire-and-forget task exception", ex, isFatal: false));
     }
@@ -48,37 +50,52 @@ public abstract class GlobalExceptionHandlerBase
 
     private void OnAppDomainUnhandledException(object? sender, UnhandledExceptionEventArgs eventArgs)
     {
+        const string HANDLER = "AppDomain unhandled exception";
         string terminatingText = eventArgs.IsTerminating ? "(Terminating)" : string.Empty;
-        Exception exception = NormalizeExceptionObject(eventArgs.ExceptionObject);
-        TryLogException($"AppDomain unhandled exception {terminatingText}", exception, eventArgs.IsTerminating);
+
+        Exception ex = eventArgs.ExceptionObject switch
+        {
+            RuntimeWrappedException wrappedException => new Exception(
+                $"Non-Exception object thrown: " +
+                $"{wrappedException.WrappedException?.GetType().FullName} — {wrappedException.WrappedException}",
+                wrappedException),
+
+            Exception exception => exception,
+
+            object thrownObject => new Exception(
+                $"Non-Exception object thrown: " +
+                $"{thrownObject.GetType().FullName} — {thrownObject}"),
+
+            null => new Exception("Non-Exception object thrown: <null>")
+        };
+
+        TryLogException($"{HANDLER} {terminatingText}", ex, isFatal: eventArgs.IsTerminating);
     }
 
-    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs eventArgs)
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs ex)
     {
-        TryLogException("Unobserved task exception", eventArgs.Exception, isFatal: false);
-        eventArgs.SetObserved();
+        TryLogException("Unobserved task exception", ex.Exception, isFatal: false);
+        ex.SetObserved();
     }
 
-    protected void TryLogException(string handler, Exception? exception, bool isFatal)
+    protected void TryLogException(string handler, Exception? ex, bool isFatal)
     {
-        if (exception is null)
+        if (ex is null)
         {
             return;
         }
 
-        AggregateException? flattenedAggregate = exception is AggregateException aggregate
-            ? aggregate.Flatten()
-            : null;
-        Exception diagnosticException = flattenedAggregate?.InnerExceptions.Count == 1
+        AggregateException? flattenedAggregate = ex is AggregateException agg ? agg.Flatten() : null;
+        Exception diagnosticEx = flattenedAggregate?.InnerExceptions.Count == 1
             ? flattenedAggregate.InnerExceptions[0]
-            : exception;
+            : ex;
 
-        TryWriteEventLog(handler, exception, diagnosticException, flattenedAggregate);
-        TryWriteFileLog(handler, diagnosticException, isFatal);
+        TryWriteEventLog(handler, ex, diagnosticEx, flattenedAggregate);
+        TryWriteFileLog(handler, diagnosticEx, isFatal);
 
         if (isFatal)
         {
-            TryInvokeOnFatalException(diagnosticException);
+            TryInvokeOnFatalException(diagnosticEx);
         }
     }
 
@@ -88,17 +105,13 @@ public abstract class GlobalExceptionHandlerBase
         {
             OnFatalException?.Invoke(exception);
         }
-        catch (Exception subscriberException)
+        catch (Exception ex)
         {
-            TryLogException("OnFatalException subscriber threw", subscriberException, isFatal: false);
+            TryLogException("OnFatalException subscriber threw", ex, isFatal: false);
         }
     }
 
-    private static void TryWriteEventLog(
-        string handler,
-        Exception exception,
-        Exception diagnosticException,
-        AggregateException? flattenedAggregate)
+    private void TryWriteEventLog(string handler, Exception ex, Exception diagnosticEx, AggregateException? flattenedAggregate)
     {
         try
         {
@@ -111,18 +124,16 @@ public abstract class GlobalExceptionHandlerBase
                 $"Date: {DateTimeOffset.UtcNow:o}{Environment.NewLine}" +
                 $"Handler: {handler}{Environment.NewLine}" +
                 Environment.NewLine +
-                $"Exception HResult: 0x{diagnosticException.HResult:X8}{Environment.NewLine}" +
-                $"Exception type: {diagnosticException.GetType().FullName}{Environment.NewLine}" +
-                $"Exception message: {diagnosticException.Message}{Environment.NewLine}" +
+                $"Exception HResult: 0x{diagnosticEx.HResult:X8}{Environment.NewLine}" +
+                $"Exception type: {diagnosticEx.GetType().FullName}{Environment.NewLine}" +
+                $"Exception message: {diagnosticEx.Message}{Environment.NewLine}" +
                 flattenedDetails +
                 Environment.NewLine +
-                $"Full exception: {exception}";
+                $"Full exception: {ex}";
 
             EventLogger.Log(EventLogEntryType.Error, message);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private void TryWriteFileLog(string handler, Exception exception, bool isFatal)
@@ -138,9 +149,7 @@ public abstract class GlobalExceptionHandlerBase
                 LogError(handler, exception);
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     protected abstract void LogFatal(string handler, Exception exception);
@@ -154,31 +163,11 @@ public abstract class GlobalExceptionHandlerBase
             return string.Empty;
         }
 
-        string details = string.Join(
-            Environment.NewLine,
-            flattened.InnerExceptions.Select((exception, index) =>
-                $"  [{index + 1}] {exception.GetType().FullName}: {exception.Message}"));
+        string details = string.Join(Environment.NewLine,
+            flattened.InnerExceptions.Select((e, i) =>
+                $"  [{i + 1}] {e.GetType().FullName}: {e.Message}"));
 
         return $"Inner exceptions ({flattened.InnerExceptions.Count}):{Environment.NewLine}" +
                details + Environment.NewLine;
-    }
-
-    private static Exception NormalizeExceptionObject(object? exceptionObject)
-    {
-        return exceptionObject switch
-        {
-            RuntimeWrappedException wrappedException => new Exception(
-                $"Non-Exception object thrown: " +
-                $"{wrappedException.WrappedException?.GetType().FullName} — {wrappedException.WrappedException}",
-                wrappedException),
-
-            Exception exception => exception,
-
-            object thrownObject => new Exception(
-                $"Non-Exception object thrown: " +
-                $"{thrownObject.GetType().FullName} — {thrownObject}"),
-
-            null => new Exception("Non-Exception object thrown: <null>")
-        };
     }
 }

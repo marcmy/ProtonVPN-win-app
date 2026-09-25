@@ -63,9 +63,9 @@ public class VpnEndpointCandidates : IVpnEndpointCandidates
 
     private bool HasUntriedIp(VpnHost host, VpnConfig config)
     {
-        foreach (string candidateIp in GetCandidateIps(host, config))
+        foreach (string ip in GetCandidateIps(host, config))
         {
-            if (!_skippedIps[config.VpnProtocol].Contains(candidateIp))
+            if (!_skippedIps[config.VpnProtocol].Contains(ip))
             {
                 return true;
             }
@@ -88,11 +88,11 @@ public class VpnEndpointCandidates : IVpnEndpointCandidates
 
     public VpnEndpoint NextIp(VpnConfig config)
     {
-        if (Current != null && !Current.IsEmpty)
+        if (Current is not null && !Current.IsEmpty)
         {
-            foreach (string candidateIp in GetCandidateIps(Current.Server, config))
+            foreach (string ip in GetCandidateIps(Current.Server, config))
             {
-                _skippedIps[config.VpnProtocol].Add(candidateIp);
+                _skippedIps[config.VpnProtocol].Add(ip);
             }
         }
 

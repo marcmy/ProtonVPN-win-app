@@ -55,7 +55,7 @@ public class UIThreadDispatcher : IUIThreadDispatcher
         [CallerMemberName] string sourceMemberName = "",
         [CallerLineNumber] int sourceLineNumber = 0)
     {
-        TryEnqueueAsync(callback, sourceFilePath, sourceMemberName, sourceLineNumber);
+        _ = TryEnqueueAsync(callback, sourceFilePath, sourceMemberName, sourceLineNumber);
     }
 
     public Task<bool> TryEnqueueAsync(Func<Task> callback,

@@ -44,7 +44,6 @@ public class VpnCredentialsMapperTest
     {
         _entityMapper = Substitute.For<IEntityMapper>();
         _mapper = new(_entityMapper);
-
         _expectedAsymmetricKeyPairIpcEntity = new AsymmetricKeyPairIpcEntity();
         _entityMapper.Map<AsymmetricKeyPair, AsymmetricKeyPairIpcEntity>(Arg.Any<AsymmetricKeyPair>())
             .Returns(_expectedAsymmetricKeyPairIpcEntity);
@@ -86,6 +85,8 @@ public class VpnCredentialsMapperTest
         Assert.AreEqual(entityToTest.Password, result.Password);
     }
 
+    // The certificate PEM is sanitized by ConnectionCertificateMapper, so this only asserts the delegation.
+    // See ConnectionCertificateMapperTest for the sanitization cases.
     [TestMethod]
     public void TestMapRightToLeft_WithCertificate()
     {

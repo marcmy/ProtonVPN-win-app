@@ -235,7 +235,8 @@ public static class WindowExtensions
         }
         else
         {
-            // No position specified, center the window on the current monitor (position is calculated in pixels)
+            // Center the window on the target monitor (position is calculated in pixels).
+            // The target monitor is the one indicated by the position when specified, otherwise the one where the cursor is.
             windowPositionX = workArea.X + ((workArea.Width - windowWidth.ToPixels(dpi)) / 2);
             windowPositionY = workArea.Y + ((workArea.Height - windowHeight.ToPixels(dpi)) / 2);
         }

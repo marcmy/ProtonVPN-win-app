@@ -33,11 +33,6 @@ public interface IUserSettings
     string? UserEmail { get; set; }
     DateTimeOffset? UserCreationDateUtc { get; set; }
     string Theme { get; set; }
-    int WindowWidth { get; set; }
-    int WindowHeight { get; set; }
-    int? WindowXPosition { get; set; }
-    int? WindowYPosition { get; set; }
-    bool IsWindowMaximized { get; set; }
     bool IsNavigationPaneOpened { get; set; }
     int SidebarWidth { get; set; }
     bool IsRecentsPaneOpened { get; set; }
@@ -93,7 +88,6 @@ public interface IUserSettings
     List<ExcludedLocation> ExcludedLocationsList { get; set; }
     bool WasExcludedLocationsSmartDiscoveryPromptDisplayed { get; set; }
     bool WasExcludedLocationsTeachingTipDisplayed { get; set; }
-
     [Obsolete("Use IsLocalDnsEnabled instead. DnsBlockMode is maintained in order to migrate the value for existing users.")]
     DnsBlockMode DnsBlockMode { get; set; }
 }

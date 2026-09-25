@@ -18,9 +18,15 @@
  */
 
 using System.Threading;
+using FlaUI.Core.Input;
+using FlaUI.Core.WindowsAPI;
 using NUnit.Framework;
+using ProtonVPN.UI.Tests.Enums;
+using ProtonVPN.UI.Tests.Enums.Locations;
+using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -30,62 +36,78 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("SMOKE_3")]
 public class SplitTunnelingExcludeTests : BaseTest
 {
-    private const string COUNTRY_NAME = "Austria";
+    private const Country COUNTRY_NAME = Country.Austria;
+
+    private const Browser APP_TO_EXCLUDE = Browser.GoogleChrome;
+    private const Browser OTHER_APP = Browser.Edge;
 
     private string? _ipAddressNotConnected = null;
-    private const string INVALID_IP_ERROR = "Enter a valid IPv4 or IPv6 address";
 
-    private static readonly string[] _specialIPs = { "127.0.0.1", "192.168.0.1", "0.0.0.0", "255.255.255.255", "10.0.0.1", "172.17.135.1" };
     private const string INVALID_IP = "192.A.B.1";
     private const string IPV6_ADDRESS = "2001:db8:3333:4444:5555:6666:7777:8888";
     private const string IP_ADDRESS_TO_EXCLUDE = "208.95.112.1";
 
-    private const string APP_TO_EXCLUDE = "Google Chrome";
-    private const string OTHER_APP = "Edge";
+    private static readonly string _invalidIpError = LanguageHelper.GetTranslatedString("Settings_Common_IpAddresses_Invalid");
 
-    [OneTimeSetUp]
+    private static readonly string[] _specialIPs = { "127.0.0.1", "192.168.0.1", "0.0.0.0", "255.255.255.255", "10.0.0.1", "172.17.135.1" };
+
+    [SetUp]
     public void SetUp()
     {
+        WindowsUtils.RestoreChrome();
         LaunchClient();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
         NetworkUtils.AssertInternetAvailability(true);
         _ipAddressNotConnected = NetworkUtils.GetIpAddressWithRetry();
+
+        SettingRobot
+            .OpenSettings()
+            .OpenSplitTunnelingSettings();
+        SplitTunnelingRobot
+            .EnableSplitTunnelingToggle()
+            .SelectExcludeMode();
     }
 
     [Test, Order(0)]
     [Property("TestCaseId", "602413")]
     public void SplitTunnelingIpInputDoesNotAllowInvalidIp()
     {
-        SettingRobot
-            .OpenSettings()
-            .OpenSplitTunnelingSettings();
-
         SplitTunnelingRobot
-            .EnableSplitTunnelingToggle()
-            .SelectExcludeMode()
             .EditSplitTunnelingIps();
 
         IpSelectorRobot
             .Verify.IsIpSelectorOpened()
             .AddIpAddress(INVALID_IP)
             .Verify.WasIpNotAdded(INVALID_IP)
-                   .IsErrorMessageDisplayed(INVALID_IP_ERROR)
+                   .IsErrorMessageDisplayed(_invalidIpError)
             .ClearIpInput();
+
+        ConfirmationRobot
+            .CancelAction()
+            .Verify.IsOverlayClosed();
     }
 
     [Test, Order(1)]
     [Property("TestCaseId", "788411")]
     public void SplitTunnelingIpInputAllowsIpV6()
     {
+        SplitTunnelingRobot
+            .EditSplitTunnelingIps();
         IpSelectorRobot
             .AddIpAddress(IPV6_ADDRESS)
             .Verify.WasIpAdded(IPV6_ADDRESS);
+        ConfirmationRobot
+           .PrimaryAction()
+           .Verify.IsOverlayClosed();
     }
 
     [Test, Order(2)]
     [Property("TestCaseId", "602414")]
+    [Retry(3)]
     public void SplitTunnelingExcludeIpAddress()
     {
+        SplitTunnelingRobot
+            .EditSplitTunnelingIps();
         IpSelectorRobot
             .AddIpAddress(IP_ADDRESS_TO_EXCLUDE)
             .Verify.WasIpAdded(IP_ADDRESS_TO_EXCLUDE);
@@ -109,10 +131,6 @@ public class SplitTunnelingExcludeTests : BaseTest
     [Ignore("JIRA - VPNWIN-1563")]
     public void SplitTunnelingExcludeModeSpecialIP()
     {
-        SettingRobot
-            .OpenSettings()
-            .OpenSplitTunnelingSettings();
-
         SplitTunnelingRobot
             .EditSplitTunnelingIps();
         foreach (string specialIP in _specialIPs)
@@ -125,9 +143,11 @@ public class SplitTunnelingExcludeTests : BaseTest
             .Verify.IsOverlayClosed();
 
         SettingRobot
-            .Reconnect();
+            .ApplySettings()
+            .CloseSettings();
 
         HomeRobot
+            .ConnectViaConnectionCard()
             .Verify.IsConnected();
 
         string ipAddressConnected = NetworkUtils.GetIpAddressWithRetry();
@@ -164,10 +184,26 @@ public class SplitTunnelingExcludeTests : BaseTest
     [Property("TestCaseId", "602417")]
     public void SplitTunnelingDeleteIpAddress()
     {
+        SplitTunnelingRobot
+            .EditSplitTunnelingIps();
+        IpSelectorRobot
+            .AddIpAddress(IP_ADDRESS_TO_EXCLUDE);
+        ConfirmationRobot
+            .PrimaryAction()
+            .Verify.IsOverlayClosed();
+
+        SettingRobot
+            .ApplySettings()
+            .CloseSettings();
+
+        HomeRobot
+            .ConnectViaConnectionCard()
+            .Verify.IsConnected();
+
         SettingRobot
             .OpenSettings()
             .OpenSplitTunnelingSettings();
-
+        
         SplitTunnelingRobot
             .EditSplitTunnelingIps();
         IpSelectorRobot
@@ -188,14 +224,11 @@ public class SplitTunnelingExcludeTests : BaseTest
 
     [Test, Order(5)]
     [Property("TestCaseId", "787609")]
+    [Retry(3)]
     public void SplitTunnelingExcludeModeApp()
     {
         try
         {
-            SettingRobot
-                .OpenSettings()
-                .OpenSplitTunnelingSettings();
-
             SplitTunnelingRobot
                 .EditSplitTunnelingApps();
             AppSelectorRobot
@@ -207,9 +240,11 @@ public class SplitTunnelingExcludeTests : BaseTest
                 .Verify.IsOverlayClosed();
 
             SettingRobot
-                .Reconnect();
+                .ApplySettings()
+                .CloseSettings();
 
             HomeRobot
+                .ConnectViaConnectionCard()
                 .Verify.IsConnected();
 
             string? ipAddressToCompare = HomeRobot.GetVpnServerIp();
@@ -234,14 +269,21 @@ public class SplitTunnelingExcludeTests : BaseTest
             SplitTunnelingRobot
                 .DisableSplitTunnelingToggle();
             SettingRobot
-                .ApplySettings()
-                .CloseSettings();
+                .ApplySettings();
         }
     }
 
-    [OneTimeTearDown]
+    [TearDown]
     public void TearDown()
     {
+        Keyboard.Press(VirtualKeyShort.ESCAPE);
+        try
+        {
+            ConfirmationRobot
+                .Verify.IsOverlayDisplayed()
+                .CancelAction();
+        }
+        catch { }
         BrowserUtils.KillAllBrowsers();
         Cleanup();
     }

@@ -158,18 +158,21 @@ public class FeatureFlagsObserver : PollingObserverBase, IFeatureFlagsObserver
 
             FeatureFlag? oldFeatureFlag = GetFeatureFlag(_settings.FeatureFlags, featureFlagName);
             FeatureFlag? newFeatureFlag = GetFeatureFlag(updatedFeatureFlags, featureFlagName);
-            FeatureFlagChange change = new()
+            bool tracksPayload = featureFlagPropertyInfo.Name == nameof(IFeatureFlagsObserver.ConnectionFeedback);
+            FeatureFlagChange featureFlagChange = new()
             {
+                // Use property name instead of attribute name so that later we can compare
+                // using nameof(IFeatureFlagsObserver.ConnectionFeedback)
                 Name = featureFlagPropertyInfo.Name,
                 OldValue = oldFeatureFlag?.IsEnabled,
                 NewValue = newFeatureFlag?.IsEnabled,
-                OldPayload = oldFeatureFlag?.Payload,
-                NewPayload = newFeatureFlag?.Payload,
+                OldPayload = tracksPayload ? oldFeatureFlag?.Payload : null,
+                NewPayload = tracksPayload ? newFeatureFlag?.Payload : null,
             };
 
-            if (change.HasChanged)
+            if (featureFlagChange.HasChanged)
             {
-                changes.Add(change);
+                changes.Add(featureFlagChange);
             }
         }
 

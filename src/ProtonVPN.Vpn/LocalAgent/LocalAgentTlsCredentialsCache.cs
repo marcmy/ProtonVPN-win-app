@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -94,7 +94,7 @@ public class LocalAgentTlsCredentialsCache : ILocalAgentTlsCredentialsCache
             certificate.ExpirationDateUtc is null ||
             string.IsNullOrEmpty(credentials.ClientKeyPair?.SecretKey.Pem))
         {
-            _logger.Warn<LocalAgentTlsCredentialsLog>("Ignoring new credentials because it is null or has no data.");
+            _logger.Warn<LocalAgentTlsCredentialsLog>($"Ignoring new credentials because it is null or has no data.");
             return;
         }
 
@@ -103,12 +103,12 @@ public class LocalAgentTlsCredentialsCache : ILocalAgentTlsCredentialsCache
             if (_credentials.ClientKeyPair.SecretKey.Pem != credentials.ClientKeyPair.SecretKey.Pem &&
                 _credentials.ConnectionCertificate.Pem == certificate.Pem)
             {
-                _logger.Warn<LocalAgentTlsCredentialsLog>("Ignoring new credentials, because the private key has changed, but the certificate is the same.");
+                _logger.Warn<LocalAgentTlsCredentialsLog>($"Ignoring new credentials, because the private key has changed, but the certificate is the same.");
                 return;
             }
             else if (certificate.Pem == _credentials.ConnectionCertificate.Pem)
             {
-                _logger.Debug<LocalAgentTlsCredentialsLog>("Ignoring new credentials because the new certificate is equal.");
+                _logger.Debug<LocalAgentTlsCredentialsLog>($"Ignoring new credentials because the new certificate is equal.");
                 return;
             }
         }

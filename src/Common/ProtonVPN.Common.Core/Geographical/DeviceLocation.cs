@@ -19,7 +19,7 @@
 
 namespace ProtonVPN.Common.Core.Geographical;
 
-public struct DeviceLocation
+public readonly struct DeviceLocation
 {
     public static DeviceLocation Unknown => new();
 

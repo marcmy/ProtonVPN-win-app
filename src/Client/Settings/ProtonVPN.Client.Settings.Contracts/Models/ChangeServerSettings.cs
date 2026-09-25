@@ -19,7 +19,7 @@
 
 namespace ProtonVPN.Client.Settings.Contracts.Models;
 
-public struct ChangeServerSettings
+public readonly struct ChangeServerSettings
 {
     public int AttemptsLimit { get; init; }
     public TimeSpan ShortDelay { get; init; }

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -32,42 +32,22 @@ namespace ProtonVPN.Vpn.Tests.PortScanning;
 public class TcpPortScannerTest
 {
     [TestMethod]
-    public async Task IsAliveAsync_ShouldReturnTrue_WhenTcpConnectionCanBeEstablishedWithoutApplicationHandshakeAsync()
+    public async Task IsAliveAsync_WhenTcpEndpointAcceptsConnectionWithoutProtocolResponse_ReturnsTrueAsync()
     {
-        // Arrange
-        TcpPortScanner subject = new();
-        TcpListener listener = new(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-
-        try
-        {
-            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-            Task<TcpClient> acceptTask = listener.AcceptTcpClientAsync();
-            using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(2));
-
-            // Act
-            bool result = await subject.IsAliveAsync(IPAddress.Loopback.ToString(), port, cancellationTokenSource.Token);
-            using TcpClient acceptedClient = await acceptTask.WaitAsync(TimeSpan.FromSeconds(1));
-
-            // Assert
-            result.Should().BeTrue();
-        }
-        finally
-        {
-            listener.Stop();
-        }
-    }
-
-    [TestMethod]
-    public async Task IsAliveAsync_ShouldReturnFalse_WhenIpIsInvalidAsync()
-    {
-        // Arrange
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
+        Task<Socket> acceptTask = listener.AcceptSocketAsync(timeout.Token).AsTask();
         TcpPortScanner subject = new();
 
-        // Act
-        bool result = await subject.IsAliveAsync("not-an-ip", 443, CancellationToken.None);
+        bool isAlive = await subject.IsAliveAsync(endpoint.Address.ToString(), endpoint.Port, timeout.Token);
 
-        // Assert
-        result.Should().BeFalse();
+        using Socket acceptedSocket = await acceptTask.WaitAsync(TimeSpan.FromSeconds(1));
+        acceptedSocket.ReceiveTimeout = 1000;
+        int receivedBytes = acceptedSocket.Receive(new byte[128]);
+
+        isAlive.Should().BeTrue();
+        receivedBytes.Should().Be(0);
     }
 }

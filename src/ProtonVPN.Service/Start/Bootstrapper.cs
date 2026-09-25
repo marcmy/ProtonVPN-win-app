@@ -23,7 +23,6 @@ using System.IO;
 using System.ServiceProcess;
 using Autofac;
 using ProtonVPN.Api.Installers;
-using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Installers.Extensions;
 using ProtonVPN.Common.Legacy.OS.Processes;
 using ProtonVPN.Configurations.Contracts;
@@ -120,19 +119,17 @@ internal class Bootstrapper
     {
         if (_container is null)
         {
-            return;
+            return; // Fatal exception occurred before DI was built; nothing to clean up.
         }
 
         TryCleanup<ILogger>(logger =>
             logger.Info<AppServiceLog>("Fatal exception caught, attempting to clean up before crash"));
-        TryCleanup<IVpnConnectionStateMachine>(stateMachine => stateMachine.Disconnect());
-        TryCleanup<IOpenVpnProcess>(process => process.Stop());
-        TryCleanup<IOsProcesses>(processes =>
-            processes.KillProcesses(Resolve<IStaticConfiguration>().ClientName));
+        TryCleanup<IVpnConnectionStateMachine>(sm => sm.Disconnect());
+        TryCleanup<IOpenVpnProcess>(p => p.Stop());
+        TryCleanup<IOsProcesses>(p => p.KillProcesses(Resolve<IStaticConfiguration>().ClientName));
     }
 
-    private void TryCleanup<T>(Action<T> action)
-        where T : notnull
+    private void TryCleanup<T>(Action<T> action) where T : notnull
     {
         try
         {
@@ -140,6 +137,7 @@ internal class Bootstrapper
         }
         catch
         {
+            // Best-effort cleanup during a fatal crash; swallow so remaining steps still run.
         }
     }
 

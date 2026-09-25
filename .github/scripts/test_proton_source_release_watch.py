@@ -1,3 +1,6 @@
+import ast
+from pathlib import Path
+import textwrap
 import unittest
 
 from proton_source_release_watch import (
@@ -7,6 +10,35 @@ from proton_source_release_watch import (
 
 
 class SelectSourcePatchBranchTests(unittest.TestCase):
+    def test_candidate_ancestry_uses_live_temporary_repository(self):
+        workflow = (
+            Path(__file__).resolve().parents[1]
+            / "workflows/proton-source-release-watch.yml"
+        ).read_text(encoding="utf-8")
+        embedded_python = workflow.split("python3 <<'PY'\n", 1)[1].split("\n          PY", 1)[0]
+        tree = ast.parse(textwrap.dedent(embedded_python))
+
+        temporary_scope = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.With)
+            and any(
+                isinstance(item.context_expr, ast.Call)
+                and isinstance(item.context_expr.func, ast.Attribute)
+                and item.context_expr.func.attr == "TemporaryDirectory"
+                for item in node.items
+            )
+        )
+        candidate_inspection = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "find_latest_shared_release_tag"
+        )
+        self.assertLess(temporary_scope.lineno, candidate_inspection.lineno)
+        self.assertLessEqual(candidate_inspection.end_lineno, temporary_scope.end_lineno)
+
     def test_finds_prior_official_tag_shared_by_early_candidate_and_new_source(self):
         candidate_ancestors = {"refs/tags/v5.1.8"}
         target_ancestors = {"refs/tags/v5.1.8", "refs/tags/v5.1.9"}

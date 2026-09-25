@@ -35,7 +35,7 @@ namespace ProtonVPN.Vpn.Connection;
 
 public class VpnEndpointScanner : IEndpointScanner
 {
-    private static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan PING_TIMEOUT = TimeSpan.FromSeconds(3);
 
     private readonly ILogger _logger;
     private readonly ITaskQueue _taskQueue;
@@ -169,6 +169,7 @@ public class VpnEndpointScanner : IEndpointScanner
         }
 
         return list;
+
     }
 
     private async Task<VpnEndpoint> GetPortAliveAsync(string ip, VpnHost server, VpnProtocol protocol, int port,
@@ -202,16 +203,17 @@ public class VpnEndpointScanner : IEndpointScanner
         return await IsEndpointAliveAsync(ct => _tcpPortScanner.IsAliveAsync(ip, port, ct), cancellationToken);
     }
 
-    private static async Task<bool> IsEndpointAliveAsync(Func<CancellationToken, Task<bool>> func,
-        CancellationToken cancellationToken)
+    private static async Task<bool> IsEndpointAliveAsync(Func<CancellationToken, Task<bool>> func, CancellationToken cancellationToken)
     {
         using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        linkedCts.CancelAfter(PingTimeout);
-        Task timeoutTask = Task.Delay(PingTimeout, cancellationToken);
+        linkedCts.CancelAfter(PING_TIMEOUT);
+        Task timeoutTask = Task.Delay(PING_TIMEOUT, cancellationToken);
         bool isAlive = await func(linkedCts.Token);
 
         try
         {
+            // If we don't await on a ping failure, we might go through the entire server list in an instant if they are immediate failures,
+            // which would make the ping step worthless and a cause for high resource consumption
             if (!isAlive)
             {
                 await timeoutTask;
@@ -225,8 +227,7 @@ public class VpnEndpointScanner : IEndpointScanner
         }
     }
 
-    private async Task<bool> IsUdpEndpointAliveAsync(string ip, int port, string serverKeyBase64,
-        CancellationToken cancellationToken)
+    private async Task<bool> IsUdpEndpointAliveAsync(string ip, int port, string serverKeyBase64, CancellationToken cancellationToken)
     {
         return await IsEndpointAliveAsync(ct => _udpPingClient.PingAsync(ip, port, serverKeyBase64, ct), cancellationToken);
     }

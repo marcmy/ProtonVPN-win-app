@@ -24,6 +24,8 @@ using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.Enums.Locations;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -31,14 +33,14 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("1")]
 public class ConnectionTests : FreshSessionSetUp
 {
-    private const string FAST_CONNECTION = "Fastest country";
+    private const Country COUNTRY_NAME_ONE = Country.Angola;
+    private const Country COUNTRY_NAME_TWO = Country.Austria;
+    private const Country SLOW_TOR_COUNTRY = Country.UnitedStates;
+    private const City CITY_NAME_ONE = City.Vienna;
 
-    private const string COUNTRY_NAME_ONE = "Angola";
-    private const string COUNTRY_NAME_TWO = "Austria";
-    private const string CITY_NAME_ONE = "Vienna";
-    private const string SLOW_TOR_COUNTRY = "United States";
+    private const Browser APP_TO_CHECK = Browser.GoogleChrome;
 
-    private const string APP_TO_CHECK = "Google Chrome";
+    private static readonly string _fastestCountry = LanguageHelper.GetTranslatedString("Country_Fastest");
 
     [SetUp]
     public void TestInitialize()
@@ -62,10 +64,10 @@ public class ConnectionTests : FreshSessionSetUp
 
         HomeRobot
             .Verify.IsDisconnected()
-                   .ConnectionCardTitleEquals(FAST_CONNECTION)
+                   .ConnectionCardTitleEquals(_fastestCountry)
             .ConnectViaConnectionCard()
             .Verify.IsConnected()
-                   .ConnectionCardTitleEquals(FAST_CONNECTION);
+                   .ConnectionCardTitleEquals(_fastestCountry);
 
         string ipAddressConnected = NetworkUtils.GetIpAddressWithRetry();
 
@@ -138,8 +140,8 @@ public class ConnectionTests : FreshSessionSetUp
     }
 
     [Test]
-	[Property("TestCaseId", "602340")]
-	public void ClientKillDoesNotStopVpnConnection()
+    [Property("TestCaseId", "602340")]
+    public void ClientKillDoesNotStopVpnConnection()
     {
         SettingRobot
            .OpenSettings()
@@ -176,6 +178,7 @@ public class ConnectionTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "789177")]
+    [Retry(3)]
     public void AppExitStopsVpnConnection()
     {
         string ipAddressBeforeConnected = NetworkUtils.GetIpAddressWithRetry();
@@ -263,7 +266,11 @@ public class ConnectionTests : FreshSessionSetUp
 
         NetworkUtils.VerifyIpAddressMatchesWithRetry(ipAddressNotConnected);
 
-        ConnectToCountryAndVerify();
+        SidebarRobot
+            .ExpandSpecificServerList()
+            .ConnectToServer();
+        HomeRobot
+            .Verify.IsConnected();
         SidebarRobot
             .ExpandSpecificServerList()
             .DisconnectViaServer();
@@ -293,20 +300,21 @@ public class ConnectionTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "602424")]
-    [Ignore("Native WireGuard causes infinite connecting on the ProTUN build")]
+    [Retry(3)]
     public void FreshSignInWhileConnectedToWireGuard()
     {
-        LoginFreshWithWireGuardOn();
+        try
+        {
+            LoginFreshWithWireGuardOn();
 
-        HomeRobot
-            .Verify.IsLocationDetailsPanelEmpty();
-        //TODO: There is no (red) pin on the map displaying user's current location;
-
-        ScriptHelper.DisconnectFromWireGuard();
-
-        HomeRobot
-            .Verify.AreLocationDetailsShown();
-        //TODO: A(red) pin on the map displays user's current country;
+            HomeRobot
+                .Verify.IsLocationDetailsPanelEmpty();
+        }
+        finally
+        {
+            ScriptHelper.DisconnectFromWireGuard();
+            Thread.Sleep(TestConstants.TenSecondsTimeout);
+        }
 
         HomeRobot
             .ConnectViaConnectionCard()
@@ -315,6 +323,7 @@ public class ConnectionTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "609951")]
+    [Category("5")]
     public void FirewallRulesAreNotIgnored()
     {
         CommonUiFlows.EnsureUserIsDisconnected();
@@ -347,6 +356,7 @@ public class ConnectionTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "602422")]
+    [Retry(3)]
     public void ConnectionRestoresAfterStoppingVpnService()
     {
         HomeRobot
@@ -366,12 +376,18 @@ public class ConnectionTests : FreshSessionSetUp
 
         HomeRobot.Verify.IsConnected();
 
+        //Give it time to properly restore internet
+        Thread.Sleep(TestConstants.TenSecondsTimeout);
+
         //Note: DNS leaks are expected in this scenario, unless Kill Switch is set to "Advanced"
         BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, shouldBeAvailable: true);
+
+        BrowserUtils.KillAllBrowsers();
     }
 
     [Test]
     [Property("TestCaseId", "602345")]
+    [Retry(3)]
     public void ConnectWithoutInternet()
     {
         try
@@ -398,7 +414,7 @@ public class ConnectionTests : FreshSessionSetUp
         }
     }
 
-    private void ConnectToCountryAndVerify(string countryName = COUNTRY_NAME_TWO)
+    private void ConnectToCountryAndVerify(Country countryName = COUNTRY_NAME_TWO)
     {
         SidebarRobot
             .ConnectToCountry(countryName);
@@ -408,13 +424,14 @@ public class ConnectionTests : FreshSessionSetUp
 
     private void LoginFreshWithWireGuardOn()
     {
-        App?.Close();
-        App?.Dispose();
+        Cleanup();
+        Thread.Sleep(TestConstants.FiveSecondsTimeout);
+
         ScriptHelper.ConnectToWireGuard();
-        Thread.Sleep(TestConstants.TwoSecondsTimeout);
-        ScriptHelper.VerifyWireGuardIsConnected();
-        LaunchClient();
-        CommonUiFlows.FullLogin(TestUserData.PlusUser);
+        Thread.Sleep(TestConstants.TenSecondsTimeout);
+        LaunchClient(ClientLaunchParams.StartWithoutDisconnectingFromWireGuard);
+        NetworkUtils.AssertInternetAvailability(true);
+        CommonUiFlows.FullLogin(TestUserData.VisionaryUser);
     }
 
     private void EnableKillSwitch(KillSwitchMode mode)

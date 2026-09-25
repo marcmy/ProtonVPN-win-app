@@ -22,12 +22,12 @@ using ProtonVPN.Client.Settings.Contracts.Enums;
 
 namespace ProtonVPN.Client.Settings.Contracts.Models;
 
-public struct ExcludedLocation : IEquatable<ExcludedLocation>
+public readonly struct ExcludedLocation : IEquatable<ExcludedLocation>
 {
-    public ExcludedLocationType Type { get; set; }
-    public string CountryCode { get; set; }
-    public string? StateName { get; set; }
-    public string? CityName { get; set; }
+    public ExcludedLocationType Type { get; init; }
+    public string CountryCode { get; init; }
+    public string? StateName { get; init; }
+    public string? CityName { get; init; }
 
     public ExcludedLocation(string countryCode)
     {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -22,12 +22,8 @@ namespace ProtonVPN.Client.Settings.Contracts;
 public readonly struct WindowLocation
 {
     public int Width { get; init; }
-
     public int Height { get; init; }
-
     public int? XPosition { get; init; }
-
     public int? YPosition { get; init; }
-
     public bool IsMaximized { get; init; }
 }

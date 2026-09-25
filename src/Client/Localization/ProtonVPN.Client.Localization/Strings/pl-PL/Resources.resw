@@ -2936,10 +2936,8 @@ Duże obciążenie serwera może spowolnić połączenie.</value>
     <value>Smart Routing jest najczęściej wykorzystywany do omijania praw naruszających prywatność oraz innych form cenzury.</value>
   </data>
   <data name="Overlay_SmartRouting_Header">
-    <value>Fizyczna lokalizacja serwerów to {0}, ale będzie wyglądać, że jest to {1}.</value>
-    <comment>{0} is a placeholder for the physical server location country. {1} is a placeholder for the destination country
-    Warning: country names are inserted in the nominative case. For INFLECTED languages, use alternative wording as follows:
-    Connects you to your destination country ({1}) through servers that are physically located somewhere else ({0})</comment>
+    <value>Connects you to your destination country through servers physically located elsewhere: {0}.</value>
+    <comment>{0} is a placeholder for the countries where the physical servers are. Can be either one country or multiple countries separated with comma.</comment>
   </data>
   <data name="Overlay_SmartRouting_LearnMore">
     <value>Co to jest Smart Routing?</value>

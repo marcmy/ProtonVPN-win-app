@@ -21,7 +21,7 @@ using ProtonVPN.Client.Settings.Contracts.Enums;
 
 namespace ProtonVPN.Client.Settings.Contracts.Models;
 
-public struct DefaultConnection
+public readonly struct DefaultConnection
 {
     public static DefaultConnection Fastest => new(DefaultConnectionType.Fastest);
     public static DefaultConnection Random => new(DefaultConnectionType.Random);

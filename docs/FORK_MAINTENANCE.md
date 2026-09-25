@@ -49,15 +49,39 @@ authority.
 ## Dependency policy
 
 Dependabot may open patch and minor updates. Major upgrades require a manual
-compatibility review. In particular, the 5.1.5 installed runtime supplies the
-strongly named `log4net` 3.2.0 assembly, so this fork must not build a patch
-against an incompatible log4net identity merely because a newer package exists.
+compatibility review. The v5.1.8 source pins strongly named `log4net` 3.2.0,
+so this fork must not build a patch against an incompatible log4net identity
+merely because a newer package exists.
 
 Validate dependency changes with the fast-patch workflow and against an official
 installation of the target version. A successful compile alone is not sufficient
 for an overlay patch.
 
+Use this repository's scoped NuGet dependency-submission workflow for the GitHub
+dependency graph. GitHub's separate Automatic Dependency Submission attempts to
+restore unsupported legacy projects (including an upstream unversioned
+`Grpc.Core` reference) and fails; it can be disabled in repository settings
+without disabling the scoped workflow or Dependabot.
+
 ## Upstream release procedure
+
+`marc/proton` is the single current source branch. Its `AssemblyVersion` names
+the official release it is based on, and its informational version is
+`<release>-marc-custom`. The Windows fast patch build reads that source version
+and packages only the current release; it does not accept a version override.
+
+The binary release watch compares the newest Proton release with the version
+on `marc/proton`. If its source is not public yet, retain the binary archaeology
+report and develop a reviewed candidate on `future/proton/v<version>` from the
+current official-source base. That candidate is not a second current release.
+When Proton publishes the source tag, the source watcher checks that the
+candidate and tag share an official ancestor, then runs the future-port build
+against the new source. Historical pre-5.1.8 backport cleanup applies only to
+old fork deltas; a source branch already based on official v5.1.8 or newer
+ports its current delta directly. New semantic conflicts fail closed and need
+the same feature-by-feature review described below. After the reviewed port is
+merged, retire its candidate and generated branches; the current-version build
+then takes over automatically.
 
 1. Record the current upstream base and compare it with the entire maintained
    fork. This complete delta is the preservation checklist, including additions,

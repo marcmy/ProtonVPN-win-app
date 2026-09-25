@@ -114,10 +114,11 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0"
-                       Margin="4,0"
+                       Margin="4,0,4,2"
                        AutomationProperties.AutomationId="ConnectionCardDescription"
                        Foreground="{ThemeResource TextWeakColorBrush}"
                        Style="{StaticResource BodyMediumStrongTextBlockStyle}"
+                       VerticalAlignment="Center"
                        Text="{x:Bind ViewModel.Subtitle}"
                        TextAlignment="Center"
                        TextTrimming="CharacterEllipsis"

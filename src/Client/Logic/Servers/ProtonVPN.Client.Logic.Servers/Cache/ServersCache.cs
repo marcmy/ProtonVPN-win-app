@@ -473,25 +473,39 @@ public class ServersCache : IServersCache
             .GroupBy(s => new { Country = s.ExitCountry, s.City })
             .SelectMany(cityGroup =>
             {
-                List<string> states = cityGroup
+                List<string> distinctStates = cityGroup
                     .Select(s => s.State)
                     .Where(state => !string.IsNullOrWhiteSpace(state))
-                    .Select(state => state!)
                     .Distinct()
-                    .ToList()!;
+                    .ToList();
 
-                return states.Count <= 1
-                    ? [CreateCity(cityGroup.Key.Country, states.FirstOrDefault(), cityGroup.Key.City, cityGroup)]
-                    : cityGroup
-                        .GroupBy(s => !string.IsNullOrWhiteSpace(s.State) ? s.State : null)
-                        .Select(stateGroup => CreateCity(cityGroup.Key.Country, stateGroup.Key, cityGroup.Key.City, stateGroup));
+                // 0 or 1 distinct non-null states => merge everything into one state
+                if (distinctStates.Count <= 1)
+                {
+                    return
+                    [
+                        CreateCity(countryCode: cityGroup.Key.Country,
+                                   stateName: distinctStates.FirstOrDefault(),
+                                   cityName: cityGroup.Key.City,
+                                   servers: cityGroup)
+                    ];
+                }
+
+                // 2+ distinct states => keep them all separate including null states
+                return cityGroup
+                    .GroupBy(s => string.IsNullOrWhiteSpace(s.State) ? null : s.State)
+                    .Select(stateGroup => CreateCity(
+                        countryCode: cityGroup.Key.Country,
+                        stateName: stateGroup.Key,
+                        cityName: cityGroup.Key.City,
+                        servers: stateGroup));
             })
             .ToList();
     }
 
     private City CreateCity<T>(string countryCode, string? stateName, string cityName, IGrouping<T, Server> servers)
     {
-        return new City()
+        return new City
         {
             CountryCode = countryCode,
             StateName = stateName,

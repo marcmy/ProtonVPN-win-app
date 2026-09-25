@@ -19,10 +19,12 @@
 
 using System;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.ComponentModel;
+using System.Collections.Generic;
 using FlaUI.UIA3;
 using FlaUI.Core;
 using FlaUI.Core.Tools;
@@ -32,6 +34,7 @@ using NUnit.Framework.Interfaces;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestsHelper;
 using ProtonVPN.UI.Tests.UiTools;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 using static ProtonVPN.UI.Tests.Robots.TrayRobot;
 using TimeoutException = System.TimeoutException;
 
@@ -81,8 +84,7 @@ public class BaseTest
     {
         string testName = TestContext.CurrentContext.Test.MethodName ?? throw new Exception("Test method name is null.");
 
-        ArtifactsHelper.Recorder?.Stop();
-        ArtifactsHelper.Recorder?.Dispose();
+        ArtifactsHelper.StopRecorderSafely();
         ArtifactsHelper.SaveEventViewerLogs(testName);
         if (TestContext.CurrentContext.Result.Outcome.Status != TestStatus.Failed)
         {
@@ -146,6 +148,8 @@ public class BaseTest
             AutomationElement? KebabMenu = Element.ByAutomationId("TitleBarMenuButton").TryGetElement();
             if (KebabMenu == null)
             {
+                CommonUiFlows.CloseConnectionHelpModalIfDisaplyed();
+
                 HomeRobot.CloseClientViaCloseButton();
             }
             else
@@ -184,7 +188,7 @@ public class BaseTest
         {
             try
             {
-                process.Kill(true);
+                process.Kill(entireProcessTree: true);
             }
             catch { }
         }
@@ -195,9 +199,19 @@ public class BaseTest
     {
         parameters ??= ClientLaunchParams.FreshStartWithNoOnboarding;
 
+        if (parameters.ShouldDisconnectFromWireGuard)
+        {
+            ScriptHelper.DisconnectFromWireGuard();
+        }
+
         if (parameters.IsFreshStart)
         {
             DeleteProtonData();
+
+            if (LanguageHelper.ForceLanguageChange)
+            {
+                SetLanguageInSettingsFile();
+            }
         }
 
         string installedClientPath = Path.Combine(
@@ -227,10 +241,23 @@ public class BaseTest
         }
     }
 
+    private static void SetLanguageInSettingsFile()
+    {
+        Dictionary<string, string> settings = new()
+        {
+            ["Language"] = LanguageHelper.CurrentLanguage.GetCode()
+        };
+
+        string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+
+        Directory.CreateDirectory(TestConstants.StoragePath);
+        File.WriteAllText(TestConstants.GlobalSettingsPath, json);
+    }
+
     protected static void RestartApp(bool shouldRefreshWindow = true)
     {
-        App?.Close();
-        App?.Dispose();
+        Cleanup();
+        Thread.Sleep(TestConstants.FiveSecondsTimeout);
 
         ClientLaunchParams parameters = shouldRefreshWindow
             ? ClientLaunchParams.StartWithNoOnboarding
@@ -260,7 +287,7 @@ public class BaseTest
             () =>
             {
                 Process[] pname = Process.GetProcessesByName("ProtonVPN.Client");
-                return pname.Length > 0;
+                return pname.Length > 0 && pname[0].Responding;
             },
             TimeSpan.FromSeconds(30), TestConstants.RetryInterval);
 

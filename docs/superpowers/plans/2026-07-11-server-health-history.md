@@ -2027,7 +2027,7 @@ Skip the commit when no correction was needed.
 
 - [ ] **Step 9: Open the pull request**
 
-Base: `marc/proton`  
+Base: `marc/proton`
 Head: `feature/server-health-history`
 
 ```markdown

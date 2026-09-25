@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -57,7 +57,7 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
             settings.ModerateNat = connectionProfile.Settings.NatType == NatType.Moderate;
         }
 
-        if (settings.NetShieldMode == (int)NetShieldMode.BlockAdsMalwareTrackersAdultContent &&
+        if (settings.NetShieldMode == (int)NetShieldMode.BlockAdsMalwareTrackersAdultContent && 
             (_settings.VpnPlan.IsB2B || connectionIntent?.Feature is B2BFeatureIntent))
         {
             settings.NetShieldMode = (int)NetShieldMode.BlockAdsMalwareTrackers;
@@ -71,19 +71,10 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
         return new MainSettingsIpcEntity
         {
             VpnProtocol = _entityMapper.Map<VpnProtocol, VpnProtocolIpcEntity>(_settings.VpnProtocol),
-            KillSwitchMode = _settings.IsKillSwitchEnabled
-                ? _entityMapper.Map<KillSwitchMode, KillSwitchModeIpcEntity>(_settings.KillSwitchMode)
-                : KillSwitchModeIpcEntity.Off,
-            SplitTunnel = new SplitTunnelSettingsIpcEntity
-            {
-                Mode = _settings.IsSplitTunnelingEnabled
-                    ? _entityMapper.Map<SplitTunnelingMode, SplitTunnelModeIpcEntity>(_settings.SplitTunnelingMode)
-                    : SplitTunnelModeIpcEntity.Disabled,
-                AppPaths = GetSplitTunnelingApps(),
-                Ips = GetSplitTunnelingIpAddresses()
-            },
+            KillSwitchMode = GetKillSwitchMode(_settings.IsKillSwitchEnabled, _settings.KillSwitchMode),
+            SplitTunnel = GetSplitTunnelingSettings(_settings.IsSplitTunnelingEnabled, _settings.SplitTunnelingMode),
             ModerateNat = _settings.NatType == NatType.Moderate,
-            NetShieldMode = _settings.IsNetShieldEnabled ? (int)_settings.NetShieldMode : 0,
+            NetShieldMode = GetNetShieldMode(_settings.IsNetShieldEnabled, _settings.NetShieldMode),
             Ipv6LeakProtection = _settings.IsIpv6LeakProtectionEnabled,
             IsIpv6Enabled = _settings.IsIpv6Enabled,
             Ipv6Fragments = _settings.Ipv6Fragments,
@@ -94,57 +85,83 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
             SplitTcp = _settings.IsVpnAcceleratorEnabled,
             OpenVpnAdapter = _entityMapper.Map<OpenVpnAdapter, OpenVpnAdapterIpcEntity>(_settings.OpenVpnAdapter),
             WireGuardConnectionTimeout = _settings.WireGuardConnectionTimeout,
-            DnsBlockMode = _settings.IsLocalAreaNetworkAccessEnabled && _settings.IsLocalDnsEnabled
-                ? DnsBlockModeIpcEntity.Callout
-                : DnsBlockModeIpcEntity.Nrpt,
+            DnsBlockMode = GetDnsBlockMode(_settings.IsLocalAreaNetworkAccessEnabled, _settings.IsLocalDnsEnabled),
             ShouldDisableWeakHostSetting = DefaultSettings.ShouldDisableWeakHostSetting,
         };
     }
 
     public MainSettingsIpcEntity CreateForGuestHole()
     {
-        const bool isPaidUser = false;
-        bool isLocalAreaNetworkAccessEnabled = DefaultSettings.IsLocalAreaNetworkAccessAllowed(isPaidUser);
+        // For guest hole settings, consider the user as a non-paid user.
+        bool isPaidUser = false;
 
         return new MainSettingsIpcEntity
         {
             VpnProtocol = _entityMapper.Map<VpnProtocol, VpnProtocolIpcEntity>(DefaultSettings.VpnProtocol),
-            KillSwitchMode = _settings.IsKillSwitchEnabled
-                ? _entityMapper.Map<KillSwitchMode, KillSwitchModeIpcEntity>(_settings.KillSwitchMode)
-                : KillSwitchModeIpcEntity.Off,
-            SplitTunnel = new SplitTunnelSettingsIpcEntity
-            {
-                Mode = DefaultSettings.IsSplitTunnelingEnabled
-                    ? _entityMapper.Map<SplitTunnelingMode, SplitTunnelModeIpcEntity>(DefaultSettings.SplitTunnelingMode)
-                    : SplitTunnelModeIpcEntity.Disabled,
-                AppPaths = [],
-                Ips = [],
-            },
+            KillSwitchMode = GetKillSwitchMode(_settings.IsKillSwitchEnabled, _settings.KillSwitchMode),
+            SplitTunnel = GetSplitTunnelingSettings(DefaultSettings.IsSplitTunnelingEnabled, DefaultSettings.SplitTunnelingMode),
             ModerateNat = DefaultSettings.NatType == NatType.Moderate,
-            NetShieldMode = DefaultSettings.IsNetShieldEnabled(isPaidUser) ? (int)DefaultSettings.NetShieldMode : 0,
+            NetShieldMode = GetNetShieldMode(DefaultSettings.IsNetShieldEnabled(isPaidUser), DefaultSettings.NetShieldMode),
             Ipv6LeakProtection = DefaultSettings.IsIpv6LeakProtectionEnabled,
             IsIpv6Enabled = DefaultSettings.IsIpv6Enabled,
             Ipv6Fragments = DefaultSettings.Ipv6Fragments,
             IsShareCrashReportsEnabled = _settings.IsShareCrashReportsEnabled,
-            IsLocalAreaNetworkAccessEnabled = isLocalAreaNetworkAccessEnabled,
+            IsLocalAreaNetworkAccessEnabled = DefaultSettings.IsLocalAreaNetworkAccessAllowed(isPaidUser),
             PortForwarding = DefaultSettings.IsPortForwardingEnabled,
-            // This fork-specific setting is a persistent user preference. Preserve it across
-            // Guest Hole connect/disconnect snapshots; Guest Hole still cannot expose app
-            // mappings because PortForwarding remains disabled above.
+            // Preserve the user's preference without enabling port forwarding for Guest Hole itself.
             PortForwardingForApps = _settings.IsPortForwardingForAppsEnabled,
             SplitTcp = DefaultSettings.IsVpnAcceleratorEnabled,
             OpenVpnAdapter = OpenVpnAdapterIpcEntity.Tap,
             WireGuardConnectionTimeout = DefaultSettings.ProlongedWireGuardConnectionTimeout,
-            DnsBlockMode = isLocalAreaNetworkAccessEnabled && DefaultSettings.IsLocalDnsEnabled
-                ? DnsBlockModeIpcEntity.Callout
-                : DnsBlockModeIpcEntity.Nrpt,
+            DnsBlockMode = GetDnsBlockMode(DefaultSettings.IsLocalAreaNetworkAccessAllowed(isPaidUser), DefaultSettings.IsLocalDnsEnabled),
             ShouldDisableWeakHostSetting = DefaultSettings.ShouldDisableWeakHostSetting,
         };
     }
 
-    private string[] GetSplitTunnelingApps()
+    private KillSwitchModeIpcEntity GetKillSwitchMode(bool isKillSwitchEnabled, KillSwitchMode killSwitchMode)
     {
-        return _settings.SplitTunnelingMode == SplitTunnelingMode.Standard
+        return isKillSwitchEnabled
+            ? _entityMapper.Map<KillSwitchMode, KillSwitchModeIpcEntity>(killSwitchMode)
+            : KillSwitchModeIpcEntity.Off;
+    }
+
+    private int GetNetShieldMode(bool isNetShieldEnabled, NetShieldMode netShieldMode)
+    {
+        return isNetShieldEnabled ? (int)netShieldMode : 0;
+    }
+
+    private DnsBlockModeIpcEntity GetDnsBlockMode(bool isLocalAreaNetworkAccessEnabled, bool isLocalDnsEnabled)
+    {
+        return isLocalAreaNetworkAccessEnabled && isLocalDnsEnabled
+            ? DnsBlockModeIpcEntity.Callout
+            : DnsBlockModeIpcEntity.Nrpt;
+    }
+
+    private SplitTunnelSettingsIpcEntity GetSplitTunnelingSettings(bool isSplitTunnelingEnabled, SplitTunnelingMode splitTunnelingMode)
+    {
+        return new SplitTunnelSettingsIpcEntity
+        {
+            Mode = GetSplitTunnelingMode(isSplitTunnelingEnabled, splitTunnelingMode),
+            AppPaths = GetSplitTunnelingApps(isSplitTunnelingEnabled, splitTunnelingMode),
+            Ips = GetSplitTunnelingIpAddresses(isSplitTunnelingEnabled, splitTunnelingMode)
+        };
+    }
+
+    private SplitTunnelModeIpcEntity GetSplitTunnelingMode(bool isSplitTunnelingEnabled, SplitTunnelingMode splitTunnelingMode)
+    {
+        return isSplitTunnelingEnabled
+            ? _entityMapper.Map<SplitTunnelingMode, SplitTunnelModeIpcEntity>(splitTunnelingMode)
+            : SplitTunnelModeIpcEntity.Disabled;
+    }
+
+    private string[] GetSplitTunnelingApps(bool isSplitTunnelingEnabled, SplitTunnelingMode splitTunnelingMode)
+    {
+        if (!isSplitTunnelingEnabled)
+        {
+            return [];
+        }
+
+        return splitTunnelingMode == SplitTunnelingMode.Standard
             ? GetSplitTunnelingApps(_settings.SplitTunnelingStandardAppsList)
             : GetSplitTunnelingApps(_settings.SplitTunnelingInverseAppsList);
     }
@@ -154,9 +171,14 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
         return settingsApps.Where(app => app.IsActive).SelectMany(app => app.GetAllAppFilePaths()).ToArray();
     }
 
-    private string[] GetSplitTunnelingIpAddresses()
+    private string[] GetSplitTunnelingIpAddresses(bool isSplitTunnelingEnabled, SplitTunnelingMode splitTunnelingMode)
     {
-        return _settings.SplitTunnelingMode == SplitTunnelingMode.Standard
+        if (!isSplitTunnelingEnabled)
+        {
+            return [];
+        }
+
+        return splitTunnelingMode == SplitTunnelingMode.Standard
             ? GetSplitTunnelingIpAddresses(_settings.SplitTunnelingStandardIpAddressesList)
             : GetSplitTunnelingIpAddresses(_settings.SplitTunnelingInverseIpAddressesList);
     }

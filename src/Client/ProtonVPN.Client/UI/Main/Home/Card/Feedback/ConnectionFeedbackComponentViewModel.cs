@@ -170,6 +170,7 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
                 _hasReceivedAppFocus = false;
                 _isFeedbackInitialized = false;
                 IsFeedbackSent = false;
+                StopAutoDismissTimer();
                 IsSendingFeedback = false;
                 IsDismissingFeedback = false;
             }

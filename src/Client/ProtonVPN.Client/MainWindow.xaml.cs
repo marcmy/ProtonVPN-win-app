@@ -98,6 +98,11 @@ public sealed partial class MainWindow : IFocusAware
         EventMessageSender.Send<WindowsSessionEndingMessage>();
     }
 
+    public void DisposeTrayIcon()
+    {
+        TrayIcon.DisposeTrayIcon();
+    }
+
     public void OnFocusChanged()
     {
         if (WindowContainer != null)
@@ -171,10 +176,5 @@ public sealed partial class MainWindow : IFocusAware
     private void OnTitleBarMenuComponentSizeChanged(object sender, SizeChangedEventArgs e)
     {
         InvalidateTitleDragArea();
-    }
-
-    public void DisposeTrayIcon()
-    {
-        TrayIcon.DisposeTrayIcon();
     }
 }

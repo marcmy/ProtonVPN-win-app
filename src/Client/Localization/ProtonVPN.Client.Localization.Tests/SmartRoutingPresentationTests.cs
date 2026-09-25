@@ -17,10 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Xml.Linq;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ProtonVPN.Client.Localization.Tests.Helpers;
@@ -30,50 +28,6 @@ namespace ProtonVPN.Client.Localization.Tests;
 [TestClass]
 public class SmartRoutingPresentationTests
 {
-    private const string SMART_ROUTING_FORMAT_KEY = "Countries_SmartRouting_RoutedThrough";
-
-    private static readonly IReadOnlyDictionary<string, string> _recoveredSmartRoutingFormats =
-        new Dictionary<string, string>
-        {
-            ["ar-SA"] = "Smart routed through {0}",
-            ["be-BY"] = "Разумная маршрутызацыя праз краіну {0}",
-            ["ca-ES"] = "Smart ha encaminat a través de {0}",
-            ["cs-CZ"] = "Smart routed through {0}",
-            ["da-DK"] = "Smart routet gennem {0}",
-            ["de-DE"] = "Intelligent weitergeleitet über {0}",
-            ["el-GR"] = "Έξυπνη δρομολόγηση μέσω {0}",
-            ["en-US"] = "Smart routed through {0}",
-            ["es-419"] = "Enrutamiento inteligente a través de {0}",
-            ["es-ES"] = "Smart routed through {0}",
-            ["fa-IR"] = "Smart routed through {0}",
-            ["fi-FI"] = "Älykäs reititys {0}:n kautta",
-            ["fil-PH"] = "Smart routed through {0}",
-            ["fil-Tglg"] = "Smart routed through {0}",
-            ["fr-FR"] = "Routé de manière intelligente à travers {0}",
-            ["hu-HU"] = "Smart routed through {0}",
-            ["id-ID"] = "Smart routed through {0}",
-            ["it-IT"] = "Smart routed through {0}",
-            ["ja-JP"] = "Smart routed through {0}",
-            ["ka-GE"] = "Smart routed through {0}",
-            ["ko-KR"] = "Smart routed through {0}",
-            ["nb-NO"] = "Smart routed through {0}",
-            ["nl-NL"] = "Slimme routering via {0}",
-            ["pl-PL"] = "Smart routed through {0}",
-            ["pt-BR"] = "Smart routed through {0}",
-            ["pt-PT"] = "Smart routed through {0}",
-            ["ro-RO"] = "Rutare inteligentă prin {0}",
-            ["ru-RU"] = "Smart routed through {0}",
-            ["sk-SK"] = "Inteligentné smerovanie cez {0}",
-            ["sl-SI"] = "Pametno usmerjanje prek {0}",
-            ["sv-SE"] = "Smart routed through {0}",
-            ["th-TH"] = "Smart routed through {0}",
-            ["tr-TR"] = "{0}, akıllı yönlendirme üzerinden yönlendirildi",
-            ["uk-UA"] = "Smart-спрямування через {0}",
-            ["vi-VN"] = "Smart routed through {0}",
-            ["zh-CN"] = "通过 {0} 智能路由",
-            ["zh-TW"] = "Smart routed through {0}",
-        };
-
     private static readonly string _connectionCardDirectory = Path.Combine(
         SourcePathResolver.SourceRoot,
         "Client",
@@ -92,7 +46,13 @@ public class SmartRoutingPresentationTests
         content.Should().Contain("[NotifyPropertyChangedFor(nameof(IsVirtual))]");
         content.Should().Contain("[NotifyPropertyChangedFor(nameof(SmartRoutingLabel))]");
         content.Should().Contain("CurrentConnectionDetails?.Server.HostCountry");
-        content.Should().Contain("CurrentConnectionDetails?.Server.IsVirtual == true");
+        Match virtualProperty = Regex.Match(
+            content,
+            @"public bool IsVirtual\s*=>\s*(?<body>.*?);\s*public string SmartRoutingLabel",
+            RegexOptions.Singleline);
+        virtualProperty.Success.Should().BeTrue();
+        virtualProperty.Groups["body"].Value.Should().Contain("ConnectionStatus.Connected");
+        virtualProperty.Groups["body"].Value.Should().Contain("Server.IsVirtual");
         content.Should().Contain("ShowSmartRoutingInfoOverlayAsync()");
         content.Should().Contain("_mainWindowOverlayActivator.ShowSmartRoutingInfoOverlayAsync()");
     }
@@ -111,34 +71,38 @@ public class SmartRoutingPresentationTests
     }
 
     [TestMethod]
-    public void LocalizedResources_ShouldMatchRecoveredSmartRoutingFormats()
+    public void ConnectionCardView_ShouldPlaceSmartRoutingTagInASeparateFeatureColumn()
     {
-        string[] resourcePaths = Directory.GetFiles(
-            SourcePathResolver.LocalizationStringsRoot,
-            "Resources.resw",
-            SearchOption.AllDirectories);
+        string content = File.ReadAllText(Path.Combine(_connectionCardDirectory, "ConnectionCardComponentView.xaml"));
+        Match row = Regex.Match(content, "<Grid Margin=\"0,8,0,0\"(?<row>.*?)</Grid>", RegexOptions.Singleline);
 
-        resourcePaths.Should().HaveCount(_recoveredSmartRoutingFormats.Count);
-        resourcePaths.Select(path => new DirectoryInfo(Path.GetDirectoryName(path)!).Name)
-            .Should().BeEquivalentTo(_recoveredSmartRoutingFormats.Keys);
+        row.Success.Should().BeTrue();
+        Regex.Matches(row.Groups["row"].Value, "<ColumnDefinition\\b").Count.Should().Be(4);
 
-        foreach (string resourcePath in resourcePaths)
-        {
-            string locale = new DirectoryInfo(Path.GetDirectoryName(resourcePath)!).Name;
-            string expectedValue = _recoveredSmartRoutingFormats[locale];
+        Match smartRoutingTag = Regex.Match(
+            row.Groups["row"].Value,
+            "<custom:GhostButton Grid\\.Column=\"(?<column>\\d+)\"[^>]*AutomationProperties\\.AutomationId=\"ConnectionCardSmartRoutingTag\"",
+            RegexOptions.Singleline);
 
-            XDocument document = XDocument.Load(resourcePath);
-            XElement resource = document.Root?
-                .Elements("data")
-                .SingleOrDefault(element => (string)element.Attribute("name") == SMART_ROUTING_FORMAT_KEY);
+        smartRoutingTag.Success.Should().BeTrue();
+        smartRoutingTag.Groups["column"].Value.Should().Be("3");
+    }
 
-            resource.Should().NotBeNull($"{resourcePath} should define {SMART_ROUTING_FORMAT_KEY}");
-            resource!.Element("value")?.Value.Should().Be(expectedValue);
-        }
+    [TestMethod]
+    public void HostLocationItem_ShouldDescribeAllVisibleVirtualServerHostCountries()
+    {
+        string sourcePath = Path.Combine(
+            SourcePathResolver.SourceRoot,
+            "Client",
+            "ProtonVPN.Client",
+            "Models",
+            "Connections",
+            "HostLocationItemBase.cs");
+        string content = File.ReadAllText(sourcePath);
 
-        string viewModel = File.ReadAllText(Path.Combine(_connectionCardDirectory, "ConnectionCardComponentViewModel.cs"));
-        viewModel.Should().Contain("Localizer.GetFormat(");
-        viewModel.Should().Contain("\"Countries_SmartRouting_RoutedThrough\",");
-        viewModel.Should().NotContain("Localizer.Get(\"Countries_SmartRouting\")}: ");
+        content.Should().Contain("List<ServerLocationItemBase> virtualServers = SubItems.OfType<ServerLocationItemBase>().Where(s => s.IsVirtual).ToList()");
+        content.Should().Contain("string.Join(\", \", virtualServers.Select(s => s.Server.HostCountry)");
+        content.Should().Contain(".Distinct()");
+        content.Should().Contain("Localizer.GetCountryName(hostCountry)");
     }
 }

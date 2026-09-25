@@ -22,6 +22,7 @@ using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -44,6 +45,7 @@ public class NatTypeTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "602445")]
+    [Retry(3)]
     public void NatTypeSetToModerate()
     {
         VerifyNatType(NatType.Moderate, MODERATE_NAT_TYPE);
@@ -51,6 +53,7 @@ public class NatTypeTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "602444")]
+    [Retry(3)]
     public void NatTypeSetToStrict()
     {
         VerifyNatType(NatType.Strict, STRICT_NAT_TYPE);

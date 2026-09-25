@@ -61,7 +61,6 @@ public static class AppInstanceHelper
             RedirectActivationTo(instance, args);
         }
 
-        // Fall back to process-window discovery if AppInstance lookup races after an update.
         BringToForeground();
     }
 

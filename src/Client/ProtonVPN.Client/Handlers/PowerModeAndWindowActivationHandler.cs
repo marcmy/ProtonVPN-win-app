@@ -82,10 +82,12 @@ public class PowerModeAndWindowActivationHandler : IHandler,
         if (_userAuthenticator.IsLoggedIn)
         {
             _logger.Info<AppLog>("Resuming from sleep while logged in");
+
             if (_connectionManager.IsConnected)
             {
                 _connectionManager.ReconnectAsync(VpnTriggerDimension.Auto);
             }
+
             OnResumeOrWindowActivation();
         }
         else

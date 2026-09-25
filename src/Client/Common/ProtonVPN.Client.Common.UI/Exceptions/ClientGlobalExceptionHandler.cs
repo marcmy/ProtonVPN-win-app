@@ -21,6 +21,7 @@ using System;
 using Microsoft.UI.Xaml;
 using ProtonVPN.Logging.Contracts.Events.AppLogs;
 using ProtonVPN.Logging.Events;
+using UnhandledExceptionEventArgs = Microsoft.UI.Xaml.UnhandledExceptionEventArgs;
 
 namespace ProtonVPN.Client.Common.UI.Exceptions;
 
@@ -28,17 +29,20 @@ public sealed class ClientGlobalExceptionHandler : GlobalExceptionHandlerBase
 {
     public void Initialize(Application app)
     {
-        base.Initialize();
+        Initialize();
+
         app.UnhandledException += OnUiUnhandledException;
     }
 
-    private void OnUiUnhandledException(object? sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs eventArgs)
+    private void OnUiUnhandledException(object? sender, UnhandledExceptionEventArgs ex)
     {
-        TryLogException("UI unhandled exception", eventArgs.Exception, isFatal: false);
+        HandleUiUnhandledException(ex.Exception, handled => ex.Handled = handled);
+    }
 
-        // Proton VPN 5.1.6 also sets eventArgs.Handled = true here. That crash-suppression
-        // policy is intentionally withheld until it is validated independently; the
-        // centralized logging architecture does not require swallowing every WinUI exception.
+    private void HandleUiUnhandledException(Exception exception, Action<bool> setHandled)
+    {
+        TryLogException("UI unhandled exception", exception, isFatal: false);
+        setHandled(true);
     }
 
     protected override void LogFatal(string handler, Exception exception)

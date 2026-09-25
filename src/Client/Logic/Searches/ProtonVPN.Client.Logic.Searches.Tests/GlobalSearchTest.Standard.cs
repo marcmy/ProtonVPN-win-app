@@ -25,6 +25,16 @@ namespace ProtonVPN.Client.Logic.Searches.Tests;
 public partial class GlobalSearchTest
 {
     [TestMethod]
+    public async Task SearchAsync_HonorsCancellationToken_Async()
+    {
+        using CancellationTokenSource cancellationTokenSource = new();
+        cancellationTokenSource.Cancel();
+
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () =>
+            await _globalSearch!.SearchAsync("United States", cancellationToken: cancellationTokenSource.Token));
+    }
+
+    [TestMethod]
     [DataRow(null)]
     [DataRow("")]
     [DataRow(" ")]

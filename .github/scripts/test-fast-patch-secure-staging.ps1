@@ -181,7 +181,7 @@ function New-BootstrapFixture {
     Add-ManifestFile -List $manifestFiles -Root $sourceRoot -RelativePath 'Tools\Install-ProtonVPNPatch.base.ps1'
     $manifest = [ordered]@{
         schemaVersion = 2
-        targetVersion = '5.1.5'
+        targetVersion = '5.1.8'
         files = @($manifestFiles)
     }
 
@@ -395,7 +395,7 @@ function Test-ProtectedRollbackIgnoresMutableRetainedBackup {
 function Test-BaseInstallerEndToEnd {
     $fixtureRoot = Join-Path $testRoot 'base-end-to-end'
     $installRoot = Join-Path $fixtureRoot 'install'
-    $target = Join-Path $installRoot 'v5.1.5'
+    $target = Join-Path $installRoot 'v5.1.8'
     $payload = Join-Path $fixtureRoot 'payload'
     $backupRoot = Join-Path $fixtureRoot 'backups'
     New-Item -ItemType Directory -Force -Path $target | Out-Null
@@ -407,7 +407,7 @@ function Test-BaseInstallerEndToEnd {
     Add-ManifestFile -List $files -Root $payload -RelativePath 'ProtonVPN.Client.dll'
     $manifest = [ordered]@{
         schemaVersion = 1
-        targetVersion = '5.1.5'
+        targetVersion = '5.1.8'
         buildMode = 'client'
         sourceCommit = 'secure-staging-test'
         files = @($files)
@@ -419,7 +419,7 @@ function Test-BaseInstallerEndToEnd {
         ' -File "' + $baseInstallerScript + '"' +
         ' -PatchPath "' + $payload + '"' +
         ' -InstallRoot "' + $installRoot + '"' +
-        ' -TargetVersion 5.1.5' +
+        ' -TargetVersion 5.1.8' +
         ' -BackupRoot "' + $backupRoot + '"' +
         ' -NoRestart'
     $child = Invoke-TestProcessCapture -FilePath (Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe') -Arguments $arguments
@@ -436,7 +436,7 @@ function Test-BaseInstallerEndToEnd {
 function Test-CompleteLauncherRollbackAfterProtectedStageFailure {
     $fixtureRoot = Join-Path $testRoot 'complete-rollback'
     $installRoot = Join-Path $fixtureRoot 'install'
-    $target = Join-Path $installRoot 'v5.1.5'
+    $target = Join-Path $installRoot 'v5.1.8'
     $payload = Join-Path $fixtureRoot 'payload'
     $backupRoot = Join-Path $fixtureRoot 'backups'
     New-Item -ItemType Directory -Force -Path $target | Out-Null
@@ -468,7 +468,7 @@ exit 42
     Add-ManifestFile -List $files -Root $payload -RelativePath 'Tools\Install-ProtonVPNPatch.base.ps1' -Scope 'tool'
     $manifest = [ordered]@{
         schemaVersion = 2
-        targetVersion = '5.1.5'
+        targetVersion = '5.1.8'
         buildMode = 'client'
         sourceCommit = 'secure-staging-test'
         completeRuntimeCoverage = $true
@@ -483,7 +483,7 @@ exit 42
         ' -File "' + $completeInstallerScript + '"' +
         ' -PatchPath "' + $payload + '"' +
         ' -InstallRoot "' + $installRoot + '"' +
-        ' -TargetVersion 5.1.5' +
+        ' -TargetVersion 5.1.8' +
         ' -BackupRoot "' + $backupRoot + '"' +
         ' -NoRestart'
     $child = Invoke-TestProcessCapture -FilePath (Get-SystemExecutablePath -RelativePath 'WindowsPowerShell\v1.0\powershell.exe') -Arguments $arguments
@@ -514,7 +514,7 @@ function Test-VerifiedArchiveManifestSurvivesExtractionRace {
     Add-ManifestFile -List $files -Root $source -RelativePath 'ProtonVPN.Client.dll'
     $trustedManifest = [ordered]@{
         schemaVersion = 1
-        targetVersion = '5.1.5'
+        targetVersion = '5.1.8'
         buildMode = 'client'
         sourceCommit = 'verified-archive-race-test'
         files = @($files)
@@ -540,7 +540,7 @@ function Test-VerifiedArchiveManifestSurvivesExtractionRace {
         Add-ManifestFile -List $maliciousFiles -Root $payloadRoot -RelativePath 'ProtonVPN.Client.dll'
         $maliciousManifest = [ordered]@{
             schemaVersion = 1
-            targetVersion = '5.1.5'
+            targetVersion = '5.1.8'
             buildMode = 'client'
             sourceCommit = 'attacker-replacement'
             files = @($maliciousFiles)
@@ -549,7 +549,7 @@ function Test-VerifiedArchiveManifestSurvivesExtractionRace {
 
         $rejected = $false
         try {
-            Test-PatchPayload -PayloadRoot $payloadRoot -ExpectedTargetVersion '5.1.5' | Out-Null
+            Test-PatchPayload -PayloadRoot $payloadRoot -ExpectedTargetVersion '5.1.8' | Out-Null
         } catch {
             if ($_.Exception.Message -match 'size mismatch|hash mismatch') {
                 $rejected = $true
@@ -580,7 +580,7 @@ function Test-SfxLoaderRejectsMutatedInstaller {
         -InstallerHash $installerHash `
         -PayloadFileName (Split-Path -Leaf $payload) `
         -PayloadHash $payloadHash `
-        -TargetVersion '5.1.5'
+        -TargetVersion '5.1.8'
 
     Write-TestText $installer 'param() Write-Output "attacker replacement"; exit 0'
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($loader))
@@ -610,7 +610,7 @@ function Test-CompiledSfxVerifiedInMemoryEntry {
     $payloadFile = Get-Item -LiteralPath (Join-Path $patch 'ProtonVPN.Client.dll')
     $manifest = [ordered]@{
         schemaVersion = 1
-        targetVersion = '5.1.5'
+        targetVersion = '5.1.8'
         buildMode = 'client'
         sourceCommit = 'sfx-entry-smoke'
         files = @([ordered]@{

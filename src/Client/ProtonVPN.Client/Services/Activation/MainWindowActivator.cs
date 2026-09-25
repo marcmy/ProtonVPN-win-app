@@ -314,8 +314,8 @@ public class MainWindowActivator : WindowActivatorBase<MainWindow>, IMainWindowA
         if (_userAuthenticator.IsLoggedIn && CurrentWindowState != WindowState.Minimized)
         {
             Settings.WindowLocation = Settings.WindowLocation with
-            {
-                IsMaximized = CurrentWindowState == WindowState.Maximized,
+            { 
+                IsMaximized = CurrentWindowState == WindowState.Maximized
             };
         }
     }
@@ -326,26 +326,27 @@ public class MainWindowActivator : WindowActivatorBase<MainWindow>, IMainWindowA
         {
             if (IsUserInScope)
             {
-                WindowLocation windowLocation = Settings.WindowLocation;
+                WindowLocation currentWindowLocation = Settings.WindowLocation;
 
                 if (_lastKnownWindowPosition.HasValue)
                 {
-                    windowLocation = windowLocation with
+                    currentWindowLocation = currentWindowLocation with
                     {
                         XPosition = _lastKnownWindowPosition.Value.X,
                         YPosition = _lastKnownWindowPosition.Value.Y,
                     };
                 }
+
                 if (_lastKnownWindowSize.HasValue)
                 {
-                    windowLocation = windowLocation with
+                    currentWindowLocation = currentWindowLocation with
                     {
                         Width = _lastKnownWindowSize.Value.Width,
                         Height = _lastKnownWindowSize.Value.Height,
                     };
                 }
 
-                Settings.WindowLocation = windowLocation;
+                Settings.WindowLocation = currentWindowLocation;
             }
         }
         catch (Exception ex)

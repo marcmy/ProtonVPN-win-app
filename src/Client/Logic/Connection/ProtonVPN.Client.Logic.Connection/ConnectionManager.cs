@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -88,6 +88,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
 
     private VpnStatusIpcEntity? _currentStatus = VpnStatusIpcEntity.Disconnected;
     private VpnErrorTypeIpcEntity? _currentError = VpnErrorTypeIpcEntity.None;
+
     private IConnectionIntent? _lastBroadcastConnectionIntent;
 
     public ConnectionStatus ConnectionStatus { get; private set; }
@@ -292,55 +293,58 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         {
             CurrentConnectionDetails = null;
         }
-        else if (message.Status is VpnStatusIpcEntity.Pinging or VpnStatusIpcEntity.Connected)
+        else
         {
-            VpnProtocol vpnProtocol = _entityMapper.Map<VpnProtocolIpcEntity, VpnProtocol>(message.VpnProtocol);
-            Server? server = GetCurrentServer(message, vpnProtocol);
-            PhysicalServer? physicalServer = server?.Servers.FirstOrDefault(FilterPhysicalServerByVpnState(message, vpnProtocol));
-
-            if (server is not null && physicalServer is not null)
+            if (message.Status is VpnStatusIpcEntity.Pinging or VpnStatusIpcEntity.Connected)
             {
-                _favoriteServersStorage.SetCurrentServerId(server.Id);
+                VpnProtocol vpnProtocol = _entityMapper.Map<VpnProtocolIpcEntity, VpnProtocol>(message.VpnProtocol);
+                Server? server = GetCurrentServer(message, vpnProtocol);
+                PhysicalServer? physicalServer = server?.Servers.FirstOrDefault(FilterPhysicalServerByVpnState(message, vpnProtocol));
 
-                if (CurrentConnectionDetails is null || !CurrentConnectionDetails.OriginalConnectionIntent.IsSameAs(connectionIntent))
+                if (server is not null && physicalServer is not null)
                 {
-                    CurrentConnectionDetails = new ConnectionDetails(
-                        connectionIntent,
-                        server,
-                        physicalServer,
-                        vpnProtocol,
-                        message.EndpointPort);
-                }
-                else
-                {
-                    CurrentConnectionDetails.UpdateServer(server, physicalServer, vpnProtocol, message.EndpointPort);
-                }
+                    _favoriteServersStorage.SetCurrentServerId(server.Id);
 
-                if (_cachedServerIpAddress is not null)
+                    if (CurrentConnectionDetails is null || !CurrentConnectionDetails.OriginalConnectionIntent.IsSameAs(connectionIntent))
+                    {
+                        CurrentConnectionDetails = new ConnectionDetails(
+                            connectionIntent,
+                            server,
+                            physicalServer,
+                            vpnProtocol,
+                            message.EndpointPort);
+                    }
+                    else
+                    {
+                        CurrentConnectionDetails.UpdateServer(server, physicalServer, vpnProtocol, message.EndpointPort);
+                    }
+
+                    if (_cachedServerIpAddress is not null)
+                    {
+                        CurrentConnectionDetails.UpdateServerIpAddress(_cachedServerIpAddress.Value);
+                        _cachedServerIpAddress = null;
+                    }
+                }
+                else if (server is null)
                 {
-                    CurrentConnectionDetails.UpdateServerIpAddress(_cachedServerIpAddress.Value);
-                    _cachedServerIpAddress = null;
+                    _logger.Error<AppLog>($"The status changed to Connected but the associated Server is null. Error: '{message.Error}' " +
+                                            $"NetworkBlocked: '{message.NetworkBlocked}' " +
+                                            $"Status: '{message.Status}' EntryIp: '{message.EndpointIp}' Label: '{message.Label}' " +
+                                            $"NetworkAdapterType: '{message.OpenVpnAdapterType}' VpnProtocol: '{message.VpnProtocol}'");
+
+                    // VPNWIN-2105 - Either (1) Reconnect without last server, or (2) Delete this comment
+                    await ReconnectAsync(VpnTriggerDimension.Auto);
+                }
+                else // Tier is too low for the connected server
+                {
+                    await ReconnectIfNotRecentlyReconnectedAsync();
                 }
             }
-            else if (server is null)
+            else if (message.Status == VpnStatusIpcEntity.Disconnected)
             {
-                _logger.Error<AppLog>($"The status changed to Connected but the associated Server is null. Error: '{message.Error}' " +
-                                        $"NetworkBlocked: '{message.NetworkBlocked}' " +
-                                        $"Status: '{message.Status}' EntryIp: '{message.EndpointIp}' Label: '{message.Label}' " +
-                                        $"NetworkAdapterType: '{message.OpenVpnAdapterType}' VpnProtocol: '{message.VpnProtocol}'");
-
-                // VPNWIN-2105 - Either (1) Reconnect without last server, or (2) Delete this comment
-                await ReconnectAsync(VpnTriggerDimension.Auto);
+                CurrentConnectionDetails = null;
+                _favoriteServersStorage.SetCurrentServerId(null);
             }
-            else // Tier is too low for the connected server
-            {
-                await ReconnectIfNotRecentlyReconnectedAsync();
-            }
-        }
-        else if (message.Status == VpnStatusIpcEntity.Disconnected)
-        {
-            CurrentConnectionDetails = null;
-            _favoriteServersStorage.SetCurrentServerId(null);
         }
 
         if (message.Status != VpnStatusIpcEntity.ActionRequired ||
@@ -377,7 +381,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         ConnectionStatus previousConnectionStatus = ConnectionStatus;
         VpnStatusIpcEntity? previousStatus = _currentStatus;
         VpnErrorTypeIpcEntity? previousError = _currentError;
-        IConnectionIntent? lastBroadcastConnectionIntent = _lastBroadcastConnectionIntent;
+        IConnectionIntent? previousBroadcastConnectionIntent = _lastBroadcastConnectionIntent;
 
         _currentStatus = status;
         _currentError = error;
@@ -389,7 +393,7 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
         bool hasConnectionStatusChanged = forceSendStatusUpdate || previousConnectionStatus != ConnectionStatus;
         bool hasInnerStatusOrErrorChanged = forceSendStatusUpdate || previousStatus != status || previousError != error;
         bool hasConnectionIntentChanged = forceSendStatusUpdate ||
-            !(CurrentConnectionIntent?.IsSameAs(lastBroadcastConnectionIntent) ?? lastBroadcastConnectionIntent is null);
+            !(CurrentConnectionIntent?.IsSameAs(previousBroadcastConnectionIntent) ?? previousBroadcastConnectionIntent is null);
 
         _lastBroadcastConnectionIntent = CurrentConnectionIntent;
 

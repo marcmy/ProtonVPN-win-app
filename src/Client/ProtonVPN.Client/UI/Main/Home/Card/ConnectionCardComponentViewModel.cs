@@ -183,9 +183,12 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
             _ => (CurrentConnectionIntent?.Feature as SecureCoreFeatureIntent)?.EntryCountryCode
         };
 
-    public string? HostCountry => CurrentConnectionStatus == ConnectionStatus.Connected && IsVirtual
-        ? CurrentConnectionDetails?.Server.HostCountry
-        : null;
+    public string? HostCountry =>
+        CurrentConnectionStatus switch
+        {
+            ConnectionStatus.Connected when IsVirtual => CurrentConnectionDetails?.Server.HostCountry,
+            _ => null
+        };
 
     public bool IsSecureCore => IsFeature<SecureCoreFeatureIntent>(ServerFeatures.SecureCore);
 
@@ -195,13 +198,15 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
 
     public bool IsB2B => IsFeature<B2BFeatureIntent>(ServerFeatures.B2B);
 
-    public bool IsVirtual => CurrentConnectionStatus == ConnectionStatus.Connected
-                          && CurrentConnectionDetails?.Server.IsVirtual == true;
+    public bool IsVirtual =>
+        CurrentConnectionStatus switch
+        {
+            ConnectionStatus.Connected => CurrentConnectionDetails != null
+                                        && CurrentConnectionDetails.Server.IsVirtual,
+            _ => false
+        };
 
-    public string SmartRoutingLabel =>
-        Localizer.GetFormat(
-            "Countries_SmartRouting_RoutedThrough",
-            Localizer.GetCountryName(HostCountry));
+    public string SmartRoutingLabel => Localizer.GetFormat("Countries_SmartRouting_RoutedThrough", Localizer.GetCountryName(HostCountry));
 
     public FlagType FlagType => (CurrentConnectionStatus switch
     {

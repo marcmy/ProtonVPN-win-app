@@ -65,7 +65,7 @@ internal class ConnectionProbe : IConnectionProbe
             if (validationError != VpnError.None)
             {
                 lastError = validationError;
-                _logger.Warn<ConnectLog>($"Server validation failed for IP {endpoint.Server.Ip} and Label ({endpoint.Server.Label}).");
+                LogValidationError(endpoint);
                 continue;
             }
 
@@ -106,7 +106,7 @@ internal class ConnectionProbe : IConnectionProbe
             VpnError validationError = _serverValidator.Validate(endpoint.Server);
             if (validationError != VpnError.None)
             {
-                _logger.Warn<ConnectLog>($"Server validation failed for IP {endpoint.Server.Ip} and Label ({endpoint.Server.Label}).");
+                LogValidationError(endpoint);
                 continue;
             }
 
@@ -128,5 +128,10 @@ internal class ConnectionProbe : IConnectionProbe
         }
 
         return VpnEndpoint.Empty;
+    }
+
+    private void LogValidationError(VpnEndpoint endpoint)
+    {
+        _logger.Warn<ConnectLog>($"Server validation failed for IP \"{endpoint.Server.Ip}\" and Label \"{endpoint.Server.Label}\".");
     }
 }

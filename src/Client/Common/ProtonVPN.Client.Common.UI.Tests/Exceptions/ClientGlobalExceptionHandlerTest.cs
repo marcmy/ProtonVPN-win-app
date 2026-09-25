@@ -68,6 +68,27 @@ public class ClientGlobalExceptionHandlerTest
             Arg.Any<int>());
     }
 
+    [TestMethod]
+    public void UiUnhandledException_ShouldBeLoggedAndMarkedHandled()
+    {
+        ILogger logger = Substitute.For<ILogger>();
+        ClientGlobalExceptionHandler handler = new();
+        handler.SetLogger(logger);
+        InvalidOperationException exception = new("ui-unhandled");
+        bool handled = false;
+
+        InvokeHandleUiUnhandledException(handler, exception, value => handled = value);
+
+        Assert.IsTrue(handled);
+        logger.Received(1).Error<AppLog>(
+            "UI unhandled exception",
+            exception,
+            0,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<int>());
+    }
+
     private static void InvokeTryLogException(
         GlobalExceptionHandlerBase handler,
         string handlerName,
@@ -79,5 +100,17 @@ public class ClientGlobalExceptionHandlerTest
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         method.Invoke(handler, [handlerName, exception, isFatal]);
+    }
+
+    private static void InvokeHandleUiUnhandledException(
+        ClientGlobalExceptionHandler handler,
+        Exception exception,
+        Action<bool> setHandled)
+    {
+        MethodInfo method = typeof(ClientGlobalExceptionHandler).GetMethod(
+            "HandleUiUnhandledException",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        method.Invoke(handler, [exception, setHandled]);
     }
 }

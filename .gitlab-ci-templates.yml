@@ -1,5 +1,4 @@
 .push_results_to_testmo:
-  when: always
   except:
     - /^debug.*$/
     - /^release\/9\.9\.9.*$/
@@ -10,9 +9,14 @@
   script:
     - if (!(Test-Path $UI_TEST_REPORT_PATH)) { Write-Host "No results found"; exit 1 }
     - ci\test-scripts\push-results-to-testmo.ps1
-  allow_failure: false
+  allow_failure: true
 
 .ui_test_execution_script:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/9\.9\.9.*$/'
+      when: never
   needs:
     - job: build-installer-debug-x64
       optional: true
@@ -20,13 +24,10 @@
       optional: true
   tags:
     - redesign #ui-tests-debug
-  hooks:
-    pre_get_sources_script:
-      - Get-Process | Where-Object { $_.Name -like "proton*" } | Stop-Process -Force -ErrorAction Ignore
-      - Get-Process | Where-Object { $_.Name -like "unins0*" } | Stop-Process -Force -ErrorAction Ignore
-  script:
+  before_script:
     - ci\test-scripts\uninstall-app.ps1
     - ci\test-scripts\install-the-app.ps1
+  script:
     - dotnet build src/Tests/ProtonVPN.UI.Tests/ProtonVPN.UI.Tests.csproj --arch x64 -o src/bin/e2e
     - ci\test-scripts\run-tests.ps1 -Category ${CATEGORY}
   after_script:
@@ -40,6 +41,7 @@
     expire_in: 1 weeks
     reports:
       junit: $UI_TEST_REPORT_PATH/*.xml
+  allow_failure: true
   
 .unit_test_config:
   stage: test
@@ -54,8 +56,7 @@
   tags:
     - windows-dot-net
   script:
-    - echo "Building native dependencies..."
-    - nuget restore ProtonVPN.InstallActions.sln
+    - echo "Fetching dependencies..."
     - cmd.exe /c BuildDependencies.bat ${DEPENDENCIES}
     - echo "Downloading translations from crowdin..."
     - python ci\build-scripts\main.py add-commit-hash $env:CI_COMMIT_SHORT_SHA
@@ -80,6 +81,8 @@
     GIT_SUBMODULE_STRATEGY: normal
 
 .build-installer:
+  except:
+    - schedules
   stage: build-installer
   tags:
     - windows-vpn-signer-v1

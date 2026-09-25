@@ -140,6 +140,6 @@ public class UpsellCarouselWindowActivator : DialogActivatorBase<UpsellCarouselW
 
     public void Receive(LoggedOutMessage message)
     {
-        Hide();
+        UIThreadDispatcher.TryEnqueue(Hide);
     }
 }

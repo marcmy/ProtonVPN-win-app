@@ -194,16 +194,15 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
     private async Task<byte[]> GetReplyOrTimeoutAsync(int timeoutInMilliseconds, CancellationToken cancellationToken)
     {
         using CancellationTokenSource timeoutCancellationTokenSource = new(timeoutInMilliseconds);
-        using CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            timeoutCancellationTokenSource.Token);
+        using CancellationTokenSource linkedCancellationTokenSource =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellationTokenSource.Token);
 
         try
         {
             return await _udpClientWrapper.ReceiveAsync(linkedCancellationTokenSource.Token);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested &&
-            timeoutCancellationTokenSource.IsCancellationRequested)
+        catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested &&
+                                                 !cancellationToken.IsCancellationRequested)
         {
             throw new TimeoutException($"The remote endpoint '{_endpoint}' did not reply to the query in time ({timeoutInMilliseconds}ms).");
         }

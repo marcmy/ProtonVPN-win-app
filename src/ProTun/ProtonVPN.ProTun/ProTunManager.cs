@@ -22,7 +22,6 @@ using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.ConnectionLogs;
 using ProtonVPN.Logging.Contracts.Events.DisconnectLogs;
-using ProtonVPN.OperatingSystems.Network.Contracts;
 using ProtonVPN.ProTun.Adapters;
 using ProtonVPN.ProTun.Contracts;
 using ProtonVPN.ProTun.Contracts.Adapters;
@@ -31,9 +30,11 @@ using ProtonVPN.ProTun.Generated;
 using ProtonVPN.ProTun.Logging;
 using ProtonVPN.ProTun.StateChanges;
 using ProtonVPN.ProTun.StatsResponses;
+using static ProtonVPN.ProTun.Generated.ConnectionMode;
 using ProTunApi = ProtonVPN.ProTun.Generated.ProTun;
 using ProTunConnection = ProtonVPN.ProTun.Generated.Connection;
 using ProTunWindowsConnection = ProtonVPN.ProTun.Generated.WindowsConnection;
+using VpnState = ProtonVPN.Common.Core.Networking.VpnState;
 
 namespace ProtonVPN.ProTun;
 
@@ -48,8 +49,8 @@ public class ProTunManager : IProTunManager
     private readonly IProTunLogger _proTunLogger;
     private readonly IProTunStateChangeHandler _proTunStateChangeHandler;
     private readonly IProTunEventsResponseHandler _proTunEventsResponseHandler;
+    private readonly IPersistentCacheHandler _persistentCacheHandler;
     private readonly IAdapterDetailsCache _adapterDetailsCache;
-    private readonly IProTunAdapterConfigurator _proTunAdapterConfigurator;
     private readonly ILogger _logger;
 
     private readonly SemaphoreSlim _protunSemaphore = new(1, 1);
@@ -65,15 +66,15 @@ public class ProTunManager : IProTunManager
     public ProTunManager(IProTunLogger proTunLogger,
         IProTunStateChangeHandler proTunStateChangeHandler,
         IProTunEventsResponseHandler proTunEventsResponseHandler,
+        IPersistentCacheHandler persistentCacheHandler,
         IAdapterDetailsCache adapterDetailsCache,
-        IProTunAdapterConfigurator proTunAdapterConfigurator,
         ILogger logger)
     {
         _proTunLogger = proTunLogger;
         _proTunStateChangeHandler = proTunStateChangeHandler;
         _proTunEventsResponseHandler = proTunEventsResponseHandler;
+        _persistentCacheHandler = persistentCacheHandler;
         _adapterDetailsCache = adapterDetailsCache;
-        _proTunAdapterConfigurator = proTunAdapterConfigurator;
         _logger = logger;
 
         ProTunDllLoader.Register();
@@ -126,8 +127,7 @@ public class ProTunManager : IProTunManager
                 _proTunStateChangeHandler.SetCancellationToken(cancellationToken);
                 _proTunEventsResponseHandler.SetCancellationToken(cancellationToken);
                 _windowsConnection = ProTunWindowsConnection.Connect(initialConnectionConfig, networkConfig,
-                    _proTunStateChangeHandler, _proTunEventsResponseHandler);
-                _proTunAdapterConfigurator.Configure();
+                    _proTunStateChangeHandler, _proTunEventsResponseHandler, _persistentCacheHandler);
                 AdapterDetails adapterDetails = _windowsConnection.GetAdapterDetails().Map();
                 _adapterDetailsCache.Set(adapterDetails);
                 _connection = _windowsConnection.GetConnection();
@@ -199,10 +199,11 @@ public class ProTunManager : IProTunManager
     private static InitialConnectionConfig CreateInitialConnectionConfig(ConnectionArgs args)
     {
         return new InitialConnectionConfig(
-            wgPrivateKey: args.WireGuardPrivateKey,
-            peers: MapPeers(args.Peers).ToArray(),
-            networkAvailable: true,
-            pcapFile: null
+            Peers: MapPeers(args.Peers).ToArray(),
+            NetworkAvailable: true,
+            PcapFile: null,
+            ConnectionMode: new NoLocalAgent(WgPrivateKey: args.WireGuardPrivateKey),
+            SniStrategy: SniStrategy.Random
         );
     }
 
@@ -220,13 +221,14 @@ public class ProTunManager : IProTunManager
     private static PeerInfo MapPeer(ConnectionPeer peer)
     {
         return new(
-            peerId: peer.PeerId,
-            serverIp: peer.ServerIp,
-            serverPublicKey: peer.ServerPublicKey,
-            udpPorts: peer.UdpPorts,
-            tcpPorts: peer.TcpPorts,
-            tlsPorts: peer.TlsPorts,
-            priority: peer.Priority
+            PeerId: peer.PeerId,
+            ServerIp: peer.ServerIp,
+            ServerPublicKey: peer.ServerPublicKey,
+            UdpPorts: peer.UdpPorts,
+            TcpPorts: peer.TcpPorts,
+            TlsPorts: peer.TlsPorts,
+            Priority: peer.Priority,
+            ExitLabel: peer.BouncingLabel
         );
     }
 
@@ -238,18 +240,18 @@ public class ProTunManager : IProTunManager
     private static AdapterConfig CreateAdapterConfig(ConnectionArgs args)
     {
         return new AdapterConfig(
-            customDnsServerIps: args.CustomDnsServers.ToArray(),
-            isIpv6Enabled: args.IsIpv6Enabled,
-            mtu: MTU,
-            bufferSizeBytes: WINTUN_BUFFER_SIZE
+            CustomDnsServerIps: args.CustomDnsServers.ToArray(),
+            IsIpv6Enabled: args.IsIpv6Enabled,
+            Mtu: MTU,
+            BufferSizeBytes: WINTUN_BUFFER_SIZE
         );
     }
 
     private static SocketConfig CreateUdpSocketConfig()
     {
         return new SocketConfig(
-            sendBufferSizeBytes: UDP_SEND_BUFFER_SIZE,
-            receiveBufferSizeBytes: UDP_RECEIVE_BUFFER_SIZE
+            SendBufferSizeBytes: UDP_SEND_BUFFER_SIZE,
+            ReceiveBufferSizeBytes: UDP_RECEIVE_BUFFER_SIZE
         );
     }
 
@@ -271,7 +273,7 @@ public class ProTunManager : IProTunManager
         await _connectionSemaphore.WaitAsync();
         try
         {
-            _connection?.GetStats();
+            _connection?.RequestStats();
         }
         catch (Exception ex)
         {

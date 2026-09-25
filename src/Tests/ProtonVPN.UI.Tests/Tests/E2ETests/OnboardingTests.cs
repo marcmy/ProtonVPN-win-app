@@ -17,9 +17,11 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Threading;
 using NUnit.Framework;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -28,89 +30,108 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("ARM")]
 public class OnboardingTests : BaseTest
 {
-    private const string EXCLUDED_LOCATIONS_TIP_PROMPT = "Avoid unwanted locations";
-    private const string EXCLUDED_LOCATIONS_TIP_ACTION = "Exclude locations";
-    private const string EXCLUDED_LOCATIONS_TIP_CANCEL = "Maybe later";
+    private static readonly string _excludedLocationsTipPrompt = LanguageHelper.GetTranslatedString("ExcludedLocations_TeachingTip_Title");
+    private static readonly string _excludedLocationsTipAction = LanguageHelper.GetTranslatedString("ExcludedLocations_TeachingTip_ActionButton");
+    private static readonly string _excludedLocationsTipCancel = LanguageHelper.GetTranslatedString("ExcludedLocations_TeachingTip_CloseButton");
 
-    private const string EXCLUDED_LOCATIONS_DISCOVERY_PROMPT = "Not the country you wanted?";
-    private const string EXCLUDED_LOCATIONS_DISCOVERY_ACTION = "Exclude locations";
-    private const string EXCLUDED_LOCATIONS_DISCOVERY_CANCEL = "Skip";
+    private static readonly string _excludedLocationsDiscoveryPrompt = LanguageHelper.GetTranslatedString("ExcludedLocations_SmartDiscovery_Prompt_Title");
+    private static readonly string _excludedLocationsDiscoveryAction = LanguageHelper.GetTranslatedString("ExcludedLocations_SmartDiscovery_Prompt_ExcludeLocations");
+    private static readonly string _excludedLocationsDiscoveryCancel = LanguageHelper.GetTranslatedString("ExcludedLocations_SmartDiscovery_Prompt_Skip");
 
-    private const string P2P_INFO_BANNER_DESCRIPTION = "Download files over P2P";
-    private const string SECURE_CORE_INFO_BANNER_DESCRIPTION = "Add another layer of encryption";
-    private const string TOR_INFO_BANNER_DESCRIPTION = "Use the Tor network";
+    private static readonly string _p2pInfoBannerDesription = LanguageHelper.GetTranslatedString("Countries_P2P_Description");
+    private static readonly string _secureCoreInfoBannerDesription = LanguageHelper.GetTranslatedString("Countries_SecureCore_Description");
+    private static readonly string _torInfoBannerDesription = LanguageHelper.GetTranslatedString("Countries_Tor_Description");
 
-    [OneTimeSetUp]
+    [SetUp]
     public void SetUp()
     {
         LaunchClient(ClientLaunchParams.FreshStartWithOnboarding);
+        CommonUiFlows.FullLogin(TestUserData.PlusUser);
     }
 
-    [Test, Order(0)]
+    [Test]
     [Property("TestCaseId", "867498")]
     public void ConfirmWelcomeModalIsDisplayed()
     {
-        CommonUiFlows.FullLogin(TestUserData.PlusUser);
-
         HomeRobot
             .Verify.IsWelcomeModalDisplayed()
             .DismissWelcomeModal();
     }
 
-    [Test, Order(1)]
+    [Test]
     [Property("TestCaseId", "867499")]
     public void ConfirmInfoBannersAreDisplayed()
     {
+        HomeRobot.DismissWelcomeModal();
+
         NavigationRobot
             .Verify.IsOnConnectionsPage()
                    .IsOnCountriesPage();
 
         SidebarRobot
             .NavigateToP2PCountriesTab()
-            .Verify.IsCountryInfoBannerDisplayed(P2P_INFO_BANNER_DESCRIPTION)
+            .Verify.IsCountryInfoBannerDisplayed(_p2pInfoBannerDesription)
             .NavigateToSecureCoreCountriesTab()
-            .Verify.IsCountryInfoBannerDisplayed(SECURE_CORE_INFO_BANNER_DESCRIPTION)
+            .Verify.IsCountryInfoBannerDisplayed(_secureCoreInfoBannerDesription)
             .NavigateToTorCountriesTab()
-            .Verify.IsCountryInfoBannerDisplayed(TOR_INFO_BANNER_DESCRIPTION);
+            .Verify.IsCountryInfoBannerDisplayed(_torInfoBannerDesription);
     }
 
-    [Test, Order(2)]
+    [Test]
     [Property("TestCaseId", "867755")]
     public void ConfirmExcludingLocationsTipsAreDisplayed()
     {
+        HomeRobot.DismissWelcomeModal();
+
         CommonUiFlows.Logout();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
 
-        TeachingTipRobot
-            .Verify.IsTeachingTipDisplayed()
-                   .TeachingTipTextContains(EXCLUDED_LOCATIONS_TIP_PROMPT)
-                   .TeachingTipButtonEquals(
-                        primary: EXCLUDED_LOCATIONS_TIP_ACTION,
-                        close: EXCLUDED_LOCATIONS_TIP_CANCEL)
-            .CloseAction();
+        try
+        {
+            Thread.Sleep(TestConstants.OneSecondTimeout);
 
-        HomeRobot
-            .Verify.IsDisconnected()
-            .ConnectViaConnectionCard()
-            .Verify.IsConnecting()
-                   .IsConnected()
-            .Disconnect()
-            .Verify.IsDisconnected();
+            TeachingTipRobot
+                .Verify.IsTeachingTipDisplayed()
+                       .TeachingTipTextContains(_excludedLocationsTipPrompt)
+                       .TeachingTipButtonEquals(
+                            primary: _excludedLocationsTipAction,
+                            close: _excludedLocationsTipCancel)
+                .CloseAction();
 
-        ConfirmationRobot
-            .Verify.IsOverlayDisplayed()
-                   .OverlayTextContains(EXCLUDED_LOCATIONS_DISCOVERY_PROMPT)
-                   .OverlayButtonsEquals(
-                        primary: EXCLUDED_LOCATIONS_DISCOVERY_ACTION,
-                        cancel: EXCLUDED_LOCATIONS_DISCOVERY_CANCEL)
-            .PrimaryAction();
+            HomeRobot
+                .Verify.IsDisconnected()
+                .ConnectViaConnectionCard()
+                .Verify.IsConnecting()
+                       .IsConnected()
+                .Disconnect()
+                .Verify.IsDisconnected();
 
-        NavigationRobot
-            .Verify.IsOnSettingsPage()
-                   .IsOnConnectionPreferencesPage();
+            ConfirmationRobot
+                .Verify.IsOverlayDisplayed()
+                       .OverlayTextContains(_excludedLocationsDiscoveryPrompt)
+                       .OverlayButtonsEquals(
+                            primary: _excludedLocationsDiscoveryAction,
+                            cancel: _excludedLocationsDiscoveryCancel)
+                .PrimaryAction();
+
+            NavigationRobot
+                .Verify.IsOnSettingsPage()
+                       .IsOnConnectionPreferencesPage();
+        }
+        finally
+        {
+            Thread.Sleep(TestConstants.AnimationDelay);
+            try
+            {
+                ConfirmationRobot
+                    .Verify.IsOverlayDisplayed()
+                    .CancelAction();
+            }
+            catch { }
+        }
     }
 
-    [OneTimeTearDown]
+    [TearDown]
     public void TearDown()
     {
         Cleanup();

@@ -122,12 +122,12 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         base.OnLanguageChanged();
         OnPropertyChanged(nameof(ExampleCountries));
         OnPropertyChanged(nameof(ExampleCities));
-        ReloadResultsAsync().FireAndForget();
+        _ = ReloadResultsAsync();
     }
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
-        ReloadResultsAsync().FireAndForget();
+        _ = ReloadResultsAsync();
     }
 
     public Task SearchAsync(string input)
@@ -507,11 +507,11 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     public void Receive(ServerListChangedMessage message)
     {
-        ExecuteOnUIThread(async () =>
+        ExecuteOnUIThread(() =>
         {
             if (HasSearchInput)
             {
-                await ReloadResultsAsync();
+                _ = ReloadResultsAsync();
             }
             else
             {
@@ -529,11 +529,11 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
             return;
         }
 
-        ExecuteOnUIThread(ReloadResultsAsync);
+        ExecuteOnUIThread(() => _ = ReloadResultsAsync());
     }
 
     public void Receive(LocationNamesChangedMessage message)
     {
-        ExecuteOnUIThread(ReloadResultsAsync);
+        ExecuteOnUIThread(() => _ = ReloadResultsAsync());
     }
 }

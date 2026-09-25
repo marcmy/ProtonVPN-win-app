@@ -166,7 +166,16 @@ public class ProTunConnection : IProTunConnection
                         }
                     }
 
-                    await _stateChannel.Writer.WriteAsync(state, cancellationToken);
+                    if (state.Status != VpnStatus.Disconnected)
+                    {
+                        // Errors cause the State Machine to Disconnect, and we don't want to trigger a disconnection when Connecting or Waiting
+                        VpnState cleanState = CreateNewVpnStateWithoutError(state);
+                        await _stateChannel.Writer.WriteAsync(cleanState, cancellationToken);
+                    }
+                    else
+                    {
+                        await _stateChannel.Writer.WriteAsync(state, cancellationToken);
+                    }
                 }
             }
         }
@@ -176,8 +185,14 @@ public class ProTunConnection : IProTunConnection
         }
         catch (Exception ex)
         {
-            _logger.Error<WireGuardProtocolLog>("Status monitor failed.", ex);
+            _logger.Error<ProTunProtocolLog>("Status monitor failed.", ex);
         }
+    }
+
+    private static VpnState CreateNewVpnStateWithoutError(VpnState state)
+    {
+        return new(state.Status, VpnError.None, state.LocalIp, state.RemoteIp, state.EndpointPort, state.VpnProtocol,
+            state.PortForwarding, state.OpenVpnAdapter, state.Label, state.ConnectionCertificate);
     }
 
     private async IAsyncEnumerable<VpnState> WatchStatesAsync([EnumeratorCancellation] CancellationToken cancellationToken)
@@ -201,11 +216,20 @@ public class ProTunConnection : IProTunConnection
         VpnConfig? config = _vpnConfig;
         VpnEndpoint? endpoint = _endpoint;
 
-        return config == null || endpoint is null ? null: new()
+        if (config is null || endpoint is null)
+        {
+            return null;
+        }
+
+        bool isIpv6Enabled = config.IsIpv6Enabled && endpoint.Server.IsIpv6Supported;
+        _logger.Info<ProTunProtocolLog>($"Requesting connection with IPv6 {isIpv6Enabled.ToOnOffString()}. The IPv6 Setting is " +
+            $"{config.IsIpv6Enabled.ToOnOffString()} and the Server IPv6 is {endpoint.Server.IsIpv6Supported.ToOnOffString()}.");
+
+        return new()
         {
             WireGuardPrivateKey = GetX25519SecretKey().Bytes,
             Peers = CreatePeers(config, endpoint),
-            IsIpv6Enabled = config.IsIpv6Enabled && endpoint.Server.IsIpv6Supported,
+            IsIpv6Enabled = isIpv6Enabled,
             CustomDnsServers = config.CustomDns
         };
     }
@@ -225,7 +249,8 @@ public class ProTunConnection : IProTunConnection
             UdpPorts = GetPorts(config, endpoint, VpnProtocol.ProTunUdp),
             TcpPorts = GetPorts(config, endpoint, VpnProtocol.ProTunTcp),
             TlsPorts = GetPorts(config, endpoint, VpnProtocol.ProTunTls),
-            Priority = 1
+            Priority = 1,
+            BouncingLabel = endpoint.Server.Label
         }];
     }
 
@@ -254,13 +279,13 @@ public class ProTunConnection : IProTunConnection
                 NetworkTraffic = traffic;
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) // expected on cancellation
         {
-            // expected on cancellation
+            _logger.Info<ProTunProtocolLog>("ProTUN traffic monitor cancelled.");
         }
         catch (Exception ex)
         {
-            _logger.Error<WireGuardProtocolLog>("Traffic monitor failed.", ex);
+            _logger.Error<ProTunProtocolLog>("Traffic monitor failed.", ex);
         }
     }
 

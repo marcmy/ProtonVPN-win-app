@@ -110,7 +110,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
 
                         <Button HorizontalAlignment="Right"
                                 Command="{x:Bind ViewModel.TriggerUiUnhandledExceptionCommand, Mode=OneTime}"
-                                Content="UI unhandled exception CRASH"
+                                Content="UI unhandled exception"
                                 Style="{StaticResource PrimaryButtonStyle}" />
 
                         <Button HorizontalAlignment="Right"
@@ -121,6 +121,11 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                         <Button HorizontalAlignment="Right"
                                 Command="{x:Bind ViewModel.TriggerUnobservedTaskExceptionCommand, Mode=OneTime}"
                                 Content="Unobserved task exception"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+
+                        <Button HorizontalAlignment="Right"
+                                Command="{x:Bind ViewModel.TriggerFireAndForgetTaskExceptionCommand, Mode=OneTime}"
+                                Content="Fire and forget task exception"
                                 Style="{StaticResource PrimaryButtonStyle}" />
                     </StackPanel>
                 </toolkit:SettingsExpander>
@@ -288,6 +293,14 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                             Style="{StaticResource PrimaryButtonStyle}" />
                 </toolkit:SettingsCard>
 
+                <toolkit:SettingsCard Header="Guest hole operation"
+                                      IsTabStop="False"
+                                      Style="{StaticResource DefaultSettingsCardStyle}">
+                    <Button Command="{x:Bind ViewModel.CreateAccountViaGuestHoleCommand, Mode=OneTime}"
+                            Content="Create account"
+                            Style="{StaticResource PrimaryButtonStyle}" />
+                </toolkit:SettingsCard>
+
                 <toolkit:SettingsCard Header="Simulate Restrictions"
                                       IsTabStop="False"
                                       Style="{StaticResource DefaultSettingsCardStyle}">
@@ -302,6 +315,5 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
 
             </StackPanel>
         </ScrollViewer>
-
     </Grid>
 </UserControl>

@@ -35,7 +35,6 @@ public class TcpPortScanner : ITcpPortScanner
             using Socket socket = new(endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             await socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
-
             return socket.Connected;
         }
         catch (Exception)

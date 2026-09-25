@@ -39,7 +39,7 @@ public partial class App : Application
     private const string WINDOWS_11_TYPOGRAPHY_RD_PATH = "ms-appx:///ProtonVPN.Client.Common.UI/Styles/Typography.xaml";
     private const string WINDOWS_10_TYPOGRAPHY_RD_PATH = "ms-appx:///ProtonVPN.Client.Common.UI/Styles/Typography_W10.xaml";
 
-    private readonly ClientGlobalExceptionHandler _globalExceptionHandler;
+    private readonly ClientGlobalExceptionHandler _globalExceptionHandler = new();
 
     public MainWindow? MainWindow { get; private set; }
     public TrayAppWindow? TrayWindow { get; private set; }
@@ -48,7 +48,6 @@ public partial class App : Application
 
     public App()
     {
-        _globalExceptionHandler = new ClientGlobalExceptionHandler();
         _globalExceptionHandler.Initialize(this);
         IssueReportingInitializer.Run();
         InitializeComponent();

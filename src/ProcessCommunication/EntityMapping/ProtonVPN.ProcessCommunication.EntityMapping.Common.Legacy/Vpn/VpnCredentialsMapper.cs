@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -53,12 +53,11 @@ public class VpnCredentialsMapper : IMapper<VpnCredentials, VpnCredentialsIpcEnt
 
     public VpnCredentials Map(VpnCredentialsIpcEntity rightEntity)
     {
-        ConnectionCertificate connectionCertificate =
-            _entityMapper.Map<ConnectionCertificateIpcEntity, ConnectionCertificate>(rightEntity.Certificate);
+        ConnectionCertificate certificate = _entityMapper.Map<ConnectionCertificateIpcEntity, ConnectionCertificate>(rightEntity.Certificate);
 
         return new(
-            connectionCertificate?.Pem ?? string.Empty,
-            connectionCertificate?.ExpirationDateUtc,
+            certificate?.Pem ?? string.Empty,
+            certificate?.ExpirationDateUtc,
             _entityMapper.Map<AsymmetricKeyPairIpcEntity, AsymmetricKeyPair>(rightEntity.ClientKeyPair),
             rightEntity.Username,
             rightEntity.Password);

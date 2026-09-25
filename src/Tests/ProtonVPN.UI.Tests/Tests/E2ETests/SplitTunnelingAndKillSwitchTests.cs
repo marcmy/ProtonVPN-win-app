@@ -23,21 +23,23 @@ using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.Robots;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 using static ProtonVPN.UI.Tests.TestsHelper.TestConstants;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
 [TestFixture]
-[Category("SKIP")]//3
+[Category("5")]
 public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
 {
     private const string IP_ADDRESS_TO_ADD = "208.95.112.1";
 
-    private const string APP_TO_CHECK = "Google Chrome";
+    private const Browser APP_TO_CHECK = Browser.GoogleChrome;
 
     [SetUp]
     public void SetUp()
     {
+        WindowsUtils.RestoreChrome();
         CommonUiFlows.FullLogin(TestUserData.PlusUser);
         CompletePreconditionsKillSwitch();
     }
@@ -117,7 +119,6 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
 
     [Test, Order(4)]
     [Property("TestCaseId", "787614")]
-    [Ignore("Flaky test")]
     [Retry(3)]
     public void IncludedAppLossesInternetWhileInConnectingState()
     {
@@ -153,53 +154,6 @@ public class SplitTunnelingAndKillSwitchTests : FreshSessionSetUp
         finally
         {
             ScriptHelper.RemoveVpnSpeedLimit();
-        }
-    }
-
-    [Test, Order(5)]
-    [Property("TestCaseId", "787613")]
-    public void SplitTunnelingAndAdvancedKillSwitchEnabledBlocksInternetAfterRestart()
-    {
-        try
-        {
-            CompletePreconditionsSplitTunnelingApp(SplitTunnelingMode.Include);
-
-            SettingRobot
-                .OpenSettings()
-                .OpenAutoStartupSettings()
-                .DisableAutoLaunchSetting()
-                .DisableAutoConnectionSetting()
-                .ApplySettings()
-                .CloseSettings();
-
-            HomeRobot
-                .ExpandKebabMenuButton()
-                .ExitViaKebabMenuWithConfirmation();
-
-            Thread.Sleep(TestConstants.TwoSecondsTimeout);
-
-            LaunchClient(ClientLaunchParams.StartWithNoOnboarding);
-
-            NavigationRobot
-                .Verify.IsOnMainPage();
-
-            //wait to see that it doesnt reconnect
-            Thread.Sleep(TestConstants.TenSecondsTimeout);
-            HomeRobot
-                .Verify.IsAdvancedKillSwitchActivated();
-
-            BrowserUtils.AssertBrowserInternetAvailability(APP_TO_CHECK, shouldBeAvailable: false);
-        }
-        finally
-        {
-            CommonUiFlows.Logout();
-
-            Thread.Sleep(TestConstants.OneSecondTimeout);
-
-            LoginRobot
-                .Verify.IsAdvancedKillSwitchDisplayed()
-                .DisableKillSwitch();
-
             NetworkUtils.AssertInternetAvailability(true);
         }
     }

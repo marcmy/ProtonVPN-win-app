@@ -102,7 +102,7 @@ public class RecentConnectionsManager : IRecentConnectionsManager,
     public IOrderedEnumerable<IRecentConnection> GetRecentConnections()
     {
         return _recentConnections.OrderByDescending(c => c.IsPinned)
-                                 .ThenBy(c => c.PinTime)
+                                 .ThenBy(c => c.PinTimeUtc)
                                  .ThenByDescending(c => c.LastConnectionTimeUtc);
     }
 
@@ -223,23 +223,20 @@ public class RecentConnectionsManager : IRecentConnectionsManager,
 
     public void Receive(ConnectionStatusChangedMessage message)
     {
-        if (!_areRecentsLoaded ||
-            _guestHoleManager.IsActive ||
-            message is null ||
-            message.ConnectionStatus != ConnectionStatus.Connecting ||
-            !message.HasConnectionIntentChanged)
+        if (_areRecentsLoaded 
+            && !_guestHoleManager.IsActive 
+            && message?.ConnectionStatus == ConnectionStatus.Connecting
+            && message.HasConnectionIntentChanged)
         {
-            return;
-        }
-
-        lock (_lock)
-        {
-            IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
-
-            if (TryInsertRecentConnection(connectionIntent))
+            lock (_lock)
             {
-                TrimRecentConnections();
-                SaveAndBroadcastRecentConnectionsChanges();
+                IConnectionIntent? connectionIntent = _connectionManager.CurrentConnectionIntent;
+
+                if (TryInsertRecentConnection(connectionIntent))
+                {
+                    TrimRecentConnections();
+                    SaveAndBroadcastRecentConnectionsChanges();
+                }
             }
         }
     }
@@ -332,7 +329,7 @@ public class RecentConnectionsManager : IRecentConnectionsManager,
         }
 
         recentConnection.IsPinned = true;
-        recentConnection.PinTime = DateTime.UtcNow;
+        recentConnection.PinTimeUtc = DateTime.UtcNow;
 
         return true;
     }
@@ -345,7 +342,7 @@ public class RecentConnectionsManager : IRecentConnectionsManager,
         }
 
         recentConnection.IsPinned = false;
-        recentConnection.PinTime = null;
+        recentConnection.PinTimeUtc = null;
 
         return true;
     }

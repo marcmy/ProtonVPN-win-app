@@ -22,7 +22,9 @@ using NUnit.Framework;
 using ProtonVPN.UI.Tests.Enums;
 using ProtonVPN.UI.Tests.TestBase;
 using ProtonVPN.UI.Tests.TestsHelper;
+using ProtonVPN.UI.Tests.Enums.Locations;
 using static ProtonVPN.UI.Tests.TestsHelper.TestConstants;
+using ProtonVPN.UI.Tests.TestsHelper.UiFlows;
 
 namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 
@@ -32,9 +34,9 @@ namespace ProtonVPN.UI.Tests.Tests.E2ETests;
 [Category("SMOKE_2")]
 public class LeakTests : FreshSessionSetUp
 {
-    private const string COUNTRY_NAME = "Australia";
-    private const string SECOND_COUNTRY_NAME = "Argentina";
-    private const string APP_TO_CHECK = "Google Chrome";
+    private const Country COUNTRY_NAME = Country.Australia;
+    private const Country SECOND_COUNTRY_NAME = Country.Argentina;
+    private const Browser APP_TO_CHECK = Browser.GoogleChrome;
 
     private List<string> _dnsListNotConnected = [];
 
@@ -84,6 +86,7 @@ public class LeakTests : FreshSessionSetUp
 
     [Test]
     [Property("TestCaseId", "609949")]
+    [Category("5")]
     public void DnsIsNotLeakingWithKillSwitchOn()
     {
         try
@@ -172,5 +175,11 @@ public class LeakTests : FreshSessionSetUp
             .DisableKillSwitchToggle()
             .ApplySettings()
             .CloseSettings();
+    }
+
+    [OneTimeTearDown]
+    public void TearDown()
+    {
+        ScriptHelper.EnableInternet();
     }
 }

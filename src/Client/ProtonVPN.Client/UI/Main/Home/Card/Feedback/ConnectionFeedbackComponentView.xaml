@@ -113,7 +113,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="RootGrid"
                                          Storyboard.TargetProperty="Opacity"
-                                         BeginTime="0:0:0.5"
+                                         BeginTime="0:0:0.8"
                                          To="0"
                                          Duration="0:0:0.5">
                             <DoubleAnimation.EasingFunction>
@@ -138,6 +138,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="RootGrid"
                                          Storyboard.TargetProperty="Opacity"
+                                         BeginTime="0:0:0.0"
                                          To="0"
                                          Duration="0:0:0.5">
                             <DoubleAnimation.EasingFunction>

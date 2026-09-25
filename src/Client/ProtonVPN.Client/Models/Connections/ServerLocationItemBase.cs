@@ -22,6 +22,7 @@ using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Contracts.Enums;
 using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Localization.Contracts;
+using ProtonVPN.Client.Localization.Extensions;
 using ProtonVPN.Client.Logic.Connection.Contracts;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models;
 using ProtonVPN.Client.Logic.Connection.Contracts.Models.Intents.Locations;
@@ -76,6 +77,8 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>, IServer
         : Localizer.GetCityName(Server.City, Server.ExitCountry);
 
     public bool IsVirtual => Server.IsVirtual;
+
+    public string SmartRoutingLabel => Localizer.GetFormat("Countries_SmartRouting_RoutedThrough", Localizer.GetCountryName(Server.HostCountry)); 
 
     public bool IsFree => Server.Tier == ServerTiers.Free;
 

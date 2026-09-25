@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
 using System.Threading;
 using FlaUI.Core.Input;
 using FlaUI.Core.WindowsAPI;
@@ -27,6 +28,11 @@ namespace ProtonVPN.UI.Tests.Robots;
 
 public class LoginRobot
 {
+    private static readonly string _killSwitchDisabledLabelTranslated = LanguageHelper.GetTranslatedString("SignIn_KillSwitch_Disabled");
+
+    protected Element KillSwitchDisabledLabel = Element.ByName(_killSwitchDisabledLabelTranslated);
+    protected Element DisableKillSwitchButton = Element.ByAutomationId("DisableKillSwitchButton");
+    protected Element DisableKillSwitchLabel = Element.ByAutomationId("AdvancedKillSwitchDescriptionText");
     protected Element UsernameTextBox = Element.ByAutomationId("UsernameTextBox");
     protected Element PasswordTextBox = Element.ByAutomationId("PasswordBox");
     protected Element TwoFactorFirstDigit = Element.ByAutomationId("FirstDigit");
@@ -39,17 +45,16 @@ public class LoginRobot
     protected Element SignInButton = Element.ByAutomationId("SignInButton");
     protected Element CreateAccountButton = Element.ByAutomationId("CreateAccountButton");
     protected Element SsoWindow = Element.ByAutomationId("ContentScrollViewer");
-    protected Element SignInWithSsoButton = Element.ByName("Sign in with SSO");
+    protected Element SignInWithSsoButton = Element.ByAutomationId("SwitchSignInButton");
     protected Element CancelSignInButton = Element.ByAutomationId("CancelSignInButton");
+
+    protected Element CaptchaWindow = Element.ByAutomationId("WebView2");
+    protected Element CloseCaptchaButton = Element.ByAutomationId("CloseContentDialogButton");
 
     protected Element HelpButton = Element.ByAutomationId("HelpButton");
     protected Element ReportIssueMenuItem = Element.ByAutomationId("ReportIssueMenuItem");
-    protected Element ForgotUsernameMenuItem = Element.ByName("Forgot username");
-    protected Element ForgotPasswordMenuItem = Element.ByName("Forgot password");
-
-    protected Element DisableKillSwitchButton = Element.ByAutomationId("DisableKillSwitchButton");
-    protected Element DisableKillSwitchLabel = Element.ByAutomationId("AdvancedKillSwitchDescriptionText");
-    protected Element KillSwitchDisabledLabel = Element.ByName("Kill switch is disabled");
+    protected Element ForgotUsernameMenuItem = Element.ByAutomationId("ForgotUsernameMenuItem");
+    protected Element ForgotPasswordMenuItem = Element.ByAutomationId("ForgotPasswordMenuItem");
 
     public LoginRobot Login(TestUserData user)
     {
@@ -86,6 +91,7 @@ public class LoginRobot
 
     public LoginRobot EnterTwoFactorCode(string twoFactorCode)
     {
+        TwoFactorFirstDigit.WaitUntilDisplayed(TestConstants.OneMinuteTimeout);
         TwoFactorFirstDigit.SetText(twoFactorCode[0].ToString());
         TwoFactorSecondDigit.SetText(twoFactorCode[1].ToString());
         TwoFactorThirdDigit.SetText(twoFactorCode[2].ToString());
@@ -99,8 +105,8 @@ public class LoginRobot
     public LoginRobot DoLoginSsoWebview(string password)
     {
         //We have a very limited ability to use WebView, that is why we are using static pauses and keyboard strokes.
-        SsoWindow.WaitUntilDisplayed(TestConstants.ThirtySecondsTimeout);
-        Thread.Sleep(15000);
+        SsoWindow.WaitUntilDisplayed(TestConstants.OneMinuteTimeout);
+        Thread.Sleep(TestConstants.ThirtySecondsTimeout);
         SsoWindow.Click();
 
         Keyboard.Type(VirtualKeyShort.TAB);
@@ -148,17 +154,31 @@ public class LoginRobot
         return this;
     }
 
+    public LoginRobot ClickCloseCaptchaButton()
+    {
+        CloseCaptchaButton.Click();
+        return this;
+    }
+
     public class Verifications : LoginRobot
     {
+        public Verifications IsCaptchaDisplayed()
+        {
+            CaptchaWindow.WaitUntilDisplayed();
+            Thread.Sleep(TestConstants.OneSecondTimeout);
+            return this;
+        }
+
         public Verifications IsErrorMessageDisplayed(string errorMessage)
         {
             Element.ByName(errorMessage).WaitUntilDisplayed();
             return this;
         }
 
-        public Verifications IsLoginWindowDisplayed()
+        public Verifications IsLoginWindowDisplayed(TimeSpan? timeout = null)
         {
-            UsernameTextBox.WaitUntilDisplayed(TestConstants.ThirtySecondsTimeout);
+            timeout ??= TestConstants.OneMinuteTimeout;
+            UsernameTextBox.WaitUntilDisplayed(timeout);
             PasswordTextBox.WaitUntilDisplayed();
             return this;
         }

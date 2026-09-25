@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Proton AG
+ * Copyright (c) 2026 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -44,22 +44,19 @@ public class UdpClientWrapper : IUdpClientWrapper
     public async Task<byte[]> ReceiveAsync(CancellationToken cancellationToken)
     {
         UdpClient? udpClient = _udpClient;
+        if (udpClient is null)
+        {
+            return [];
+        }
+
         try
         {
-            if (udpClient is null)
-            {
-                return [];
-            }
-
-            return (await udpClient.ReceiveAsync(cancellationToken)).Buffer;
+            UdpReceiveResult result = await udpClient.ReceiveAsync(cancellationToken);
+            return result.Buffer;
         }
         catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
         {
-            throw new OperationCanceledException(cancellationToken);
-        }
-        catch (SocketException e) when (cancellationToken.IsCancellationRequested &&
-            e.SocketErrorCode == SocketError.OperationAborted)
-        {
+            // Socket disposed while the receive was ongoing, but a cancel had already been requested
             throw new OperationCanceledException(cancellationToken);
         }
     }
