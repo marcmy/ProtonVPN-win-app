@@ -150,7 +150,7 @@ public class ConnectionRequestMapperTest
         VpnConnectionRequest result = _mapper.Map(entityToTest);
 
         Assert.IsNotNull(result);
-        Assert.AreEqual(_expectedVpnHosts, result.Servers);
+        Assert.AreSequenceEqual(_expectedVpnHosts, result.Servers);
         Assert.AreEqual(_expectedVpnProtocol, result.VpnProtocol);
         Assert.AreEqual(_expectedVpnConfig, result.Config);
         Assert.AreEqual(_expectedVpnCredentials, result.Credentials);

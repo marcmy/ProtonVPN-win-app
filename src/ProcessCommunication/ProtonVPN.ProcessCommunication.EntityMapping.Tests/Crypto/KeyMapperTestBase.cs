@@ -61,7 +61,7 @@ public abstract class KeyMapperTestBase<TKey, TKeyIpcEntity>
         TKeyIpcEntity result = _mapper.Map(entityToMap);
 
         Assert.IsNotNull(result);
-        Assert.AreEqual(entityToMap.Bytes, result.Bytes);
+        Assert.AreSequenceEqual(entityToMap.Bytes, result.Bytes);
         Assert.AreEqual(entityToMap.Base64, result.Base64);
         Assert.AreEqual((int)entityToMap.Algorithm, (int)result.Algorithm);
         Assert.AreEqual(entityToMap.Pem, result.Pem);

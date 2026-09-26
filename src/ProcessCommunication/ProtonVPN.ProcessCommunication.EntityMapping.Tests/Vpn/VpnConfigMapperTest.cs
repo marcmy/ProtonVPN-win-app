@@ -134,7 +134,7 @@ public class VpnConfigMapperTest
         Assert.AreEqual(entityToTest.NetShieldMode, result.NetShieldMode);
         Assert.AreEqual((int)entityToTest.VpnProtocol, (int)result.VpnProtocol);
         Assert.AreEqual(entityToTest.ModerateNat, result.ModerateNat);
-        Assert.AreEqual(_expectedVpnProtocolIpcEntities, result.PreferredProtocols);
+        Assert.AreSequenceEqual(_expectedVpnProtocolIpcEntities, result.PreferredProtocols);
         Assert.AreEqual(entityToTest.SplitTcp, result.SplitTcp);
         Assert.AreEqual(entityToTest.PortForwarding, result.PortForwarding);
         Assert.AreEqual(entityToTest.IsIpv6Enabled, result.IsIpv6Enabled);
@@ -202,7 +202,7 @@ public class VpnConfigMapperTest
         CollectionAssert.AreEqual(entityToTest.SplitTunnelIPs, result.SplitTunnelIPs.ToList());
         Assert.AreEqual(entityToTest.NetShieldMode, result.NetShieldMode);
         Assert.AreEqual((int)entityToTest.VpnProtocol, (int)result.VpnProtocol);
-        Assert.AreEqual(_expectedVpnProtocols, result.PreferredProtocols);
+        Assert.AreSequenceEqual(_expectedVpnProtocols, result.PreferredProtocols);
         Assert.AreEqual(entityToTest.SplitTcp, result.SplitTcp);
         Assert.AreEqual(entityToTest.ModerateNat, result.ModerateNat);
         Assert.AreEqual(entityToTest.PortForwarding, result.PortForwarding);

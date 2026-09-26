@@ -158,7 +158,6 @@ public class VpnServerMapperTest
 
         VpnHost result = _mapper.Map(entityToTest);
 
-        Assert.IsNotNull(result);
         Assert.AreEqual(entityToTest.Name, result.Name);
         Assert.AreEqual(entityToTest.Ip, result.Ip);
         Assert.AreEqual(entityToTest.Label, result.Label);
@@ -194,7 +193,6 @@ public class VpnServerMapperTest
 
         VpnHost result = _mapper.Map(entityToTest);
 
-        Assert.IsNotNull(result);
         Assert.AreEqual(entityToTest.Name, result.Name);
         Assert.AreEqual(entityToTest.Ip, result.Ip);
         Assert.AreEqual(entityToTest.Label, result.Label);

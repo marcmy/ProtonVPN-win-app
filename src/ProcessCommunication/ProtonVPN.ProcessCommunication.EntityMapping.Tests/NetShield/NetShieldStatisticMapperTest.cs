@@ -60,7 +60,6 @@ public class NetShieldStatisticMapperTest
             NumOfTrackingUrlsBlocked = DateTime.UtcNow.Year,
             NumOfAdultContentUrlsBlocked = DateTime.UtcNow.Month,
         };
-        Assert.IsNotNull(entityToTest.TimestampUtc);
 
         NetShieldStatisticIpcEntity result = _mapper.Map(entityToTest);
 
@@ -69,7 +68,6 @@ public class NetShieldStatisticMapperTest
         Assert.AreEqual(entityToTest.NumOfAdvertisementUrlsBlocked, result.NumOfAdvertisementUrlsBlocked);
         Assert.AreEqual(entityToTest.NumOfTrackingUrlsBlocked, result.NumOfTrackingUrlsBlocked);
         Assert.AreEqual(entityToTest.NumOfAdultContentUrlsBlocked, result.NumOfAdultContentUrlsBlocked);
-        Assert.IsNotNull(result.TimestampUtc);
         Assert.AreEqual(entityToTest.TimestampUtc, result.TimestampUtc);
     }
 
@@ -102,7 +100,6 @@ public class NetShieldStatisticMapperTest
         Assert.AreEqual(entityToTest.NumOfAdvertisementUrlsBlocked, result.NumOfAdvertisementUrlsBlocked);
         Assert.AreEqual(entityToTest.NumOfTrackingUrlsBlocked, result.NumOfTrackingUrlsBlocked);
         Assert.AreEqual(entityToTest.NumOfAdultContentUrlsBlocked, result.NumOfAdultContentUrlsBlocked);
-        Assert.IsNotNull(result.TimestampUtc);
         Assert.AreEqual(entityToTest.TimestampUtc, result.TimestampUtc);
     }
 }
