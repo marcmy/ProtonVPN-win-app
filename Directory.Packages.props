@@ -48,8 +48,8 @@
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.260209005" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.1" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.39" />
-    <PackageVersion Include="MSTest.TestAdapter" Version="3.11.1" />
-    <PackageVersion Include="MSTest.TestFramework" Version="3.11.1" />
+    <PackageVersion Include="MSTest.TestAdapter" Version="4.4.1" />
+    <PackageVersion Include="MSTest.TestFramework" Version="4.4.1" />
     <PackageVersion Include="MvvmLightLibsStd10" Version="5.4.1.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
