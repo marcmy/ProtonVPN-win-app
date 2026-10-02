@@ -18,13 +18,14 @@
  */
 
 using System.IO;
+using System.IO.Enumeration;
 using System.Security;
 
 namespace ProtonVPN.Common.Core.Helpers;
 
 public sealed record FolderScanResult(string[] AppPaths, string? Error);
 
-/// <summary>Local, bounded, no-link traversal for explicitly selected exclusion folders.</summary>
+/// <summary>Local, bounded, no-link traversal for explicit and wildcard folder rules in either mode.</summary>
 public static class SplitTunnelFolderScanner
 {
     public const int MaximumFolders = 20;
@@ -38,9 +39,22 @@ public static class SplitTunnelFolderScanner
         {
             string candidate = SplitTunnelAppPathResolver.Normalize(input);
             if (!Path.IsPathFullyQualified(candidate) || candidate.StartsWith(@"\\", StringComparison.Ordinal) ||
-                candidate.Contains('*') || candidate.Contains('?'))
+                candidate.Contains("**", StringComparison.Ordinal))
             {
                 return false;
+            }
+            candidate = Path.TrimEndingDirectorySeparator(candidate.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+            int wildcard = candidate.IndexOfAny(['*', '?']);
+            if (wildcard >= 0)
+            {
+                int separator = candidate.LastIndexOf(Path.DirectorySeparatorChar, wildcard);
+                string anchor = candidate[..(separator + 1)];
+                string[] segments = candidate[(separator + 1)..].Split(Path.DirectorySeparatorChar);
+                char[] invalid = Path.GetInvalidFileNameChars().Where(character => character is not '*' and not '?').ToArray();
+                if (segments.Length > MaximumDepth || segments.Any(segment => segment is "" or "." or ".." || segment.IndexOfAny(invalid) >= 0) ||
+                    !TryNormalize(anchor, out string normalizedAnchor)) { return false; }
+                path = Path.Combine(normalizedAnchor, Path.Combine(segments));
+                return true;
             }
             candidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(candidate));
             string root = Path.TrimEndingDirectorySeparator(Path.GetPathRoot(candidate)!);
@@ -72,21 +86,78 @@ public static class SplitTunnelFolderScanner
         {
             return new([], "Choose a specific local folder, not a drive, system folder, or broad profile/program root.");
         }
+        int entries = 0;
+        if (root.IndexOfAny(['*', '?']) >= 0) { return ScanPattern(root, ref entries); }
+        return ScanDirectory(root, ref entries);
+    }
+
+    // Watch the fixed prefix, not only currently matching roots, to discover new versions.
+    public static string GetWatchRoot(string rule)
+    {
+        if (!TryNormalize(rule, out string normalized)) { return string.Empty; }
+        int wildcard = normalized.IndexOfAny(['*', '?']);
+        return wildcard < 0 ? normalized : Path.TrimEndingDirectorySeparator(
+            normalized[..(normalized.LastIndexOf(Path.DirectorySeparatorChar, wildcard) + 1)]);
+    }
+
+    private static FolderScanResult ScanPattern(string pattern, ref int entries)
+    {
+        try
+        {
+            string anchor = GetWatchRoot(pattern);
+            ValidateNoLinks(anchor);
+            List<string> directories = [anchor];
+            string[] segments = pattern[(anchor.Length + 1)..].Split(Path.DirectorySeparatorChar);
+            foreach (string segment in segments)
+            {
+                List<string> matches = [];
+                foreach (string directory in directories)
+                {
+                    foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
+                    {
+                        if (++entries > MaximumEntries) { return new([], "Folder pattern exceeds the entry scan limit. Choose a narrower pattern."); }
+                        FileAttributes attributes = File.GetAttributes(entry);
+                        if ((attributes & FileAttributes.Directory) == 0 || (attributes & FileAttributes.ReparsePoint) != 0) { continue; }
+                        if (FileSystemName.MatchesSimpleExpression(segment, Path.GetFileName(entry), ignoreCase: true)) { matches.Add(entry); }
+                    }
+                }
+                directories = matches;
+            }
+            List<string> apps = [];
+            foreach (string directory in directories)
+            {
+                FolderScanResult scan = ScanDirectory(directory, ref entries);
+                if (scan.Error != null) { return new([], scan.Error); }
+                apps.AddRange(scan.AppPaths);
+            }
+            // A valid pattern with no matches remains saved and watched for future installations.
+            return new(apps.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray(), null);
+        }
+        catch (Exception ex) when (IsIoError(ex)) { return new([], $"Folder pattern unavailable or changed during its scan: {ex.Message}"); }
+    }
+
+    private static void ValidateNoLinks(string root)
+    {
+        for (DirectoryInfo? directory = new(root); directory != null; directory = directory.Parent)
+        {
+            if ((directory.Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException("Folder rules cannot traverse junctions or symbolic links.");
+            }
+        }
+    }
+
+    private static FolderScanResult ScanDirectory(string root, ref int entries)
+    {
+        if (!TryNormalize(root, out root)) { return new([], "A matched folder is a protected or broad root."); }
         try
         {
             if (!Directory.Exists(root)) { return new([], "Folder does not exist or cannot be accessed."); }
             // Reject linked ancestors too: a privileged service must not walk a redirected user path.
-            for (DirectoryInfo? directory = new(root); directory != null; directory = directory.Parent)
-            {
-                if ((directory.Attributes & FileAttributes.ReparsePoint) != 0)
-                {
-                    return new([], "Folder rules cannot traverse junctions or symbolic links.");
-                }
-            }
+            ValidateNoLinks(root);
             List<string> apps = [];
             Stack<(string Path, int Depth)> pending = new();
             pending.Push((root, 0));
-            int entries = 0;
             while (pending.TryPop(out var item))
             {
                 foreach (string entry in Directory.EnumerateFileSystemEntries(item.Path))

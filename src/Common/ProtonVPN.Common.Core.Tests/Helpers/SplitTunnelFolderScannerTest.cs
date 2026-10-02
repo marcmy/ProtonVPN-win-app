@@ -50,16 +50,56 @@ public class SplitTunnelFolderScannerTest
     }
 
     [TestMethod]
-    public void Normalize_RejectsBroadRootsRemoteAndWildcardPaths()
+    public void Normalize_RejectsBroadRootsRemoteAndUnsafePatterns()
     {
         Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(Path.GetPathRoot(_root), out _));
         Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(@"\\server\share\tools", out _));
-        Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(Path.Combine(_root, "*"), out _));
+        Assert.IsTrue(SplitTunnelFolderScanner.TryNormalize(Path.Combine(_root, "*"), out _));
+        Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(Path.Combine(Path.GetPathRoot(_root)!, "*", "Tools"), out _));
+        Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(Path.Combine(_root, "**"), out _));
+        Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(Path.Combine(_root, "*", "bad:name"), out _));
+        Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(Path.Combine(_root, "*", "..", "Tools"), out _));
         Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize("relative", out _));
         string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         if (windows.Length > 0) { Assert.IsFalse(SplitTunnelFolderScanner.TryNormalize(Path.Combine(windows, "System32"), out _)); }
         Assert.IsTrue(SplitTunnelFolderScanner.TryNormalize($"\"{_root}\\..\\{Path.GetFileName(_root)}\"", out string normalized));
         Assert.AreEqual(_root, normalized);
+    }
+
+    [TestMethod]
+    public void Pattern_MatchesOneLevelCaseInsensitivelyThenScansRecursively()
+    {
+        string folder = Directory.CreateDirectory(Path.Combine(_root, "Version1", "Tools", "nested")).FullName;
+        string exe = Path.Combine(folder, "app.exe");
+        File.WriteAllText(exe, "");
+        File.WriteAllText(Path.Combine(_root, "outside.exe"), "");
+        string unrelated = Directory.CreateDirectory(Path.Combine(_root, "Other", "Version2", "Tools")).FullName;
+        File.WriteAllText(Path.Combine(unrelated, "not-matched.exe"), "");
+        string pattern = Path.Combine(_root, "version?", "tools");
+        FolderScanResult scan = SplitTunnelFolderScanner.Scan($"\"{pattern}\"");
+        Assert.IsNull(scan.Error);
+        CollectionAssert.AreEqual(new[] { exe }, scan.AppPaths);
+        Assert.AreEqual(_root, SplitTunnelFolderScanner.GetWatchRoot(pattern));
+        Assert.IsNull(SplitTunnelFolderScanner.Scan(Path.Combine(_root, "future*", "Tools")).Error);
+        Assert.AreEqual(0, SplitTunnelFolderScanner.Scan(Path.Combine(_root, "future*", "Tools")).AppPaths.Length);
+        string renamed = Path.Combine(_root, "Version2");
+        Directory.Move(Path.Combine(_root, "Version1"), renamed);
+        CollectionAssert.AreEqual(new[] { Path.Combine(renamed, "Tools", "nested", "app.exe") }, SplitTunnelFolderScanner.Scan(pattern).AppPaths);
+    }
+
+    [TestMethod]
+    public void Pattern_SharesEntryBudgetAcrossMatchedRootsAndReturnsNoPartialSet()
+    {
+        string first = Directory.CreateDirectory(Path.Combine(_root, "v1")).FullName;
+        string second = Directory.CreateDirectory(Path.Combine(_root, "v2")).FullName;
+        File.WriteAllText(Path.Combine(first, "app.exe"), "");
+        for (int i = 0; i < SplitTunnelFolderScanner.MaximumEntries; i++)
+        {
+            File.WriteAllText(Path.Combine(second, $"{i}.txt"), "");
+        }
+        FolderScanResult scan = SplitTunnelFolderScanner.Scan(Path.Combine(_root, "v*"));
+        Assert.IsNotNull(scan.Error);
+        Assert.AreEqual(0, scan.AppPaths.Length);
     }
 
     [TestMethod]
@@ -95,6 +135,7 @@ public class SplitTunnelFolderScannerTest
             try { Directory.CreateSymbolicLink(link, outside); }
             catch (UnauthorizedAccessException) { Assert.Inconclusive("Creating symbolic links requires developer mode or privilege."); }
             Assert.AreEqual(0, SplitTunnelFolderScanner.Scan(_root).AppPaths.Length);
+            Assert.AreEqual(0, SplitTunnelFolderScanner.Scan(Path.Combine(_root, "*")).AppPaths.Length);
             Assert.IsNotNull(SplitTunnelFolderScanner.Scan(link).Error);
         }
         finally

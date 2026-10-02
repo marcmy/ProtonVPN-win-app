@@ -38,32 +38,36 @@ namespace ProtonVPN.Integration.Tests.UI.Overlays.Selection;
 public class SplitTunnelingFoldersViewModelTest
 {
     [TestMethod]
-    public async Task FolderControls_QuotedPathsDedupToggleRemoveAndModeIndependence()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task FolderControls_QuotedPathsDedupToggleRemoveAndModeIndependence(bool wildcard)
     {
         string root = Directory.CreateTempSubdirectory("proton-folder-ui-").FullName;
         try
         {
+            string rule = wildcard ? Path.Combine(root, "version*", "Tools") : root;
             IViewModelHelper helper = Substitute.For<IViewModelHelper>();
             helper.Localizer.Get(Arg.Any<string>()).Returns(call => call.Arg<string>());
             ISettingsConflictResolver conflicts = Substitute.For<ISettingsConflictResolver>();
             conflicts.GetConflict(Arg.Any<string>(), Arg.Any<object>()).Returns((ISettingsConflict?)null);
             SplitTunnelingPageViewModel model = new HeadlessFolderPage(helper, conflicts);
             model.CurrentSplitTunnelingMode = SplitTunnelingMode.Standard;
-            model.CustomFolderPath = $" \"{root}\" ";
+            model.CustomFolderPath = $" \"{rule}\" ";
             await model.AddFolderAsync();
             Assert.AreEqual(1, model.ExcludedFolders.Count);
-            Assert.AreEqual(root, model.ExcludedFolders[0].FolderPath);
+            Assert.AreEqual(rule, model.ExcludedFolders[0].FolderPath);
             Assert.AreEqual(0, model.Apps.Count); // No executable import into the app list.
             model.ExcludedFolders[0].IsSelected = false;
-            model.CustomFolderPath = root;
+            model.CustomFolderPath = rule;
             await model.AddFolderAsync();
             Assert.AreEqual(1, model.ExcludedFolders.Count);
             Assert.IsTrue(model.ExcludedFolders[0].IsSelected);
 
             model.CurrentSplitTunnelingMode = SplitTunnelingMode.Inverse;
-            model.CustomFolderPath = root;
+            model.CustomFolderPath = rule;
             await model.AddFolderAsync();
             Assert.AreEqual(1, model.IncludedFolders.Count);
+            Assert.AreEqual(rule, model.IncludedFolders[0].FolderPath);
             model.RemoveFolder(model.IncludedFolders[0]);
             Assert.AreEqual(0, model.IncludedFolders.Count);
             Assert.AreEqual(1, model.ExcludedFolders.Count);

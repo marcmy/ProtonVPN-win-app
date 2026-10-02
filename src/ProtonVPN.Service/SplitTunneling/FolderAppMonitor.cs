@@ -205,7 +205,7 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             FileSystemWatcher? watcher = null;
             try
             {
-                watcher = new(normalized) { IncludeSubdirectories = true,
+                watcher = new(SplitTunnelFolderScanner.GetWatchRoot(normalized)) { IncludeSubdirectories = true,
                     NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName };
                 watcher.Created += OnChanged;
                 watcher.Deleted += OnChanged;

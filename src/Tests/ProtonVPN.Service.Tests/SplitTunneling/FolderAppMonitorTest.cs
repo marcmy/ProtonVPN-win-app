@@ -31,6 +31,43 @@ namespace ProtonVPN.Service.Tests.SplitTunneling;
 public class FolderAppMonitorTest
 {
     [TestMethod]
+    public async Task PatternMonitor_DiscoversNewMatchingRootsWithoutApply()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-pattern-watch-").FullName;
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>());
+        try
+        {
+            monitor.ReplaceRules([Path.Combine(root, "version*", "Tools")]);
+            Assert.AreEqual(0, monitor.AppPaths.Length);
+            monitor.Start();
+            string folder = Path.Combine(root, "version1", "Tools", "nested");
+            string exe = Path.Combine(folder, "app.exe");
+            TaskCompletionSource changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            monitor.PathsChanged += (_, _) =>
+            {
+                if (Array.Exists(monitor.AppPaths, app => app == exe)) { changed.TrySetResult(); }
+            };
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(exe, "");
+            await changed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            CollectionAssert.AreEqual(new[] { exe }, monitor.AppPaths);
+            string renamed = Path.Combine(root, "version2");
+            Directory.Move(Path.Combine(root, "version1"), renamed);
+            monitor.Reconcile(force: true);
+            exe = Path.Combine(renamed, "Tools", "nested", "app.exe");
+            folder = Path.GetDirectoryName(exe)!;
+            CollectionAssert.AreEqual(new[] { exe }, monitor.AppPaths);
+            monitor.ReplaceRules([Path.Combine(root, "version*", "Tools"), folder]);
+            monitor.ReplaceRules([folder]);
+            CollectionAssert.AreEqual(new[] { exe }, monitor.AppPaths);
+            Directory.Delete(renamed, recursive: true);
+            monitor.Reconcile(force: true);
+            Assert.AreEqual(0, monitor.AppPaths.Length);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
     public async Task StartedMonitor_DiscoversNestedExecutableWithoutUiOrApply()
     {
         string root = Directory.CreateTempSubdirectory("proton-folder-watch-").FullName;

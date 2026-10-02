@@ -23,8 +23,8 @@ existing filter-rebuild lifecycle, not a claim of atomic cross-engine WFP update
 
 Safety limits: 20 saved folders per mode, 10,000 filesystem entries per root,
 10,000 combined unique folder executables, 32 directory levels. Drive roots,
-Windows/system paths, broad profile/program roots, UNC/device paths and wildcard
-folder inputs are rejected. Linked roots/ancestors are rejected and linked
+Windows/system paths, broad profile/program roots, UNC/device paths and broad
+pattern anchors are rejected. Linked roots/ancestors are rejected and linked
 descendants are skipped. Failed/over-limit scans return no partial app set for
 the affected root and emit a service-log warning. The UI checks a folder's scan
 before accepting it and displays limits/discovery limitations. Failed root scans
@@ -37,6 +37,22 @@ the usual non-included behavior until its filter is installed. Do not describe
 this feature as guaranteed first-packet privacy protection. Scripts/documents
 are covered only when the networking executable itself is under the chosen root.
 Source/build/CI tests do not replace a live test of installed WFP behavior.
+
+Folder patterns support `*` and `?` within individual directory-name components
+in both modes. For example, `C:\Apps\EA\*\Tools` matches one level between EA
+and Tools, then recursively discovers executables beneath every matched Tools
+folder. `**` and traversal components after the first wildcard are rejected.
+The fixed prefix must itself pass the specific-root safety checks; `C:\*` and
+patterns anchored at a broad profile/program root are rejected. Expansion and
+recursive scans share one 10,000-entry budget per rule, not a fresh budget for
+every match. A failure returns no partial coverage for that pattern.
+
+The saved entry stays a pattern. A valid pattern with no matches can be added
+as long as its fixed prefix exists and is accessible. The service watches that
+prefix recursively, so future matching folders are discovered without Apply;
+periodic reconciliation recovers missed events and recreated prefixes. Wildcard
+matches skip linked directories, and matched roots are validated again before
+scanning. An unmatched intermediate literal directory simply yields no matches.
 
 ## Intended behavior
 
