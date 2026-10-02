@@ -259,12 +259,16 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
             // Rebuild the union rather than deleting a path owned by another folder or explicit rule.
             string[] paths = GetEffectiveAppPaths();
             if (_activeAppPaths.SequenceEqual(paths, StringComparer.OrdinalIgnoreCase)) { return; }
+            string[] permittedAddresses = _configuredRemoteAddresses
+                .Concat(_domainRemoteAddresses)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             Disable();
             DisableReversed();
             _appFilter.RemoveAll();
             // Authorization AND redirect filters are rebuilt together under the existing state lock.
-            // IP/domain permits and routes are unchanged by a folder-only update.
-            SetUpApps(_lastVpnState, [], paths);
+            // Disable clears remote-address permit filters, so restore them without touching routes or the domain poller.
+            SetUpApps(_lastVpnState, permittedAddresses, paths);
             _activeAppPaths = paths;
         }
     }
