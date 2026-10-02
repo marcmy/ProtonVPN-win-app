@@ -587,6 +587,44 @@ public class SplitTunnelTest
         _splitTunnelClient.DidNotReceive().EnableIncludeMode(Arg.Any<string[]>(), Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
     }
 
+    [TestMethod]
+    public void FolderChanges_BlockMode_RestoresConfiguredAndResolvedDomainPermits()
+    {
+        string explicitApp = @"C:\tools\explicit.exe";
+        string folderApp = @"C:\tools\nested\new.exe";
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [explicitApp],
+            FolderPaths = [@"C:\tools"],
+            Ips = ["8.8.8.8", "example.com"],
+        });
+        _folderMonitor.AppPaths.Returns(new[] { explicitApp });
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        VpnState connected = new(VpnStatus.Connected, VpnError.None,
+            "1.1.1.1", "2.2.2.2", 443, VpnProtocol.OpenVpnUdp);
+        splitTunnel.OnVpnConnected(connected);
+
+        _domainPoller.AddressesChanged += Raise.Event<EventHandler<string[]>>(
+            _domainPoller,
+            new[] { "203.0.113.10" });
+
+        _permittedRemoteAddress.ClearReceivedCalls();
+        _splitTunnelRouting.ClearReceivedCalls();
+        _domainPoller.ClearReceivedCalls();
+        _folderMonitor.AppPaths.Returns(new[] { explicitApp, folderApp });
+
+        _folderMonitor.PathsChanged += Raise.Event<EventHandler>(_folderMonitor, EventArgs.Empty);
+
+        _permittedRemoteAddress.Received(1).Add(
+            Arg.Is<string[]>(addresses =>
+                addresses.Any(address => address.StartsWith("8.8.8.8")) &&
+                addresses.Contains("203.0.113.10")),
+            NetworkFilter.Action.HardPermit);
+        _splitTunnelRouting.DidNotReceive().DeleteRoutes(Arg.Any<VpnConfig>());
+        _domainPoller.DidNotReceive().Stop();
+    }
+
     private SplitTunnel GetSplitTunnel(bool enabled = false, bool reverseEnabled = false)
     {
         return new SplitTunnel(
