@@ -121,6 +121,47 @@ public class SplitTunnelFolderScannerTest
     }
 
     [TestMethod]
+    public async Task BackgroundScan_UsesDedicatedWorkerAndRemainsCancellableBetweenSmallBatches()
+    {
+        for (int i = 0; i <= SplitTunnelFolderScanner.BackgroundBatchSize; i++)
+        { File.WriteAllText(Path.Combine(_root, $"{i}.txt"), ""); }
+        using CancellationTokenSource cancellation = new();
+        int reports = 0;
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await SplitTunnelFolderScanner.ScanInBackgroundAsync(_root, cancellation.Token, progress =>
+            {
+                Assert.IsFalse(Thread.CurrentThread.IsThreadPoolThread);
+                Assert.AreEqual((long)SplitTunnelFolderScanner.BackgroundBatchSize, progress.Entries);
+                reports++;
+                cancellation.Cancel();
+            }));
+        Assert.AreEqual(1, reports);
+    }
+
+    [TestMethod]
+    public async Task BackgroundScan_KeepsTheSameRecursivePatternAndNoLinkSemantics()
+    {
+        string nested = Directory.CreateDirectory(Path.Combine(_root, "version1", "Tools")).FullName;
+        string exe = Path.Combine(nested, "app.exe");
+        File.WriteAllText(exe, "");
+        for (int i = 0; i < SplitTunnelFolderScanner.BackgroundBatchSize * 2; i++)
+        { File.WriteAllText(Path.Combine(nested, $"{i}.txt"), ""); }
+        int reports = 0;
+        FolderScanResult result = await SplitTunnelFolderScanner.ScanInBackgroundAsync(Path.Combine(_root, "version*", "Tools"), progress: _ =>
+        {
+            Assert.IsFalse(Thread.CurrentThread.IsThreadPoolThread);
+            reports++;
+        });
+        Assert.IsNull(result.Error);
+        CollectionAssert.AreEqual(new[] { exe }, result.AppPaths);
+        Assert.IsTrue(reports >= 3);
+        string linked = Path.Combine(_root, "linked");
+        try { Directory.CreateSymbolicLink(linked, nested); }
+        catch (UnauthorizedAccessException) { Assert.Inconclusive("Creating symbolic links requires developer mode or privilege."); }
+        Assert.IsNotNull((await SplitTunnelFolderScanner.ScanInBackgroundAsync(linked)).Error);
+    }
+
+    [TestMethod]
     public void Pattern_ExecutableLimitIsSharedAndFailureHasNoPartialCoverage()
     {
         for (int version = 0; version < 2; version++)

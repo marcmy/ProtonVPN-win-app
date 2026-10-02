@@ -22,15 +22,28 @@ the hover summary through the existing settings-change notifications.
 
 The service receives active folder paths via settings IPC and owns discovery;
 the UI does not need to remain open. Discovery after connect/Apply runs on a
-background worker in 512-entry batches, with cancellation on rule replacement
+dedicated Windows background-priority worker in 128-entry batches, with cancellation on rule replacement
 or disconnect. Relevant filesystem notifications are coalesced (250 ms), with a
-five-minute reconciliation fallback for missed notifications and unwatched roots.
+five-minute watcher-health check that retries only failed or unwatched rules.
+Healthy watched rules do not receive scheduled recursive scans. Watcher errors
+trigger recovery of their affected rules, after recreating the watcher to close
+the scan/watch handoff gap. A changed anchor scans only its associated rules;
+cached complete snapshots for other rules remain in the effective union.
 Ordinary non-executable file creation/rename/deletion does not trigger scans;
 executable names, populated directory creation/moves and deletion/rename of
-known executable ancestors still do. Each triggered update rescans the tree, covering directory renames/deletions,
-missed notifications and recreated roots. A generation guard discards scans of
+known executable ancestors still do. Triggered updates rescan affected trees,
+covering directory renames/deletions, reported notification failures and recreated roots. A generation guard discards scans of
 obsolete settings. The effective app set is the case-insensitive union of folder,
 explicit and wildcard rules, so overlapping owners are retained.
+
+Background batches pause for at least 10 ms, or four times the preceding batch's
+work time, targeting at most 20% worker duty rather than running continuously.
+The background mode lowers only the dedicated scan worker's resource scheduling
+priority, never the VPN/filter or shared thread-pool threads. There is no scan
+parallelism within one monitor. Validation initiated by the user retains its
+512-entry batching. All existing executable, directory, no-link and timeout
+safeguards remain active. Pacing can delay discovery; it is not a promise of
+zero disk/CPU impact or a guarantee of game frame-time stability.
 
 Folder updates rebuild redirect and IPv4/IPv6 authorization filters using the
 existing split-tunnel state lock and mode-specific policy. Include-mode connecting
@@ -83,7 +96,7 @@ A failure returns no partial coverage for that pattern.
 The saved entry stays a pattern. A valid pattern with no matches can be added
 as long as its fixed prefix exists and is accessible. The service watches that
 prefix recursively, so future matching folders are discovered without Apply;
-periodic reconciliation recovers missed events and recreated prefixes. Wildcard
+targeted recovery handles watcher failures and recreated prefixes. Wildcard
 matches skip linked directories, and matched roots are validated again before
 scanning. An unmatched intermediate literal directory simply yields no matches.
 
@@ -134,7 +147,7 @@ case-insensitive set with ownership accounting: removing one folder cannot
 remove an overlapping folder's or an explicit app's filter. Apply IPv4/IPv6
 authorization and redirect rules together through the existing synchronized
 split-tunnel lifecycle. Reconcile on connect, Apply, folder-tree rename/delete,
-watcher error, and periodically while connected; do not depend on the UI staying
+watcher error, and retry only failed/unwatched rules periodically while connected; do not depend on the UI staying
 open. Bounds or failed scans must be visible, not silently treated as success.
 
 Canonicalize fully qualified paths, require a separator boundary, reject drive

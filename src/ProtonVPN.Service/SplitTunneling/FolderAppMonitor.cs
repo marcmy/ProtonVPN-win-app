@@ -33,8 +33,9 @@ namespace ProtonVPN.Service.SplitTunneling;
 /// <summary>Service-owned reconciliation: notifications are hints, never incremental truth.</summary>
 public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
 {
-    // Watcher events drive normal discovery. This is only recovery for lost notifications/unwatched roots.
+    // A cheap health check, not a full-tree scan for healthy watched rules.
     internal static readonly TimeSpan RecoveryInterval = TimeSpan.FromMinutes(5);
+    private const string CombinedLimitError = "Combined folder executable limit exceeded; no folder app rules applied.";
     private readonly ILogger _logger;
     private readonly Func<string, CancellationToken, Action<FolderScanProgress>, Task<FolderScanResult>> _scan;
     private readonly object _sync = new();
@@ -42,6 +43,10 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
     private CancellationTokenSource _scanCancellation = new();
     private FolderScanStatusIpcEntity _status = new();
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, FolderScanResult> _snapshots = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _ruleAnchors = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _appAncestors = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _pendingFolders = new(StringComparer.OrdinalIgnoreCase);
     private readonly Timer _debounce;
     private readonly Timer _periodic;
     private string[] _folders = [];
@@ -70,14 +75,14 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
     }
 
     public FolderAppMonitor(ILogger logger)
-        : this(logger, (folder, token, progress) => SplitTunnelFolderScanner.ScanAsync(folder, token, progress)) { }
+        : this(logger, (folder, token, progress) => SplitTunnelFolderScanner.ScanInBackgroundAsync(folder, token, progress)) { }
 
     internal FolderAppMonitor(ILogger logger, Func<string, CancellationToken, Action<FolderScanProgress>, Task<FolderScanResult>> scan)
     {
         _logger = logger;
         _scan = scan;
         _debounce = new(_ => RunQueuedReconcile(), null, Timeout.Infinite, Timeout.Infinite);
-        _periodic = new(_ => QueueReconcile(), null, Timeout.Infinite, Timeout.Infinite);
+        _periodic = new(_ => QueueRecovery(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
     public void ReplaceRules(string[] folders)
@@ -91,12 +96,19 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             _scanCancellation = new();
             _queued = false;
             _dirty = false;
+            _pendingFolders.Clear();
             _debounce.Change(Timeout.Infinite, Timeout.Infinite);
             // Saved folder count is unrestricted; executable and traversal budgets remain separate.
             string[] replacement = (folders ?? []).Select(SplitTunnelAppPathResolver.Normalize)
                 .Where(folder => folder.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            if (!_folders.SequenceEqual(replacement, StringComparer.OrdinalIgnoreCase)) { _appPaths = []; }
+            if (!_folders.SequenceEqual(replacement, StringComparer.OrdinalIgnoreCase))
+            {
+                _appPaths = [];
+                _snapshots.Clear();
+                _appAncestors.Clear();
+            }
             _folders = replacement;
+            _ruleAnchors = _folders.ToDictionary(folder => folder, SplitTunnelFolderScanner.GetWatchRoot, StringComparer.OrdinalIgnoreCase);
             _status = new() { IsScanning = _folders.Length > 0 };
             RefreshWatchers();
         }
@@ -125,10 +137,14 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             _started = false;
             _queued = false;
             _dirty = false;
+            _pendingFolders.Clear();
             _generation++;
             _scanCancellation.Cancel();
             _folders = [];
             _appPaths = [];
+            _snapshots.Clear();
+            _ruleAnchors.Clear();
+            _appAncestors.Clear();
             _lastErrors = string.Empty;
             _watcherLimitWarned = false;
             _status = new();
@@ -138,12 +154,14 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
         }
     }
 
-    private void QueueReconcile()
+    private void QueueReconcile(IEnumerable<string>? folders = null)
     {
         lock (_sync)
         {
             if (!_disposed && _started)
             {
+                _pendingFolders.UnionWith(folders ?? _folders);
+                if (_pendingFolders.Count == 0) { return; }
                 _dirty = true;
                 // A continuous update stream must not indefinitely postpone discovery.
                 if (!_queued) { _queued = true; _debounce.Change(250, Timeout.Infinite); }
@@ -154,8 +172,15 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
     private async void RunQueuedReconcile()
     {
         int queuedGeneration;
-        lock (_sync) { _dirty = false; queuedGeneration = _generation; }
-        try { await ReconcileAsync().ConfigureAwait(false); }
+        string[] folders;
+        lock (_sync)
+        {
+            _dirty = false;
+            queuedGeneration = _generation;
+            folders = _pendingFolders.ToArray();
+            _pendingFolders.Clear();
+        }
+        try { await ReconcileAsync(requestedFolders: folders, queuedGeneration: queuedGeneration).ConfigureAwait(false); }
         catch (Exception ex) { _logger.Error<SplitTunnelLog>("Folder reconciliation failed.", ex); }
         finally
         {
@@ -164,7 +189,7 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
                 if (queuedGeneration == _generation)
                 {
                     _queued = false;
-                    if (_dirty && _started && !_disposed) { QueueReconcile(); }
+                    if (_dirty && _started && !_disposed) { QueueReconcile([]); }
                 }
             }
         }
@@ -172,7 +197,8 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
 
     internal void Reconcile(bool force = false, bool publish = true) => ReconcileAsync(force, publish).GetAwaiter().GetResult();
 
-    internal async Task ReconcileAsync(bool force = false, bool publish = true)
+    internal async Task ReconcileAsync(bool force = false, bool publish = true,
+        string[]? requestedFolders = null, int? queuedGeneration = null)
     {
         bool changed = false;
         string? warning = null;
@@ -183,11 +209,15 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
         try
         {
             string[] folders;
+            Dictionary<string, FolderScanResult> snapshots;
             CancellationToken token;
             lock (_sync)
             {
-                if (_disposed || (!force && !_started)) { return; }
-                folders = _folders;
+                if (_disposed || (!force && !_started) || (queuedGeneration.HasValue && queuedGeneration != _generation)) { return; }
+                folders = requestedFolders == null ? _folders
+                    : _folders.Where(folder => requestedFolders.Contains(folder, StringComparer.OrdinalIgnoreCase)).ToArray();
+                if (folders.Length == 0) { return; }
+                snapshots = new(_snapshots, StringComparer.OrdinalIgnoreCase);
                 generation = _generation;
                 revision = ++_scanRevision;
                 token = _scanCancellation.Token;
@@ -216,23 +246,47 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
                         }
                     }).ConfigureAwait(false);
                     entries += rootEntries;
-                    if (scan.Error != null) { errors.Add($"{folder}: {scan.Error}"); }
-                    paths.UnionWith(scan.AppPaths);
+                    snapshots[folder] = scan;
+                    paths.Clear();
+                    foreach (FolderScanResult snapshot in snapshots.Values)
+                    {
+                        paths.UnionWith(snapshot.AppPaths);
+                        if (paths.Count > SplitTunnelFolderScanner.MaximumExecutables) { break; }
+                    }
                     if (paths.Count > SplitTunnelFolderScanner.MaximumExecutables)
                     {
-                        errors.Add("Combined folder executable limit exceeded; no folder app rules applied.");
+                        // Bound both work and cached coverage; don't scan every remaining library after overflow.
+                        snapshots[folder] = new([], CombinedLimitError);
+                        break;
+                    }
+                }
+                paths.Clear();
+                foreach ((string folder, FolderScanResult scan) in snapshots)
+                {
+                    if (scan.Error != null) { errors.Add($"{folder}: {scan.Error}"); }
+                    paths.UnionWith(scan.AppPaths);
+                    if (scan.Error == CombinedLimitError || paths.Count > SplitTunnelFolderScanner.MaximumExecutables)
+                    {
+                        if (scan.Error != CombinedLimitError) { errors.Add(CombinedLimitError); }
                         paths.Clear();
                         break;
                     }
                 }
             }
             string[] effective = paths.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            HashSet<string> ancestors = new(StringComparer.OrdinalIgnoreCase);
+            foreach (string app in effective)
+            {
+                for (string? parent = Path.GetDirectoryName(app); parent != null && ancestors.Add(parent); parent = Path.GetDirectoryName(parent)) { }
+            }
             errorText = string.Join("; ", errors);
             lock (_sync)
             {
                 if (_disposed || generation != _generation || (!force && !_started)) { return; }
                 changed = !_appPaths.SequenceEqual(effective, StringComparer.OrdinalIgnoreCase);
                 _appPaths = effective;
+                _snapshots = snapshots;
+                _appAncestors = ancestors;
                 _status.Entries = entries;
                 _status.Executables = effective.Length;
                 if (errorText != _lastErrors)
@@ -265,9 +319,10 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
     private void RefreshWatchers()
     {
         if (!_started) { DisposeWatchers(); return; }
-        string[] anchors = _folders.Select(SplitTunnelFolderScanner.GetWatchRoot).Where(anchor => anchor.Length > 0)
+        string[] anchors = _ruleAnchors.Values.Where(anchor => anchor.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        foreach (string key in _watchers.Keys.Except(anchors, StringComparer.OrdinalIgnoreCase).ToArray())
+        foreach (string key in _watchers.Keys.Where(key => !anchors.Contains(key, StringComparer.OrdinalIgnoreCase)
+                     || SplitTunnelFolderScanner.ValidateWatchRoot(key) != null).ToArray())
         {
             _watchers[key].Dispose();
             _watchers.Remove(key);
@@ -296,6 +351,8 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
                 watcher.Error += OnError;
                 watcher.EnableRaisingEvents = true;
                 _watchers[folder] = watcher;
+                // A new/recreated watcher must precede its recovery scan, closing the scan/watch gap.
+                QueueReconcile(RulesForAnchor(folder));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
             {
@@ -307,7 +364,27 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
 
     private void OnChanged(object sender, FileSystemEventArgs args)
     {
-        if (IsRelevantChange(args)) { QueueReconcile(); }
+        if (IsRelevantChange(args) && sender is FileSystemWatcher watcher)
+        {
+            lock (_sync) { QueueReconcile(RulesForAnchor(watcher.Path)); }
+        }
+    }
+
+    private string[] RulesForAnchor(string anchor) => _ruleAnchors.Where(rule =>
+        string.Equals(rule.Value, anchor, StringComparison.OrdinalIgnoreCase)).Select(rule => rule.Key).ToArray();
+
+    internal void QueueRecovery()
+    {
+        lock (_sync)
+        {
+            if (!_started || _disposed) { return; }
+            // Preserve recovery candidates before recreating watchers: their scan/watch handoff needs a rescan.
+            string[] unwatched = _folders.Where(folder => !_watchers.ContainsKey(_ruleAnchors[folder])).ToArray();
+            RefreshWatchers();
+            QueueReconcile(_folders.Where(folder => unwatched.Contains(folder, StringComparer.OrdinalIgnoreCase)
+                || !_watchers.ContainsKey(_ruleAnchors[folder])
+                || !_snapshots.TryGetValue(folder, out FolderScanResult? snapshot) || snapshot.Error != null));
+        }
     }
 
     internal bool IsRelevantChange(FileSystemEventArgs args)
@@ -321,21 +398,26 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
         if (args.ChangeType == WatcherChangeTypes.Created) { return false; }
         lock (_sync)
         {
-            return _appPaths.Any(app => SplitTunnelFolderScanner.IsWithin(oldPath, app));
+            return _appAncestors.Contains(Path.TrimEndingDirectorySeparator(oldPath));
         }
     }
     private void OnError(object sender, ErrorEventArgs args)
     {
-        _logger.Warn<SplitTunnelLog>("Folder watcher error; reconciling the full tree and recreating its watcher.", args.GetException());
+        _logger.Warn<SplitTunnelLog>("Folder watcher error; reconciling affected rules and recreating its watcher.", args.GetException());
+        if (sender is FileSystemWatcher watcher) { RecoverAnchor(watcher.Path); }
+    }
+
+    internal void RecoverAnchor(string anchor)
+    {
         lock (_sync)
         {
-            foreach (string key in _watchers.Where(pair => ReferenceEquals(pair.Value, sender)).Select(pair => pair.Key).ToArray())
+            if (_watchers.Remove(anchor, out FileSystemWatcher? watcher))
             {
-                _watchers[key].Dispose();
-                _watchers.Remove(key);
+                watcher.Dispose();
             }
+            RefreshWatchers();
+            QueueReconcile(RulesForAnchor(anchor));
         }
-        QueueReconcile();
     }
 
     private void DisposeWatchers()

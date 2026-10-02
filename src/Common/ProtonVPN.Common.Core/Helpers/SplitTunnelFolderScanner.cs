@@ -22,6 +22,8 @@ using System.IO.Enumeration;
 using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace ProtonVPN.Common.Core.Helpers;
 
@@ -34,6 +36,7 @@ public static class SplitTunnelFolderScanner
     public const int MaximumExecutables = 10000;
     public const int MaximumDirectories = 100000;
     public const int BatchSize = 512;
+    public const int BackgroundBatchSize = 128;
     public const int MaximumDepth = 32;
 
     public static bool TryNormalize(string? input, out string path)
@@ -89,6 +92,19 @@ public static class SplitTunnelFolderScanner
 
     public static async Task<FolderScanResult> ScanAsync(string input, CancellationToken cancellationToken = default,
         Action<FolderScanProgress>? progress = null)
+        => await ScanCoreAsync(input, cancellationToken, progress, background: false).ConfigureAwait(false);
+
+    public static Task<FolderScanResult> ScanInBackgroundAsync(string input, CancellationToken cancellationToken = default,
+        Action<FolderScanProgress>? progress = null)
+        => Task.Factory.StartNew(() =>
+        {
+            // Never lower a shared pool/VPN thread. The paced core completes synchronously on this dedicated worker.
+            using BackgroundThreadScope priority = new();
+            return ScanCoreAsync(input, cancellationToken, progress, background: true).GetAwaiter().GetResult();
+        }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+    private static async Task<FolderScanResult> ScanCoreAsync(string input, CancellationToken cancellationToken,
+        Action<FolderScanProgress>? progress, bool background)
     {
         if (!TryNormalize(input, out string root))
         {
@@ -96,7 +112,7 @@ public static class SplitTunnelFolderScanner
         }
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(5));
-        ScanBudget budget = new(timeout.Token, progress);
+        ScanBudget budget = new(timeout.Token, progress, background);
         try
         {
             if (root.IndexOfAny(['*', '?']) >= 0)
@@ -220,11 +236,12 @@ public static class SplitTunnelFolderScanner
         }
     }
 
-    private sealed class ScanBudget(CancellationToken token, Action<FolderScanProgress>? progress)
+    private sealed class ScanBudget(CancellationToken token, Action<FolderScanProgress>? progress, bool background)
     {
         public long Entries { get; private set; }
         public HashSet<string> Apps { get; } = new(StringComparer.OrdinalIgnoreCase);
         private int _directories;
+        private long _batchStarted = Stopwatch.GetTimestamp();
 
         public void AddDirectory()
         {
@@ -235,13 +252,41 @@ public static class SplitTunnelFolderScanner
         public async ValueTask VisitAsync()
         {
             token.ThrowIfCancellationRequested();
-            if (++Entries % BatchSize == 0)
+            if (++Entries % (background ? BackgroundBatchSize : BatchSize) == 0)
             {
                 progress?.Invoke(new(Entries, Apps.Count));
-                // Yield between bounded batches rather than monopolizing a worker for an entire library.
-                await Task.Delay(1, token).ConfigureAwait(false);
+                if (background)
+                {
+                    // Aim for at most 20% worker duty, with a minimum pause even on a warm filesystem cache.
+                    TimeSpan pause = TimeSpan.FromMilliseconds(Math.Max(10, Stopwatch.GetElapsedTime(_batchStarted).TotalMilliseconds * 4));
+                    if (token.WaitHandle.WaitOne(pause)) { token.ThrowIfCancellationRequested(); }
+                    _batchStarted = Stopwatch.GetTimestamp();
+                }
+                else
+                {
+                    await Task.Delay(1, token).ConfigureAwait(false);
+                }
             }
         }
+    }
+
+    private sealed class BackgroundThreadScope : IDisposable
+    {
+        // Windows background mode lowers CPU, I/O and memory scheduling priority on this worker only.
+        // https://learn.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadpriority
+        private readonly bool _entered = OperatingSystem.IsWindows() && SetThreadPriority(GetCurrentThread(), 0x00010000);
+
+        public void Dispose()
+        {
+            if (_entered) { SetThreadPriority(GetCurrentThread(), 0x00020000); }
+        }
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentThread();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetThreadPriority(IntPtr thread, int priority);
     }
 
     private static bool IsIoError(Exception ex) => ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or SecurityException;

@@ -21,6 +21,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using ProtonVPN.Logging.Contracts;
@@ -33,9 +34,121 @@ namespace ProtonVPN.Service.Tests.SplitTunneling;
 public class FolderAppMonitorTest
 {
     [TestMethod]
-    public void RecoveryScansAreInfrequentRatherThanEveryFifteenSeconds()
+    public void RecoveryHealthChecksAreInfrequentRatherThanEveryFifteenSeconds()
     {
         Assert.AreEqual(TimeSpan.FromMinutes(5), FolderAppMonitor.RecoveryInterval);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> completed)
+    {
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(10));
+        while (!completed()) { await Task.Delay(20, timeout.Token); }
+    }
+
+    [TestMethod]
+    public async Task TargetedUpdates_EnforceCombinedLimitAcrossCachedRulesAndRecoverWithoutRescanningThem()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-cached-budget-").FullName;
+        string first = Path.Combine(root, "first");
+        string second = Path.Combine(root, "second");
+        string[] library = new string[SplitTunnelFolderScanner.MaximumExecutables];
+        for (int i = 0; i < library.Length; i++) { library[i] = Path.Combine(first, $"{i}.exe"); }
+        bool addExtra = false;
+        int firstScans = 0;
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), (folder, _, _) =>
+        {
+            if (folder == first) { firstScans++; return Task.FromResult(new FolderScanResult(library, null)); }
+            return Task.FromResult(new FolderScanResult(addExtra ? [Path.Combine(second, "extra.exe")] : [], null));
+        });
+        try
+        {
+            monitor.ReplaceRules([first, second]);
+            await monitor.ReconcileAsync(force: true);
+            Assert.AreEqual(library.Length, monitor.AppPaths.Length);
+            addExtra = true;
+            await monitor.ReconcileAsync(force: true, requestedFolders: [second]);
+            Assert.AreEqual(0, monitor.AppPaths.Length);
+            StringAssert.Contains(monitor.Status.Error, "Combined folder executable limit");
+            addExtra = false;
+            await monitor.ReconcileAsync(force: true, requestedFolders: [second]);
+            Assert.AreEqual(library.Length, monitor.AppPaths.Length);
+            Assert.AreEqual(string.Empty, monitor.Status.Error);
+            Assert.AreEqual(1, firstScans);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task HealthyRules_DoNotRescanOnRecoveryTicksAndChangesOnlyRescanAffectedAnchor()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-targeted-watch-").FullName;
+        string first = Directory.CreateDirectory(Path.Combine(root, "first")).FullName;
+        string second = Directory.CreateDirectory(Path.Combine(root, "second")).FullName;
+        string original = Path.Combine(second, "original.exe");
+        File.WriteAllText(original, "");
+        ConcurrentDictionary<string, int> counts = new();
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), async (folder, token, progress) =>
+        {
+            counts.AddOrUpdate(folder, 1, (_, count) => count + 1);
+            return await SplitTunnelFolderScanner.ScanAsync(folder, token, progress);
+        });
+        try
+        {
+            monitor.ReplaceRules([first, second]);
+            monitor.Start();
+            await WaitUntilAsync(() => !monitor.Status.IsScanning);
+            for (int i = 0; i < 3; i++) { monitor.QueueRecovery(); }
+            await Task.Delay(500);
+            Assert.AreEqual(1, counts[first]);
+            Assert.AreEqual(1, counts[second]);
+            string added = Path.Combine(first, "new.exe");
+            File.WriteAllText(added, "");
+            await WaitUntilAsync(() => Array.Exists(monitor.AppPaths, app => app == added) && !monitor.Status.IsScanning);
+            Assert.AreEqual(2, counts[first]);
+            Assert.AreEqual(1, counts[second]);
+            CollectionAssert.AreEquivalent(new[] { original, added }, monitor.AppPaths);
+            monitor.RecoverAnchor(first); // The same targeted path used after a watcher error/overflow.
+            await WaitUntilAsync(() => counts[first] == 3 && !monitor.Status.IsScanning);
+            Assert.AreEqual(1, counts[second]);
+            monitor.QueueRecovery();
+            await Task.Delay(500);
+            Assert.AreEqual(3, counts[first]); // Watcher was recreated after its recovery scan.
+            CollectionAssert.AreEquivalent(new[] { original, added }, monitor.AppPaths);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task Recovery_RetriesMissingRulesWithoutRescanningHealthyRules()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-unwatched-recovery-").FullName;
+        string healthy = Directory.CreateDirectory(Path.Combine(root, "healthy")).FullName;
+        string missing = Path.Combine(root, "missing");
+        string original = Path.Combine(healthy, "original.exe");
+        File.WriteAllText(original, "");
+        ConcurrentDictionary<string, int> counts = new();
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), async (folder, token, progress) =>
+        {
+            counts.AddOrUpdate(folder, 1, (_, count) => count + 1);
+            return await SplitTunnelFolderScanner.ScanAsync(folder, token, progress);
+        });
+        try
+        {
+            monitor.ReplaceRules([healthy, missing]);
+            monitor.Start();
+            await WaitUntilAsync(() => !monitor.Status.IsScanning);
+            Assert.IsFalse(string.IsNullOrEmpty(monitor.Status.Error));
+            Directory.CreateDirectory(missing);
+            string added = Path.Combine(missing, "new.exe");
+            File.WriteAllText(added, "");
+            monitor.QueueRecovery();
+            await WaitUntilAsync(() => Array.Exists(monitor.AppPaths, app => app == added) && !monitor.Status.IsScanning);
+            Assert.AreEqual(1, counts[healthy]);
+            Assert.AreEqual(2, counts[missing]);
+            Assert.AreEqual(string.Empty, monitor.Status.Error);
+            CollectionAssert.AreEquivalent(new[] { original, added }, monitor.AppPaths);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
     }
 
     [TestMethod]
