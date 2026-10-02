@@ -19,6 +19,7 @@
 
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using CommunityToolkit.Mvvm.Input;
 using ProtonVPN.Client.Core.Models;
 using ProtonVPN.Client.Core.Bases;
 
@@ -27,11 +28,13 @@ namespace ProtonVPN.Client.UI.Main.Settings.Connection;
 public sealed partial class SplitTunnelingPageView : IContextAware
 {
     public SplitTunnelingPageViewModel ViewModel { get; }
+    public IRelayCommand CloseFolderDialogCommand { get; }
     private bool _isFolderDialogOpen;
 
     public SplitTunnelingPageView()
     {
         ViewModel = App.GetService<SplitTunnelingPageViewModel>();
+        CloseFolderDialogCommand = new RelayCommand(() => FolderRulesDialog.Hide());
 
         InitializeComponent();
 
@@ -62,16 +65,31 @@ public sealed partial class SplitTunnelingPageView : IContextAware
         if (_isFolderDialogOpen) { return; }
         _isFolderDialogOpen = true;
         ViewModel.ConsumeFolderDialogRequest();
+        XamlRoot dialogRoot = XamlRoot;
         try
         {
-            FolderRulesDialog.XamlRoot = XamlRoot;
+            FolderRulesDialog.XamlRoot = dialogRoot;
+            UpdateFolderDialogSize(dialogRoot);
+            dialogRoot.Changed += OnFolderDialogRootChanged;
             await FolderRulesDialog.ShowAsync();
         }
         finally
         {
+            dialogRoot.Changed -= OnFolderDialogRootChanged;
             ViewModel.CancelFolderScan();
             _isFolderDialogOpen = false;
         }
+    }
+
+    private void OnFolderDialogRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+    {
+        UpdateFolderDialogSize(sender);
+    }
+
+    private void UpdateFolderDialogSize(XamlRoot root)
+    {
+        // Leave room for the title, close footer and outer margins. Only the star-sized list row scrolls.
+        FolderDialogContent.Height = Math.Clamp(root.Size.Height - 160, 0, 560);
     }
 
     public object GetContext()
@@ -87,6 +105,7 @@ public sealed partial class SplitTunnelingPageView : IContextAware
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        if (_isFolderDialogOpen) { FolderRulesDialog.Hide(); }
         ViewModel.Deactivate();
     }
 

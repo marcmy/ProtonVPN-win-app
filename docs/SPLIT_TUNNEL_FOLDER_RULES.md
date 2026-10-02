@@ -3,10 +3,15 @@
 ## Fork implementation (2026-10-02)
 
 Both standard/exclude and inverse/include modes have independent persistent
-folder lists in a scrollable dialog directly underneath the apps selector, with
+folder lists in a wide, host-constrained dialog directly underneath the apps selector, with
 Add, Browse, enable/disable and Remove controls. No executables
 are imported into the UI's app list. Existing executable wildcard rules are
 retained without migration or automatic deletion.
+
+Only the folder list scrolls. The short hint, Add/Browse controls, validation and
+service status, and Close footer stay fixed. Long paths use ellipsis with a full
+path tooltip, keeping removal accessible. The top X and footer Close use the
+same hide command; closing the dialog cancels pending add-folder validation.
 
 The hover panel has the same mode-specific folder count and a Manage folders
 row between apps and IP addresses. It closes the flyout, navigates through the
@@ -18,8 +23,11 @@ the hover summary through the existing settings-change notifications.
 The service receives active folder paths via settings IPC and owns discovery;
 the UI does not need to remain open. Discovery after connect/Apply runs on a
 background worker in 512-entry batches, with cancellation on rule replacement
-or disconnect. Coalesced filesystem notifications (250 ms) and a 15-second reconciliation
-fallback. Every update rescans the tree, covering directory renames/deletions,
+or disconnect. Relevant filesystem notifications are coalesced (250 ms), with a
+five-minute reconciliation fallback for missed notifications and unwatched roots.
+Ordinary non-executable file creation/rename/deletion does not trigger scans;
+executable names, populated directory creation/moves and deletion/rename of
+known executable ancestors still do. Each triggered update rescans the tree, covering directory renames/deletions,
 missed notifications and recreated roots. A generation guard discards scans of
 obsolete settings. The effective app set is the case-insensitive union of folder,
 explicit and wildcard rules, so overlapping owners are retained.

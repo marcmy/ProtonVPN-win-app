@@ -33,6 +33,81 @@ namespace ProtonVPN.Service.Tests.SplitTunneling;
 public class FolderAppMonitorTest
 {
     [TestMethod]
+    public void RecoveryScansAreInfrequentRatherThanEveryFifteenSeconds()
+    {
+        Assert.AreEqual(TimeSpan.FromMinutes(5), FolderAppMonitor.RecoveryInterval);
+    }
+
+    [TestMethod]
+    public async Task StartedMonitor_IgnoresActualNonExecutableChurnButDiscoversNewApp()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-folder-idle-").FullName;
+        int scans = 0;
+        TaskCompletionSource initialScan = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), async (folder, token, progress) =>
+        {
+            Interlocked.Increment(ref scans);
+            FolderScanResult result = await SplitTunnelFolderScanner.ScanAsync(folder, token, progress);
+            initialScan.TrySetResult();
+            return result;
+        });
+        try
+        {
+            monitor.ReplaceRules([root]);
+            monitor.Start();
+            await initialScan.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            for (int i = 0; i < 50; i++)
+            {
+                string file = Path.Combine(root, $"cache{i}.tmp");
+                File.WriteAllText(file, "");
+                File.Move(file, Path.Combine(root, $"cache{i}.log"));
+                File.Delete(Path.Combine(root, $"cache{i}.log"));
+            }
+            // Allow the real watcher/debounce pipeline time to fire if an irrelevant event was queued.
+            await Task.Delay(750);
+            Assert.AreEqual(1, Volatile.Read(ref scans));
+            TaskCompletionSource discovered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            string executable = Path.Combine(root, "new.exe");
+            monitor.PathsChanged += (_, _) =>
+            {
+                if (Array.Exists(monitor.AppPaths, path => path == executable)) { discovered.TrySetResult(); }
+            };
+            File.WriteAllText(executable, "");
+            await discovered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            CollectionAssert.AreEqual(new[] { executable }, monitor.AppPaths);
+            Assert.AreEqual(2, Volatile.Read(ref scans));
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
+    public void WatcherHints_IgnoreFileChurnButKeepExecutablesAndDirectoryMoves()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-folder-hints-").FullName;
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>());
+        try
+        {
+            string child = Directory.CreateDirectory(Path.Combine(root, "version.1")).FullName;
+            string exe = Path.Combine(child, "app.exe");
+            File.WriteAllText(exe, "");
+            monitor.ReplaceRules([root]);
+            monitor.Reconcile(force: true);
+            Assert.IsFalse(monitor.IsRelevantChange(new(WatcherChangeTypes.Created, child, "cache.tmp")));
+            Assert.IsFalse(monitor.IsRelevantChange(new(WatcherChangeTypes.Deleted, child, "output.log")));
+            Assert.IsFalse(monitor.IsRelevantChange(new RenamedEventArgs(WatcherChangeTypes.Renamed, child, "new.tmp", "old.tmp")));
+            Assert.IsTrue(monitor.IsRelevantChange(new(WatcherChangeTypes.Created, child, "APP.EXE")));
+            Assert.IsTrue(monitor.IsRelevantChange(new RenamedEventArgs(WatcherChangeTypes.Renamed, child, "app.old", "app.exe")));
+            Assert.IsTrue(monitor.IsRelevantChange(new RenamedEventArgs(WatcherChangeTypes.Renamed, child, "app.exe", "download.tmp")));
+            Assert.IsTrue(monitor.IsRelevantChange(new(WatcherChangeTypes.Created, root, "version.1")));
+            Directory.Delete(child, recursive: true);
+            Assert.IsTrue(monitor.IsRelevantChange(new(WatcherChangeTypes.Deleted, root, "version.1")));
+            Assert.IsTrue(monitor.IsRelevantChange(new RenamedEventArgs(WatcherChangeTypes.Renamed, root, "version.2", "version.1")));
+            Assert.IsFalse(monitor.IsRelevantChange(new(WatcherChangeTypes.Deleted, root, "version.1-other")));
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
     public async Task BatchedRescan_KeepsSnapshotUntilCompleteAndStopCancelsIt()
     {
         string root = Directory.CreateTempSubdirectory("proton-library-scan-").FullName;

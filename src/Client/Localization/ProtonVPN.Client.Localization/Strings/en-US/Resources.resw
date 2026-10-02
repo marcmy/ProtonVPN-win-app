@@ -136,7 +136,7 @@
     <value>Manage folders (including subfolders)</value>
   </data>
   <data name="SplitTunneling_Folders_Warning" xml:space="preserve">
-    <value>Every executable in a selected folder can use this rule, including programs added later. New programs are discovered asynchronously: their first connection may occur before discovery. Scripts and helpers outside the folder are not covered. Junctions and symbolic links are skipped. Large libraries scan in cancellable batches; non-executable files do not count toward the executable limit. Safeguards: 10,000 unique folder executables, 100,000 scanned directories per rule, 32 levels, five minutes per rule. Unavailable or incomplete rules need attention; check discovery status and service logs.</value>
+    <value>Includes subfolders. Supports * and ? in folder names. New apps may connect before discovery; linked folders are skipped.</value>
   </data>
   <data name="SplitTunneling_Folders_Placeholder" xml:space="preserve">
     <value>Paste a folder path or pattern, e.g. C:\Apps\EA\*\Tools</value>
@@ -145,7 +145,7 @@
     <value>Choose a specific local folder or pattern. * and ? match one folder-name level; ** is not supported. Patterns need a specific fixed parent folder. Drive roots, Windows folders, broad profile/program roots, network paths and wildcard traversal (.. after a wildcard) are not allowed.</value>
   </data>
   <data name="SplitTunneling_Folders_ApplyHint" xml:space="preserve">
-    <value>Changes are saved when you click Apply on the settings page. Discovery status below describes the rules currently applied to the service.</value>
+    <value>Click Apply on the settings page to save changes.</value>
   </data>
   <data name="SplitTunneling_Folders_Scanning" xml:space="preserve">
     <value>Scanning folder before adding…</value>
@@ -157,16 +157,16 @@
     <value>Validating folder: {0} entries scanned, {1} executables found…</value>
   </data>
   <data name="SplitTunneling_Folders_ServiceScanning" xml:space="preserve">
-    <value>Service discovery in progress: {0} entries scanned, approximately {1} executables found. New rules are not fully applied yet; unchanged rules keep their last completed snapshot.</value>
+    <value>Discovering saved rules: {0} entries scanned, about {1} apps found…</value>
   </data>
   <data name="SplitTunneling_Folders_ServiceComplete" xml:space="preserve">
-    <value>Service discovery complete: {0} folder executables. This reports discovery, not a live connection test.</value>
+    <value>Saved rules: {0} apps discovered.</value>
   </data>
   <data name="SplitTunneling_Folders_ServiceFailed" xml:space="preserve">
     <value>Service discovery needs attention: {0}</value>
   </data>
   <data name="SplitTunneling_Folders_Inactive" xml:space="preserve">
-    <value>Folder discovery is inactive. Apply your settings and connect to start service discovery.</value>
+    <value>Apply settings and connect to discover apps.</value>
   </data>
   <data name="SplitTunneling_Folders_StatusUnavailable" xml:space="preserve">
     <value>Service discovery status is unavailable. Check that the client and service are updated together.</value>

@@ -33,6 +33,8 @@ namespace ProtonVPN.Service.SplitTunneling;
 /// <summary>Service-owned reconciliation: notifications are hints, never incremental truth.</summary>
 public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
 {
+    // Watcher events drive normal discovery. This is only recovery for lost notifications/unwatched roots.
+    internal static readonly TimeSpan RecoveryInterval = TimeSpan.FromMinutes(5);
     private readonly ILogger _logger;
     private readonly Func<string, CancellationToken, Action<FolderScanProgress>, Task<FolderScanResult>> _scan;
     private readonly object _sync = new();
@@ -109,7 +111,7 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             if (_folders.Length == 0) { Stop(); return; }
             _started = true;
             RefreshWatchers();
-            _periodic.Change(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+            _periodic.Change(RecoveryInterval, RecoveryInterval);
         }
         // Reconcile the initial scan/watch handoff, including newly appeared roots.
         QueueReconcile();
@@ -303,7 +305,25 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
         }
     }
 
-    private void OnChanged(object sender, FileSystemEventArgs args) => QueueReconcile();
+    private void OnChanged(object sender, FileSystemEventArgs args)
+    {
+        if (IsRelevantChange(args)) { QueueReconcile(); }
+    }
+
+    internal bool IsRelevantChange(FileSystemEventArgs args)
+    {
+        // Ignore logs, downloads, caches and other non-executable file churn. A moved-in populated
+        // directory still needs discovery; deletion/rename of a known app's ancestor needs cleanup.
+        if (Path.GetExtension(args.FullPath).Equals(".exe", StringComparison.OrdinalIgnoreCase)
+            || Directory.Exists(args.FullPath)) { return true; }
+        string oldPath = args is RenamedEventArgs renamed ? renamed.OldFullPath : args.FullPath;
+        if (Path.GetExtension(oldPath).Equals(".exe", StringComparison.OrdinalIgnoreCase)) { return true; }
+        if (args.ChangeType == WatcherChangeTypes.Created) { return false; }
+        lock (_sync)
+        {
+            return _appPaths.Any(app => SplitTunnelFolderScanner.IsWithin(oldPath, app));
+        }
+    }
     private void OnError(object sender, ErrorEventArgs args)
     {
         _logger.Warn<SplitTunnelLog>("Folder watcher error; reconciling the full tree and recreating its watcher.", args.GetException());
