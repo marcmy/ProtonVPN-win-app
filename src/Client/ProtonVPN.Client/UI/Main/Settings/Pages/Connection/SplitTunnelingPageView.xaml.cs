@@ -27,6 +27,7 @@ namespace ProtonVPN.Client.UI.Main.Settings.Connection;
 public sealed partial class SplitTunnelingPageView : IContextAware
 {
     public SplitTunnelingPageViewModel ViewModel { get; }
+    private bool _isFolderDialogOpen;
 
     public SplitTunnelingPageView()
     {
@@ -38,11 +39,39 @@ public sealed partial class SplitTunnelingPageView : IContextAware
         Unloaded += OnUnloaded;
 
         ViewModel.ResetContentScrollRequested += OnResetContentScrollRequested;
+        ViewModel.FolderDialogRequested += OnFolderDialogRequested;
     }
 
     private void OnRemoveFolderClicked(object sender, RoutedEventArgs args)
     {
         if (sender is Button { Tag: SelectableTunnelingFolder folder }) { ViewModel.RemoveFolder(folder); }
+    }
+
+    private async void OnFoldersSelectorClicked(object sender, RoutedEventArgs args)
+    {
+        await ShowFolderDialogAsync();
+    }
+
+    private async void OnFolderDialogRequested(object? sender, EventArgs args)
+    {
+        if (IsLoaded && ViewModel.IsPageReady) { await ShowFolderDialogAsync(); }
+    }
+
+    private async Task ShowFolderDialogAsync()
+    {
+        if (_isFolderDialogOpen) { return; }
+        _isFolderDialogOpen = true;
+        ViewModel.ConsumeFolderDialogRequest();
+        try
+        {
+            FolderRulesDialog.XamlRoot = XamlRoot;
+            await FolderRulesDialog.ShowAsync();
+        }
+        finally
+        {
+            ViewModel.CancelFolderScan();
+            _isFolderDialogOpen = false;
+        }
     }
 
     public object GetContext()
@@ -53,6 +82,7 @@ public sealed partial class SplitTunnelingPageView : IContextAware
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         ViewModel.Activate();
+        if (ViewModel.IsFolderDialogRequested) { OnFolderDialogRequested(this, EventArgs.Empty); }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)

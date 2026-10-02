@@ -19,6 +19,7 @@
 
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Media;
@@ -33,6 +34,8 @@ using ProtonVPN.Client.Core.Models;
 using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Core.Services.Navigation;
 using ProtonVPN.Client.Logic.Connection.Contracts;
+using ProtonVPN.Client.Logic.Services.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.Settings.Contracts.Enums;
 using ProtonVPN.Client.Settings.Contracts.Models;
@@ -48,6 +51,28 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
     private readonly IIpSelector _ipSelector;
     private readonly IAppSelector _appSelector;
     private readonly IMainWindowActivator _mainWindowActivator;
+    private readonly IVpnServiceCaller _vpnServiceCaller;
+    private CancellationTokenSource? _folderValidationCancellation;
+    private CancellationTokenSource? _folderStatusCancellation;
+    public event EventHandler? FolderDialogRequested;
+    public bool IsFolderDialogRequested { get; private set; }
+
+    public void RequestFolderDialog()
+    {
+        IsFolderDialogRequested = true;
+        FolderDialogRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ConsumeFolderDialogRequest() => IsFolderDialogRequested = false;
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName == nameof(IsPageReady) && IsPageReady && IsFolderDialogRequested)
+        {
+            FolderDialogRequested?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     private bool _wasIpv6WarningDisplayed;
 
@@ -87,6 +112,15 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
     [ObservableProperty]
     private string _folderError = string.Empty;
 
+    [ObservableProperty]
+    private string _folderScanProgress = string.Empty;
+
+    [ObservableProperty]
+    private string _folderServiceProgress = string.Empty;
+
+    [ObservableProperty]
+    private bool _isFolderScanRunning;
+
     [property: SettingName(nameof(ISettings.SplitTunnelingStandardFoldersList))]
     public SmartNotifyObservableCollection<SelectableTunnelingFolder> ExcludedFolders { get; } = [];
 
@@ -95,7 +129,8 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
 
     public SmartNotifyObservableCollection<SelectableTunnelingFolder> Folders => IsStandardSplitTunneling ? ExcludedFolders : IncludedFolders;
 
-    public string FoldersHeader => Localizer.Get(IsStandardSplitTunneling ? "SplitTunneling_Folders_Excluded" : "SplitTunneling_Folders_Included");
+    public string FoldersHeader => Localizer.GetFormat(IsStandardSplitTunneling
+        ? "SplitTunneling_Folders_Excluded_FormattedHeader" : "SplitTunneling_Folders_Included_FormattedHeader", Folders.Count(folder => folder.IsSelected));
 
     public override string Title => Localizer.Get("Settings_Connection_SplitTunneling");
 
@@ -169,6 +204,7 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
         IIpSelector ipSelector,
         IAppSelector appSelector,
         IMainWindowActivator mainWindowActivator,
+        IVpnServiceCaller vpnServiceCaller,
         IViewModelHelper viewModelHelper)
         : base(requiredReconnectionSettings,
                mainViewNavigator,
@@ -183,6 +219,7 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
         _ipSelector = ipSelector;
         _appSelector = appSelector;
         _mainWindowActivator = mainWindowActivator;
+        _vpnServiceCaller = vpnServiceCaller;
         ExcludedFolders.CollectionChanged += OnFoldersChanged;
         IncludedFolders.CollectionChanged += OnFoldersChanged;
         ExcludedFolders.ItemPropertyChanged += OnFolderChanged;
@@ -303,22 +340,97 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
         }
         SelectableTunnelingFolder? existing = Folders.FirstOrDefault(folder => string.Equals(folder.FolderPath, path, StringComparison.OrdinalIgnoreCase));
         if (existing != null) { existing.IsSelected = true; CustomFolderPath = string.Empty; return; }
-        if (Folders.Count >= SplitTunnelFolderScanner.MaximumFolders)
+        _folderValidationCancellation?.Cancel();
+        _folderValidationCancellation?.Dispose();
+        CancellationTokenSource scanCancellation = _folderValidationCancellation = new();
+        CancellationToken scanToken = scanCancellation.Token;
+        IsFolderScanRunning = true;
+        FolderScanProgress = Localizer.Get("SplitTunneling_Folders_Scanning");
+        FolderScanResult scan;
+        try
         {
-            FolderError = Localizer.Get("SplitTunneling_Folders_Limit");
-            return;
+            scan = await Task.Run(() => SplitTunnelFolderScanner.ScanAsync(path, scanToken, progress =>
+                ExecuteOnUIThread(() =>
+                {
+                    if (!scanToken.IsCancellationRequested && IsFolderScanRunning && ReferenceEquals(scanCancellation, _folderValidationCancellation))
+                    {
+                        FolderScanProgress = Localizer.GetFormat("SplitTunneling_Folders_ScanProgress", progress.Entries, progress.Executables);
+                    }
+                })), scanToken);
         }
-        FolderScanResult scan = await Task.Run(() => SplitTunnelFolderScanner.Scan(path));
+        catch (OperationCanceledException) { return; }
+        finally
+        {
+            if (ReferenceEquals(scanCancellation, _folderValidationCancellation)) { IsFolderScanRunning = false; FolderScanProgress = string.Empty; }
+        }
         if (scan.Error != null) { FolderError = scan.Error; return; }
         if (!ReferenceEquals(folders, Folders)) { FolderError = Localizer.Get("SplitTunneling_Folders_ModeChanged"); return; }
         // Browse and manual Add can finish concurrently; recheck the collection after the scan.
-        if (folders.Count >= SplitTunnelFolderScanner.MaximumFolders) { FolderError = Localizer.Get("SplitTunneling_Folders_Limit"); return; }
         if (!folders.Any(folder => string.Equals(folder.FolderPath, path, StringComparison.OrdinalIgnoreCase))) { folders.Add(new(path)); }
         CustomFolderPath = string.Empty;
     }
 
     [RelayCommand]
     public void RemoveFolder(SelectableTunnelingFolder folder) => Folders.Remove(folder);
+
+    [RelayCommand]
+    public void CancelFolderScan() => _folderValidationCancellation?.Cancel();
+
+    public override void OnNavigatedTo(object parameter, bool isBackNavigation)
+    {
+        base.OnNavigatedTo(parameter, isBackNavigation);
+        _folderStatusCancellation?.Cancel();
+        _folderStatusCancellation?.Dispose();
+        _folderStatusCancellation = new();
+        _ = PollFolderStatusAsync(_folderStatusCancellation.Token);
+    }
+
+    public override void OnNavigatedFrom()
+    {
+        IsFolderDialogRequested = false;
+        _folderValidationCancellation?.Cancel();
+        _folderStatusCancellation?.Cancel();
+        base.OnNavigatedFrom();
+    }
+
+    private async Task PollFolderStatusAsync(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var result = await _vpnServiceCaller.GetFolderScanStatusAsync();
+                if (token.IsCancellationRequested) { return; }
+                ExecuteOnUIThread(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        FolderServiceProgress = result.Success && result.Value != null
+                            ? FormatFolderServiceStatus(result.Value)
+                            : Localizer.Get("SplitTunneling_Folders_StatusUnavailable");
+                    }
+                });
+                if (!result.Success) { return; } // Avoid repeatedly probing an older/unavailable service.
+                await Task.Delay(1000, token);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            ExecuteOnUIThread(() =>
+            {
+                if (!token.IsCancellationRequested) { FolderServiceProgress = Localizer.Get("SplitTunneling_Folders_StatusUnavailable"); }
+            });
+        }
+    }
+
+    public string FormatFolderServiceStatus(FolderScanStatusIpcEntity status)
+    {
+        if (!status.IsActive) { return Localizer.Get("SplitTunneling_Folders_Inactive"); }
+        if (status.IsScanning) { return Localizer.GetFormat("SplitTunneling_Folders_ServiceScanning", status.Entries, status.Executables); }
+        if (status.Error.Length > 0) { return Localizer.GetFormat("SplitTunneling_Folders_ServiceFailed", status.Error); }
+        return Localizer.GetFormat("SplitTunneling_Folders_ServiceComplete", status.Executables);
+    }
 
     private static List<SplitTunnelingFolder> GetSettingsFolders(IEnumerable<SelectableTunnelingFolder> folders) =>
         folders.Select(folder => new SplitTunnelingFolder(folder.FolderPath, folder.IsSelected)).ToList();
@@ -327,6 +439,7 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
     private void OnFolderChanged(object? sender, PropertyChangedEventArgs args)
     {
         OnPropertyChanged(nameof(Folders));
+        OnPropertyChanged(nameof(FoldersHeader));
         OnPropertyChanged(nameof(ExcludedFolders));
         OnPropertyChanged(nameof(IncludedFolders));
     }

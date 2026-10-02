@@ -33,6 +33,7 @@ public interface IVpnController : IServiceController
     Task<NetworkTrafficIpcEntity> GetNetworkTraffic(CancellationToken cancelToken);
     Task<ServerHealthProbeResultIpcEntity> ProbeServerHealth(ServerHealthProbeRequestIpcEntity request, CancellationToken cancelToken);
     Task ApplySettings(MainSettingsIpcEntity settings, CancellationToken cancelToken);
+    Task<FolderScanStatusIpcEntity> GetFolderScanStatus(CancellationToken cancelToken);
 
     Task RepeatState(CancellationToken cancelToken);
     Task RepeatPortForwardingState(CancellationToken cancelToken);

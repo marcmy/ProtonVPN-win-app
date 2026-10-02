@@ -132,6 +132,21 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         ? "Settings_Connection_SplitTunneling_Apps_Excluded_FormattedHeader"
         : "Settings_Connection_SplitTunneling_Apps_Included_FormattedHeader", SelectedApps.Count());
 
+    public int SelectedFolderCount => (IsStandardSplitTunneling
+        ? Settings.SplitTunnelingStandardFoldersList : Settings.SplitTunnelingInverseFoldersList).Count(folder => folder.IsActive);
+
+    public string FoldersHeader => Localizer.GetFormat(IsStandardSplitTunneling
+        ? "SplitTunneling_Folders_Excluded_FormattedHeader" : "SplitTunneling_Folders_Included_FormattedHeader", SelectedFolderCount);
+
+    public async Task SelectFoldersAsync()
+    {
+        // Reuse the settings dialog and Apply/conflict workflow rather than maintaining a second editor.
+        if (await InvokeAsync() && SettingsViewNavigator.GetCurrentPageContext() is SplitTunnelingPageViewModel page)
+        {
+            page.RequestFolderDialog();
+        }
+    }
+
     protected override UpsellModalContext ModalContext { get; } = new(ModalSource.SplitTunneling, ModalTrigger.Settings);
 
     public SplitTunnelingWidgetViewModel(
@@ -221,6 +236,8 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         yield return nameof(ISettings.SplitTunnelingStandardIpAddressesList);
         yield return nameof(ISettings.SplitTunnelingInverseAppsList);
         yield return nameof(ISettings.SplitTunnelingInverseIpAddressesList);
+        yield return nameof(ISettings.SplitTunnelingStandardFoldersList);
+        yield return nameof(ISettings.SplitTunnelingInverseFoldersList);
     }
 
     protected override string GetFeatureStatus()
@@ -242,11 +259,14 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
 
         OnPropertyChanged(nameof(InfoMessage));
         OnPropertyChanged(nameof(AppsHeader));
+        OnPropertyChanged(nameof(FoldersHeader));
         OnPropertyChanged(nameof(IpAddressesHeader));
     }
 
     protected override void OnSettingsChanged()
     {
+        OnPropertyChanged(nameof(SelectedFolderCount));
+        OnPropertyChanged(nameof(FoldersHeader));
         OnPropertyChanged(nameof(Status));
         OnPropertyChanged(nameof(InfoMessage));
         OnPropertyChanged(nameof(IsSplitTunnelingComponentVisible));

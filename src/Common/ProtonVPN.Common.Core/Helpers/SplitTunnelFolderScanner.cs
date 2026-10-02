@@ -20,16 +20,20 @@
 using System.IO;
 using System.IO.Enumeration;
 using System.Security;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ProtonVPN.Common.Core.Helpers;
 
 public sealed record FolderScanResult(string[] AppPaths, string? Error);
+public sealed record FolderScanProgress(long Entries, int Executables);
 
 /// <summary>Local, bounded, no-link traversal for explicit and wildcard folder rules in either mode.</summary>
 public static class SplitTunnelFolderScanner
 {
-    public const int MaximumFolders = 20;
-    public const int MaximumEntries = 10000;
+    public const int MaximumExecutables = 10000;
+    public const int MaximumDirectories = 100000;
+    public const int BatchSize = 512;
     public const int MaximumDepth = 32;
 
     public static bool TryNormalize(string? input, out string path)
@@ -52,7 +56,8 @@ public static class SplitTunnelFolderScanner
                 string[] segments = candidate[(separator + 1)..].Split(Path.DirectorySeparatorChar);
                 char[] invalid = Path.GetInvalidFileNameChars().Where(character => character is not '*' and not '?').ToArray();
                 if (segments.Length > MaximumDepth || segments.Any(segment => segment is "" or "." or ".." || segment.IndexOfAny(invalid) >= 0) ||
-                    !TryNormalize(anchor, out string normalizedAnchor)) { return false; }
+                    !TryNormalize(anchor, out string normalizedAnchor))
+                { return false; }
                 path = Path.Combine(normalizedAnchor, Path.Combine(segments));
                 return true;
             }
@@ -80,60 +85,91 @@ public static class SplitTunnelFolderScanner
         string.Equals(Path.TrimEndingDirectorySeparator(root), Path.TrimEndingDirectorySeparator(candidate), StringComparison.OrdinalIgnoreCase) ||
         candidate.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
-    public static FolderScanResult Scan(string input)
+    public static FolderScanResult Scan(string input) => ScanAsync(input).GetAwaiter().GetResult();
+
+    public static async Task<FolderScanResult> ScanAsync(string input, CancellationToken cancellationToken = default,
+        Action<FolderScanProgress>? progress = null)
     {
         if (!TryNormalize(input, out string root))
         {
             return new([], "Choose a specific local folder, not a drive, system folder, or broad profile/program root.");
         }
-        int entries = 0;
-        if (root.IndexOfAny(['*', '?']) >= 0) { return ScanPattern(root, ref entries); }
-        return ScanDirectory(root, ref entries);
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromMinutes(5));
+        ScanBudget budget = new(timeout.Token, progress);
+        try
+        {
+            if (root.IndexOfAny(['*', '?']) >= 0)
+            { await ScanPatternAsync(root, budget).ConfigureAwait(false); }
+            else
+            { await ScanDirectoryAsync(root, budget).ConfigureAwait(false); }
+            progress?.Invoke(new(budget.Entries, budget.Apps.Count));
+            return new(budget.Apps.Order(StringComparer.OrdinalIgnoreCase).ToArray(), null);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new([], "Folder scan exceeded its five-minute time budget. Choose a narrower rule.");
+        }
+        catch (Exception ex) when (IsIoError(ex))
+        {
+            return new([], $"Folder scan could not complete: {ex.Message}");
+        }
     }
 
     // Watch the fixed prefix, not only currently matching roots, to discover new versions.
     public static string GetWatchRoot(string rule)
     {
-        if (!TryNormalize(rule, out string normalized)) { return string.Empty; }
+        if (!TryNormalize(rule, out string normalized))
+        { return string.Empty; }
         int wildcard = normalized.IndexOfAny(['*', '?']);
         return wildcard < 0 ? normalized : Path.TrimEndingDirectorySeparator(
             normalized[..(normalized.LastIndexOf(Path.DirectorySeparatorChar, wildcard) + 1)]);
     }
 
-    private static FolderScanResult ScanPattern(string pattern, ref int entries)
+    public static string? ValidateWatchRoot(string rule)
     {
         try
         {
-            string anchor = GetWatchRoot(pattern);
+            string anchor = GetWatchRoot(rule);
+            if (anchor.Length == 0)
+            { return "Choose a specific local folder or pattern."; }
             ValidateNoLinks(anchor);
-            List<string> directories = [anchor];
-            string[] segments = pattern[(anchor.Length + 1)..].Split(Path.DirectorySeparatorChar);
-            foreach (string segment in segments)
-            {
-                List<string> matches = [];
-                foreach (string directory in directories)
-                {
-                    foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
-                    {
-                        if (++entries > MaximumEntries) { return new([], "Folder pattern exceeds the entry scan limit. Choose a narrower pattern."); }
-                        FileAttributes attributes = File.GetAttributes(entry);
-                        if ((attributes & FileAttributes.Directory) == 0 || (attributes & FileAttributes.ReparsePoint) != 0) { continue; }
-                        if (FileSystemName.MatchesSimpleExpression(segment, Path.GetFileName(entry), ignoreCase: true)) { matches.Add(entry); }
-                    }
-                }
-                directories = matches;
-            }
-            List<string> apps = [];
+            return null;
+        }
+        catch (Exception ex) when (IsIoError(ex)) { return ex.Message; }
+    }
+
+    private static async Task ScanPatternAsync(string pattern, ScanBudget budget)
+    {
+        string anchor = GetWatchRoot(pattern);
+        ValidateNoLinks(anchor);
+        List<string> directories = [anchor];
+        string[] segments = pattern[(anchor.Length + 1)..].Split(Path.DirectorySeparatorChar);
+        foreach (string segment in segments)
+        {
+            List<string> matches = [];
             foreach (string directory in directories)
             {
-                FolderScanResult scan = ScanDirectory(directory, ref entries);
-                if (scan.Error != null) { return new([], scan.Error); }
-                apps.AddRange(scan.AppPaths);
+                foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
+                {
+                    await budget.VisitAsync().ConfigureAwait(false);
+                    FileAttributes attributes = File.GetAttributes(entry);
+                    if ((attributes & FileAttributes.Directory) == 0 || (attributes & FileAttributes.ReparsePoint) != 0)
+                    { continue; }
+                    if (FileSystemName.MatchesSimpleExpression(segment, Path.GetFileName(entry), ignoreCase: true))
+                    {
+                        budget.AddDirectory();
+                        matches.Add(entry);
+                    }
+                }
             }
-            // A valid pattern with no matches remains saved and watched for future installations.
-            return new(apps.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray(), null);
+            directories = matches;
         }
-        catch (Exception ex) when (IsIoError(ex)) { return new([], $"Folder pattern unavailable or changed during its scan: {ex.Message}"); }
+        foreach (string directory in directories)
+        {
+            await ScanDirectoryAsync(directory, budget).ConfigureAwait(false);
+        }
+        // A valid pattern with no matches remains saved and watched for future installations.
     }
 
     private static void ValidateNoLinks(string root)
@@ -147,47 +183,64 @@ public static class SplitTunnelFolderScanner
         }
     }
 
-    private static FolderScanResult ScanDirectory(string root, ref int entries)
+    private static async Task ScanDirectoryAsync(string root, ScanBudget budget)
     {
-        if (!TryNormalize(root, out root)) { return new([], "A matched folder is a protected or broad root."); }
-        try
+        if (!TryNormalize(root, out root))
+        { throw new IOException("A matched folder is a protected or broad root."); }
+        if (!Directory.Exists(root))
+        { throw new IOException("Folder does not exist or cannot be accessed."); }
+        // Reject linked ancestors too: a privileged service must not walk a redirected user path.
+        ValidateNoLinks(root);
+        Stack<(string Path, int Depth)> pending = new();
+        pending.Push((root, 0));
+        while (pending.TryPop(out var item))
         {
-            if (!Directory.Exists(root)) { return new([], "Folder does not exist or cannot be accessed."); }
-            // Reject linked ancestors too: a privileged service must not walk a redirected user path.
-            ValidateNoLinks(root);
-            List<string> apps = [];
-            Stack<(string Path, int Depth)> pending = new();
-            pending.Push((root, 0));
-            while (pending.TryPop(out var item))
+            foreach (string entry in Directory.EnumerateFileSystemEntries(item.Path))
             {
-                foreach (string entry in Directory.EnumerateFileSystemEntries(item.Path))
+                await budget.VisitAsync().ConfigureAwait(false);
+                FileAttributes attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                { continue; }
+                if ((attributes & FileAttributes.Directory) != 0)
                 {
-                    if (++entries > MaximumEntries)
+                    if (item.Depth >= MaximumDepth)
                     {
-                        return new([], $"Folder exceeds the {MaximumEntries} entry scan limit. Choose a smaller folder.");
+                        throw new IOException($"Folder exceeds the {MaximumDepth} level scan limit.");
                     }
-                    FileAttributes attributes = File.GetAttributes(entry);
-                    if ((attributes & FileAttributes.ReparsePoint) != 0) { continue; }
-                    if ((attributes & FileAttributes.Directory) != 0)
-                    {
-                        if (item.Depth >= MaximumDepth)
-                        {
-                            return new([], $"Folder exceeds the {MaximumDepth} level scan limit.");
-                        }
-                        pending.Push((entry, item.Depth + 1));
-                    }
-                    else if (string.Equals(Path.GetExtension(entry), ".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        apps.Add(entry);
-                    }
+                    budget.AddDirectory();
+                    pending.Push((entry, item.Depth + 1));
+                }
+                else if (string.Equals(Path.GetExtension(entry), ".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    budget.Apps.Add(entry);
+                    if (budget.Apps.Count > MaximumExecutables)
+                    { throw new IOException($"Folder exceeds the {MaximumExecutables} executable limit."); }
                 }
             }
-            return new(apps.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray(), null);
         }
-        catch (Exception ex) when (IsIoError(ex))
+    }
+
+    private sealed class ScanBudget(CancellationToken token, Action<FolderScanProgress>? progress)
+    {
+        public long Entries { get; private set; }
+        public HashSet<string> Apps { get; } = new(StringComparer.OrdinalIgnoreCase);
+        private int _directories;
+
+        public void AddDirectory()
         {
-            // Never present a partial scan as successful coverage.
-            return new([], $"Folder unavailable or changed during its scan: {ex.Message}");
+            if (++_directories > MaximumDirectories)
+            { throw new IOException($"Folder exceeds the {MaximumDirectories} directory limit."); }
+        }
+
+        public async ValueTask VisitAsync()
+        {
+            token.ThrowIfCancellationRequested();
+            if (++Entries % BatchSize == 0)
+            {
+                progress?.Invoke(new(Entries, Apps.Count));
+                // Yield between bounded batches rather than monopolizing a worker for an entire library.
+                await Task.Delay(1, token).ConfigureAwait(false);
+            }
         }
     }
 

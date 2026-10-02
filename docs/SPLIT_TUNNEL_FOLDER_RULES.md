@@ -3,13 +3,22 @@
 ## Fork implementation (2026-10-02)
 
 Both standard/exclude and inverse/include modes have independent persistent
-folder lists with Add, Browse, enable/disable and Remove controls. No executables
+folder lists in a scrollable dialog directly underneath the apps selector, with
+Add, Browse, enable/disable and Remove controls. No executables
 are imported into the UI's app list. Existing executable wildcard rules are
 retained without migration or automatic deletion.
 
+The hover panel has the same mode-specific folder count and a Manage folders
+row between apps and IP addresses. It closes the flyout, navigates through the
+normal settings/upsell/profile workflow and requests the same dialog once the
+settings page is loaded and ready. It does not create a second independent
+editor or silently apply unsaved settings. Folder changes in either mode update
+the hover summary through the existing settings-change notifications.
+
 The service receives active folder paths via settings IPC and owns discovery;
-the UI does not need to remain open. Initial scans on connect/Apply are followed
-by coalesced filesystem notifications (250 ms) and a 15-second reconciliation
+the UI does not need to remain open. Discovery after connect/Apply runs on a
+background worker in 512-entry batches, with cancellation on rule replacement
+or disconnect. Coalesced filesystem notifications (250 ms) and a 15-second reconciliation
 fallback. Every update rescans the tree, covering directory renames/deletions,
 missed notifications and recreated roots. A generation guard discards scans of
 obsolete settings. The effective app set is the case-insensitive union of folder,
@@ -21,13 +30,21 @@ blocks and OpenVPN IPv6 blocks receive the same effective set. Folder-only chang
 do not reset IP/domain routes, DNS protection or domain polling. This follows the
 existing filter-rebuild lifecycle, not a claim of atomic cross-engine WFP updates.
 
-Safety limits: 20 saved folders per mode, 10,000 filesystem entries per root,
-10,000 combined unique folder executables, 32 directory levels. Drive roots,
+There is no saved-folder-count limit in either mode. Safety limits are separate:
+10,000 combined unique folder executables, 100,000 visited directories per rule,
+32 directory levels and a five-minute scan-time budget per rule. Ordinary
+non-executable files are not capped at 10,000. Pattern expansion shares these
+budgets with recursive discovery. Watchers are shared by distinct fixed anchors;
+up to 64 anchors have dedicated native watchers and additional rules still use
+periodic reconciliation, with a service-log notice. Drive roots,
 Windows/system paths, broad profile/program roots, UNC/device paths and broad
 pattern anchors are rejected. Linked roots/ancestors are rejected and linked
 descendants are skipped. Failed/over-limit scans return no partial app set for
 the affected root and emit a service-log warning. The UI checks a folder's scan
-before accepting it and displays limits/discovery limitations. Failed root scans
+before accepting it, reports progress and offers cancellation. The dialog also
+polls service discovery status while the settings page is open: scanning,
+discovery complete, inactive, unavailable or failure. It explicitly distinguishes
+unsaved edits from the currently applied service rules. Failed root scans
 are retried during reconciliation; they do not delete the saved folder rule.
 
 This is asynchronous app discovery, not a native directory predicate. A program
@@ -38,14 +55,22 @@ this feature as guaranteed first-packet privacy protection. Scripts/documents
 are covered only when the networking executable itself is under the chosen root.
 Source/build/CI tests do not replace a live test of installed WFP behavior.
 
+The last complete snapshot remains effective during a rescan of unchanged rules;
+batch results do not cause repeated partial WFP rebuilds. Changed rule lists
+discard the old snapshot rather than preserving rules the user removed. Initial
+folder discovery on a new connection is asynchronous too: wait for service
+discovery to complete before assuming the entire library has its filters.
+Explicit app rules still apply immediately. Discovery status does not claim that
+native WFP calls or a live connection test succeeded.
+
 Folder patterns support `*` and `?` within individual directory-name components
 in both modes. For example, `C:\Apps\EA\*\Tools` matches one level between EA
 and Tools, then recursively discovers executables beneath every matched Tools
 folder. `**` and traversal components after the first wildcard are rejected.
 The fixed prefix must itself pass the specific-root safety checks; `C:\*` and
 patterns anchored at a broad profile/program root are rejected. Expansion and
-recursive scans share one 10,000-entry budget per rule, not a fresh budget for
-every match. A failure returns no partial coverage for that pattern.
+recursive scans share executable, directory and time budgets across all matches.
+A failure returns no partial coverage for that pattern.
 
 The saved entry stays a pattern. A valid pattern with no matches can be added
 as long as its fixed prefix exists and is accessible. The service watches that

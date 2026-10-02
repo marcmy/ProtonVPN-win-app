@@ -52,6 +52,9 @@ public class VpnServiceCaller : ServiceCallerBase<IVpnController>, IVpnServiceCa
          return InvokeAsync((c, ct) => c.GetNetworkTraffic(ct));
     }
 
+    public Task<Result<FolderScanStatusIpcEntity>> GetFolderScanStatusAsync() =>
+        InvokeAsync((controller, token) => controller.GetFolderScanStatus(token));
+
     public Task<Result<ServerHealthProbeResultIpcEntity>> ProbeServerHealthAsync(ServerHealthProbeRequestIpcEntity request)
     {
         return InvokeAsync((c, ct) => c.ProbeServerHealth(request, ct));

@@ -202,11 +202,24 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
                         </controls:SettingsCard.ActionIcon>
                     </controls:SettingsCard>
 
-                    <StackPanel Margin="0,16,0,0" Spacing="8">
-                        <TextBlock Text="{x:Bind ViewModel.FoldersHeader}" Style="{StaticResource BodyTextBlockStyle}" />
+                    <TextBlock Margin="0,16,0,0" Text="{x:Bind ViewModel.FoldersHeader}"
+                               Foreground="{ThemeResource TextWeakColorBrush}" />
+                    <controls:SettingsCard IsClickEnabled="True" Click="OnFoldersSelectorClicked"
+                                           Header="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_Manage')}"
+                                           Style="{StaticResource DefaultSettingsCardStyle}"
+                                           AutomationProperties.AutomationId="FoldersSelectorSettingsCard">
+                        <controls:SettingsCard.ActionIcon><pathicons:ChevronRight /></controls:SettingsCard.ActionIcon>
+                    </controls:SettingsCard>
+                    <ContentDialog x:Name="FolderRulesDialog" Title="{x:Bind ViewModel.FoldersHeader}"
+                                   CloseButtonText="{x:Bind ViewModel.Localizer.Get('Common_Actions_Close')}">
+                      <ScrollViewer MaxHeight="480" VerticalScrollBarVisibility="Auto">
+                       <StackPanel Spacing="8" MinWidth="400">
+                        <TextBlock Text="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_ApplyHint')}"
+                                   TextWrapping="Wrap" />
                         <TextBlock Text="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_Warning')}"
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextWeakColorBrush}" />
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.Folders}">
+                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                         <ItemsControl ItemsSource="{x:Bind ViewModel.Folders}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:SelectableTunnelingFolder">
                                     <Grid ColumnSpacing="8" Margin="0,4">
@@ -224,7 +237,8 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                         </ItemsControl>
+                        </ScrollViewer>
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -240,7 +254,15 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
                                     Command="{x:Bind ViewModel.BrowseFolderCommand}" AutomationProperties.AutomationId="BrowseSplitTunnelFolderButton" />
                         </Grid>
                         <TextBlock Text="{x:Bind ViewModel.FolderError}" TextWrapping="Wrap" Foreground="{ThemeResource SignalDangerColorBrush}" />
-                    </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.FolderScanProgress}" TextWrapping="Wrap" />
+                        <Button Command="{x:Bind ViewModel.CancelFolderScanCommand}"
+                                IsEnabled="{x:Bind ViewModel.IsFolderScanRunning}"
+                                Visibility="{x:Bind ViewModel.IsFolderScanRunning, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Content="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_CancelValidation')}" />
+                        <TextBlock Text="{x:Bind ViewModel.FolderServiceProgress}" TextWrapping="Wrap" />
+                       </StackPanel>
+                      </ScrollViewer>
+                    </ContentDialog>
 
                     <Grid Margin="0,16,0,0"
                           HorizontalAlignment="Left">

@@ -196,6 +196,14 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
 							</controls:SettingsCard.ActionIcon>
 						</controls:SettingsCard>
 
+						<TextBlock Margin="0,4,0,0" Text="{x:Bind ViewModel.FoldersHeader}"
+                                   Foreground="{ThemeResource TextWeakColorBrush}" />
+                        <controls:SettingsCard IsClickEnabled="True" Click="OnFoldersSelectorClicked"
+                                               AutomationProperties.AutomationId="FoldersSelectorSettingsCard"
+                                               Header="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_Manage')}"
+                                               Style="{StaticResource FlyoutSettingsCardStyle}">
+                            <controls:SettingsCard.ActionIcon><pathicons:ChevronRight /></controls:SettingsCard.ActionIcon>
+                        </controls:SettingsCard>
 						<Grid HorizontalAlignment="Left"
 							  Margin="0,4,0,0">
 

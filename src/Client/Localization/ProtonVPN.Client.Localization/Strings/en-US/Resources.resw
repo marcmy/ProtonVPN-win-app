@@ -126,14 +126,17 @@
   <data name="Common_Actions_Browse" xml:space="preserve">
     <value>Browse</value>
   </data>
-  <data name="SplitTunneling_Folders_Excluded" xml:space="preserve">
-    <value>Excluded folders (including subfolders)</value>
+  <data name="SplitTunneling_Folders_Excluded_FormattedHeader" xml:space="preserve">
+    <value>Excluded folders ({0})</value>
   </data>
-  <data name="SplitTunneling_Folders_Included" xml:space="preserve">
-    <value>Included folders (including subfolders)</value>
+  <data name="SplitTunneling_Folders_Included_FormattedHeader" xml:space="preserve">
+    <value>Included folders ({0})</value>
+  </data>
+  <data name="SplitTunneling_Folders_Manage" xml:space="preserve">
+    <value>Manage folders (including subfolders)</value>
   </data>
   <data name="SplitTunneling_Folders_Warning" xml:space="preserve">
-    <value>Every executable in a selected folder can use this rule, including programs added later. New programs are discovered asynchronously: their first connection may occur before discovery. Scripts and helpers outside the folder are not covered. Junctions and symbolic links are skipped. Unavailable or oversized folders cannot be fully covered; check service logs if a folder stops working. Limits: 20 folders per mode, 10,000 entries per scan, 32 levels.</value>
+    <value>Every executable in a selected folder can use this rule, including programs added later. New programs are discovered asynchronously: their first connection may occur before discovery. Scripts and helpers outside the folder are not covered. Junctions and symbolic links are skipped. Large libraries scan in cancellable batches; non-executable files do not count toward the executable limit. Safeguards: 10,000 unique folder executables, 100,000 scanned directories per rule, 32 levels, five minutes per rule. Unavailable or incomplete rules need attention; check discovery status and service logs.</value>
   </data>
   <data name="SplitTunneling_Folders_Placeholder" xml:space="preserve">
     <value>Paste a folder path or pattern, e.g. C:\Apps\EA\*\Tools</value>
@@ -141,8 +144,32 @@
   <data name="SplitTunneling_Folders_Invalid" xml:space="preserve">
     <value>Choose a specific local folder or pattern. * and ? match one folder-name level; ** is not supported. Patterns need a specific fixed parent folder. Drive roots, Windows folders, broad profile/program roots, network paths and wildcard traversal (.. after a wildcard) are not allowed.</value>
   </data>
-  <data name="SplitTunneling_Folders_Limit" xml:space="preserve">
-    <value>Up to 20 folders can be saved per mode. Remove a folder before adding another.</value>
+  <data name="SplitTunneling_Folders_ApplyHint" xml:space="preserve">
+    <value>Changes are saved when you click Apply on the settings page. Discovery status below describes the rules currently applied to the service.</value>
+  </data>
+  <data name="SplitTunneling_Folders_Scanning" xml:space="preserve">
+    <value>Scanning folder before adding…</value>
+  </data>
+  <data name="SplitTunneling_Folders_CancelValidation" xml:space="preserve">
+    <value>Cancel adding folder</value>
+  </data>
+  <data name="SplitTunneling_Folders_ScanProgress" xml:space="preserve">
+    <value>Validating folder: {0} entries scanned, {1} executables found…</value>
+  </data>
+  <data name="SplitTunneling_Folders_ServiceScanning" xml:space="preserve">
+    <value>Service discovery in progress: {0} entries scanned, approximately {1} executables found. New rules are not fully applied yet; unchanged rules keep their last completed snapshot.</value>
+  </data>
+  <data name="SplitTunneling_Folders_ServiceComplete" xml:space="preserve">
+    <value>Service discovery complete: {0} folder executables. This reports discovery, not a live connection test.</value>
+  </data>
+  <data name="SplitTunneling_Folders_ServiceFailed" xml:space="preserve">
+    <value>Service discovery needs attention: {0}</value>
+  </data>
+  <data name="SplitTunneling_Folders_Inactive" xml:space="preserve">
+    <value>Folder discovery is inactive. Apply your settings and connect to start service discovery.</value>
+  </data>
+  <data name="SplitTunneling_Folders_StatusUnavailable" xml:space="preserve">
+    <value>Service discovery status is unavailable. Check that the client and service are updated together.</value>
   </data>
   <data name="SplitTunneling_Folders_PickerError" xml:space="preserve">
     <value>The folder picker could not open. Paste the folder path instead.</value>

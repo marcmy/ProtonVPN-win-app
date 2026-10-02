@@ -19,6 +19,8 @@
 
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ProtonVPN.Common.Core.Helpers;
 
@@ -88,14 +90,46 @@ public class SplitTunnelFolderScannerTest
     }
 
     [TestMethod]
-    public void Pattern_SharesEntryBudgetAcrossMatchedRootsAndReturnsNoPartialSet()
+    public void Pattern_LargeNonExecutableLibraryIsCoveredAcrossMatchedRoots()
     {
         string first = Directory.CreateDirectory(Path.Combine(_root, "v1")).FullName;
         string second = Directory.CreateDirectory(Path.Combine(_root, "v2")).FullName;
         File.WriteAllText(Path.Combine(first, "app.exe"), "");
-        for (int i = 0; i < SplitTunnelFolderScanner.MaximumEntries; i++)
+        for (int i = 0; i < 10001; i++)
         {
             File.WriteAllText(Path.Combine(second, $"{i}.txt"), "");
+        }
+        FolderScanResult scan = SplitTunnelFolderScanner.Scan(Path.Combine(_root, "v*"));
+        Assert.IsNull(scan.Error);
+        CollectionAssert.AreEqual(new[] { Path.Combine(first, "app.exe") }, scan.AppPaths);
+    }
+
+    [TestMethod]
+    public async Task Scan_BatchesReportProgressAndCanBeCancelled()
+    {
+        for (int i = 0; i <= SplitTunnelFolderScanner.BatchSize; i++) { File.WriteAllText(Path.Combine(_root, $"{i}.txt"), ""); }
+        using CancellationTokenSource cancellation = new();
+        int reports = 0;
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await SplitTunnelFolderScanner.ScanAsync(_root, cancellation.Token, progress =>
+            {
+                Assert.AreEqual((long)SplitTunnelFolderScanner.BatchSize, progress.Entries);
+                reports++;
+                cancellation.Cancel();
+            }));
+        Assert.AreEqual(1, reports);
+    }
+
+    [TestMethod]
+    public void Pattern_ExecutableLimitIsSharedAndFailureHasNoPartialCoverage()
+    {
+        for (int version = 0; version < 2; version++)
+        {
+            string folder = Directory.CreateDirectory(Path.Combine(_root, $"v{version}")).FullName;
+            for (int i = 0; i <= SplitTunnelFolderScanner.MaximumExecutables / 2; i++)
+            {
+                File.WriteAllText(Path.Combine(folder, $"{i}.exe"), "");
+            }
         }
         FolderScanResult scan = SplitTunnelFolderScanner.Scan(Path.Combine(_root, "v*"));
         Assert.IsNotNull(scan.Error);

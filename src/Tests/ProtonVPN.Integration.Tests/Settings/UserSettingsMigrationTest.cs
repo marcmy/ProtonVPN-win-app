@@ -49,6 +49,16 @@ public class UserSettingsMigrationTest
         SplitTunnelSettingsIpcEntity? ipc = serializer.DeserializeFromString<SplitTunnelSettingsIpcEntity>(
             serializer.SerializeToString(new SplitTunnelSettingsIpcEntity { FolderPaths = [@"C:\EA"] }));
         CollectionAssert.AreEqual(new[] { @"C:\EA" }, ipc!.FolderPaths);
+        FolderScanStatusIpcEntity status = new() { IsActive = true, IsScanning = true, Entries = 71312,
+            Executables = 43, Error = "attention", RulePaths = [@"C:\Steam"] };
+        FolderScanStatusIpcEntity? restoredStatus = serializer.DeserializeFromString<FolderScanStatusIpcEntity>(serializer.SerializeToString(status));
+        Assert.IsNotNull(restoredStatus);
+        Assert.IsTrue(restoredStatus.IsActive);
+        Assert.IsTrue(restoredStatus.IsScanning);
+        Assert.AreEqual(71312L, restoredStatus.Entries);
+        Assert.AreEqual(43, restoredStatus.Executables);
+        Assert.AreEqual("attention", restoredStatus.Error);
+        CollectionAssert.AreEqual(status.RulePaths, restoredStatus.RulePaths);
     }
 
     [TestMethod]

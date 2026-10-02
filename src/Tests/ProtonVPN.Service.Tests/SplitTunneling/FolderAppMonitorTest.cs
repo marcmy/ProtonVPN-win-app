@@ -19,17 +19,94 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Service.SplitTunneling;
+using ProtonVPN.Common.Core.Helpers;
 
 namespace ProtonVPN.Service.Tests.SplitTunneling;
 
 [TestClass]
 public class FolderAppMonitorTest
 {
+    [TestMethod]
+    public async Task BatchedRescan_KeepsSnapshotUntilCompleteAndStopCancelsIt()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-library-scan-").FullName;
+        int scans = 0;
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), async (folder, token, progress) =>
+        {
+            if (++scans > 1)
+            {
+                progress(new(512, 1));
+                if (scans == 2) { await release.Task.WaitAsync(token); }
+                else { await Task.Delay(Timeout.Infinite, token); }
+            }
+            return await SplitTunnelFolderScanner.ScanAsync(folder, token, progress);
+        });
+        try
+        {
+            string original = Path.Combine(root, "original.exe");
+            File.WriteAllText(original, "");
+            monitor.ReplaceRules([root]);
+            await monitor.ReconcileAsync(force: true);
+            for (int i = 0; i < 1024; i++) { File.WriteAllText(Path.Combine(root, $"{i}.txt"), ""); }
+            string added = Path.Combine(root, "added.exe");
+            File.WriteAllText(added, "");
+            Task rescan = monitor.ReconcileAsync(force: true);
+            Assert.IsTrue(monitor.Status.IsScanning);
+            Assert.IsTrue(monitor.Status.Entries >= 512);
+            CollectionAssert.AreEqual(new[] { original }, monitor.AppPaths);
+            release.SetResult();
+            await rescan;
+            Assert.IsFalse(monitor.Status.IsScanning);
+            Assert.AreEqual(2, monitor.AppPaths.Length);
+            Assert.AreEqual(2, monitor.Status.Executables);
+
+            Task cancelled = monitor.ReconcileAsync(force: true);
+            monitor.Stop();
+            await cancelled;
+            Assert.IsFalse(monitor.Status.IsActive);
+            Assert.IsFalse(monitor.Status.IsScanning);
+            Assert.AreEqual(0, monitor.AppPaths.Length);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task Replacement_CancelsOldScanAndMoreThanTwentyRulesRemainSupported()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-many-folders-").FullName;
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), async (folder, token, progress) =>
+        {
+            if (folder == root) { progress(new(512, 0)); await Task.Delay(Timeout.Infinite, token); }
+            return await SplitTunnelFolderScanner.ScanAsync(folder, token, progress);
+        });
+        try
+        {
+            for (int i = 0; i < 1024; i++) { File.WriteAllText(Path.Combine(root, $"{i}.txt"), ""); }
+            monitor.ReplaceRules([root]);
+            Task obsolete = monitor.ReconcileAsync(force: true);
+            string[] rules = new string[25];
+            for (int i = 0; i < rules.Length; i++)
+            {
+                rules[i] = Directory.CreateDirectory(Path.Combine(root, $"tools{i}")).FullName;
+                File.WriteAllText(Path.Combine(rules[i], "app.exe"), "");
+            }
+            monitor.ReplaceRules(rules);
+            await obsolete;
+            await monitor.ReconcileAsync(force: true);
+            Assert.AreEqual(25, monitor.AppPaths.Length);
+            Assert.AreEqual(25, monitor.Status.RulePaths.Length);
+            Assert.AreEqual(string.Empty, monitor.Status.Error);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
     [TestMethod]
     public async Task PatternMonitor_DiscoversNewMatchingRootsWithoutApply()
     {
@@ -59,6 +136,7 @@ public class FolderAppMonitorTest
             CollectionAssert.AreEqual(new[] { exe }, monitor.AppPaths);
             monitor.ReplaceRules([Path.Combine(root, "version*", "Tools"), folder]);
             monitor.ReplaceRules([folder]);
+            monitor.Reconcile(force: true);
             CollectionAssert.AreEqual(new[] { exe }, monitor.AppPaths);
             Directory.Delete(renamed, recursive: true);
             monitor.Reconcile(force: true);
@@ -101,9 +179,11 @@ public class FolderAppMonitorTest
             File.WriteAllText(exe, "");
             using FolderAppMonitor monitor = new(Substitute.For<ILogger>());
             monitor.ReplaceRules([root, child]);
+            monitor.Reconcile(force: true);
             CollectionAssert.AreEqual(new[] { exe }, monitor.AppPaths);
 
             monitor.ReplaceRules([root]); // Removing one owner must not remove the overlapping app.
+            monitor.Reconcile(force: true);
             CollectionAssert.AreEqual(new[] { exe }, monitor.AppPaths);
             string renamed = Path.Combine(root, "renamed");
             Directory.Move(child, renamed);
@@ -132,6 +212,7 @@ public class FolderAppMonitorTest
             string exe = Path.Combine(root, "app.exe");
             File.WriteAllText(exe, "");
             monitor.ReplaceRules([root]);
+            monitor.Reconcile(force: true);
             Assert.AreEqual(1, monitor.AppPaths.Length);
             Directory.Delete(root, recursive: true);
             monitor.Reconcile(force: true);
