@@ -32,6 +32,8 @@ public class ServiceSettingChangeHandlerTest
     [TestMethod]
     [DataRow(nameof(ISettings.SplitTunnelingStandardAppsList))]
     [DataRow(nameof(ISettings.SplitTunnelingInverseAppsList))]
+    [DataRow(nameof(ISettings.SplitTunnelingStandardFoldersList))]
+    [DataRow(nameof(ISettings.SplitTunnelingInverseFoldersList))]
     [DataRow(nameof(ISettings.SplitTunnelingStandardIpAddressesList))]
     [DataRow(nameof(ISettings.SplitTunnelingInverseIpAddressesList))]
     public async Task Receive_WhenSplitTunnelingListSettingChanges_SendsServiceSettingsAsync(string propertyName)

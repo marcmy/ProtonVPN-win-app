@@ -143,6 +143,10 @@ public class MainSettingsRequestCreator : IMainSettingsRequestCreator
         {
             Mode = GetSplitTunnelingMode(isSplitTunnelingEnabled, splitTunnelingMode),
             AppPaths = GetSplitTunnelingApps(isSplitTunnelingEnabled, splitTunnelingMode),
+            FolderPaths = isSplitTunnelingEnabled
+                ? (splitTunnelingMode == SplitTunnelingMode.Standard ? _settings.SplitTunnelingStandardFoldersList : _settings.SplitTunnelingInverseFoldersList)
+                    .Where(folder => folder.IsActive).Select(folder => folder.FolderPath).ToArray()
+                : [],
             Ips = GetSplitTunnelingIpAddresses(isSplitTunnelingEnabled, splitTunnelingMode)
         };
     }

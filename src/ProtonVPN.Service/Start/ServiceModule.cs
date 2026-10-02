@@ -97,6 +97,7 @@ internal class ServiceModule : Module
         builder.RegisterType<ServerHealthProbeService>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SystemDnsCacheReader>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SplitTunnelDomainPoller>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<FolderAppMonitor>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SplitTunnel>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<SystemProcesses>().As<IOsProcesses>().SingleInstance();
         builder.RegisterType<PermittedRemoteAddress>().AsImplementedInterfaces().SingleInstance();

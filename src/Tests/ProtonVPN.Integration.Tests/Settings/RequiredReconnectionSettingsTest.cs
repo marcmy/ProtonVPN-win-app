@@ -31,6 +31,8 @@ public class RequiredReconnectionSettingsTest
     [TestMethod]
     [DataRow(nameof(ISettings.SplitTunnelingStandardAppsList))]
     [DataRow(nameof(ISettings.SplitTunnelingInverseAppsList))]
+    [DataRow(nameof(ISettings.SplitTunnelingStandardFoldersList))]
+    [DataRow(nameof(ISettings.SplitTunnelingInverseFoldersList))]
     [DataRow(nameof(ISettings.SplitTunnelingStandardIpAddressesList))]
     [DataRow(nameof(ISettings.SplitTunnelingInverseIpAddressesList))]
     public void IsReconnectionRequired_WhenSplitTunnelingListChanges_ReturnsFalse(string settingName)

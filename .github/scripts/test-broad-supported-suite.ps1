@@ -54,6 +54,7 @@ function Convert-ToRepositoryRelativePath {
 
 $focusedProjects = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 @(
+    'src/Common/ProtonVPN.Common.Core.Tests/ProtonVPN.Common.Core.Tests.csproj',
     'src/Client/Localization/ProtonVPN.Client.Localization.Tests/ProtonVPN.Client.Localization.Tests.csproj',
     'src/Client/Common/ProtonVPN.Client.Common.UI.Tests/ProtonVPN.Client.Common.UI.Tests.csproj',
     'src/Client/Logic/Searches/ProtonVPN.Client.Logic.Searches.Tests/ProtonVPN.Client.Logic.Searches.Tests.csproj',

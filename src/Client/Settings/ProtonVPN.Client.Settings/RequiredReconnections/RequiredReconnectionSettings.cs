@@ -39,6 +39,8 @@ public class RequiredReconnectionSettings : IRequiredReconnectionSettings
             // sockets may need to reconnect naturally, but rebuilding the WFP filters does not
             // require reconnecting the VPN tunnel itself.
             {nameof(ISettings.SplitTunnelingStandardAppsList), () => false},
+            {nameof(ISettings.SplitTunnelingStandardFoldersList), () => false},
+            {nameof(ISettings.SplitTunnelingInverseFoldersList), () => false},
             {nameof(ISettings.SplitTunnelingInverseAppsList), () => false},
             {nameof(ISettings.SplitTunnelingStandardIpAddressesList), () => false},
             {nameof(ISettings.SplitTunnelingInverseIpAddressesList), () => false},

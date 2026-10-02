@@ -34,6 +34,9 @@ namespace ProtonVPN.ProcessCommunication.Contracts.Entities.Settings
         [DataMember(Order = 3)]
         public string[] Ips { get; set; }
 
+        [DataMember(Order = 4)]
+        public string[] FolderPaths { get; set; } = Array.Empty<string>();
+
         public SplitTunnelSettingsIpcEntity()
         {
             AppPaths = Array.Empty<string>();

@@ -18,6 +18,8 @@
  */
 
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using ProtonVPN.Client.Core.Models;
 using ProtonVPN.Client.Core.Bases;
 
 namespace ProtonVPN.Client.UI.Main.Settings.Connection;
@@ -36,6 +38,11 @@ public sealed partial class SplitTunnelingPageView : IContextAware
         Unloaded += OnUnloaded;
 
         ViewModel.ResetContentScrollRequested += OnResetContentScrollRequested;
+    }
+
+    private void OnRemoveFolderClicked(object sender, RoutedEventArgs args)
+    {
+        if (sender is Button { Tag: SelectableTunnelingFolder folder }) { ViewModel.RemoveFolder(folder); }
     }
 
     public object GetContext()

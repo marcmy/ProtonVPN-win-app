@@ -21,6 +21,7 @@ using NSubstitute;
 using ProtonVPN.Client.Logic.Connection.RequestCreators;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.Settings.Contracts.Enums;
+using ProtonVPN.Client.Settings.Contracts.Models;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.EntityMapping.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Dns;
@@ -32,6 +33,30 @@ namespace ProtonVPN.Client.Logic.Connection.Tests;
 [TestClass]
 public class MainSettingsRequestCreatorTest
 {
+    [TestMethod]
+    [DataRow(SplitTunnelingMode.Standard)]
+    [DataRow(SplitTunnelingMode.Inverse)]
+    public void Create_FolderRulesAreSeparateModeSpecificAndActiveOnly(SplitTunnelingMode mode)
+    {
+        ISettings settings = Substitute.For<ISettings>();
+        IEntityMapper mapper = Substitute.For<IEntityMapper>();
+        settings.IsSplitTunnelingEnabled.Returns(true);
+        settings.SplitTunnelingMode.Returns(mode);
+        settings.SplitTunnelingStandardFoldersList.Returns(new List<SplitTunnelingFolder> { new(@"C:\EA", true), new(@"C:\inactive", false) });
+        settings.SplitTunnelingInverseFoldersList.Returns(new List<SplitTunnelingFolder> { new(@"C:\tools", true) });
+        settings.SplitTunnelingStandardAppsList.Returns(new List<SplitTunnelingApp>());
+        settings.SplitTunnelingInverseAppsList.Returns(new List<SplitTunnelingApp>());
+        settings.SplitTunnelingStandardIpAddressesList.Returns(new List<SplitTunnelingIpAddress>());
+        settings.SplitTunnelingInverseIpAddressesList.Returns(new List<SplitTunnelingIpAddress>());
+        MainSettingsRequestCreator creator = new(settings, mapper);
+        MainSettingsIpcEntity result = creator.Create(null);
+        CollectionAssert.AreEqual(new[] { mode == SplitTunnelingMode.Standard ? @"C:\EA" : @"C:\tools" }, result.SplitTunnel.FolderPaths);
+        Assert.AreEqual(0, result.SplitTunnel.AppPaths.Length);
+        Assert.AreEqual(0, creator.CreateForGuestHole().SplitTunnel.FolderPaths.Length);
+        settings.IsSplitTunnelingEnabled.Returns(false);
+        Assert.AreEqual(0, creator.Create(null).SplitTunnel.FolderPaths.Length);
+    }
+
     [TestMethod]
     public void CreateForGuestHole_ShouldUseSafeDefaultsRegardlessOfUserSettings()
     {
