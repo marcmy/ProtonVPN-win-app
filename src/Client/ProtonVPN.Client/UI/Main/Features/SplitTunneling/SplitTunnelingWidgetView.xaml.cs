@@ -56,6 +56,12 @@ public sealed partial class SplitTunnelingWidgetView : IContextAware
         ViewModel.IsFeatureFlyoutOpened = true;
     }
 
+    private async void OnFoldersSelectorClicked(object sender, RoutedEventArgs args)
+    {
+        WidgetFlyout.Hide();
+        await ViewModel.SelectFoldersAsync();
+    }
+
     private void OnWidgetFlyoutClosed(object sender, object e)
     {
         ViewModel.IsFeatureFlyoutOpened = false;

@@ -65,6 +65,8 @@ public interface IUserSettings
     bool IsUserSettingsMigrationDone { get; set; }
     SplitTunnelingMode SplitTunnelingMode { get; set; }
     List<SplitTunnelingApp> SplitTunnelingStandardAppsList { get; set; }
+    List<SplitTunnelingFolder> SplitTunnelingStandardFoldersList { get; set; }
+    List<SplitTunnelingFolder> SplitTunnelingInverseFoldersList { get; set; }
     List<SplitTunnelingApp> SplitTunnelingInverseAppsList { get; set; }
     List<SplitTunnelingIpAddress> SplitTunnelingStandardIpAddressesList { get; set; }
     List<SplitTunnelingIpAddress> SplitTunnelingInverseIpAddressesList { get; set; }

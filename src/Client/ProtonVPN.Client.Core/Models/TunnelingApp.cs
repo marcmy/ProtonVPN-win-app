@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Media;
 using ProtonVPN.Client.Common.UI.Extensions;
+using ProtonVPN.Common.Core.Helpers;
 
 namespace ProtonVPN.Client.Core.Models;
 
@@ -56,7 +57,7 @@ public class TunnelingApp : ExternalApp
 
     public static async Task<TunnelingApp?> TryCreateAsync(string appPath, List<string>? alternateAppPaths = null)
     {
-        appPath = appPath?.Trim() ?? string.Empty;
+        appPath = SplitTunnelAppPathResolver.Normalize(appPath);
 
         ExternalApp? externalApp = await ExternalApp.TryCreateAsync(appPath);
         if (externalApp != null)
@@ -116,18 +117,9 @@ public class TunnelingApp : ExternalApp
                 return false;
             }
 
-            string searchRoot = directoryPattern[..searchRootEndIndex];
             string relativeDirectoryPattern = directoryPattern[(searchRootEndIndex + 1)..];
 
-            if (!Directory.Exists(searchRoot))
-            {
-                return false;
-            }
-
-            resolvedAppPaths = ResolveAppPathPattern(searchRoot, relativeDirectoryPattern, fileNamePattern)
-                .Distinct(System.StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(File.GetLastWriteTimeUtc)
-                .ToList();
+            resolvedAppPaths = SplitTunnelAppPathResolver.ResolvePattern(appPath);
 
             if (!resolvedAppPaths.Any())
             {
@@ -140,43 +132,6 @@ public class TunnelingApp : ExternalApp
         catch
         {
             return false;
-        }
-    }
-
-    private static IEnumerable<string> ResolveAppPathPattern(string searchRoot, string relativeDirectoryPattern, string fileNamePattern)
-    {
-        string[] directorySegments = relativeDirectoryPattern.Split(DIRECTORY_SEPARATOR_CHAR, System.StringSplitOptions.RemoveEmptyEntries);
-        IEnumerable<string> directories = [searchRoot];
-
-        foreach (string directorySegment in directorySegments)
-        {
-            directories = directories.SelectMany(directory => EnumerateDirectoriesIgnoringErrors(directory, directorySegment));
-        }
-
-        return directories.SelectMany(directory => EnumerateFilesIgnoringErrors(directory, fileNamePattern));
-    }
-
-    private static IEnumerable<string> EnumerateDirectoriesIgnoringErrors(string directory, string searchPattern)
-    {
-        try
-        {
-            return Directory.EnumerateDirectories(directory, searchPattern, SearchOption.TopDirectoryOnly).ToList();
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    private static IEnumerable<string> EnumerateFilesIgnoringErrors(string directory, string searchPattern)
-    {
-        try
-        {
-            return Directory.EnumerateFiles(directory, searchPattern, SearchOption.TopDirectoryOnly).ToList();
-        }
-        catch
-        {
-            return [];
         }
     }
 }

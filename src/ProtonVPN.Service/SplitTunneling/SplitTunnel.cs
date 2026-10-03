@@ -23,6 +23,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Common.Core.Helpers;
 using ProtonVPN.Common.Core.Networking;
 using ProtonVPN.Common.Legacy;
 using ProtonVPN.Common.Legacy.Vpn;
@@ -65,6 +66,8 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
     private readonly IPermittedRemoteAddress _permittedRemoteAddress;
     private readonly IAdapterDetailsCache _proTunAdapterDetailsCache;
     private readonly ISplitTunnelDomainPoller _domainPoller;
+    private readonly IFolderAppMonitor _folderMonitor;
+    private string[] _activeAppPaths = [];
 
     public SplitTunnel(
         ILogger logger,
@@ -77,7 +80,8 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         IAppFilter appFilter,
         IPermittedRemoteAddress permittedRemoteAddress,
         IAdapterDetailsCache proTunAdapterDetailsCache,
-        ISplitTunnelDomainPoller domainPoller)
+        ISplitTunnelDomainPoller domainPoller,
+        IFolderAppMonitor folderMonitor)
     {
         _logger = logger;
         _splitTunnelRouting = splitTunnelRouting;
@@ -91,6 +95,8 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         _proTunAdapterDetailsCache = proTunAdapterDetailsCache;
         _domainPoller = domainPoller;
         _domainPoller.AddressesChanged += OnDomainAddressesChanged;
+        _folderMonitor = folderMonitor;
+        _folderMonitor.PathsChanged += OnFolderPathsChanged;
     }
 
     public SplitTunnel(
@@ -106,7 +112,8 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         IAppFilter appFilter,
         IPermittedRemoteAddress permittedRemoteAddress,
         IAdapterDetailsCache proTunAdapterDetailsCache,
-        ISplitTunnelDomainPoller domainPoller)
+        ISplitTunnelDomainPoller domainPoller,
+        IFolderAppMonitor folderMonitor)
         : this(
             logger,
             splitTunnelRouting,
@@ -118,7 +125,8 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
             appFilter,
             permittedRemoteAddress,
             proTunAdapterDetailsCache,
-            domainPoller)
+            domainPoller,
+            folderMonitor)
     {
         _enabled = enabled;
         _reverseEnabled = reverseEnabled;
@@ -129,6 +137,7 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         lock (_stateSync)
         {
             _lastVpnState = vpnState;
+            _folderMonitor.Stop();
             ClearDomainSplitTunnelState();
             DisableReversed();
             Disable();
@@ -139,8 +148,9 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
 
             if (_serviceSettings.SplitTunnelSettings.Mode == SplitTunnelModeIpcEntity.Permit)
             {
+                _folderMonitor.ReplaceRules(_serviceSettings.SplitTunnelSettings.FolderPaths ?? []);
                 _appFilter.Add(
-                    _serviceSettings.SplitTunnelSettings.AppPaths,
+                    GetEffectiveAppPaths(),
                     [
                         Tuple.Create(Layer.AppAuthConnectV4, Action.SoftBlock),
                         Tuple.Create(Layer.AppAuthConnectV6, Action.SoftBlock),
@@ -172,6 +182,7 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         {
             _lastVpnState = state;
             string[] configuredRemoteAddresses = _configuredRemoteAddresses;
+            _folderMonitor.Stop();
             ClearDomainSplitTunnelState();
 
             if (state.Error == VpnError.None)
@@ -208,6 +219,8 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
 
         if (_serviceSettings.SplitTunnelSettings.Mode == SplitTunnelModeIpcEntity.Disabled)
         {
+            _folderMonitor.Stop();
+            _activeAppPaths = [];
             return;
         }
 
@@ -218,7 +231,11 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
 
         _configuredRemoteAddresses = resolvedAddresses;
         _domainRemoteAddresses = [];
-        SetUpApps(state, resolvedAddresses);
+        // Resolve afresh on connect/Apply so an updated versioned folder needs no saved-path rewrite.
+        _folderMonitor.ReplaceRules(_serviceSettings.SplitTunnelSettings.FolderPaths ?? []);
+        string[] appPaths = GetEffectiveAppPaths();
+        SetUpApps(state, resolvedAddresses, appPaths);
+        _activeAppPaths = appPaths;
         SetUpIps(state, resolvedAddresses);
 
         if (isBlockMode)
@@ -226,17 +243,45 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
             _domainPoller.ReplaceRules(GetDomainRules());
             _domainPoller.Start();
         }
+        _folderMonitor.Start();
     }
 
-    private void SetUpApps(VpnState state, string[] resolvedAddresses)
+    private string[] GetEffectiveAppPaths() =>
+        SplitTunnelAppPathResolver.Resolve(_serviceSettings.SplitTunnelSettings.AppPaths)
+            .Concat(_folderMonitor.AppPaths ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+
+    private void OnFolderPathsChanged(object? sender, EventArgs args)
+    {
+        lock (_stateSync)
+        {
+            if (_lastVpnState.Status != VpnStatus.Connected || _serviceSettings.SplitTunnelSettings.Mode == SplitTunnelModeIpcEntity.Disabled) { return; }
+            // Rebuild the union rather than deleting a path owned by another folder or explicit rule.
+            string[] paths = GetEffectiveAppPaths();
+            if (_activeAppPaths.SequenceEqual(paths, StringComparer.OrdinalIgnoreCase)) { return; }
+            string[] permittedAddresses = _configuredRemoteAddresses
+                .Concat(_domainRemoteAddresses)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            Disable();
+            DisableReversed();
+            _appFilter.RemoveAll();
+            // Authorization AND redirect filters are rebuilt together under the existing state lock.
+            // Disable clears remote-address permit filters, so restore them without touching routes or the domain poller.
+            SetUpApps(_lastVpnState, permittedAddresses, paths);
+            _activeAppPaths = paths;
+        }
+    }
+
+    private void SetUpApps(VpnState state, string[] resolvedAddresses, string[] appPaths)
     {
         switch (_serviceSettings.SplitTunnelSettings.Mode)
         {
             case SplitTunnelModeIpcEntity.Block:
-                Enable(state, resolvedAddresses);
+                Enable(state, resolvedAddresses, appPaths);
                 break;
             case SplitTunnelModeIpcEntity.Permit:
-                EnableReversed(state);
+                EnableReversed(state, appPaths);
                 break;
         }
     }
@@ -315,7 +360,7 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         _activeRoutingConfig = null;
     }
 
-    private void Enable(VpnState state, string[] resolvedAddresses)
+    private void Enable(VpnState state, string[] resolvedAddresses, string[] appPaths)
     {
         string excludedHardwareId = _config.GetHardwareId(state.VpnProtocol, _serviceSettings.OpenVpnAdapter);
         IPAddress localIpv4Address = _networkUtilities.GetBestInterfaceIPv4Address(excludedHardwareId);
@@ -326,8 +371,6 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         {
             localIpv6Address = bestInterface.GetPreferredIpv6UnicastAddress();
         }
-
-        string[] appPaths = _serviceSettings.SplitTunnelSettings.AppPaths ?? [];
 
         _splitTunnelClient.EnableExcludeMode(appPaths, localIpv4Address, localIpv6Address);
 
@@ -474,7 +517,7 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         }
     }
 
-    private void EnableReversed(VpnState vpnState)
+    private void EnableReversed(VpnState vpnState, string[] appPaths)
     {
         IPAddress? localIpv6Address = null;
         if (vpnState.VpnProtocol.IsWireGuard())
@@ -489,11 +532,9 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         {
             // ProtonVPN's OpenVPN server does not provide GUA IPv6, so block all IPv6 tunnel traffic.
             _appFilter.Add(
-                _serviceSettings.SplitTunnelSettings.AppPaths,
+                appPaths,
                 [Tuple.Create(Layer.AppAuthConnectV6, Action.HardBlock)]);
         }
-
-        string[] appPaths = _serviceSettings.SplitTunnelSettings.AppPaths ?? [];
 
         _splitTunnelClient.EnableIncludeMode(appPaths, IPAddress.Parse(vpnState.LocalIp!), localIpv6Address);
         _reverseEnabled = true;

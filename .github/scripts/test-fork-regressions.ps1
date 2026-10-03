@@ -82,6 +82,7 @@ $uiProjects = @(
 )
 
 $coreClientProjects = @(
+    'src/Common/ProtonVPN.Common.Core.Tests/ProtonVPN.Common.Core.Tests.csproj',
     'src/Client/Logic/Searches/ProtonVPN.Client.Logic.Searches.Tests/ProtonVPN.Client.Logic.Searches.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Tests/ProtonVPN.Client.Logic.Servers.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Mappers.Tests/ProtonVPN.Client.Logic.Servers.Mappers.Tests.csproj',

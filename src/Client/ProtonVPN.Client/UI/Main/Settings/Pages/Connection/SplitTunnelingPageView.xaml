@@ -202,6 +202,87 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
                         </controls:SettingsCard.ActionIcon>
                     </controls:SettingsCard>
 
+                    <TextBlock Margin="0,16,0,0" Text="{x:Bind ViewModel.FoldersHeader}"
+                               Foreground="{ThemeResource TextWeakColorBrush}" />
+                    <controls:SettingsCard IsClickEnabled="True" Click="OnFoldersSelectorClicked"
+                                           Header="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_Manage')}"
+                                           Style="{StaticResource DefaultSettingsCardStyle}"
+                                           AutomationProperties.AutomationId="FoldersSelectorSettingsCard">
+                        <controls:SettingsCard.ActionIcon><pathicons:ChevronRight /></controls:SettingsCard.ActionIcon>
+                    </controls:SettingsCard>
+                    <ContentDialog x:Name="FolderRulesDialog" Title="{x:Bind ViewModel.FoldersHeader}"
+                                   CloseButtonCommand="{x:Bind CloseFolderDialogCommand, Mode=OneTime}"
+                                   ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                   CloseButtonText="{x:Bind ViewModel.Localizer.Get('Common_Actions_Close')}">
+                      <ContentDialog.Resources>
+                        <x:Double x:Key="ContentDialogWidth">NaN</x:Double>
+                        <x:Double x:Key="MaximumContentDialogWidth">760</x:Double>
+                        <Thickness x:Key="ContentDialogMargin">24,16</Thickness>
+                      </ContentDialog.Resources>
+                      <Grid x:Name="FolderDialogContent" Height="560" RowSpacing="12">
+                       <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                       </Grid.RowDefinitions>
+                       <StackPanel Grid.Row="0" Spacing="4">
+                        <TextBlock Text="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_ApplyHint')}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_Warning')}"
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextWeakColorBrush}" />
+                       </StackPanel>
+                        <ScrollViewer x:Name="FolderListScrollViewer" Grid.Row="1"
+                                      HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                         <ItemsControl ItemsSource="{x:Bind ViewModel.Folders}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:SelectableTunnelingFolder">
+                                    <Grid ColumnSpacing="8" Margin="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                  ToolTipService.ToolTip="{x:Bind FolderPath}"
+                                                  AutomationProperties.AutomationId="SplitTunnelFolderToggle">
+                                            <TextBlock Text="{x:Bind FolderPath}" TextTrimming="CharacterEllipsis" />
+                                        </CheckBox>
+                                        <Button Grid.Column="1" Tag="{x:Bind}" Click="OnRemoveFolderClicked"
+                                                AutomationProperties.AutomationId="RemoveSplitTunnelFolderButton"
+                                                AutomationProperties.Name="Remove folder">
+                                            <pathicons:Trash />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                         </ItemsControl>
+                        </ScrollViewer>
+                       <StackPanel Grid.Row="2" Spacing="8">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{x:Bind ViewModel.CustomFolderPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.AutomationId="SplitTunnelFolderPathTextBox"
+                                     PlaceholderText="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_Placeholder')}" />
+                            <Button Grid.Column="1" Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Add')}"
+                                    Command="{x:Bind ViewModel.AddFolderCommand}" AutomationProperties.AutomationId="AddSplitTunnelFolderButton" />
+                            <Button Grid.Column="2" Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Browse')}"
+                                    Command="{x:Bind ViewModel.BrowseFolderCommand}" AutomationProperties.AutomationId="BrowseSplitTunnelFolderButton" />
+                        </Grid>
+                        <TextBlock Text="{x:Bind ViewModel.FolderError}" TextWrapping="Wrap" Foreground="{ThemeResource SignalDangerColorBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.FolderScanProgress}" TextWrapping="Wrap" />
+                        <Button Command="{x:Bind ViewModel.CancelFolderScanCommand}"
+                                IsEnabled="{x:Bind ViewModel.IsFolderScanRunning}"
+                                Visibility="{x:Bind ViewModel.IsFolderScanRunning, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Content="{x:Bind ViewModel.Localizer.Get('SplitTunneling_Folders_CancelValidation')}" />
+                        <TextBlock Text="{x:Bind ViewModel.FolderServiceProgress}" TextWrapping="Wrap" />
+                       </StackPanel>
+                      </Grid>
+                    </ContentDialog>
+
                     <Grid Margin="0,16,0,0"
                           HorizontalAlignment="Left">
 

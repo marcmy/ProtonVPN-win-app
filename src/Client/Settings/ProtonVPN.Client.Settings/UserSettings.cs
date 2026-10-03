@@ -318,6 +318,18 @@ public class UserSettings : GlobalSettings, IUserSettings
         set => _userCache.SetListValueType<SplitTunnelingApp>(value, SettingEncryption.Unencrypted);
     }
 
+    public List<SplitTunnelingFolder> SplitTunnelingStandardFoldersList
+    {
+        get => _userCache.GetListValueType<SplitTunnelingFolder>(SettingEncryption.Unencrypted) ?? [];
+        set => _userCache.SetListValueType<SplitTunnelingFolder>(value, SettingEncryption.Unencrypted);
+    }
+
+    public List<SplitTunnelingFolder> SplitTunnelingInverseFoldersList
+    {
+        get => _userCache.GetListValueType<SplitTunnelingFolder>(SettingEncryption.Unencrypted) ?? [];
+        set => _userCache.SetListValueType<SplitTunnelingFolder>(value, SettingEncryption.Unencrypted);
+    }
+
     public List<SplitTunnelingApp> SplitTunnelingInverseAppsList
     {
         get => _userCache.GetListValueType<SplitTunnelingApp>(SettingEncryption.Unencrypted) ?? DefaultSettings.SplitTunnelingAppsList();

@@ -37,6 +37,7 @@ using ProtonVPN.Service.ControllerRetries;
 using ProtonVPN.Service.ProcessCommunication;
 using ProtonVPN.Service.ServerHealth;
 using ProtonVPN.Service.Settings;
+using ProtonVPN.Service.SplitTunneling;
 using ProtonVPN.Service.StateMachine;
 using ProtonVPN.Service.Vpn;
 using ProtonVPN.Vpn.Connection;
@@ -60,6 +61,7 @@ public class VpnController : IVpnController
     private readonly ITunnelOrchestrator _tunnelOrchestrator;
     private readonly ILocalAgent _localAgent;
     private readonly ILocalAgentEventReceiver _localAgentEventReceiver;
+    private readonly IFolderAppMonitor _folderAppMonitor;
 
     public VpnController(
         ILogger logger,
@@ -74,7 +76,8 @@ public class VpnController : IVpnController
         ITunnelOrchestrator tunnelOrchestrator,
         ILocalAgent localAgent,
         ILocalAgentEventReceiver localAgentEventReceiver,
-        IServerHealthProbeService serverHealthProbeService)
+        IServerHealthProbeService serverHealthProbeService,
+        IFolderAppMonitor folderAppMonitor)
     {
         _logger = logger;
         _serviceSettings = serviceSettings;
@@ -89,6 +92,7 @@ public class VpnController : IVpnController
         _localAgent = localAgent;
         _localAgentEventReceiver = localAgentEventReceiver;
         _serverHealthProbeService = serverHealthProbeService;
+        _folderAppMonitor = folderAppMonitor;
     }
 
     public async Task Connect(ConnectionRequestIpcEntity connectionRequest, CancellationToken cancelToken)
@@ -160,6 +164,9 @@ public class VpnController : IVpnController
     {
         return Task.FromResult(_entityMapper.Map<NetworkTraffic, NetworkTrafficIpcEntity>(_tunnelOrchestrator.NetworkTraffic));
     }
+
+    public Task<FolderScanStatusIpcEntity> GetFolderScanStatus(CancellationToken cancelToken) =>
+        Task.FromResult(_folderAppMonitor.Status);
 
     public Task<ServerHealthProbeResultIpcEntity> ProbeServerHealth(
         ServerHealthProbeRequestIpcEntity request,

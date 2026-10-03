@@ -20,6 +20,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using ProtonVPN.Client.Settings;
+using ProtonVPN.Client.Settings.Contracts.Models;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 using ProtonVPN.Client.Settings.Repositories.Contracts;
 using ProtonVPN.Common.Core.Dns;
 
@@ -28,6 +30,37 @@ namespace ProtonVPN.Integration.Tests.Settings;
 [TestClass]
 public class UserSettingsMigrationTest
 {
+    [TestMethod]
+    public void FolderSettings_OldSettingsDefaultEmptyAndJsonRoundTripsBothModeEntries()
+    {
+        IUserSettingsCache userCache = Substitute.For<IUserSettingsCache>();
+        UserSettings settings = new(Substitute.For<IGlobalSettingsCache>(), userCache);
+        Assert.AreEqual(0, settings.SplitTunnelingStandardFoldersList.Count);
+        Assert.AreEqual(0, settings.SplitTunnelingInverseFoldersList.Count);
+
+        ProtonVPN.Serialization.Json.JsonSerializer serializer = new([]);
+        List<SplitTunnelingFolder> folders = [new(@"C:\EA", true), new(@"C:\tools", false)];
+        string json = serializer.SerializeToString(folders);
+        List<SplitTunnelingFolder>? restored = serializer.DeserializeFromString<List<SplitTunnelingFolder>>(json);
+        CollectionAssert.AreEqual(folders, restored);
+        SplitTunnelSettingsIpcEntity? legacy = serializer.DeserializeFromString<SplitTunnelSettingsIpcEntity>("{\"Mode\":1,\"AppPaths\":[],\"Ips\":[]}");
+        Assert.IsNotNull(legacy);
+        Assert.AreEqual(0, legacy.FolderPaths.Length);
+        SplitTunnelSettingsIpcEntity? ipc = serializer.DeserializeFromString<SplitTunnelSettingsIpcEntity>(
+            serializer.SerializeToString(new SplitTunnelSettingsIpcEntity { FolderPaths = [@"C:\EA"] }));
+        CollectionAssert.AreEqual(new[] { @"C:\EA" }, ipc!.FolderPaths);
+        FolderScanStatusIpcEntity status = new() { IsActive = true, IsScanning = true, Entries = 71312,
+            Executables = 43, Error = "attention", RulePaths = [@"C:\Steam"] };
+        FolderScanStatusIpcEntity? restoredStatus = serializer.DeserializeFromString<FolderScanStatusIpcEntity>(serializer.SerializeToString(status));
+        Assert.IsNotNull(restoredStatus);
+        Assert.IsTrue(restoredStatus.IsActive);
+        Assert.IsTrue(restoredStatus.IsScanning);
+        Assert.AreEqual(71312L, restoredStatus.Entries);
+        Assert.AreEqual(43, restoredStatus.Executables);
+        Assert.AreEqual("attention", restoredStatus.Error);
+        CollectionAssert.AreEqual(status.RulePaths, restoredStatus.RulePaths);
+    }
+
     [TestMethod]
     [DataRow(DnsBlockMode.Callout, true)]
     [DataRow(DnsBlockMode.Nrpt, false)]

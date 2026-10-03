@@ -144,12 +144,12 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
             <Button Grid.Column="1"
                     AutomationProperties.AutomationId="AddCustomPathButton"
                     Command="{x:Bind ViewModel.AddCustomAppCommand, Mode=OneTime}"
-                    Content="Add path" />
+                    Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Add')}" />
         </Grid>
 
         <Button Grid.Row="3"
                 AutomationProperties.AutomationId="AddButton"
                 Command="{x:Bind ViewModel.AddAppCommand, Mode=OneTime}"
-                Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Add')}" />
+                Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Browse')}" />
     </Grid>
 </custom:MessageContentDialog>

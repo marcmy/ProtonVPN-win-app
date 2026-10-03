@@ -123,6 +123,60 @@
   <data name="Common_Actions_Back" xml:space="preserve">
     <value>Back</value>
   </data>
+  <data name="Common_Actions_Browse" xml:space="preserve">
+    <value>Browse</value>
+  </data>
+  <data name="SplitTunneling_Folders_Excluded_FormattedHeader" xml:space="preserve">
+    <value>Excluded folders ({0})</value>
+  </data>
+  <data name="SplitTunneling_Folders_Included_FormattedHeader" xml:space="preserve">
+    <value>Included folders ({0})</value>
+  </data>
+  <data name="SplitTunneling_Folders_Manage" xml:space="preserve">
+    <value>Manage folders (including subfolders)</value>
+  </data>
+  <data name="SplitTunneling_Folders_Warning" xml:space="preserve">
+    <value>Includes subfolders. Supports * and ? in folder names. New apps may connect before discovery; linked folders are skipped.</value>
+  </data>
+  <data name="SplitTunneling_Folders_Placeholder" xml:space="preserve">
+    <value>Paste a folder path or pattern, e.g. C:\Apps\EA\*\Tools</value>
+  </data>
+  <data name="SplitTunneling_Folders_Invalid" xml:space="preserve">
+    <value>Choose a specific local folder or pattern. * and ? match one folder-name level; ** is not supported. Patterns need a specific fixed parent folder. Drive roots, Windows folders, broad profile/program roots, network paths and wildcard traversal (.. after a wildcard) are not allowed.</value>
+  </data>
+  <data name="SplitTunneling_Folders_ApplyHint" xml:space="preserve">
+    <value>Click Apply on the settings page to save changes.</value>
+  </data>
+  <data name="SplitTunneling_Folders_Scanning" xml:space="preserve">
+    <value>Scanning folder before adding…</value>
+  </data>
+  <data name="SplitTunneling_Folders_CancelValidation" xml:space="preserve">
+    <value>Cancel adding folder</value>
+  </data>
+  <data name="SplitTunneling_Folders_ScanProgress" xml:space="preserve">
+    <value>Validating folder: {0} entries scanned, {1} executables found…</value>
+  </data>
+  <data name="SplitTunneling_Folders_ServiceScanning" xml:space="preserve">
+    <value>Discovering saved rules: {0} entries scanned, about {1} apps found…</value>
+  </data>
+  <data name="SplitTunneling_Folders_ServiceComplete" xml:space="preserve">
+    <value>Saved rules: {0} apps discovered.</value>
+  </data>
+  <data name="SplitTunneling_Folders_ServiceFailed" xml:space="preserve">
+    <value>Service discovery needs attention: {0}</value>
+  </data>
+  <data name="SplitTunneling_Folders_Inactive" xml:space="preserve">
+    <value>Apply settings and connect to discover apps.</value>
+  </data>
+  <data name="SplitTunneling_Folders_StatusUnavailable" xml:space="preserve">
+    <value>Service discovery status is unavailable. Check that the client and service are updated together.</value>
+  </data>
+  <data name="SplitTunneling_Folders_PickerError" xml:space="preserve">
+    <value>The folder picker could not open. Paste the folder path instead.</value>
+  </data>
+  <data name="SplitTunneling_Folders_ModeChanged" xml:space="preserve">
+    <value>The split tunneling mode changed during the scan. Add the folder again in the intended mode.</value>
+  </data>
   <data name="Common_Actions_Cancel" xml:space="preserve">
     <value>Cancel</value>
   </data>

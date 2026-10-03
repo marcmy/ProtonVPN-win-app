@@ -18,6 +18,7 @@
  */
 
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -55,6 +56,7 @@ public class SplitTunnelTest
     private IPermittedRemoteAddress _permittedRemoteAddress;
     private IAdapterDetailsCache _proTunAdapterDetailsCache;
     private ISplitTunnelDomainPoller _domainPoller;
+    private IFolderAppMonitor _folderMonitor;
 
     [TestInitialize]
     public void TestInitialize()
@@ -70,6 +72,8 @@ public class SplitTunnelTest
         _permittedRemoteAddress = Substitute.For<IPermittedRemoteAddress>();
         _proTunAdapterDetailsCache = Substitute.For<IAdapterDetailsCache>();
         _domainPoller = Substitute.For<ISplitTunnelDomainPoller>();
+        _folderMonitor = Substitute.For<IFolderAppMonitor>();
+        _folderMonitor.AppPaths.Returns(Array.Empty<string>());
     }
 
     [TestMethod]
@@ -244,7 +248,7 @@ public class SplitTunnelTest
         splitTunnel.OnVpnConnected(GetConnectedVpnState());
 
         // Assert
-        _appFilter.Received(1).Add(apps, Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+        _appFilter.Received(1).Add(Arg.Is<string[]>(paths => paths.SequenceEqual(apps)), Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
     }
 
     [TestMethod]
@@ -263,7 +267,7 @@ public class SplitTunnelTest
         splitTunnel.OnVpnConnecting(GetConnectingVpnState());
 
         // Assert
-        _appFilter.Received(1).Add(apps, Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+        _appFilter.Received(1).Add(Arg.Is<string[]>(paths => paths.SequenceEqual(apps)), Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
     }
 
     [TestMethod]
@@ -468,6 +472,159 @@ public class SplitTunnelTest
         _domainPoller.Received().Stop();
     }
 
+    [TestMethod]
+    [DataRow(SplitTunnelModeIpcEntity.Block)]
+    [DataRow(SplitTunnelModeIpcEntity.Permit)]
+    public void AppPatterns_UseConcretePathsForConnectingConnectedAndLiveApply(SplitTunnelModeIpcEntity mode)
+    {
+        string root = Directory.CreateTempSubdirectory("proton-service-app-pattern-").FullName;
+        try
+        {
+            string firstDirectory = Directory.CreateDirectory(Path.Combine(root, "1.0")).FullName;
+            string firstApp = Path.Combine(firstDirectory, "app.exe");
+            File.WriteAllText(firstApp, string.Empty);
+            string pattern = Path.Combine(root, "*", "app.exe");
+            SplitTunnelSettingsIpcEntity settings = new()
+            {
+                Mode = mode,
+                AppPaths = [pattern, firstApp],
+                Ips = [],
+            };
+            _serviceSettings.SplitTunnelSettings.Returns(settings);
+            SplitTunnel splitTunnel = GetSplitTunnel();
+            // Exercise the OpenVPN include-mode IPv6 firewall as well as the callout path.
+            VpnState connected = new(VpnStatus.Connected, VpnError.None,
+                "1.1.1.1", "2.2.2.2", 443, VpnProtocol.OpenVpnUdp);
+
+            splitTunnel.OnVpnConnecting(GetConnectingVpnState());
+            if (mode == SplitTunnelModeIpcEntity.Permit)
+            {
+                _appFilter.Received(1).Add(
+                    Arg.Is<string[]>(paths => paths.SequenceEqual(new[] { firstApp })),
+                    Arg.Is<Tuple<Layer, NetworkFilter.Action>[]>(filters => filters.All(filter => filter.Item2 == NetworkFilter.Action.SoftBlock)));
+            }
+            splitTunnel.OnVpnConnected(connected);
+            AssertAppPathsApplied(mode, [firstApp]);
+
+            string secondDirectory = Directory.CreateDirectory(Path.Combine(root, "2.0")).FullName;
+            string secondApp = Path.Combine(secondDirectory, "app.exe");
+            File.WriteAllText(secondApp, string.Empty);
+            _appFilter.ClearReceivedCalls();
+            _splitTunnelClient.ClearReceivedCalls();
+
+            // Same saved settings; Apply must rediscover the new version, not use the UI's old snapshot.
+            splitTunnel.OnServiceSettingsChanged(new MainSettingsIpcEntity());
+            AssertAppPathsApplied(mode, [firstApp, secondApp]);
+            CollectionAssert.AreEqual(new[] { pattern, firstApp }, settings.AppPaths);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private void AssertAppPathsApplied(SplitTunnelModeIpcEntity mode, string[] expected)
+    {
+        if (mode == SplitTunnelModeIpcEntity.Block)
+        {
+            _splitTunnelClient.Received(1).EnableExcludeMode(
+                Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
+                Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        }
+        else
+        {
+            _splitTunnelClient.Received(1).EnableIncludeMode(
+                Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
+                Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        }
+        _appFilter.Received().Add(
+            Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
+            Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+        _appFilter.DidNotReceive().Add(
+            Arg.Is<string[]>(paths => paths.Any(path => path.Contains('*'))),
+            Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+    }
+
+    [TestMethod]
+    [DataRow(SplitTunnelModeIpcEntity.Block)]
+    [DataRow(SplitTunnelModeIpcEntity.Permit)]
+    public void FolderChanges_UpdateCompletePolicyAndRetainExplicitOwner(SplitTunnelModeIpcEntity mode)
+    {
+        string explicitApp = @"C:\tools\explicit.exe";
+        string folderApp = @"C:\tools\nested\new.exe";
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = mode, AppPaths = [explicitApp], FolderPaths = [@"C:\tools"], Ips = [],
+        });
+        _folderMonitor.AppPaths.Returns(new[] { explicitApp });
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        VpnState connected = new(VpnStatus.Connected, VpnError.None, "1.1.1.1", "2.2.2.2", 443, VpnProtocol.OpenVpnUdp);
+        splitTunnel.OnVpnConnecting(GetConnectingVpnState());
+        splitTunnel.OnVpnConnected(connected);
+        _folderMonitor.Received().ReplaceRules(Arg.Is<string[]>(folders => folders.SequenceEqual(new[] { @"C:\tools" })));
+        _folderMonitor.Received(1).Start();
+
+        _splitTunnelClient.ClearReceivedCalls();
+        _appFilter.ClearReceivedCalls();
+        _splitTunnelRouting.ClearReceivedCalls();
+        _domainPoller.ClearReceivedCalls();
+        _folderMonitor.AppPaths.Returns(new[] { explicitApp, folderApp });
+        _folderMonitor.PathsChanged += Raise.Event<EventHandler>(_folderMonitor, EventArgs.Empty);
+        AssertAppPathsApplied(mode, [explicitApp, folderApp]);
+        _splitTunnelRouting.DidNotReceive().DeleteRoutes(Arg.Any<VpnConfig>());
+        _domainPoller.DidNotReceive().Stop();
+
+        _splitTunnelClient.ClearReceivedCalls();
+        _appFilter.ClearReceivedCalls();
+        _folderMonitor.AppPaths.Returns(Array.Empty<string>());
+        _folderMonitor.PathsChanged += Raise.Event<EventHandler>(_folderMonitor, EventArgs.Empty);
+        AssertAppPathsApplied(mode, [explicitApp]);
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true));
+        _folderMonitor.Received().Stop();
+        _splitTunnelClient.ClearReceivedCalls();
+        _folderMonitor.PathsChanged += Raise.Event<EventHandler>(_folderMonitor, EventArgs.Empty);
+        _splitTunnelClient.DidNotReceive().EnableExcludeMode(Arg.Any<string[]>(), Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        _splitTunnelClient.DidNotReceive().EnableIncludeMode(Arg.Any<string[]>(), Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+    }
+
+    [TestMethod]
+    public void FolderChanges_BlockMode_RestoresConfiguredAndResolvedDomainPermits()
+    {
+        string explicitApp = @"C:\tools\explicit.exe";
+        string folderApp = @"C:\tools\nested\new.exe";
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [explicitApp],
+            FolderPaths = [@"C:\tools"],
+            Ips = ["8.8.8.8", "example.com"],
+        });
+        _folderMonitor.AppPaths.Returns(new[] { explicitApp });
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        VpnState connected = new(VpnStatus.Connected, VpnError.None,
+            "1.1.1.1", "2.2.2.2", 443, VpnProtocol.OpenVpnUdp);
+        splitTunnel.OnVpnConnected(connected);
+
+        _domainPoller.AddressesChanged += Raise.Event<EventHandler<string[]>>(
+            _domainPoller,
+            new[] { "203.0.113.10" });
+
+        _permittedRemoteAddress.ClearReceivedCalls();
+        _splitTunnelRouting.ClearReceivedCalls();
+        _domainPoller.ClearReceivedCalls();
+        _folderMonitor.AppPaths.Returns(new[] { explicitApp, folderApp });
+
+        _folderMonitor.PathsChanged += Raise.Event<EventHandler>(_folderMonitor, EventArgs.Empty);
+
+        _permittedRemoteAddress.Received(1).Add(
+            Arg.Is<string[]>(addresses =>
+                addresses.Any(address => address.StartsWith("8.8.8.8")) &&
+                addresses.Contains("203.0.113.10")),
+            NetworkFilter.Action.HardPermit);
+        _splitTunnelRouting.DidNotReceive().DeleteRoutes(Arg.Any<VpnConfig>());
+        _domainPoller.DidNotReceive().Stop();
+    }
+
     private SplitTunnel GetSplitTunnel(bool enabled = false, bool reverseEnabled = false)
     {
         return new SplitTunnel(
@@ -483,7 +640,8 @@ public class SplitTunnelTest
             _appFilter,
             _permittedRemoteAddress,
             _proTunAdapterDetailsCache,
-            _domainPoller);
+            _domainPoller,
+            _folderMonitor);
     }
 
     private VpnState GetConnectedVpnState()

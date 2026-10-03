@@ -37,6 +37,7 @@ public interface IVpnServiceCaller
     Task UpdateLocalAgentTlsCredentialsAsync(LocalAgentTlsCredentialsIpcEntity credentials);
 
     Task ApplySettingsAsync(MainSettingsIpcEntity settings);
+    Task<Result<FolderScanStatusIpcEntity>> GetFolderScanStatusAsync();
 
     Task RepeatStateAsync();
     Task RepeatPortForwardingStateAsync();
