@@ -81,6 +81,44 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
         GoToCountryFeature(CountriesConnectionType.All);
     }
 
+    protected override void OnActivated()
+    {
+        base.OnActivated();
+        ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
+        if (PingFilter.IsActive)
+        {
+            RefreshCachedFilter();
+        }
+    }
+
+    protected override void OnDeactivated()
+    {
+        ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        base.OnDeactivated();
+    }
+
+    private void OnPingCacheChanged(object? sender, ServerHealthSnapshotChangedEventArgs args)
+    {
+        if (!args.Snapshot.IsChecking && !args.Snapshot.IsRechecking)
+        {
+            ExecuteOnUIThread(() =>
+            {
+                if (IsActive && PingFilter.IsActive)
+                {
+                    RefreshCachedFilter();
+                }
+            });
+        }
+    }
+
+    private void RefreshCachedFilter()
+    {
+        foreach (IHostLocationItem host in Items.OfType<IHostLocationItem>())
+        {
+            host.RefreshPingFilter();
+        }
+    }
+
     protected override IEnumerable<ConnectionItemBase> GetItems()
     {
         return SelectedCountriesComponent.GetItems();
@@ -104,9 +142,6 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
             return;
         }
 
-        foreach (IHostLocationItem host in Items.OfType<IHostLocationItem>())
-        {
-            host.RefreshPingFilter();
-        }
+        RefreshCachedFilter();
     }
 }

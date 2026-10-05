@@ -32,8 +32,12 @@ public sealed class ServerHealthHistoryStore : IDisposable
     private readonly object _inFlightLock = new();
     private readonly Dictionary<ServerHealthHistoryKey, Task<ServerHealthSnapshot>> _inFlight = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly string? _cachePath;
+    private readonly Timer? _saveTimer;
+    private readonly object _saveLock = new();
+    private long _networkGeneration;
 
-    private bool _isDisposed;
+    private volatile bool _isDisposed;
     private int _resourcesDisposed;
 
     public event EventHandler<ServerHealthSnapshotChangedEventArgs>? SnapshotChanged;
@@ -41,7 +45,8 @@ public sealed class ServerHealthHistoryStore : IDisposable
     public ServerHealthHistoryStore(
         IServerHealthClock? clock = null,
         int maximumConcurrentProbes = 8,
-        TimeSpan? minimumProbeInterval = null)
+        TimeSpan? minimumProbeInterval = null,
+        string? cachePath = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumConcurrentProbes, 1);
         _clock = clock ?? new SystemServerHealthClock();
@@ -50,6 +55,16 @@ public sealed class ServerHealthHistoryStore : IDisposable
         if (_minimumProbeInterval < TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(minimumProbeInterval));
+        }
+        _cachePath = cachePath;
+        if (cachePath is not null)
+        {
+            foreach (SavedServerHealth saved in ServerHealthDiskCache.Load(cachePath, _clock.UtcNow))
+            {
+                _entries[ServerHealthHistoryKey.Create(saved.Key.ServerId, saved.Key.ProbeAddress)] = new(saved.Measurement.CheckedAt)
+                { SavedMeasurement = saved.Measurement, RequiresRefresh = true };
+            }
+            _saveTimer = new(_ => SaveCache(), null, Timeout.Infinite, Timeout.Infinite);
         }
     }
 
@@ -67,13 +82,48 @@ public sealed class ServerHealthHistoryStore : IDisposable
             if (entry.Measurements.Count == 0 &&
                 !entry.IsChecking &&
                 !entry.IsRechecking &&
-                _clock.UtcNow - entry.LastRecordedAt > _retention)
+                _clock.UtcNow - entry.LastRecordedAt > ServerHealthDiskCache.Retention)
             {
                 _entries.TryRemove(key, out _);
                 return ServerHealthSnapshot.Empty(key);
             }
 
             return CreateSnapshot(key, entry);
+        }
+    }
+
+    public bool NeedsRefresh(IServerHealthSource source, TimeSpan interval)
+    {
+        if (string.IsNullOrWhiteSpace(source.HealthProbeAddress)) { return false; }
+        ServerHealthSnapshot snapshot = GetSnapshot(ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress));
+        TimeSpan effectiveInterval = snapshot.LatestMeasurement?.IsCompleteFailure == true ? TimeSpan.FromMinutes(10) : interval;
+        bool invalidated = false;
+        if (_entries.TryGetValue(snapshot.Key, out Entry? entry)) { lock (entry.SyncRoot) { invalidated = entry.RequiresRefresh; } }
+        return invalidated || snapshot.LatestMeasurement is null || _clock.UtcNow - snapshot.LatestMeasurement.CheckedAt >= effectiveInterval;
+    }
+
+    public void InvalidateFreshness()
+    {
+        Interlocked.Increment(ref _networkGeneration);
+        foreach (Entry entry in _entries.Values) { lock (entry.SyncRoot) { entry.RequiresRefresh = true; } }
+    }
+
+    private void SaveCache(bool final = false)
+    {
+        if (_cachePath is null) { return; }
+        lock (_saveLock)
+        {
+            if (_isDisposed && !final) { return; }
+            List<SavedServerHealth> saved = [];
+            foreach ((ServerHealthHistoryKey key, Entry entry) in _entries)
+            {
+                lock (entry.SyncRoot)
+                {
+                    if (entry.SavedMeasurement is not null && _clock.UtcNow - entry.SavedMeasurement.CheckedAt <= ServerHealthDiskCache.Retention)
+                    { saved.Add(new(key, entry.SavedMeasurement)); }
+                }
+            }
+            ServerHealthDiskCache.Save(_cachePath, saved);
         }
     }
 
@@ -127,7 +177,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
         lock (entry.SyncRoot)
         {
             Prune(entry);
-            if (entry.Measurements.Count == 0 ||
+            if (entry.RequiresRefresh || entry.SavedMeasurement is null ||
                 _clock.UtcNow - entry.LastRecordedAt >= _minimumProbeInterval)
             {
                 return false;
@@ -171,13 +221,14 @@ public sealed class ServerHealthHistoryStore : IDisposable
         CancellationToken cancellationToken)
     {
         Entry entry = _entries.GetOrAdd(key, _ => new Entry(_clock.UtcNow));
+        long networkGeneration = Interlocked.Read(ref _networkGeneration);
         SetTransientState(key, entry, checking: true, rechecking: false, error: null);
         try
         {
             ServerHealthProbeMeasurement first = await ProbeOnceAsync(source, cancellationToken);
             if (!first.IsCompleteFailure)
             {
-                return Record(key, entry, first with { ServerLoad = source.HealthServerLoad });
+                return Record(key, entry, first with { ServerLoad = source.HealthServerLoad }, networkGeneration);
             }
 
             SetTransientState(
@@ -194,7 +245,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
                 {
                     ServerLoad = source.HealthServerLoad,
                     WasRetried = true,
-                });
+                }, networkGeneration);
             }
 
             return Record(key, entry, new ServerHealthProbeMeasurement(
@@ -206,7 +257,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
                 retry.Error ?? first.Error ?? NO_REPLY_ERROR,
                 source.HealthServerLoad,
                 WasRetried: true,
-                IsConfirmedOutage: true));
+                IsConfirmedOutage: true), networkGeneration);
         }
         catch (OperationCanceledException)
         {
@@ -222,7 +273,9 @@ public sealed class ServerHealthHistoryStore : IDisposable
         await _probeSlots.WaitAsync(cancellationToken);
         try
         {
-            return await InvokeProbeAsync(source, cancellationToken);
+            ServerHealthProbeMeasurement result = await InvokeProbeAsync(source, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return result;
         }
         finally
         {
@@ -258,18 +311,30 @@ public sealed class ServerHealthHistoryStore : IDisposable
     private ServerHealthSnapshot Record(
         ServerHealthHistoryKey key,
         Entry entry,
-        ServerHealthProbeMeasurement measurement)
+        ServerHealthProbeMeasurement measurement,
+        long networkGeneration)
     {
         ServerHealthSnapshot snapshot;
         lock (entry.SyncRoot)
         {
             entry.Measurements.Add(measurement);
             entry.LastRecordedAt = measurement.CheckedAt;
+            entry.SavedMeasurement = measurement;
+            entry.RequiresRefresh = networkGeneration != Interlocked.Read(ref _networkGeneration);
             entry.IsChecking = false;
             entry.IsRechecking = false;
             entry.PendingError = null;
             Prune(entry);
             snapshot = CreateSnapshot(key, entry);
+        }
+
+        try { _saveTimer?.Change(TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan); }
+        catch (ObjectDisposedException) { }
+        if (_entries.Count > ServerHealthDiskCache.MaximumEntries)
+        {
+            foreach (ServerHealthHistoryKey old in _entries.Where(pair => !pair.Value.IsChecking && !pair.Value.IsRechecking)
+                         .OrderBy(pair => pair.Value.LastRecordedAt).Take(_entries.Count - ServerHealthDiskCache.MaximumEntries).Select(pair => pair.Key))
+            { _entries.TryRemove(old, out _); }
         }
 
         RaiseSnapshotChanged(snapshot);
@@ -302,22 +367,24 @@ public sealed class ServerHealthHistoryStore : IDisposable
         entry.Measurements.RemoveAll(measurement => measurement.CheckedAt < cutoff);
     }
 
-    private static ServerHealthSnapshot CreateSnapshot(
+    private ServerHealthSnapshot CreateSnapshot(
         ServerHealthHistoryKey key,
         Entry entry)
     {
         ServerHealthProbeMeasurement[] measurements = entry.Measurements.ToArray();
-        ServerHealthAggregate? aggregate = measurements.Length == 0
-            ? null
-            : ServerHealthCalculator.Aggregate(measurements);
+        ServerHealthProbeMeasurement? latest = measurements.Length == 0 ? entry.SavedMeasurement : measurements[^1];
+        ServerHealthAggregate? aggregate = measurements.Length > 0 ? ServerHealthCalculator.Aggregate(measurements)
+            : latest is null ? null : ServerHealthCalculator.Aggregate([latest]);
         return new(
             key,
             measurements,
             aggregate,
-            measurements.Length == 0 ? null : measurements[^1],
+            latest,
             entry.IsChecking,
             entry.IsRechecking,
-            entry.PendingError);
+            entry.PendingError,
+            IsCached: measurements.Length == 0 && latest is not null,
+            IsStale: entry.RequiresRefresh || (latest is not null && _clock.UtcNow - latest.CheckedAt >= TimeSpan.FromMinutes(5)));
     }
 
     private void RaiseSnapshotChanged(ServerHealthSnapshot snapshot)
@@ -343,8 +410,10 @@ public sealed class ServerHealthHistoryStore : IDisposable
         }
 
         SnapshotChanged = null;
-        _entries.Clear();
         _lifetimeCancellation.Cancel();
+        _saveTimer?.Dispose();
+        SaveCache(final: true);
+        _entries.Clear();
 
         if (pending.Length == 0)
         {
@@ -390,6 +459,8 @@ public sealed class ServerHealthHistoryStore : IDisposable
         public bool IsChecking { get; set; }
         public bool IsRechecking { get; set; }
         public string? PendingError { get; set; }
+        public ServerHealthProbeMeasurement? SavedMeasurement { get; set; }
+        public bool RequiresRefresh { get; set; }
 
         public Entry(DateTimeOffset createdAt)
         {

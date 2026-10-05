@@ -93,11 +93,12 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
             <TextBlock VerticalAlignment="Center"
                        Foreground="{ThemeResource TextWeakColorBrush}"
                        Style="{ThemeResource BodyTextBlockStyle}"
-                       Text="Ping" />
+                       Text="{x:Bind ViewModel.Localizer.Get('ServerPing_CachedFilterLabel')}" />
             <ComboBox MinWidth="112"
                       DisplayMemberPath="Label"
                       ItemsSource="{x:Bind ViewModel.PingFilter.Options, Mode=OneTime}"
-                      SelectedItem="{x:Bind ViewModel.PingFilter.SelectedOption, Mode=TwoWay}" />
+                      SelectedItem="{x:Bind ViewModel.PingFilter.SelectedOption, Mode=TwoWay}"
+                      ToolTipService.ToolTip="{x:Bind ViewModel.Localizer.Get('ServerPing_CachedFilterHint')}" />
         </StackPanel>
 
         <controls:ConnectionItemsControl x:Name="ConnectionItemsControl"

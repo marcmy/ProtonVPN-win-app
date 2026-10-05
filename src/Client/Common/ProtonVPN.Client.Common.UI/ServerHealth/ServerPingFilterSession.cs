@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
@@ -14,13 +12,9 @@ public sealed record ServerPingFilterOption(string Label, int? MaxLatencyMillise
 
 public sealed class ServerPingFilterSession : INotifyPropertyChanged
 {
-    private const int MAX_CONCURRENT_FILTER_PROBES = 4;
-
     public static ServerPingFilterSession Current { get; } = new();
 
-    private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
-    private readonly SemaphoreSlim _filterProbeSlots =
-        new(MAX_CONCURRENT_FILTER_PROBES, MAX_CONCURRENT_FILTER_PROBES);
+    private readonly ServerHealthHistoryStore _historyStore;
 
     private ServerPingFilterOption _selectedOption;
 
@@ -58,8 +52,9 @@ public sealed class ServerPingFilterSession : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public ServerPingFilterSession()
+    public ServerPingFilterSession(ServerHealthHistoryStore? historyStore = null)
     {
+        _historyStore = historyStore ?? ServerHealthHistorySession.Current;
         _selectedOption = Options[0];
     }
 
@@ -85,24 +80,6 @@ public sealed class ServerPingFilterSession : INotifyPropertyChanged
 
         double? latency = GetAverageLatencyMilliseconds(source);
         return latency is not null && latency <= maximumLatency.Value;
-    }
-
-    public async Task<ServerHealthSnapshot> ProbeAsync(
-        IServerHealthSource source,
-        CancellationToken cancellationToken)
-    {
-        // Do not submit an entire country/search result to the shared health store at once.
-        // Consumer cancellation does not abort already-started shared probes, so a bounded
-        // admission window prevents stale filter work from building a large queue.
-        await _filterProbeSlots.WaitAsync(cancellationToken);
-        try
-        {
-            return await _historyStore.ProbeAsync(source, cancellationToken);
-        }
-        finally
-        {
-            _filterProbeSlots.Release();
-        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

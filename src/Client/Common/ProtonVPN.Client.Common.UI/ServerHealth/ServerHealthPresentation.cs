@@ -14,14 +14,14 @@ public sealed record ServerHealthPresentation(
     {
         if (snapshot.Aggregate is null)
         {
-            string state = snapshot.IsRechecking ? "Rechecking…" : "Checking…";
+            string state = snapshot.IsRechecking ? "Rechecking…" : snapshot.IsChecking ? "Checking…" : "Not measured";
             return new(
                 state,
                 0,
                 "—",
                 "—",
                 "—",
-                "Waiting for first check",
+                "Not measured yet",
                 snapshot.PendingError ?? "Physical adapter (direct)",
                 state);
         }
@@ -45,12 +45,12 @@ public sealed record ServerHealthPresentation(
                 : $"{aggregate.AverageLatencyMilliseconds.Value:0} ms",
             $"{aggregate.PacketLossPercent:0.#}%",
             $"{aggregate.ServerLoad:P0}",
-            confidence,
+            snapshot.IsCached ? "Saved measurement" : confidence,
             snapshot.LatestMeasurement?.UsedPhysicalRoute == true
                 ? "Physical adapter (direct)"
                 : snapshot.LatestMeasurement?.Error ?? "Route unavailable",
             snapshot.LatestMeasurement is null
                 ? "Waiting for first check"
-                : $"Updated {snapshot.LatestMeasurement.CheckedAt.ToLocalTime():T}");
+                : $"{(snapshot.IsCached || snapshot.IsStale ? "Saved" : "Updated")} {snapshot.LatestMeasurement.CheckedAt.ToLocalTime():g}{(snapshot.IsStale ? " • refresh due" : "")}");
     }
 }

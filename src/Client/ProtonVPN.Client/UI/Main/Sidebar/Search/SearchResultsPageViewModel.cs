@@ -62,7 +62,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private string _input = string.Empty;
     private long _resultsGeneration;
     private CancellationTokenSource? _resultsCancellationTokenSource;
-    private CancellationTokenSource? _pingFilterProbeCancellationTokenSource;
     private List<ConnectionItemBase> _unfilteredSearchResult = [];
 
     [ObservableProperty]
@@ -74,15 +73,13 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     [ObservableProperty]
     private ICountriesComponent _selectedCountriesComponent;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowNoResults))]
-    private bool _isMeasuringPingFilter;
+    public bool IsPingFilterActive => PingFilter.IsActive;
 
     public List<ICountriesComponent> CountriesComponents { get; }
 
     public ServerPingFilterSession PingFilter { get; } = ServerPingFilterSession.Current;
 
-    public bool ShowNoResults => !HasItems && !IsMeasuringPingFilter;
+    public bool ShowNoResults => !HasItems;
 
     public string ExampleCountries => $"{Localizer.GetCountryName("JP")}, {Localizer.GetCountryName("US")}";
     public string ExampleCities => $"{Localizer.GetCityName("Tokyo", "JP")}, {Localizer.GetCityName("Los Angeles", "US")}";
@@ -292,10 +289,10 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void SetSearchResult(IEnumerable<ConnectionItemBase> result)
     {
-        StopPingFilterProbes();
         _unfilteredSearchResult = result.ToList();
         ApplySearchResult();
-        StartPingFilterProbes();
+        ServerHealthHistorySession.Refresh.OfferCandidates(_unfilteredSearchResult.OfType<ServerLocationItemBase>()
+            .Where(server => !server.IsUnderMaintenance));
     }
 
     private void ApplySearchResult()
@@ -327,86 +324,45 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void OnPingFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(ServerPingFilterSession.SelectedOption) || !HasSearchInput)
+        if (e.PropertyName != nameof(ServerPingFilterSession.SelectedOption))
         {
             return;
         }
 
-        StopPingFilterProbes();
-        ApplySearchResult();
-        StartPingFilterProbes();
-    }
-
-    private void StartPingFilterProbes()
-    {
-        if (!PingFilter.IsActive)
+        OnPropertyChanged(nameof(IsPingFilterActive));
+        if (HasSearchInput)
         {
-            IsMeasuringPingFilter = false;
-            return;
+            ApplySearchResult();
         }
+    }
 
-        List<ServerLocationItemBase> servers = _unfilteredSearchResult
-            .OfType<ServerLocationItemBase>()
-            .Where(server => !server.IsUnderMaintenance && !string.IsNullOrWhiteSpace(server.HealthProbeAddress))
-            .ToList();
-
-        if (servers.Count == 0)
+    protected override void OnActivated()
+    {
+        base.OnActivated();
+        ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
+        if (HasSearchInput)
         {
-            IsMeasuringPingFilter = false;
-            return;
+            ApplySearchResult();
         }
-
-        _pingFilterProbeCancellationTokenSource = new();
-        IsMeasuringPingFilter = true;
-        _ = ProbeForPingFilterAsync(servers, _pingFilterProbeCancellationTokenSource.Token);
     }
 
-    private void StopPingFilterProbes()
+    protected override void OnDeactivated()
     {
-        _pingFilterProbeCancellationTokenSource?.Cancel();
-        _pingFilterProbeCancellationTokenSource?.Dispose();
-        _pingFilterProbeCancellationTokenSource = null;
-        IsMeasuringPingFilter = false;
+        ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        base.OnDeactivated();
     }
 
-    private async Task ProbeForPingFilterAsync(
-        IReadOnlyCollection<ServerLocationItemBase> servers,
-        CancellationToken cancellationToken)
+    private void OnPingCacheChanged(object? sender, ServerHealthSnapshotChangedEventArgs args)
     {
-        try
+        if (!args.Snapshot.IsChecking && !args.Snapshot.IsRechecking)
         {
-            List<Task<ServerHealthSnapshot>> pending = servers
-                .Select(server => PingFilter.ProbeAsync(server, cancellationToken))
-                .ToList();
-            int completedSinceRefresh = 0;
-
-            while (pending.Count > 0)
+            ExecuteOnUIThread(() =>
             {
-                Task<ServerHealthSnapshot> completed = await Task.WhenAny(pending);
-                pending.Remove(completed);
-                await completed;
-
-                cancellationToken.ThrowIfCancellationRequested();
-                completedSinceRefresh++;
-
-                if (completedSinceRefresh >= 8 || pending.Count == 0)
+                if (IsActive && HasSearchInput && PingFilter.IsActive)
                 {
                     ApplySearchResult();
-                    completedSinceRefresh = 0;
                 }
-            }
-
-            if (!cancellationToken.IsCancellationRequested)
-            {
-                IsMeasuringPingFilter = false;
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        finally
-        {
-            OnPropertyChanged(nameof(ShowNoResults));
+            });
         }
     }
 

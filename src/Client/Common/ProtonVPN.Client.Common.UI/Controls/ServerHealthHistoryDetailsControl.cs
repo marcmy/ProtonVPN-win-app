@@ -21,8 +21,8 @@ public sealed class ServerHealthHistoryDetailsControl : ContentControl
             new PropertyMetadata(null, OnSnapshotChanged));
 
     private readonly Grid _layout = new() { RowSpacing = 8 };
-    private readonly TextBlock _summary = new();
-    private readonly TextBlock _latest = new();
+    private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _latest = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Canvas _chart = new() { Width = 320, Height = 120 };
 
     public ServerHealthSnapshot? Snapshot
@@ -58,8 +58,9 @@ public sealed class ServerHealthHistoryDetailsControl : ContentControl
         _chart.Children.Clear();
         if (Snapshot is not ServerHealthSnapshot snapshot)
         {
-            _summary.Text = "Server health: Checking…";
-            _latest.Text = "Waiting for the first completed check.";
+            _summary.Text = "Server health: Not measured";
+            _latest.Text = "Refreshes in the background.";
+            _chart.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -69,6 +70,7 @@ public sealed class ServerHealthHistoryDetailsControl : ContentControl
             $"{presentation.PacketLossText} loss • {presentation.ConfidenceText}";
         _latest.Text = FormatLatest(snapshot, presentation);
         IReadOnlyList<ServerHealthGraphPoint> points = ServerHealthGraphSeries.Create(snapshot);
+        _chart.Visibility = points.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         if (points.Count == 0)
         {
             return;
@@ -158,7 +160,7 @@ public sealed class ServerHealthHistoryDetailsControl : ContentControl
         {
             return snapshot.IsRechecking
                 ? $"Rechecking after failure: {snapshot.PendingError}"
-                : "Waiting for the first completed check.";
+                : "Not measured. Refreshes in the background.";
         }
 
         string prefix = snapshot.IsRechecking
@@ -169,9 +171,9 @@ public sealed class ServerHealthHistoryDetailsControl : ContentControl
             : $"{latest.AverageLatencyMilliseconds.Value:0} ms";
         return prefix +
             $"Latest: {latency}, {latest.PacketLossPercent:0.#}% loss " +
-            $"({latest.SuccessfulSamples}/{latest.TotalSamples} replies), " +
-            $"{latest.CheckedAt.ToLocalTime():T}" +
+            $"({latest.SuccessfulSamples}/{latest.TotalSamples} replies)" +
             (latest.WasRetried ? " • retry" : string.Empty) +
+            $"\n{presentation.LastCheckedText}" +
             $"\nRoute: {presentation.RouteText}";
     }
 

@@ -68,26 +68,12 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                 <TextBlock VerticalAlignment="Center"
                            Foreground="{ThemeResource TextWeakColorBrush}"
                            Style="{ThemeResource BodyTextBlockStyle}"
-                           Text="Ping" />
+                           Text="{x:Bind ViewModel.Localizer.Get('ServerPing_CachedFilterLabel')}" />
                 <ComboBox MinWidth="112"
                           DisplayMemberPath="Label"
                           ItemsSource="{x:Bind ViewModel.PingFilter.Options, Mode=OneTime}"
-                          SelectedItem="{x:Bind ViewModel.PingFilter.SelectedOption, Mode=TwoWay}" />
-            </StackPanel>
-
-            <StackPanel Grid.Row="2"
-                        Margin="0,20,0,8"
-                        Orientation="Vertical"
-                        Visibility="{x:Bind ViewModel.IsMeasuringPingFilter, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <ProgressRing Width="20"
-                              Height="20"
-                              HorizontalAlignment="Center"
-                              IsActive="True" />
-                <TextBlock Margin="0,8,0,0"
-                           HorizontalAlignment="Center"
-                           Foreground="{ThemeResource TextWeakColorBrush}"
-                           Style="{ThemeResource BodyTextBlockStyle}"
-                           Text="Measuring server latency…" />
+                          SelectedItem="{x:Bind ViewModel.PingFilter.SelectedOption, Mode=TwoWay}"
+                          ToolTipService.ToolTip="{x:Bind ViewModel.Localizer.Get('ServerPing_CachedFilterHint')}" />
             </StackPanel>
 
             <StackPanel Grid.Row="2"
@@ -104,6 +90,15 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                            Foreground="{ThemeResource TextWeakColorBrush}"
                            Style="{ThemeResource BodyTextBlockStyle}"
                            Text="{x:Bind ViewModel.Localizer.Get('Search_NoResults_Description')}" />
+
+                <TextBlock MaxWidth="300"
+                           Margin="12,8,12,0"
+                           HorizontalAlignment="Center"
+                           Foreground="{ThemeResource TextWeakColorBrush}"
+                           Style="{ThemeResource BodyTextBlockStyle}"
+                           TextWrapping="Wrap"
+                           Text="{x:Bind ViewModel.Localizer.Get('ServerPing_CachedFilterHint')}"
+                           Visibility="{x:Bind ViewModel.IsPingFilterActive, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
             </StackPanel>
 

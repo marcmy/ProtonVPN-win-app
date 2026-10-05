@@ -10,7 +10,9 @@ public sealed record ServerHealthSnapshot(
     ServerHealthProbeMeasurement? LatestMeasurement,
     bool IsChecking,
     bool IsRechecking,
-    string? PendingError)
+    string? PendingError,
+    bool IsCached = false,
+    bool IsStale = false)
 {
     public static ServerHealthSnapshot Empty(ServerHealthHistoryKey key) =>
         new(key, [], null, null, false, false, null);
