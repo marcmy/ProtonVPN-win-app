@@ -11,7 +11,7 @@ public sealed record SavedServerHealth(ServerHealthHistoryKey Key, ServerHealthP
 
 internal static class ServerHealthDiskCache
 {
-    internal const int MaximumEntries = 4096;
+    internal const int MaximumEntries = 65536;
     internal static readonly TimeSpan Retention = TimeSpan.FromDays(30);
 
     internal static IReadOnlyList<SavedServerHealth> Load(string path, DateTimeOffset now)
@@ -19,7 +19,7 @@ internal static class ServerHealthDiskCache
         try
         {
             FileInfo file = new(path);
-            if (!file.Exists || file.Length > 2 * 1024 * 1024) { return []; }
+            if (!file.Exists || file.Length > 64 * 1024 * 1024) { return []; }
             return (JsonSerializer.Deserialize<List<SavedServerHealth>>(File.ReadAllText(path)) ?? [])
                 .Where(item => item is not null && item.Measurement is not null &&
                     !string.IsNullOrWhiteSpace(item.Key.ServerId) && item.Key.ServerId.Length <= 256 &&

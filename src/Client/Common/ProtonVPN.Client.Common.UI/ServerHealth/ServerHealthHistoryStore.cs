@@ -28,6 +28,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
     private readonly IServerHealthClock _clock;
     private readonly SemaphoreSlim _probeSlots;
     private readonly TimeSpan _minimumProbeInterval;
+    private readonly int _maximumCachedEntries;
     private readonly ConcurrentDictionary<ServerHealthHistoryKey, Entry> _entries = new();
     private readonly object _inFlightLock = new();
     private readonly Dictionary<ServerHealthHistoryKey, Task<ServerHealthSnapshot>> _inFlight = new();
@@ -46,9 +47,13 @@ public sealed class ServerHealthHistoryStore : IDisposable
         IServerHealthClock? clock = null,
         int maximumConcurrentProbes = 8,
         TimeSpan? minimumProbeInterval = null,
-        string? cachePath = null)
+        string? cachePath = null,
+        int maximumCachedEntries = 65536)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumConcurrentProbes, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maximumCachedEntries, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maximumCachedEntries, ServerHealthDiskCache.MaximumEntries);
+        _maximumCachedEntries = maximumCachedEntries;
         _clock = clock ?? new SystemServerHealthClock();
         _probeSlots = new(maximumConcurrentProbes, maximumConcurrentProbes);
         _minimumProbeInterval = minimumProbeInterval ?? _defaultMinimumProbeInterval;
@@ -59,7 +64,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
         _cachePath = cachePath;
         if (cachePath is not null)
         {
-            foreach (SavedServerHealth saved in ServerHealthDiskCache.Load(cachePath, _clock.UtcNow))
+            foreach (SavedServerHealth saved in ServerHealthDiskCache.Load(cachePath, _clock.UtcNow).Take(_maximumCachedEntries))
             {
                 _entries[ServerHealthHistoryKey.Create(saved.Key.ServerId, saved.Key.ProbeAddress)] = new(saved.Measurement.CheckedAt)
                 { SavedMeasurement = saved.Measurement, RequiresRefresh = true };
@@ -130,10 +135,12 @@ public sealed class ServerHealthHistoryStore : IDisposable
     public async Task<ServerHealthSnapshot> ProbeAsync(
         IServerHealthSource source,
         CancellationToken cancellationToken,
-        bool retryFailure = true)
+        bool retryFailure = true,
+        bool quickFirstResponse = false)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         ArgumentNullException.ThrowIfNull(source);
+        cancellationToken.ThrowIfCancellationRequested();
         string? probeAddress = source.HealthProbeAddress;
         if (string.IsNullOrWhiteSpace(probeAddress))
         {
@@ -158,7 +165,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
                     new(TaskCreationOptions.RunContinuationsAsynchronously);
                 pending = completion.Task;
                 _inFlight.Add(key, pending);
-                _ = RunProbeAndReleaseAsync(key, source, completion, retryFailure);
+                _ = RunProbeAndReleaseAsync(key, source, completion, retryFailure, quickFirstResponse);
             }
         }
 
@@ -193,12 +200,13 @@ public sealed class ServerHealthHistoryStore : IDisposable
         ServerHealthHistoryKey key,
         IServerHealthSource source,
         TaskCompletionSource<ServerHealthSnapshot> completion,
-        bool retryFailure)
+        bool retryFailure,
+        bool quickFirstResponse)
     {
         try
         {
             completion.TrySetResult(
-                await ProbeCoreAsync(key, source, _lifetimeCancellation.Token, retryFailure));
+                await ProbeCoreAsync(key, source, _lifetimeCancellation.Token, retryFailure, quickFirstResponse));
         }
         catch (OperationCanceledException exception)
         {
@@ -221,15 +229,16 @@ public sealed class ServerHealthHistoryStore : IDisposable
         ServerHealthHistoryKey key,
         IServerHealthSource source,
         CancellationToken cancellationToken,
-        bool retryFailure)
+        bool retryFailure,
+        bool quickFirstResponse)
     {
         Entry entry = _entries.GetOrAdd(key, _ => new Entry(_clock.UtcNow));
         long networkGeneration = Interlocked.Read(ref _networkGeneration);
         SetTransientState(key, entry, checking: true, rechecking: false, error: null);
         try
         {
-            ServerHealthProbeMeasurement first = await ProbeOnceAsync(source, cancellationToken);
-            if (!first.IsCompleteFailure || !retryFailure)
+            ServerHealthProbeMeasurement first = await ProbeOnceAsync(source, cancellationToken, quickFirstResponse);
+            if (!first.IsCompleteFailure || !retryFailure || quickFirstResponse)
             {
                 return Record(key, entry, first with { ServerLoad = source.HealthServerLoad }, networkGeneration);
             }
@@ -271,12 +280,13 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
     private async Task<ServerHealthProbeMeasurement> ProbeOnceAsync(
         IServerHealthSource source,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool quickFirstResponse = false)
     {
         await _probeSlots.WaitAsync(cancellationToken);
         try
         {
-            ServerHealthProbeMeasurement result = await InvokeProbeAsync(source, cancellationToken);
+            ServerHealthProbeMeasurement result = await InvokeProbeAsync(source, cancellationToken, quickFirstResponse);
             cancellationToken.ThrowIfCancellationRequested();
             return result;
         }
@@ -288,11 +298,12 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
     private async Task<ServerHealthProbeMeasurement> InvokeProbeAsync(
         IServerHealthSource source,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool quickFirstResponse)
     {
         try
         {
-            return await source.ProbeHealthAsync(cancellationToken);
+            return await source.ProbeHealthAsync(cancellationToken, quickFirstResponse);
         }
         catch (OperationCanceledException)
         {
@@ -303,7 +314,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
             return new(
                 null,
                 0,
-                4,
+                quickFirstResponse ? 1 : 4,
                 _clock.UtcNow,
                 false,
                 exception.Message,
@@ -333,10 +344,10 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
         try { _saveTimer?.Change(TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan); }
         catch (ObjectDisposedException) { }
-        if (_entries.Count > ServerHealthDiskCache.MaximumEntries)
+        if (_entries.Count > _maximumCachedEntries)
         {
             foreach (ServerHealthHistoryKey old in _entries.Where(pair => !pair.Value.IsChecking && !pair.Value.IsRechecking)
-                         .OrderBy(pair => pair.Value.LastRecordedAt).Take(_entries.Count - ServerHealthDiskCache.MaximumEntries).Select(pair => pair.Key))
+                         .OrderBy(pair => pair.Value.LastRecordedAt).Take(_entries.Count - _maximumCachedEntries).Select(pair => pair.Key))
             { _entries.TryRemove(old, out _); }
         }
 

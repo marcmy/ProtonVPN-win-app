@@ -35,13 +35,13 @@ public class ServerPingFilterSessionTest
     }
 
     [TestMethod]
-    public void Matches_RejectsUnmeasuredServerWhenThresholdIsActive()
+    public void Matches_KeepsUnmeasuredServerVisibleUntilFirstResult()
     {
         ServerPingFilterSession filter = new(_store);
         filter.SelectedOption = filter.Options.Single(option => option.MaxLatencyMilliseconds == 50);
         QueueServerHealthSource source = CreateSource("threshold");
 
-        Assert.IsFalse(filter.Matches(source));
+        Assert.IsTrue(filter.Matches(source));
     }
 
     [TestMethod]
@@ -69,4 +69,36 @@ public class ServerPingFilterSessionTest
             HealthProbeAddress = "192.0.2.1",
             HealthServerLoad = 0.25,
         };
+
+    [TestMethod]
+    public async Task FirstReply_IsUsableImmediatelyThenWeightedByLaterSamples()
+    {
+        QueueServerHealthSource source = CreateSource("average");
+        ServerPingFilterSession filter = new(_store);
+        source.Enqueue(new ServerHealthProbeMeasurement(20, 1, 1, _clock.UtcNow, true, null, 0.25));
+        await _store.ProbeAsync(source, CancellationToken.None, quickFirstResponse: true);
+        filter.SelectedOption = filter.Options.Single(option => option.MaxLatencyMilliseconds == 50);
+        Assert.IsTrue(filter.Matches(source));
+        Assert.AreEqual(20d, filter.GetAverageLatencyMilliseconds(source));
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        source.Enqueue(new ServerHealthProbeMeasurement(80, 4, 4, _clock.UtcNow, true, null, 0.25));
+        await _store.ProbeAsync(source, CancellationToken.None);
+        Assert.AreEqual(68d, filter.GetAverageLatencyMilliseconds(source));
+        Assert.IsFalse(filter.Matches(source));
+        filter.SelectedOption = filter.Options.Single(option => option.MaxLatencyMilliseconds == 75);
+        Assert.IsTrue(filter.Matches(source));
+    }
+
+    [TestMethod]
+    public async Task NoReply_IsNotTreatedAsUnknownOrZeroMilliseconds()
+    {
+        QueueServerHealthSource source = CreateSource("no-reply");
+        ServerPingFilterSession filter = new(_store);
+        source.Enqueue(new ServerHealthProbeMeasurement(null, 0, 2, _clock.UtcNow, true, "No reply", 0.25));
+        await _store.ProbeAsync(source, CancellationToken.None, quickFirstResponse: true);
+        filter.SelectedOption = filter.Options.Single(option => option.MaxLatencyMilliseconds == 50);
+        Assert.IsFalse(filter.Matches(source));
+        Assert.IsNull(filter.GetAverageLatencyMilliseconds(source));
+    }
+
 }

@@ -173,7 +173,7 @@ public class VpnController : IVpnController
         CancellationToken cancelToken)
     {
         Ensure.NotNull(request, nameof(request));
-        return _serverHealthProbeService.ProbeAsync(request.Address, cancelToken);
+        return _serverHealthProbeService.ProbeAsync(request.Address, cancelToken, request.QuickFirstResponse);
     }
 
     public async Task ApplySettings(MainSettingsIpcEntity settings, CancellationToken cancelToken)

@@ -26,4 +26,7 @@ public class ServerHealthProbeRequestIpcEntity
 {
     [DataMember(Order = 1, IsRequired = true)]
     public string Address { get; set; } = string.Empty;
+
+    [DataMember(Order = 2)]
+    public bool QuickFirstResponse { get; set; }
 }

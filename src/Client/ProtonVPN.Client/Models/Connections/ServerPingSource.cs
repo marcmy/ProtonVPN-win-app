@@ -34,13 +34,16 @@ internal sealed class ServerPingSource(Server server) : IServerHealthSource
         .Concat(server.Servers.SelectMany(physicalServer => physicalServer.RelayIpByProtocol.Values))
         .FirstOrDefault(ipAddress => !string.IsNullOrWhiteSpace(ipAddress));
 
-    public async Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken)
+    public Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken) =>
+        ProbeHealthAsync(cancellationToken, quickFirstResponse: false);
+
+    public async Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken, bool quickFirstResponse)
     {
         string? address = HealthProbeAddress;
         if (string.IsNullOrWhiteSpace(address)) { return Unavailable("No probe address is available for this server."); }
         cancellationToken.ThrowIfCancellationRequested();
         var result = await App.GetService<IVpnServiceCaller>().ProbeServerHealthAsync(new ServerHealthProbeRequestIpcEntity
-        { Address = address });
+        { Address = address, QuickFirstResponse = quickFirstResponse });
         cancellationToken.ThrowIfCancellationRequested();
         if (!result.Success)
         {

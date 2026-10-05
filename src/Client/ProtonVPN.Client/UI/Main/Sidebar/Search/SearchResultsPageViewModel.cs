@@ -64,6 +64,10 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private CancellationTokenSource? _resultsCancellationTokenSource;
     private List<ConnectionItemBase> _unfilteredSearchResult = [];
     private ServerHealthRefreshScheduler.Discovery? _pingDiscovery;
+    private ServerHealthUiRefreshQueue? _pingUiRefresh;
+
+    public bool IsMeasuringPings => IsActive && ServerHealthHistorySession.Refresh.IsMeasuring;
+    public string PingProgressText => ServerHealthHistorySession.Refresh.ProgressText;
 
     [ObservableProperty]
     private bool _hasSearchInput;
@@ -125,6 +129,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
+        StopPingDiscovery();
         _ = ReloadResultsAsync();
     }
 
@@ -137,7 +142,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private Task ReloadResultsAsync()
     {
-        StopPingDiscovery();
         long generation = Interlocked.Increment(ref _resultsGeneration);
         CancellationTokenSource cancellationTokenSource = new();
         CancellationTokenSource? previousCancellationTokenSource =
@@ -164,6 +168,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
                 }
 
                 HasSearchInput = false;
+                StopPingDiscovery();
                 SetSearchResult([]);
                 _serverFinder.Cancel();
                 return;
@@ -298,19 +303,19 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void StartPingDiscovery()
     {
-        _pingDiscovery?.Dispose();
-        _pingDiscovery = null;
-        if (!IsActive || !HasSearchInput) { return; }
-        _pingDiscovery = ServerHealthHistorySession.Refresh.StartDiscovery(_unfilteredSearchResult.OfType<ServerLocationItemBase>()
-            .Where(server => !server.IsUnderMaintenance)
-            .OrderBy(server => server.Server.Score).ThenBy(server => server.Load));
+        if (!IsActive || !HasSearchInput || _pingDiscovery is { IsDisposed: false }) { return; }
+        ServerFeatures? features = GetServerFeatures();
+        IEnumerable<Server> servers = features is null ? ServersLoader.GetServers() : ServersLoader.GetServersByFeatures(features.Value);
+        _pingDiscovery = ServerHealthHistorySession.Refresh.StartDiscovery(servers
+            .Where(server => !server.IsUnderMaintenance() && !_exclusionChecker.IsServerExcluded(server))
+            .OrderBy(server => server.Score).ThenBy(server => server.Load)
+            .Select(server => new ServerPingSource(server)));
     }
 
     private void StopPingDiscovery()
     {
         _pingDiscovery?.Dispose();
         _pingDiscovery = null;
-        foreach (IHostLocationItem host in _unfilteredSearchResult.OfType<IHostLocationItem>()) { host.StopPingDiscovery(); }
     }
 
     private void ApplySearchResult()
@@ -319,7 +324,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
             ? _unfilteredSearchResult.Where(IsPingFilterMatch)
             : _unfilteredSearchResult;
 
-        ResetItems(result);
+        ResetItems(result, prioritizeMeasuredPings: PingFilter.IsActive);
         ResetGroups();
 
         InvalidateActiveConnection();
@@ -357,7 +362,9 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     protected override void OnActivated()
     {
         base.OnActivated();
+        _pingUiRefresh = new(action => ExecuteOnUIThread(action), RefreshPingPresentation);
         ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged += OnPingProgressChanged;
         StartPingDiscovery();
         if (HasSearchInput)
         {
@@ -368,6 +375,9 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     protected override void OnDeactivated()
     {
         ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged -= OnPingProgressChanged;
+        _pingUiRefresh?.Dispose();
+        _pingUiRefresh = null;
         StopPingDiscovery();
         base.OnDeactivated();
     }
@@ -376,14 +386,18 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         if (!args.Snapshot.IsChecking && !args.Snapshot.IsRechecking)
         {
-            ExecuteOnUIThread(() =>
-            {
-                if (IsActive && HasSearchInput && PingFilter.IsActive)
-                {
-                    ApplySearchResult();
-                }
-            });
+            _pingUiRefresh?.Request();
         }
+    }
+
+    private void OnPingProgressChanged(object? sender, EventArgs args) => _pingUiRefresh?.Request();
+
+    private void RefreshPingPresentation()
+    {
+        if (!IsActive) { return; }
+        OnPropertyChanged(nameof(IsMeasuringPings));
+        OnPropertyChanged(nameof(PingProgressText));
+        if (HasSearchInput && PingFilter.IsActive) { ApplySearchResult(); }
     }
 
     private Func<ILocation, ConnectionItemBase?> GetConnectionItemCreationFunction()
@@ -487,6 +501,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         {
             if (HasSearchInput)
             {
+                StopPingDiscovery();
                 _ = ReloadResultsAsync();
             }
             else

@@ -1,70 +1,87 @@
-# Cached server pings
+# Server pings: immediate display, full active-tab coverage
 
-Server browsing and ping filtering read saved measurements immediately. Selecting
-a threshold or hovering a health badge does not start a probe. Opening a list
-starts a bounded first pass for unmeasured candidates, without delaying display.
-Unknown pings are shown as unmeasured and excluded by an active threshold. Turning
-the filter to All always exposes unmeasured servers.
+Server browsing renders immediately from the catalogue and saved measurements.
+Opening All, Secure Core, P2P or Tor starts a quick first pass across the entire
+eligible catalogue for that feature, not a small selection. Selecting a ping
+threshold or hovering a health badge does not start another pass.
+
+Unmeasured servers stay visible while checks arrive. Under an active threshold,
+measured matches sort before pending rows; measured results above the threshold
+are removed. A no-reply check never invents a latency; without successful history
+it cannot match a threshold. The label is simply "Ping". Progress shows how much of the tab
+has been checked or already has a recent result.
 
 ## Refresh policy
 
-- One shared client-side store deduplicates list and connection-panel requests by
-  logical server ID **and actual probe address**. Different endpoints must not
-  inherit each other's measurements.
-- A single list scheduler wakes every 30 seconds and admits at most two due
-  servers sequentially, with one second of pacing between them. Values become due
-  after five minutes; complete failures get a ten-minute list-refresh cooldown.
-- Opening a feature tab (including P2P), search result, all-server list or expanded
-  server group requests an immediate first pass: at most 24 **uncached** endpoints,
-  with 250 ms pacing and no new admissions after 20 seconds. Cached values appear
-  immediately; each new result is published and filtered as it completes. A check
-  already admitted can finish after the deadline or list closure.
-- Candidates are ordered by Proton's existing ascending fastest-server score,
-  then load, before the ping threshold is applied. Maintenance and excluded
-  servers are skipped. Cached endpoints are skipped before the initial-pass cap,
-  so subsequent openings can discover a different small selection.
-- Only one list pass runs at a time; a newer list supersedes pending work from the
-  previous one. Rapid list changes are capped at 48 initial admissions per minute.
-  The pass does not do the normal five-second no-reply retry; an unanswered first
-  check is not labelled a confirmed outage. Normal periodic checks retain retry
-  and failure-cooldown behavior.
-- A list owns refresh interest in its initial candidates plus at most eight
-  previously measured candidates. Closing it releases that interest and stops
-  queued first-pass checks. Loaded rows also register interest and unload releases
-  it. Threshold changes only reapply measurements; they never restart discovery.
-- Scheduler interest is bounded to 64 endpoints, with newer viewed rows replacing
-  older interests if full. There is no all-server sweep.
-  No eligible interests means no list probes, even though the cheap timer remains.
-- The connected-server panel refreshes once a minute while active. Repeated load
-  or connection-statistics messages for an unchanged endpoint only restore the
-  cached display. It shares the store's one-probe concurrency limit and one-minute
-  deduplication interval with the list scheduler.
-- Network-address changes mark measurements stale; they do not trigger immediate
-  scans. Background refresh remains within the same budget.
+- The first pass has at most 32 checks in flight. Each quick service check returns
+  after the first successful ICMP reply. If the first packet gets no reply, it
+  allows one fallback attempt after 25 ms; it does not wait for four samples or
+  the normal five-second retry. Attempt and success counts remain accurate.
+- All measures all eligible servers. Secure Core, P2P and Tor measure only their
+  own feature catalogue, including during periodic refresh. Maintenance and
+  excluded servers are skipped. Candidates are ordered by Proton's ascending
+  fastest-server score, then load; unknown endpoints run before stale ones.
+- Fresh values are reused on reopening or switching tabs. The full active tab is
+  eligible for another quick pass after five minutes. Failed endpoints have a
+  ten-minute cooldown. The scheduler checks for due work every 30 seconds.
+- A newer tab cancels queued old-tab checks. Closing the list stops queued checks
+  and periodic passes. Already-admitted shared probes may finish and save their
+  result. There is no admission deadline or small total-server discovery cap.
+- Loaded rows can refine their measurements once a minute, with up to eight
+  ordinary four-sample checks in flight and at most 64 visible-row interests.
+  That interest limit does not limit initial or periodic whole-tab coverage.
+  Unloading a row releases its interest; old-tab interests cannot escape the
+  active feature scope.
+- List/filter updates are coalesced at 200 ms so a reply burst does not rebuild
+  a large list separately for every response. Each server's cached health
+  display still receives completed measurements.
+- The connected-server panel retains ordinary four-sample checks once a minute
+  while active, including the normal failure retry. Repeated load or connection
+  statistics for an unchanged endpoint only restore the cached display.
+- List and connection-panel requests share a 32-slot client store, deduplicated
+  by logical server ID **and actual probe address**, with a one-minute minimum
+  repeat interval. Different endpoints never inherit each other's measurements.
+- Network-address changes mark measurements stale without launching a new scan.
+  Refresh still follows the active scope and the same concurrency limits.
+
+The total pass duration depends on catalogue size, replies, timeouts and routing
+setup. The list does not wait for the pass to finish, and individual successful
+first replies are usable as they arrive. This is bounded parallel coverage, not
+a promise that every remote endpoint will respond instantly.
 
 ## Persistence and meaning
 
 The newest completed measurement per endpoint is saved in
 `%LOCALAPPDATA%\ProtonVPN\ServerHealth\ping-cache-v1.json`. Writes are debounced
-and atomically replace the file. Retention is 30 days and at most 4,096 endpoints.
-Unreadable, malformed, oversized or invalid telemetry is ignored, never allowed
-to prevent startup. Restored values are marked saved/stale and keep their original
-timestamps. They are estimates, especially after changing networks.
+and atomically replace the file. Retention is 30 days, with room for 65,536
+endpoints and a 64 MiB read-size limit. Invalid or unreadable telemetry is ignored
+and cannot prevent startup. Restored estimates keep their original timestamps
+and are marked stale; they can differ after changing networks.
 
-The ten-minute rolling health graph remains separate: restoring one saved ping
-does not invent historical samples or six-check confidence. Server health still
-uses ICMP through the physical adapter, not RTT through the VPN tunnel or to a
-game server. No-reply measurements do not prove the VPN server is offline.
-The service's catalogue validation, scoped route/filter permits, ICMP sampling
-and cleanup are unchanged. Pings are telemetry only and do not select or change
-VPN routes, split-tunneling rules or connection behavior.
+The live latency is a weighted rolling average of up to six completed checks.
+A one-reply quick check is immediately useful; later multi-reply checks refine
+it using their actual successful-sample counts. The ten-minute rolling graph is
+separate: restoring a saved ping does not invent historical samples or
+six-check confidence.
+
+Health measures ICMP through the physical adapter, not RTT through the VPN
+tunnel or to a game server. No reply does not prove the VPN server is offline.
+The service still validates destinations against the catalogue, uses
+destination-specific route/filter permits, serializes probes to the same IP,
+and removes only routes and permits it owns. Service-wide concurrency is capped
+at 32. Pings are telemetry and do not select VPN connections or change
+split-tunneling rules.
 
 ## Regression coverage
 
-Common UI tests cover cache-only filtering, restart/endpoint identity, timestamps,
-retention, invalid input, network changes during an in-flight probe, cancellation,
-deduplication, immediate bounded discovery, cached-candidate skipping, incremental
-filter matches, deadline/pacing/global admission budgets, list replacement and
-closure, interest limits and failed-server cooldown. Full client compilation
-validates the XAML bindings and the plain "Ping" label.
+Tests cover complete 1,000-server initial coverage, 32-slot parallel bounds,
+feature isolation, tab replacement/closure, cache reuse, pending-row visibility,
+first-reply filtering and weighted refinement, normal retry, failed-server
+cooldown, visible-row limits, cache round-trips above 4,096 endpoints, endpoint
+identity, retention, invalid input, network changes, shared cancellation and
+coalesced UI updates. Service tests cover quick one-reply and fallback counts,
+ordinary four-sample checks, route/permit ownership, cancellation and parallel
+cleanup. IPC tests cover the optional quick-mode field and legacy requests.
+Full client compilation validates the XAML bindings and the plain "Ping" label.
+
 Installed-app responsiveness and resource use still require a live check.

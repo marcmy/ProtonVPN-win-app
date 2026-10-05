@@ -117,6 +117,9 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>, IServer
     public Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken) =>
         _pingSource.ProbeHealthAsync(cancellationToken);
 
+    public Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken, bool quickFirstResponse) =>
+        _pingSource.ProbeHealthAsync(cancellationToken, quickFirstResponse);
+
     protected override bool MatchesActiveConnection(ConnectionDetails? currentConnectionDetails)
     {
         return currentConnectionDetails is not null

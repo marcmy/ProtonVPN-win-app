@@ -6,28 +6,39 @@ using System.Threading.Tasks;
 
 namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
-// Filtering is cache-only. Opening a list can request a small, immediate discovery pass.
+// Whole active-tab coverage, bounded concurrency. Ping thresholds never start a pass.
 public sealed class ServerHealthRefreshScheduler : IDisposable
 {
-    public const int MaximumInitialProbes = 24;
-    public static readonly TimeSpan InitialPassDuration = TimeSpan.FromSeconds(20);
+    public const int MaximumConcurrentFirstChecks = 32;
     public static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
     private readonly ServerHealthHistoryStore _store;
-    private readonly IServerHealthClock _clock;
     private readonly object _sync = new();
     private readonly Dictionary<ServerHealthHistoryKey, Candidate> _candidates = [];
-    private readonly Queue<DateTimeOffset> _initialAdmissions = new();
-    private readonly SemaphoreSlim _tick = new(1);
+    private readonly SemaphoreSlim _pass = new(1);
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Timer? _timer;
     private Discovery? _activeDiscovery;
     private long _sequence;
     private bool _disposed;
 
+    public event EventHandler? ProgressChanged;
+    public bool IsMeasuring { get { lock (_sync) { return _activeDiscovery?.IsRunning == true; } } }
+    public string ProgressText
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _activeDiscovery?.IsRunning == true
+                    ? $"Measuring pings… {_activeDiscovery.CompletedSources:N0}/{_activeDiscovery.TotalSources:N0}"
+                    : string.Empty;
+            }
+        }
+    }
+
     public ServerHealthRefreshScheduler(ServerHealthHistoryStore store, IServerHealthClock? clock = null, bool startTimer = true)
     {
         _store = store;
-        _clock = clock ?? new SystemServerHealthClock();
         if (startTimer) { _timer = new(_ => RunTick(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)); }
     }
 
@@ -35,141 +46,133 @@ public sealed class ServerHealthRefreshScheduler : IDisposable
     {
         lock (_sync)
         {
-            Candidate? candidate = GetOrAdd(source);
-            if (candidate is null) { return new Lease(() => { }); }
+            if (_disposed || string.IsNullOrWhiteSpace(source.HealthProbeAddress)) { return new Lease(() => { }); }
+            ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress);
+            if (!_candidates.TryGetValue(key, out Candidate? candidate))
+            {
+                foreach (ServerHealthHistoryKey inactive in _candidates.Where(pair => pair.Value.InterestedViews == 0).Select(pair => pair.Key).ToArray())
+                { _candidates.Remove(inactive); }
+                // This limit only bounds visible-row refinement, never initial tab coverage.
+                if (_candidates.Count >= 64) { _candidates.Remove(_candidates.MinBy(pair => pair.Value.Sequence).Key); }
+                _candidates[key] = candidate = new(source);
+            }
+            candidate.Source = source;
+            candidate.Sequence = ++_sequence;
             candidate.InterestedViews++;
             return new Lease(() => { lock (_sync) { candidate.InterestedViews--; } });
         }
     }
 
-    // Supply candidates in priority order, before filtering. Keep the lease while the list is open.
+    // Supply the full unfiltered catalogue for the active feature tab, ordered by usefulness.
     public Discovery StartDiscovery(IEnumerable<IServerHealthSource> sources)
     {
-        Discovery discovery;
         lock (_sync)
         {
-            List<IServerHealthSource> unknown = [];
-            List<IDisposable> interests = [];
-            HashSet<ServerHealthHistoryKey> seen = [];
-            int savedInterests = 0;
-            if (!_disposed)
-            {
-                foreach (IServerHealthSource source in sources)
-                {
-                    if (string.IsNullOrWhiteSpace(source.HealthProbeAddress)) { continue; }
-                    ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress);
-                    if (!seen.Add(key)) { continue; }
-                    if (_store.GetSnapshot(key).LatestMeasurement is null)
-                    {
-                        unknown.Add(source);
-                        interests.Add(Track(source));
-                        if (unknown.Count == MaximumInitialProbes) { break; }
-                    }
-                    else if (savedInterests++ < 8) { interests.Add(Track(source)); }
-                }
-            }
-            discovery = new(interests);
+            _activeDiscovery?.Dispose();
+            IServerHealthSource[] catalogue = _disposed ? [] : sources
+                .Where(source => !string.IsNullOrWhiteSpace(source.HealthProbeAddress))
+                .DistinctBy(source => ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress!)).ToArray();
+            Discovery discovery = new(catalogue, _lifetime.Token);
             _activeDiscovery = discovery;
-            // Never block the UI. The store publishes completed measurements individually.
-            discovery.Completion = _disposed ? Task.CompletedTask : Task.Run(() => RunDiscoveryAsync(discovery, unknown));
+            discovery.Completion = _disposed ? Task.CompletedTask : Task.Run(() => RunDiscoveryAsync(discovery));
+            return discovery;
         }
-        return discovery;
     }
 
-    private async Task RunDiscoveryAsync(Discovery discovery, List<IServerHealthSource> sources)
+    private async Task RunDiscoveryAsync(Discovery discovery)
     {
         bool entered = false;
+        CancellationToken token = discovery.Token;
         try
         {
-            await _tick.WaitAsync(_lifetime.Token);
+            await _pass.WaitAsync(token);
             entered = true;
-            DateTimeOffset deadline = _clock.UtcNow + InitialPassDuration;
-            foreach (IServerHealthSource source in sources)
+            IServerHealthSource[] due = discovery.Sources.Where(source => _store.NeedsRefresh(source, RefreshInterval))
+                // New endpoints first; keep caller ranking stable within each group.
+                .OrderBy(source => _store.GetSnapshot(ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress!)).LatestMeasurement is not null)
+                .ToArray();
+            discovery.BeginPass(discovery.TotalSources - due.Length);
+            RaiseProgress();
+            await Parallel.ForEachAsync(due, new ParallelOptions
+            { MaxDegreeOfParallelism = MaximumConcurrentFirstChecks, CancellationToken = token }, async (source, cancellation) =>
             {
-                lock (_sync)
+                try
                 {
-                    if (_disposed || discovery.IsDisposed || _activeDiscovery != discovery || _clock.UtcNow >= deadline) { break; }
-                    string? address = source.HealthProbeAddress;
-                    if (string.IsNullOrWhiteSpace(address) || _store.GetSnapshot(ServerHealthHistoryKey.Create(source.HealthServerId, address)).LatestMeasurement is not null) { continue; }
-                    // Rapid tab changes must not multiply the first-pass budget.
-                    while (_initialAdmissions.TryPeek(out DateTimeOffset admission) && _clock.UtcNow - admission >= TimeSpan.FromMinutes(1))
-                    { _initialAdmissions.Dequeue(); }
-                    if (_initialAdmissions.Count >= MaximumInitialProbes * 2) { break; }
-                    _initialAdmissions.Enqueue(_clock.UtcNow);
+                    if (_store.NeedsRefresh(source, RefreshInterval))
+                    { await _store.ProbeAsync(source, cancellation, retryFailure: false, quickFirstResponse: true); }
                 }
-                // Do not hold up discovery with the normal five-second no-reply retry.
-                await _store.ProbeAsync(source, _lifetime.Token, retryFailure: false);
-                await _clock.DelayAsync(TimeSpan.FromMilliseconds(250), _lifetime.Token);
-            }
+                finally { discovery.CompleteSource(); RaiseProgress(); }
+            });
         }
         catch (OperationCanceledException) { }
         catch { } // Optional telemetry must not interrupt the VPN or UI.
-        finally { if (entered) { _tick.Release(); } }
+        finally
+        {
+            discovery.EndPass();
+            RaiseProgress();
+            if (entered) { _pass.Release(); }
+        }
     }
 
-    private Candidate? GetOrAdd(IServerHealthSource source)
+    private void RaiseProgress()
     {
-        if (_disposed || string.IsNullOrWhiteSpace(source.HealthProbeAddress)) { return null; }
-        ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress);
-        if (_candidates.TryGetValue(key, out Candidate? candidate))
-        { candidate.Source = source; candidate.Sequence = ++_sequence; return candidate; }
-        foreach (ServerHealthHistoryKey expired in _candidates.Where(pair => pair.Value.InterestedViews == 0).Select(pair => pair.Key).ToArray())
-        { _candidates.Remove(expired); }
-        if (_candidates.Count >= 64)
-        {
-            // Newly viewed rows must not be refused because the first 64 filled the budget.
-            _candidates.Remove(_candidates.MinBy(pair => pair.Value.Sequence).Key);
-        }
-        _candidates[key] = candidate = new(source) { Sequence = ++_sequence };
-        return candidate;
+        if (!_disposed) { ProgressChanged?.Invoke(this, EventArgs.Empty); }
     }
 
     private async void RunTick()
     {
         try { await TickAsync(); }
         catch (OperationCanceledException) { }
-        catch { } // Optional telemetry failures must not interrupt the VPN or UI.
+        catch { }
     }
 
     public async Task TickAsync()
     {
-        if (!await _tick.WaitAsync(0)) { return; }
+        Task? refresh = null;
+        IServerHealthSource[] visible;
+        CancellationToken token;
+        lock (_sync)
+        {
+            if (_disposed) { return; }
+            // Loaded/unloaded callbacks can trail navigation. A closed scope must
+            // not keep refining its rows, and old-tab rows cannot leak into a new tab.
+            if (_activeDiscovery is { IsDisposed: true }) { return; }
+            Discovery? scope = _activeDiscovery is { IsDisposed: false } ? _activeDiscovery : null;
+            if (scope is not null)
+            {
+                if (!scope.Completion.IsCompleted) { return; }
+                if (scope.Sources.Any(source => _store.NeedsRefresh(source, RefreshInterval)))
+                { refresh = scope.Completion = Task.Run(() => RunDiscoveryAsync(scope)); }
+            }
+            visible = _candidates.Values.Where(candidate => candidate.InterestedViews > 0
+                    && (scope is null || scope.Contains(candidate.Source)))
+                .Select(candidate => candidate.Source).ToArray();
+            token = scope?.Token ?? _lifetime.Token;
+        }
+        if (refresh is not null) { await refresh; return; }
+        if (!await _pass.WaitAsync(0, token)) { return; }
         try
         {
-            KeyValuePair<ServerHealthHistoryKey, Candidate>[] candidates;
-            lock (_sync)
+            await Parallel.ForEachAsync(visible, new ParallelOptions
+            { MaxDegreeOfParallelism = 8, CancellationToken = token }, async (source, cancellation) =>
             {
-                if (_disposed) { return; }
-                candidates = _candidates.Where(pair => pair.Value.InterestedViews > 0).ToArray();
-            }
-            ServerHealthHistoryKey[] due = candidates.Where(pair => _store.NeedsRefresh(pair.Value.Source, RefreshInterval))
-                .OrderBy(pair => _store.GetSnapshot(pair.Key).LatestMeasurement?.CheckedAt ?? DateTimeOffset.MinValue)
-                .ThenBy(pair => pair.Key.ServerId, StringComparer.Ordinal).Take(2).Select(pair => pair.Key).ToArray();
-            foreach (ServerHealthHistoryKey key in due)
-            {
-                _lifetime.Token.ThrowIfCancellationRequested();
-                IServerHealthSource source;
                 lock (_sync)
                 {
-                    if (!_candidates.TryGetValue(key, out Candidate? candidate) || candidate.InterestedViews == 0)
-                    {
-                        continue;
-                    }
-                    source = candidate.Source;
+                    ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress!);
+                    if (!_candidates.TryGetValue(key, out Candidate? candidate) || candidate.InterestedViews == 0) { return; }
                 }
-                if (!_store.NeedsRefresh(source, RefreshInterval)) { continue; }
-                await _store.ProbeAsync(source, _lifetime.Token);
-                await _clock.DelayAsync(TimeSpan.FromSeconds(1), _lifetime.Token);
-            }
+                if (_store.NeedsRefresh(source, TimeSpan.FromMinutes(1))) { await _store.ProbeAsync(source, cancellation); }
+            });
         }
-        finally { _tick.Release(); }
+        finally { _pass.Release(); }
     }
 
     public void Dispose()
     {
-        lock (_sync) { _disposed = true; _candidates.Clear(); _activeDiscovery?.Dispose(); }
+        lock (_sync) { _disposed = true; _activeDiscovery?.Dispose(); _candidates.Clear(); }
         _timer?.Dispose();
         _lifetime.Cancel();
+        ProgressChanged = null;
     }
 
     private sealed class Candidate(IServerHealthSource source)
@@ -181,14 +184,39 @@ public sealed class ServerHealthRefreshScheduler : IDisposable
 
     public sealed class Discovery : IDisposable
     {
-        private List<IDisposable>? _interests;
-        internal bool IsDisposed => Volatile.Read(ref _interests) is null;
+        private readonly CancellationTokenSource _cancellation;
+        private readonly HashSet<ServerHealthHistoryKey> _keys;
+        private readonly CancellationToken _token;
+        private IServerHealthSource[] _sources;
+        private int _disposed;
+        private int _running = 1;
+        private int _completed;
+        public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+        public bool IsRunning => !IsDisposed && Volatile.Read(ref _running) != 0;
+        public int TotalSources { get; }
+        public int CompletedSources => Volatile.Read(ref _completed);
+        internal IServerHealthSource[] Sources => _sources;
+        internal CancellationToken Token => _token;
+        internal bool Contains(IServerHealthSource source) =>
+            _keys.Contains(ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress!));
         public Task Completion { get; internal set; } = Task.CompletedTask;
-        internal Discovery(List<IDisposable> interests) => _interests = interests;
+        internal Discovery(IServerHealthSource[] sources, CancellationToken lifetime)
+        {
+            _sources = sources;
+            _keys = sources.Select(source => ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress!)).ToHashSet();
+            TotalSources = sources.Length;
+            _cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+            _token = _cancellation.Token;
+        }
+        internal void BeginPass(int completed) { Volatile.Write(ref _completed, completed); Volatile.Write(ref _running, 1); }
+        internal void CompleteSource() => Interlocked.Increment(ref _completed);
+        internal void EndPass() => Volatile.Write(ref _running, 0);
         public void Dispose()
         {
-            List<IDisposable>? interests = Interlocked.Exchange(ref _interests, null);
-            if (interests is not null) { foreach (IDisposable interest in interests) { interest.Dispose(); } }
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) { return; }
+            _cancellation.Cancel();
+            _sources = [];
+            _ = Completion.ContinueWith(_ => _cancellation.Dispose(), TaskScheduler.Default);
         }
     }
 

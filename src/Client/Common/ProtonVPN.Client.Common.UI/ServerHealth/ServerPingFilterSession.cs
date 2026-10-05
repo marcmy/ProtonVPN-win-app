@@ -78,8 +78,11 @@ public sealed class ServerPingFilterSession : INotifyPropertyChanged
             return true;
         }
 
-        double? latency = GetAverageLatencyMilliseconds(source);
-        return latency is not null && latency <= maximumLatency.Value;
+        string? address = source.HealthProbeAddress;
+        if (string.IsNullOrWhiteSpace(address)) { return false; }
+        ServerHealthSnapshot snapshot = _historyStore.GetSnapshot(ServerHealthHistoryKey.Create(source.HealthServerId, address));
+        // Keep unmeasured rows visible while the first pass runs, rather than presenting a nearly empty list.
+        return snapshot.LatestMeasurement is null || snapshot.Aggregate?.AverageLatencyMilliseconds <= maximumLatency.Value;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

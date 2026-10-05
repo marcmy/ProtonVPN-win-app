@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -211,6 +212,44 @@ public class ServerHealthProbeServiceTest
         Assert.IsFalse(result.UsedPhysicalRoute);
         _permitManager.DidNotReceive().TryCreate(Arg.Any<IPAddress>());
         _routingTableHelper.DidNotReceive().TryCreateRoute(Arg.Any<RouteConfiguration>());
+    }
+
+    [TestMethod]
+    public async Task QuickSampling_IsForwardedWithoutChangingRouteAndPermitOwnership()
+    {
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(true);
+        _pingProbe.MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>(), true).Returns(SuccessResult());
+        ServerHealthProbeService service = CreateService();
+        await service.ProbeAsync("203.0.113.10", CancellationToken.None, quickFirstResponse: true);
+        _pingProbe.Received(1).MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>(), true);
+        _routingTableHelper.DidNotReceive().TryDeleteRoute(Arg.Any<RouteConfiguration>());
+        _permitLease.Received(1).Dispose();
+        Assert.AreEqual(0, service.ActiveAddressLockCount);
+    }
+
+    [TestMethod]
+    public async Task ParallelQuickChecks_AreBoundedToThirtyTwoAndReleaseAllAddressLocks()
+    {
+        _routingTableHelper.RouteExists(Arg.Any<RouteConfiguration>()).Returns(true);
+        TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int entered = 0;
+        _pingProbe.MeasureAsync(Arg.Any<IPAddress>(), Arg.Any<CancellationToken>(), true).Returns(async _ =>
+        {
+            if (Interlocked.Increment(ref entered) == 32) { started.SetResult(); }
+            await release.Task;
+            return SuccessResult();
+        });
+        ServerHealthProbeService service = CreateService();
+        Task[] probes = Enumerable.Range(1, 40)
+            .Select(index => service.ProbeAsync($"203.0.113.{index}", CancellationToken.None, true)).ToArray();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(32, Volatile.Read(ref entered));
+        release.SetResult();
+        await Task.WhenAll(probes);
+        Assert.AreEqual(40, entered);
+        Assert.AreEqual(0, service.ActiveAddressLockCount);
+        _permitLease.Received(40).Dispose();
     }
 
     private ServerHealthProbeService CreateService()

@@ -93,12 +93,15 @@ public class ServerHealthPersistenceTest
     [TestMethod]
     public void CorruptAndOversizedCache_AreIgnored()
     {
-        foreach (string content in new[] { "not json", new string(' ', 2 * 1024 * 1024 + 1) })
+        foreach (string content in new[] { "not json" })
         {
             File.WriteAllText(CachePath, content);
             using ServerHealthHistoryStore store = new(_clock, cachePath: CachePath);
             Assert.IsNull(store.GetSnapshot(Key(Source())).LatestMeasurement);
         }
+        using (FileStream oversized = File.Create(CachePath)) { oversized.SetLength(64 * 1024 * 1024 + 1); }
+        using ServerHealthHistoryStore oversizedStore = new(_clock, cachePath: CachePath);
+        Assert.IsNull(oversizedStore.GetSnapshot(Key(Source())).LatestMeasurement);
     }
 
     [TestMethod]
@@ -133,9 +136,9 @@ public class ServerHealthPersistenceTest
     [TestMethod]
     public async Task CacheCapacity_EvictsOldestAndPersistsOnlyBoundedEndpoints()
     {
-        using (ServerHealthHistoryStore store = new(_clock, cachePath: CachePath))
+        using (ServerHealthHistoryStore store = new(_clock, cachePath: CachePath, maximumCachedEntries: 64))
         {
-            for (int i = 0; i < 4097; i++)
+            for (int i = 0; i < 65; i++)
             {
                 QueueServerHealthSource source = new() { HealthServerId = $"bounded-{i}", HealthProbeAddress = "192.0.2.1" };
                 source.Enqueue(Success());
@@ -144,9 +147,28 @@ public class ServerHealthPersistenceTest
             }
             Assert.IsNull(store.GetSnapshot(ServerHealthHistoryKey.Create("bounded-0", "192.0.2.1")).LatestMeasurement);
         }
-        Assert.AreEqual(4096, JsonSerializer.Deserialize<List<SavedServerHealth>>(File.ReadAllText(CachePath))!.Count);
+        Assert.AreEqual(64, JsonSerializer.Deserialize<List<SavedServerHealth>>(File.ReadAllText(CachePath))!.Count);
         using ServerHealthHistoryStore restored = new(_clock, cachePath: CachePath);
-        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("bounded-4096", "192.0.2.1")).LatestMeasurement);
+        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("bounded-64", "192.0.2.1")).LatestMeasurement);
+    }
+
+    [TestMethod]
+    public async Task DefaultCache_RetainsAndRestoresAnEntireCatalogueBeyondOldFourThousandLimit()
+    {
+        using (ServerHealthHistoryStore store = new(_clock, cachePath: CachePath))
+        {
+            for (int i = 0; i < 5000; i++)
+            {
+                QueueServerHealthSource source = new() { HealthServerId = $"catalogue-{i}", HealthProbeAddress = "192.0.2.1" };
+                source.Enqueue(Success());
+                await store.ProbeAsync(source, CancellationToken.None);
+            }
+            Assert.IsNotNull(store.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-0", "192.0.2.1")).LatestMeasurement);
+        }
+        Assert.AreEqual(5000, JsonSerializer.Deserialize<List<SavedServerHealth>>(File.ReadAllText(CachePath))!.Count);
+        using ServerHealthHistoryStore restored = new(_clock, cachePath: CachePath);
+        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-0", "192.0.2.1")).LatestMeasurement);
+        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-4999", "192.0.2.1")).LatestMeasurement);
     }
 
     [TestMethod]

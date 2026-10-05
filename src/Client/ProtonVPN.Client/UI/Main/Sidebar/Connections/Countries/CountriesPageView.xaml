@@ -101,6 +101,13 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                       ToolTipService.ToolTip="{x:Bind ViewModel.Localizer.Get('ServerPing_CachedFilterHint')}" />
         </StackPanel>
 
+        <TextBlock Grid.Row="1"
+                   Margin="12,44,12,4"
+                   Foreground="{ThemeResource TextWeakColorBrush}"
+                   FontSize="11"
+                   Text="{x:Bind ViewModel.PingProgressText}"
+                   Visibility="{x:Bind ViewModel.IsMeasuringPings, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
         <controls:ConnectionItemsControl x:Name="ConnectionItemsControl"
                                          Grid.Row="2"
                                          ItemsSource="{x:Bind ViewModel.GroupsCvs.View, Mode=OneTime}" />

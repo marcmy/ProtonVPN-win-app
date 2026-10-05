@@ -6,7 +6,7 @@ namespace ProtonVPN.Client.Common.UI.ServerHealth;
 
 public static class ServerHealthHistorySession
 {
-    public static ServerHealthHistoryStore Current { get; } = new(maximumConcurrentProbes: 1,
+    public static ServerHealthHistoryStore Current { get; } = new(maximumConcurrentProbes: 32,
         minimumProbeInterval: TimeSpan.FromMinutes(1),
         cachePath: Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ProtonVPN", "ServerHealth", "ping-cache-v1.json"));
 

@@ -28,6 +28,4 @@ public interface IHostLocationItem : ILocationItem
     void FetchSubItems();
 
     void RefreshPingFilter();
-
-    void StopPingDiscovery();
 }

@@ -44,6 +44,10 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 {
     private readonly IExclusionChecker _exclusionChecker;
     private ServerHealthRefreshScheduler.Discovery? _pingDiscovery;
+    private ServerHealthUiRefreshQueue? _pingUiRefresh;
+
+    public bool IsMeasuringPings => IsActive && ServerHealthHistorySession.Refresh.IsMeasuring;
+    public string PingProgressText => ServerHealthHistorySession.Refresh.ProgressText;
 
     [ObservableProperty]
     private ICountriesComponent _selectedCountriesComponent;
@@ -93,7 +97,9 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     protected override void OnActivated()
     {
         base.OnActivated();
+        _pingUiRefresh = new(action => ExecuteOnUIThread(action), RefreshPingPresentation);
         ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged += OnPingProgressChanged;
         StartPingDiscovery();
         if (PingFilter.IsActive)
         {
@@ -104,9 +110,11 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     protected override void OnDeactivated()
     {
         ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged -= OnPingProgressChanged;
+        _pingUiRefresh?.Dispose();
+        _pingUiRefresh = null;
         _pingDiscovery?.Dispose();
         _pingDiscovery = null;
-        foreach (IHostLocationItem host in Items.OfType<IHostLocationItem>()) { host.StopPingDiscovery(); }
         base.OnDeactivated();
     }
 
@@ -114,14 +122,18 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     {
         if (!args.Snapshot.IsChecking && !args.Snapshot.IsRechecking)
         {
-            ExecuteOnUIThread(() =>
-            {
-                if (IsActive && PingFilter.IsActive)
-                {
-                    RefreshCachedFilter();
-                }
-            });
+            _pingUiRefresh?.Request();
         }
+    }
+
+    private void OnPingProgressChanged(object? sender, EventArgs args) => _pingUiRefresh?.Request();
+
+    private void RefreshPingPresentation()
+    {
+        if (!IsActive) { return; }
+        OnPropertyChanged(nameof(IsMeasuringPings));
+        OnPropertyChanged(nameof(PingProgressText));
+        if (PingFilter.IsActive) { RefreshCachedFilter(); }
     }
 
     private void RefreshCachedFilter()
@@ -137,6 +149,13 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
         return SelectedCountriesComponent.GetItems();
     }
 
+    protected override void OnServerListChanged()
+    {
+        base.OnServerListChanged();
+        // The catalogue can arrive after activation or change while the tab is open.
+        StartPingDiscovery();
+    }
+
     private void GoToCountryFeature(CountriesConnectionType connectionType)
     {
         SelectedCountriesComponent = CountriesComponents.FirstOrDefault(c => c.ConnectionType == connectionType)
@@ -145,7 +164,6 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
-        foreach (IHostLocationItem host in Items.OfType<IHostLocationItem>()) { host.StopPingDiscovery(); }
         FetchItems();
         StartPingDiscovery();
     }

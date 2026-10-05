@@ -33,33 +33,55 @@ internal sealed class ServerHealthPingProbe : IServerHealthPingProbe
     internal const int ProbeSampleCount = 4;
     private const int PROBE_TIMEOUT_IN_MILLISECONDS = 500;
     private static readonly TimeSpan _delayBetweenSamples = TimeSpan.FromMilliseconds(100);
+    private readonly Func<IPAddress, int, CancellationToken, Task<long?>> _send;
+    private readonly Func<TimeSpan, CancellationToken, Task> _delay;
+
+    public ServerHealthPingProbe() : this(SendAsync, Task.Delay) { }
+
+    internal ServerHealthPingProbe(Func<IPAddress, int, CancellationToken, Task<long?>> send,
+        Func<TimeSpan, CancellationToken, Task> delay)
+    {
+        _send = send;
+        _delay = delay;
+    }
+
+    private static async Task<long?> SendAsync(IPAddress address, int timeout, CancellationToken cancellationToken)
+    {
+        using Ping ping = new();
+        PingReply reply = await ping.SendPingAsync(address, timeout);
+        cancellationToken.ThrowIfCancellationRequested();
+        return reply.Status == IPStatus.Success ? reply.RoundtripTime : null;
+    }
 
     public async Task<ServerHealthProbeResultIpcEntity> MeasureAsync(
         IPAddress ipAddress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool quickFirstResponse = false)
     {
         List<long> successfulRoundTrips = [];
-
-        using Ping ping = new();
-        for (int sampleIndex = 0; sampleIndex < ProbeSampleCount; sampleIndex++)
+        int sampleLimit = quickFirstResponse ? 2 : ProbeSampleCount;
+        int attempted = 0;
+        for (int sampleIndex = 0; sampleIndex < sampleLimit; sampleIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            attempted++;
 
             try
             {
-                PingReply reply = await ping.SendPingAsync(ipAddress, PROBE_TIMEOUT_IN_MILLISECONDS);
-                if (reply.Status == IPStatus.Success)
+                long? latency = await _send(ipAddress, PROBE_TIMEOUT_IN_MILLISECONDS, cancellationToken);
+                if (latency is not null)
                 {
-                    successfulRoundTrips.Add(reply.RoundtripTime);
+                    successfulRoundTrips.Add(latency.Value);
                 }
             }
             catch (Exception exception) when (exception is PingException or InvalidOperationException)
             {
             }
 
-            if (sampleIndex < ProbeSampleCount - 1)
+            if (quickFirstResponse && successfulRoundTrips.Count > 0) { break; }
+            if (sampleIndex < sampleLimit - 1)
             {
-                await Task.Delay(_delayBetweenSamples, cancellationToken);
+                await _delay(quickFirstResponse ? TimeSpan.FromMilliseconds(25) : _delayBetweenSamples, cancellationToken);
             }
         }
 
@@ -69,9 +91,9 @@ internal sealed class ServerHealthPingProbe : IServerHealthPingProbe
                 ? successfulRoundTrips.Average()
                 : null,
             PacketLossPercent =
-                (ProbeSampleCount - successfulRoundTrips.Count) * 100d / ProbeSampleCount,
+                (attempted - successfulRoundTrips.Count) * 100d / attempted,
             SuccessfulSamples = successfulRoundTrips.Count,
-            TotalSamples = ProbeSampleCount,
+            TotalSamples = attempted,
             CheckedAtUtc = DateTime.UtcNow,
             UsedPhysicalRoute = true,
             Error = successfulRoundTrips.Count == 0
