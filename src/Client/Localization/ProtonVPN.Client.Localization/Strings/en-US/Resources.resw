@@ -4525,9 +4525,9 @@
     <value>How is your connection?</value>
   </data>
   <data name="ServerPing_CachedFilterLabel" xml:space="preserve">
-    <value>Ping (saved)</value>
+    <value>Ping</value>
   </data>
   <data name="ServerPing_CachedFilterHint" xml:space="preserve">
-    <value>Uses saved pings. Unmeasured servers are hidden; a small selection refreshes in the background.</value>
+    <value>Previous measurements appear immediately; new results are added in the background. Servers without a measurement are hidden by a ping limit.</value>
   </data>
 </root>

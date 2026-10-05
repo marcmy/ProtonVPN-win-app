@@ -129,7 +129,8 @@ public sealed class ServerHealthHistoryStore : IDisposable
 
     public async Task<ServerHealthSnapshot> ProbeAsync(
         IServerHealthSource source,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool retryFailure = true)
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
         ArgumentNullException.ThrowIfNull(source);
@@ -157,7 +158,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
                     new(TaskCreationOptions.RunContinuationsAsynchronously);
                 pending = completion.Task;
                 _inFlight.Add(key, pending);
-                _ = RunProbeAndReleaseAsync(key, source, completion);
+                _ = RunProbeAndReleaseAsync(key, source, completion, retryFailure);
             }
         }
 
@@ -191,12 +192,13 @@ public sealed class ServerHealthHistoryStore : IDisposable
     private async Task RunProbeAndReleaseAsync(
         ServerHealthHistoryKey key,
         IServerHealthSource source,
-        TaskCompletionSource<ServerHealthSnapshot> completion)
+        TaskCompletionSource<ServerHealthSnapshot> completion,
+        bool retryFailure)
     {
         try
         {
             completion.TrySetResult(
-                await ProbeCoreAsync(key, source, _lifetimeCancellation.Token));
+                await ProbeCoreAsync(key, source, _lifetimeCancellation.Token, retryFailure));
         }
         catch (OperationCanceledException exception)
         {
@@ -218,7 +220,8 @@ public sealed class ServerHealthHistoryStore : IDisposable
     private async Task<ServerHealthSnapshot> ProbeCoreAsync(
         ServerHealthHistoryKey key,
         IServerHealthSource source,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool retryFailure)
     {
         Entry entry = _entries.GetOrAdd(key, _ => new Entry(_clock.UtcNow));
         long networkGeneration = Interlocked.Read(ref _networkGeneration);
@@ -226,7 +229,7 @@ public sealed class ServerHealthHistoryStore : IDisposable
         try
         {
             ServerHealthProbeMeasurement first = await ProbeOnceAsync(source, cancellationToken);
-            if (!first.IsCompleteFailure)
+            if (!first.IsCompleteFailure || !retryFailure)
             {
                 return Record(key, entry, first with { ServerLoad = source.HealthServerLoad }, networkGeneration);
             }

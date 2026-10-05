@@ -63,6 +63,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private long _resultsGeneration;
     private CancellationTokenSource? _resultsCancellationTokenSource;
     private List<ConnectionItemBase> _unfilteredSearchResult = [];
+    private ServerHealthRefreshScheduler.Discovery? _pingDiscovery;
 
     [ObservableProperty]
     private bool _hasSearchInput;
@@ -136,6 +137,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private Task ReloadResultsAsync()
     {
+        StopPingDiscovery();
         long generation = Interlocked.Increment(ref _resultsGeneration);
         CancellationTokenSource cancellationTokenSource = new();
         CancellationTokenSource? previousCancellationTokenSource =
@@ -291,8 +293,24 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         _unfilteredSearchResult = result.ToList();
         ApplySearchResult();
-        ServerHealthHistorySession.Refresh.OfferCandidates(_unfilteredSearchResult.OfType<ServerLocationItemBase>()
-            .Where(server => !server.IsUnderMaintenance));
+        StartPingDiscovery();
+    }
+
+    private void StartPingDiscovery()
+    {
+        _pingDiscovery?.Dispose();
+        _pingDiscovery = null;
+        if (!IsActive || !HasSearchInput) { return; }
+        _pingDiscovery = ServerHealthHistorySession.Refresh.StartDiscovery(_unfilteredSearchResult.OfType<ServerLocationItemBase>()
+            .Where(server => !server.IsUnderMaintenance)
+            .OrderBy(server => server.Server.Score).ThenBy(server => server.Load));
+    }
+
+    private void StopPingDiscovery()
+    {
+        _pingDiscovery?.Dispose();
+        _pingDiscovery = null;
+        foreach (IHostLocationItem host in _unfilteredSearchResult.OfType<IHostLocationItem>()) { host.StopPingDiscovery(); }
     }
 
     private void ApplySearchResult()
@@ -340,6 +358,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         base.OnActivated();
         ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
+        StartPingDiscovery();
         if (HasSearchInput)
         {
             ApplySearchResult();
@@ -349,6 +368,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     protected override void OnDeactivated()
     {
         ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        StopPingDiscovery();
         base.OnDeactivated();
     }
 

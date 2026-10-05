@@ -45,6 +45,7 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
     private bool _lastKnownIsPaidUser = false;
     private ConnectionDetails? _lastKnownConnectionDetails = null;
     private List<ConnectionItemBase> _unfilteredSubItems = [];
+    private ServerHealthRefreshScheduler.Discovery? _pingDiscovery;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ShowSmartRoutingOverlayCommand))]
@@ -117,11 +118,21 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
 
     public void FetchSubItems()
     {
+        StopPingDiscovery();
         _unfilteredSubItems = GetSubItems().ToList();
 
         ApplySubItems();
-        ServerHealthHistorySession.Refresh.OfferCandidates(_unfilteredSubItems.OfType<ServerLocationItemBase>()
-            .Where(server => !server.IsUnderMaintenance));
+        ServerLocationItemBase[] servers = _unfilteredSubItems.OfType<ServerLocationItemBase>()
+            .Where(server => !server.IsUnderMaintenance)
+            .OrderBy(server => server.Server.Score).ThenBy(server => server.Load).ToArray();
+        if (servers.Length > 0) { _pingDiscovery = ServerHealthHistorySession.Refresh.StartDiscovery(servers); }
+    }
+
+    public void StopPingDiscovery()
+    {
+        _pingDiscovery?.Dispose();
+        _pingDiscovery = null;
+        foreach (IHostLocationItem nestedHost in _unfilteredSubItems.OfType<IHostLocationItem>()) { nestedHost.StopPingDiscovery(); }
     }
 
     public void RefreshPingFilter()
@@ -141,6 +152,7 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
 
     protected void ClearSubItems()
     {
+        StopPingDiscovery();
         _unfilteredSubItems.Clear();
         SubItems.Clear();
         SubGroups.Clear();

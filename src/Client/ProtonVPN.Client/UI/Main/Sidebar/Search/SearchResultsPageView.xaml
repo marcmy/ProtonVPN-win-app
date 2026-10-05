@@ -89,7 +89,8 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                            HorizontalAlignment="Center"
                            Foreground="{ThemeResource TextWeakColorBrush}"
                            Style="{ThemeResource BodyTextBlockStyle}"
-                           Text="{x:Bind ViewModel.Localizer.Get('Search_NoResults_Description')}" />
+                           Text="{x:Bind ViewModel.Localizer.Get('Search_NoResults_Description')}"
+                           Visibility="{x:Bind ViewModel.IsPingFilterActive, Converter={StaticResource NotBooleanToVisibilityConverter}}" />
 
                 <TextBlock MaxWidth="300"
                            Margin="12,8,12,0"
