@@ -55,6 +55,10 @@ public class VpnServiceCaller : ServiceCallerBase<IVpnController>, IVpnServiceCa
     public Task<Result<FolderScanStatusIpcEntity>> GetFolderScanStatusAsync() =>
         InvokeAsync((controller, token) => controller.GetFolderScanStatus(token));
 
+    public Task<Result<FolderScanStatusIpcEntity>> PrepareFolderRuleAsync(string folder, CancellationToken cancellationToken) =>
+        InvokeAsync((controller, token) => controller.PrepareFolderRule(new() { FolderPath = folder }, token),
+            cancellationToken: cancellationToken);
+
     public Task<Result<ServerHealthProbeResultIpcEntity>> ProbeServerHealthAsync(ServerHealthProbeRequestIpcEntity request)
     {
         return InvokeAsync((c, ct) => c.ProbeServerHealth(request, ct));

@@ -34,6 +34,7 @@ public interface IVpnController : IServiceController
     Task<ServerHealthProbeResultIpcEntity> ProbeServerHealth(ServerHealthProbeRequestIpcEntity request, CancellationToken cancelToken);
     Task ApplySettings(MainSettingsIpcEntity settings, CancellationToken cancelToken);
     Task<FolderScanStatusIpcEntity> GetFolderScanStatus(CancellationToken cancelToken);
+    Task<FolderScanStatusIpcEntity> PrepareFolderRule(FolderScanRequestIpcEntity request, CancellationToken cancelToken);
 
     Task RepeatState(CancellationToken cancelToken);
     Task RepeatPortForwardingState(CancellationToken cancelToken);

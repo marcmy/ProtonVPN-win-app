@@ -19,6 +19,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
@@ -33,6 +34,109 @@ namespace ProtonVPN.Service.Tests.SplitTunneling;
 [TestClass]
 public class FolderAppMonitorTest
 {
+    [TestMethod]
+    public async Task AddDiscovery_IsPreparedOnlyThenApplyImmediatelyRetainsUnchangedRules()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-prepared-apply-").FullName;
+        string first = Path.Combine(root, "first");
+        string second = Path.Combine(root, "second");
+        ConcurrentDictionary<string, int> scans = new();
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), (folder, _, progress) =>
+        {
+            scans.AddOrUpdate(folder, 1, (_, count) => count + 1);
+            progress(new(1, 1));
+            return Task.FromResult(new FolderScanResult([Path.Combine(folder, "app.exe")], null));
+        });
+        try
+        {
+            var prepared = await monitor.PrepareRuleAsync(first, default);
+            Assert.AreEqual(1, prepared.Executables);
+            Assert.AreEqual(0, monitor.AppPaths.Length); // Add is not Apply.
+            Assert.AreEqual(0, monitor.Status.RulePaths.Length);
+            monitor.ReplaceRules([first]);
+            monitor.Start();
+            Assert.AreEqual(1, monitor.AppPaths.Length);
+            Assert.AreEqual(1, monitor.Status.Executables);
+            Assert.IsFalse(monitor.Status.IsScanning);
+
+            await monitor.PrepareRuleAsync(second, default);
+            Assert.AreEqual(1, monitor.AppPaths.Length); // Existing coverage is unchanged during Add.
+            monitor.ReplaceRules([first, second]);
+            monitor.Start();
+            CollectionAssert.AreEquivalent(new[] { Path.Combine(first, "app.exe"), Path.Combine(second, "app.exe") }, monitor.AppPaths);
+            Assert.AreEqual(2, monitor.Status.Executables);
+            Assert.IsFalse(monitor.Status.IsScanning);
+            monitor.ReplaceRules([second]);
+            Assert.AreEqual(1, monitor.AppPaths.Length);
+            Assert.AreEqual(Path.Combine(second, "app.exe"), monitor.AppPaths[0]);
+            monitor.ReplaceRules([second]); // Unrelated Apply must not rescan a healthy rule.
+            await Task.Delay(500);
+            Assert.AreEqual(1, scans[first]);
+            Assert.AreEqual(1, scans[second]);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task PreparedRules_StillEnforceCombinedExecutableBudgetOnApply()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-prepared-budget-").FullName;
+        string first = Path.Combine(root, "first");
+        string second = Path.Combine(root, "second");
+        string[] library = Enumerable.Range(0, SplitTunnelFolderScanner.MaximumExecutables)
+            .Select(index => Path.Combine(first, $"{index}.exe")).ToArray();
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), (folder, _, _) =>
+            Task.FromResult(new FolderScanResult(folder == first ? library : [Path.Combine(second, "extra.exe")], null)));
+        try
+        {
+            await monitor.PrepareRuleAsync(first, default);
+            monitor.ReplaceRules([first]);
+            await monitor.PrepareRuleAsync(second, default);
+            monitor.ReplaceRules([first, second]);
+            Assert.AreEqual(0, monitor.AppPaths.Length);
+            StringAssert.Contains(monitor.Status.Error, "Combined folder executable limit");
+            monitor.ReplaceRules([first]);
+            Assert.AreEqual(library.Length, monitor.AppPaths.Length);
+            Assert.AreEqual(string.Empty, monitor.Status.Error);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task CancelledPreparation_DoesNotPublishOrCachePartialDiscovery()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-prepare-cancel-").FullName;
+        TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int scans = 0;
+        using FolderAppMonitor monitor = new(Substitute.For<ILogger>(), async (_, token, progress) =>
+        {
+            if (++scans == 1)
+            {
+                progress(new(512, 1));
+                entered.SetResult();
+                await Task.Delay(Timeout.Infinite, token);
+            }
+            return new([Path.Combine(root, "app.exe")], null);
+        });
+        using CancellationTokenSource cancel = new();
+        try
+        {
+            Task preparation = monitor.PrepareRuleAsync(root, cancel.Token);
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.IsTrue(monitor.Status.IsPreparing);
+            Assert.AreEqual(1, monitor.Status.PreparationExecutables);
+            cancel.Cancel();
+            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => preparation);
+            Assert.IsFalse(monitor.Status.IsPreparing);
+            monitor.ReplaceRules([root]);
+            Assert.AreEqual(0, monitor.AppPaths.Length);
+            await monitor.ReconcileAsync(force: true);
+            Assert.AreEqual(2, scans);
+            Assert.AreEqual(1, monitor.AppPaths.Length);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
+    }
+
     [TestMethod]
     public void RecoveryHealthChecksAreInfrequentRatherThanEveryFifteenSeconds()
     {

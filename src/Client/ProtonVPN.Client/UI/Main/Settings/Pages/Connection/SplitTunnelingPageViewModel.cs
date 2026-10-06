@@ -346,24 +346,25 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
         CancellationToken scanToken = scanCancellation.Token;
         IsFolderScanRunning = true;
         FolderScanProgress = Localizer.Get("SplitTunneling_Folders_Scanning");
-        FolderScanResult scan;
+        FolderScanStatusIpcEntity scan;
         try
         {
-            scan = await Task.Run(() => SplitTunnelFolderScanner.ScanAsync(path, scanToken, progress =>
-                ExecuteOnUIThread(() =>
-                {
-                    if (!scanToken.IsCancellationRequested && IsFolderScanRunning && ReferenceEquals(scanCancellation, _folderValidationCancellation))
-                    {
-                        FolderScanProgress = Localizer.GetFormat("SplitTunneling_Folders_ScanProgress", progress.Entries, progress.Executables);
-                    }
-                })), scanToken);
+            // The service keeps this discovery for Apply; never import expanded paths into the app list.
+            var result = await _vpnServiceCaller.PrepareFolderRuleAsync(path, scanToken);
+            scanToken.ThrowIfCancellationRequested();
+            if (!result.Success || result.Value == null)
+            {
+                FolderError = Localizer.Get("SplitTunneling_Folders_StatusUnavailable");
+                return;
+            }
+            scan = result.Value;
         }
         catch (OperationCanceledException) { return; }
         finally
         {
             if (ReferenceEquals(scanCancellation, _folderValidationCancellation)) { IsFolderScanRunning = false; FolderScanProgress = string.Empty; }
         }
-        if (scan.Error != null) { FolderError = scan.Error; return; }
+        if (scan.Error.Length > 0) { FolderError = scan.Error; return; }
         if (!ReferenceEquals(folders, Folders)) { FolderError = Localizer.Get("SplitTunneling_Folders_ModeChanged"); return; }
         // Browse and manual Add can finish concurrently; recheck the collection after the scan.
         if (!folders.Any(folder => string.Equals(folder.FolderPath, path, StringComparison.OrdinalIgnoreCase))) { folders.Add(new(path)); }
@@ -405,6 +406,11 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
                 {
                     if (!token.IsCancellationRequested)
                     {
+                        if (IsFolderScanRunning && result.Success && result.Value?.IsPreparing == true)
+                        {
+                            FolderScanProgress = Localizer.GetFormat("SplitTunneling_Folders_ScanProgress",
+                                result.Value.PreparationEntries, result.Value.PreparationExecutables);
+                        }
                         FolderServiceProgress = result.Success && result.Value != null
                             ? FormatFolderServiceStatus(result.Value)
                             : Localizer.Get("SplitTunneling_Folders_StatusUnavailable");
