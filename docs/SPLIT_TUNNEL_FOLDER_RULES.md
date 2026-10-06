@@ -20,8 +20,18 @@ settings page is loaded and ready. It does not create a second independent
 editor or silently apply unsaved settings. Folder changes in either mode update
 the hover summary through the existing settings-change notifications.
 
+Add/Browse asks the service to discover the new folder before accepting the rule.
+It reports progress and supports cancellation without applying unsaved settings.
+The service retains a bounded, short-lived preparation snapshot (ten minutes),
+so Apply can immediately install those discovered apps without waiting for a
+second scan. Expanded executable paths are never supplied by the UI or persisted
+as individual app rules. Apply retains snapshots for unchanged folders and drops
+removed owners immediately; unrelated settings changes do not rescan healthy rules.
+If a preparation expired or was evicted, discovery falls back to the normal
+asynchronous path. Both client and service must be updated for Add-time preparation.
+
 The service receives active folder paths via settings IPC and owns discovery;
-the UI does not need to remain open. Discovery after connect/Apply runs on a
+the UI does not need to remain open. Discovery runs on a
 dedicated Windows background-priority worker in 128-entry batches, with cancellation on rule replacement
 or disconnect. Relevant filesystem notifications are coalesced (250 ms), with a
 five-minute watcher-health check that retries only failed or unwatched rules.
@@ -40,8 +50,8 @@ Background batches pause for at least 10 ms, or four times the preceding batch's
 work time, targeting at most 20% worker duty rather than running continuously.
 The background mode lowers only the dedicated scan worker's resource scheduling
 priority, never the VPN/filter or shared thread-pool threads. There is no scan
-parallelism within one monitor. Validation initiated by the user retains its
-512-entry batching. All existing executable, directory, no-link and timeout
+parallelism within one monitor. Add-time discovery uses the same paced worker,
+so adding a library does not introduce an unbounded foreground scan. All existing executable, directory, no-link and timeout
 safeguards remain active. Pacing can delay discovery; it is not a promise of
 zero disk/CPU impact or a guarantee of game frame-time stability.
 
@@ -61,7 +71,7 @@ periodic reconciliation, with a service-log notice. Drive roots,
 Windows/system paths, broad profile/program roots, UNC/device paths and broad
 pattern anchors are rejected. Linked roots/ancestors are rejected and linked
 descendants are skipped. Failed/over-limit scans return no partial app set for
-the affected root and emit a service-log warning. The UI checks a folder's scan
+the affected root and emit a service-log warning. The service checks a folder's scan
 before accepting it, reports progress and offers cancellation. The dialog also
 polls service discovery status while the settings page is open: scanning,
 discovery complete, inactive, unavailable or failure. It explicitly distinguishes

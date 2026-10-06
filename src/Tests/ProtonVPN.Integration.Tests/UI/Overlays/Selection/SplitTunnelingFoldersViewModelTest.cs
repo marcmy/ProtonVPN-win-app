@@ -38,6 +38,13 @@ using ProtonVPN.Client.UI.Main.Settings.Connection;
 using ProtonVPN.Client.UI.Main.Features.SplitTunneling;
 using ProtonVPN.Client.UI.Overlays.Selection.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
+using ProtonVPN.Common.Core.Helpers;
+using ProtonVPN.Common.Legacy.Abstract;
+using ProtonVPN.Client.Logic.Services;
+using ProtonVPN.Client.Contracts.ProcessCommunication;
+using ProtonVPN.Logging.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts.Controllers;
 
 namespace ProtonVPN.Integration.Tests.UI.Overlays.Selection;
 
@@ -86,6 +93,55 @@ public class SplitTunnelingFoldersViewModelTest
     }
 
     [TestMethod]
+    public async Task Add_WaitsForServiceDiscoveryAndDoesNotImportAppsOrApplyUnsavedRules()
+    {
+        string root = Directory.CreateTempSubdirectory("proton-ui-prepare-").FullName;
+        try
+        {
+            CreateModel(out IViewModelHelper helper);
+            IVpnServiceCaller service = Substitute.For<IVpnServiceCaller>();
+            TaskCompletionSource<Result<FolderScanStatusIpcEntity>> reply = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            service.PrepareFolderRuleAsync(root, Arg.Any<CancellationToken>()).Returns(reply.Task);
+            HeadlessFolderPage model = new(helper, Substitute.For<ISettingsConflictResolver>(), service);
+            model.CustomFolderPath = $"\"{root}\"";
+            Task addition = model.AddFolderAsync();
+            Assert.IsTrue(model.IsFolderScanRunning);
+            Assert.AreEqual(0, model.Folders.Count);
+            reply.SetResult(Result.Ok(new FolderScanStatusIpcEntity { Executables = 7 }));
+            await addition;
+            Assert.AreEqual(1, model.Folders.Count);
+            Assert.AreEqual(0, model.Apps.Count);
+            await service.Received(1).PrepareFolderRuleAsync(root, Arg.Any<CancellationToken>());
+            await service.DidNotReceive().ApplySettingsAsync(Arg.Any<MainSettingsIpcEntity>());
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task CancelledServiceDiscovery_IsNotRetriedOrTreatedAsCommunicationFailure()
+    {
+        IVpnController controller = Substitute.For<IVpnController>();
+        IGrpcClient grpc = Substitute.For<IGrpcClient>();
+        grpc.GetServiceControllerOrThrowAsync<IVpnController>(Arg.Any<TimeSpan>()).Returns(Task.FromResult(controller));
+        IServiceCommunicationErrorHandler errors = Substitute.For<IServiceCommunicationErrorHandler>();
+        TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        controller.PrepareFolderRule(Arg.Any<FolderScanRequestIpcEntity>(), Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            entered.SetResult();
+            await Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+            return new FolderScanStatusIpcEntity();
+        });
+        VpnServiceCaller caller = new(Substitute.For<ILogger>(), grpc, new(() => errors));
+        using CancellationTokenSource cancel = new();
+        Task pending = caller.PrepareFolderRuleAsync(@"C:\tools", cancel.Token);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        cancel.Cancel();
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => pending);
+        await errors.DidNotReceive().HandleAsync();
+        await controller.Received(1).PrepareFolderRule(Arg.Any<FolderScanRequestIpcEntity>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task MoreThanTwentyFoldersCanBeAddedInBothModes()
     {
         string root = Directory.CreateTempSubdirectory("proton-unlimited-folders-").FullName;
@@ -118,7 +174,7 @@ public class SplitTunnelingFoldersViewModelTest
             var model = CreateModel(out _);
             model.PropertyChanged += (_, args) =>
             {
-                if (args.PropertyName == nameof(model.FolderScanProgress) && model.FolderScanProgress == "SplitTunneling_Folders_ScanProgress")
+                if (args.PropertyName == nameof(model.FolderScanProgress) && model.FolderScanProgress == "SplitTunneling_Folders_Scanning")
                 {
                     model.CancelFolderScan();
                 }
@@ -180,12 +236,12 @@ public class SplitTunnelingFoldersViewModelTest
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    public sealed class HeadlessFolderPage(IViewModelHelper helper, ISettingsConflictResolver conflicts) : SplitTunnelingPageViewModel(
+    public sealed class HeadlessFolderPage(IViewModelHelper helper, ISettingsConflictResolver conflicts, IVpnServiceCaller? service = null) : SplitTunnelingPageViewModel(
         Substitute.For<IUrlsBrowser>(), Substitute.For<IRequiredReconnectionSettings>(),
         Substitute.For<IMainViewNavigator>(), Substitute.For<ISettingsViewNavigator>(),
         Substitute.For<IMainWindowOverlayActivator>(), Substitute.For<ISettings>(),
         conflicts, Substitute.For<IConnectionManager>(), Substitute.For<IIpSelector>(),
-        Substitute.For<IAppSelector>(), Substitute.For<IMainWindowActivator>(), Substitute.For<IVpnServiceCaller>(), helper)
+        Substitute.For<IAppSelector>(), Substitute.For<IMainWindowActivator>(), service ?? CreateFolderService(), helper)
     {
         protected override void OnPropertyChanged(PropertyChangedEventArgs args)
         {
@@ -193,5 +249,16 @@ public class SplitTunnelingFoldersViewModelTest
             // This component test has no WinUI resource dictionary for the unrelated illustration.
             if (args.PropertyName != nameof(SplitTunnelingFeatureIconSource)) { base.OnPropertyChanged(args); }
         }
+    }
+
+    private static IVpnServiceCaller CreateFolderService()
+    {
+        IVpnServiceCaller service = Substitute.For<IVpnServiceCaller>();
+        service.PrepareFolderRuleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            FolderScanResult result = await SplitTunnelFolderScanner.ScanAsync(call.Arg<string>(), call.Arg<CancellationToken>());
+            return Result.Ok(new FolderScanStatusIpcEntity { Executables = result.AppPaths.Length, Error = result.Error ?? string.Empty });
+        });
+        return service;
     }
 }

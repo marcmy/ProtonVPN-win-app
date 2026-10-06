@@ -18,6 +18,8 @@
  */
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
 
 namespace ProtonVPN.Service.SplitTunneling;
@@ -27,6 +29,7 @@ public interface IFolderAppMonitor
     event EventHandler? PathsChanged;
     string[] AppPaths { get; }
     FolderScanStatusIpcEntity Status { get; }
+    Task<FolderScanStatusIpcEntity> PrepareRuleAsync(string folder, CancellationToken cancellationToken);
     void ReplaceRules(string[] folders);
     void Start();
     void Stop();

@@ -21,6 +21,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
+using ProtonVPN.Common.Core.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using ProtonVPN.Common.Core.Networking;
@@ -543,6 +545,43 @@ public class SplitTunnelTest
         _appFilter.DidNotReceive().Add(
             Arg.Is<string[]>(paths => paths.Any(path => path.Contains('*'))),
             Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+    }
+
+    [TestMethod]
+    [DataRow(SplitTunnelModeIpcEntity.Block)]
+    [DataRow(SplitTunnelModeIpcEntity.Permit)]
+    public async Task PreparedFolderAddition_LiveApplyUsesNewAndExistingAppsWithoutWaitingForScan(SplitTunnelModeIpcEntity mode)
+    {
+        string root = Directory.CreateTempSubdirectory("proton-live-folder-apply-").FullName;
+        string first = Path.Combine(root, "first");
+        string second = Path.Combine(root, "second");
+        int scans = 0;
+        using FolderAppMonitor monitor = new(_logger, (folder, _, _) =>
+        {
+            scans++;
+            return Task.FromResult(new FolderScanResult([Path.Combine(folder, "app.exe")], null));
+        });
+        _folderMonitor = monitor;
+        try
+        {
+            await monitor.PrepareRuleAsync(first, default);
+            _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+            { Mode = mode, FolderPaths = [first], AppPaths = [@"C:\explicit.exe"], Ips = [] });
+            SplitTunnel splitTunnel = GetSplitTunnel();
+            splitTunnel.OnVpnConnected(new(VpnStatus.Connected, VpnError.None,
+                "1.1.1.1", "2.2.2.2", 443, VpnProtocol.OpenVpnUdp));
+            await monitor.PrepareRuleAsync(second, default);
+            _splitTunnelClient.ClearReceivedCalls();
+            _appFilter.ClearReceivedCalls();
+            _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+            { Mode = mode, FolderPaths = [first, second], AppPaths = [@"C:\explicit.exe"], Ips = [] });
+            splitTunnel.OnServiceSettingsChanged(new());
+            AssertAppPathsApplied(mode, [@"C:\explicit.exe", Path.Combine(first, "app.exe"), Path.Combine(second, "app.exe")]);
+            Assert.AreEqual(2, monitor.Status.Executables);
+            Assert.IsFalse(monitor.Status.IsScanning);
+            Assert.AreEqual(2, scans);
+        }
+        finally { monitor.Stop(); Directory.Delete(root, recursive: true); }
     }
 
     [TestMethod]
