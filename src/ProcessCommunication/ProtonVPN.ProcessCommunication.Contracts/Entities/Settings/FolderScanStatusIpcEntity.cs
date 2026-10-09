@@ -20,4 +20,7 @@ public class FolderScanStatusIpcEntity
     [DataMember(Order = 4)] public int Executables { get; set; }
     [DataMember(Order = 5)] public string Error { get; set; } = string.Empty;
     [DataMember(Order = 6)] public string[] RulePaths { get; set; } = [];
+    [DataMember(Order = 7)] public bool IsPreparing { get; set; }
+    [DataMember(Order = 8)] public long PreparationEntries { get; set; }
+    [DataMember(Order = 9)] public int PreparationExecutables { get; set; }
 }

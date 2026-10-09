@@ -51,23 +51,32 @@ public abstract class ServiceCallerBase<TController> : IServiceCaller
     }
 
     protected async Task<Result<T>> InvokeAsync<T>(Func<TController, CancellationToken, Task<T>> serviceCall,
-        [CallerMemberName] string memberName = "")
+        [CallerMemberName] string memberName = "", CancellationToken cancellationToken = default)
     {
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+            _cancellationTokenSource.Token, cancellationToken);
         int retryCount = 5;
         while (!_cancellationTokenSource.IsCancellationRequested)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 TController serviceController =
                     await _grpcClient.GetServiceControllerOrThrowAsync<TController>(TimeSpan.FromSeconds(1));
                 //CancellationTokenSource cancellationTokenSource = new(_callTimeout);
-                T result = await serviceCall(serviceController, _cancellationTokenSource.Token);
+                T result = await serviceCall(serviceController, linked.Token);
                 if (result is Task task)
                 {
                     await task;
                 }
 
                 return Result.Ok(result);
+            }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+                // A cancelled user scan is not a broken service connection and must not be retried.
+                cancellationToken.ThrowIfCancellationRequested();
+                throw;
             }
             catch (Exception e)
             {

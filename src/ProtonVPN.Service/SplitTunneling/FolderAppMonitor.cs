@@ -35,6 +35,7 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
 {
     // A cheap health check, not a full-tree scan for healthy watched rules.
     internal static readonly TimeSpan RecoveryInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan PreparedLifetime = TimeSpan.FromMinutes(10);
     private const string CombinedLimitError = "Combined folder executable limit exceeded; no folder app rules applied.";
     private readonly ILogger _logger;
     private readonly Func<string, CancellationToken, Action<FolderScanProgress>, Task<FolderScanResult>> _scan;
@@ -42,6 +43,9 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
     private readonly SemaphoreSlim _scanSync = new(1);
     private CancellationTokenSource _scanCancellation = new();
     private FolderScanStatusIpcEntity _status = new();
+    private readonly FolderScanStatusIpcEntity _preparationStatus = new();
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private readonly Dictionary<string, (FolderScanResult Scan, DateTimeOffset Expires)> _prepared = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, FolderScanResult> _snapshots = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, string> _ruleAnchors = new(StringComparer.OrdinalIgnoreCase);
@@ -50,6 +54,7 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
     private readonly Timer _debounce;
     private readonly Timer _periodic;
     private string[] _folders = [];
+    private string[] _scanningFolders = [];
     private string[] _appPaths = [];
     private string _lastErrors = string.Empty;
     private int _generation;
@@ -69,7 +74,9 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             lock (_sync)
             {
                 return new() { IsActive = _started, IsScanning = _status.IsScanning, Entries = _status.Entries,
-                    Executables = _status.Executables, Error = _status.Error, RulePaths = (string[])_folders.Clone() };
+                    Executables = _status.Executables, Error = _status.Error, RulePaths = (string[])_folders.Clone(),
+                    IsPreparing = _preparationStatus.IsPreparing, PreparationEntries = _preparationStatus.Entries,
+                    PreparationExecutables = _preparationStatus.Executables };
             }
         }
     }
@@ -90,6 +97,7 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
         lock (_sync)
         {
             if (_disposed) { return; }
+            string[] interrupted = _pendingFolders.Concat(_scanningFolders).ToArray();
             _generation++;
             _scanCancellation.Cancel();
             _scanCancellation.Dispose();
@@ -101,18 +109,82 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             // Saved folder count is unrestricted; executable and traversal budgets remain separate.
             string[] replacement = (folders ?? []).Select(SplitTunnelAppPathResolver.Normalize)
                 .Where(folder => folder.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            if (!_folders.SequenceEqual(replacement, StringComparer.OrdinalIgnoreCase))
+            RemoveExpiredPreparations();
+            _snapshots = _snapshots.Where(pair => replacement.Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+            foreach (string folder in replacement)
             {
-                _appPaths = [];
-                _snapshots.Clear();
-                _appAncestors.Clear();
+                if (_prepared.Remove(folder, out var prepared) && !_snapshots.ContainsKey(folder))
+                { _snapshots[folder] = prepared.Scan; }
             }
             _folders = replacement;
+            _scanningFolders = [];
             _ruleAnchors = _folders.ToDictionary(folder => folder, SplitTunnelFolderScanner.GetWatchRoot, StringComparer.OrdinalIgnoreCase);
-            _status = new() { IsScanning = _folders.Length > 0 };
+            (string[] paths, string error) = GetSnapshotPaths(_snapshots);
+            SetEffectivePaths(paths);
+            _status = new() { IsScanning = _folders.Any(folder => !_snapshots.ContainsKey(folder)),
+                Executables = paths.Length, Error = error };
             RefreshWatchers();
+            QueueReconcile(_folders.Where(folder => !_snapshots.ContainsKey(folder)
+                || interrupted.Contains(folder, StringComparer.OrdinalIgnoreCase)));
         }
-        QueueReconcile();
+    }
+
+    public async Task<FolderScanStatusIpcEntity> PrepareRuleAsync(string folder, CancellationToken cancellationToken)
+    {
+        if (!SplitTunnelFolderScanner.TryNormalize(folder, out string normalized))
+        {
+            return new() { Error = "Choose a specific local folder or folder pattern." };
+        }
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeCancellation.Token);
+        await _scanSync.WaitAsync(linked.Token).ConfigureAwait(false);
+        try
+        {
+            lock (_sync)
+            {
+                if (_disposed) { return new() { Error = "Folder discovery service is stopping." }; }
+                _prepared.Remove(normalized);
+                _preparationStatus.IsPreparing = true;
+                _preparationStatus.Entries = 0;
+                _preparationStatus.Executables = 0;
+            }
+            FolderScanResult scan = await _scan(normalized, linked.Token, progress =>
+            {
+                lock (_sync)
+                {
+                    _preparationStatus.Entries = progress.Entries;
+                    _preparationStatus.Executables = progress.Executables;
+                }
+            }).ConfigureAwait(false);
+            linked.Token.ThrowIfCancellationRequested();
+            lock (_sync)
+            {
+                RemoveExpiredPreparations();
+                if (scan.Error == null)
+                {
+                    // Bound only the temporary discovery cache, not the number of saved folder rules.
+                    while (_prepared.Count > 0 && (_prepared.Count >= 128 ||
+                        _prepared.Values.Sum(value => value.Scan.AppPaths.Length) + scan.AppPaths.Length > SplitTunnelFolderScanner.MaximumExecutables))
+                    {
+                        _prepared.Remove(_prepared.MinBy(pair => pair.Value.Expires).Key);
+                    }
+                    _prepared[normalized] = (scan, DateTimeOffset.UtcNow + PreparedLifetime);
+                }
+                return new() { Entries = _preparationStatus.Entries, Executables = scan.AppPaths.Length,
+                    Error = scan.Error ?? string.Empty, RulePaths = [normalized] };
+            }
+        }
+        finally
+        {
+            lock (_sync) { _preparationStatus.IsPreparing = false; }
+            _scanSync.Release();
+        }
+    }
+
+    private void RemoveExpiredPreparations()
+    {
+        foreach (string folder in _prepared.Where(pair => pair.Value.Expires <= DateTimeOffset.UtcNow).Select(pair => pair.Key).ToArray())
+        { _prepared.Remove(folder); }
     }
 
     public void Start()
@@ -125,8 +197,8 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             RefreshWatchers();
             _periodic.Change(RecoveryInterval, RecoveryInterval);
         }
-        // Reconcile the initial scan/watch handoff, including newly appeared roots.
-        QueueReconcile();
+        // New watchers queue their own handoff scan. Healthy unchanged rules need no Apply-time rescan.
+        lock (_sync) { QueueReconcile(_folders.Where(folder => !_snapshots.ContainsKey(folder))); }
     }
 
     public void Stop()
@@ -141,6 +213,7 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             _generation++;
             _scanCancellation.Cancel();
             _folders = [];
+            _scanningFolders = [];
             _appPaths = [];
             _snapshots.Clear();
             _ruleAnchors.Clear();
@@ -219,13 +292,13 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
                 if (folders.Length == 0) { return; }
                 snapshots = new(_snapshots, StringComparer.OrdinalIgnoreCase);
                 generation = _generation;
+                _scanningFolders = folders;
                 revision = ++_scanRevision;
                 token = _scanCancellation.Token;
                 _status.IsScanning = true;
                 _status.Entries = 0;
                 _status.Executables = 0;
             }
-            List<string> errors = [];
             HashSet<string> paths = new(StringComparer.OrdinalIgnoreCase);
             long entries = 0;
             {
@@ -260,33 +333,15 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
                         break;
                     }
                 }
-                paths.Clear();
-                foreach ((string folder, FolderScanResult scan) in snapshots)
-                {
-                    if (scan.Error != null) { errors.Add($"{folder}: {scan.Error}"); }
-                    paths.UnionWith(scan.AppPaths);
-                    if (scan.Error == CombinedLimitError || paths.Count > SplitTunnelFolderScanner.MaximumExecutables)
-                    {
-                        if (scan.Error != CombinedLimitError) { errors.Add(CombinedLimitError); }
-                        paths.Clear();
-                        break;
-                    }
-                }
             }
-            string[] effective = paths.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-            HashSet<string> ancestors = new(StringComparer.OrdinalIgnoreCase);
-            foreach (string app in effective)
-            {
-                for (string? parent = Path.GetDirectoryName(app); parent != null && ancestors.Add(parent); parent = Path.GetDirectoryName(parent)) { }
-            }
-            errorText = string.Join("; ", errors);
+            (string[] effective, string snapshotError) = GetSnapshotPaths(snapshots);
+            errorText = snapshotError;
             lock (_sync)
             {
                 if (_disposed || generation != _generation || (!force && !_started)) { return; }
                 changed = !_appPaths.SequenceEqual(effective, StringComparer.OrdinalIgnoreCase);
-                _appPaths = effective;
+                SetEffectivePaths(effective);
                 _snapshots = snapshots;
-                _appAncestors = ancestors;
                 _status.Entries = entries;
                 _status.Executables = effective.Length;
                 if (errorText != _lastErrors)
@@ -298,7 +353,11 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
             }
         }
         catch (OperationCanceledException) { return; }
-        finally { _scanSync.Release(); }
+        finally
+        {
+            lock (_sync) { if (generation == _generation) { _scanningFolders = []; } }
+            _scanSync.Release();
+        }
         if (warning != null) { _logger.Warn<SplitTunnelLog>($"Folder app rules need attention: {warning}"); }
         // Never acquire SplitTunnel's state lock while holding either monitor lock.
         if (changed && publish)
@@ -313,6 +372,34 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
         lock (_sync)
         {
             if (generation == _generation && revision == _scanRevision) { _status.IsScanning = false; _status.Error = errorText; }
+        }
+    }
+
+    private static (string[] Paths, string Error) GetSnapshotPaths(Dictionary<string, FolderScanResult> snapshots)
+    {
+        HashSet<string> paths = new(StringComparer.OrdinalIgnoreCase);
+        List<string> errors = [];
+        foreach ((string folder, FolderScanResult scan) in snapshots)
+        {
+            if (scan.Error != null) { errors.Add($"{folder}: {scan.Error}"); }
+            paths.UnionWith(scan.AppPaths);
+            if (scan.Error == CombinedLimitError || paths.Count > SplitTunnelFolderScanner.MaximumExecutables)
+            {
+                if (scan.Error != CombinedLimitError) { errors.Add(CombinedLimitError); }
+                paths.Clear();
+                break;
+            }
+        }
+        return (paths.Order(StringComparer.OrdinalIgnoreCase).ToArray(), string.Join("; ", errors));
+    }
+
+    private void SetEffectivePaths(string[] paths)
+    {
+        _appPaths = paths;
+        _appAncestors.Clear();
+        foreach (string app in paths)
+        {
+            for (string? parent = Path.GetDirectoryName(app); parent != null && _appAncestors.Add(parent); parent = Path.GetDirectoryName(parent)) { }
         }
     }
 
@@ -430,11 +517,15 @@ public sealed class FolderAppMonitor : IFolderAppMonitor, IDisposable
     {
         lock (_sync)
         {
+            if (_disposed) { return; }
             Stop();
             _disposed = true;
+            _lifetimeCancellation.Cancel();
+            _prepared.Clear();
             _debounce.Dispose();
             _periodic.Dispose();
             _scanCancellation.Dispose();
+            _lifetimeCancellation.Dispose();
         }
     }
 }

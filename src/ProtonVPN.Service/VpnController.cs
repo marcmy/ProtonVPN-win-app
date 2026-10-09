@@ -168,6 +168,12 @@ public class VpnController : IVpnController
     public Task<FolderScanStatusIpcEntity> GetFolderScanStatus(CancellationToken cancelToken) =>
         Task.FromResult(_folderAppMonitor.Status);
 
+    public Task<FolderScanStatusIpcEntity> PrepareFolderRule(FolderScanRequestIpcEntity request, CancellationToken cancelToken)
+    {
+        Ensure.NotNull(request, nameof(request));
+        return _folderAppMonitor.PrepareRuleAsync(request.FolderPath, cancelToken);
+    }
+
     public Task<ServerHealthProbeResultIpcEntity> ProbeServerHealth(
         ServerHealthProbeRequestIpcEntity request,
         CancellationToken cancelToken)
