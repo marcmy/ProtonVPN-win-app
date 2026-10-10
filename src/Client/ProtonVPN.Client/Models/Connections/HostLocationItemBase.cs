@@ -45,7 +45,6 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
     private bool _lastKnownIsPaidUser = false;
     private ConnectionDetails? _lastKnownConnectionDetails = null;
     private List<ConnectionItemBase> _unfilteredSubItems = [];
-    private CancellationTokenSource? _pingFilterProbeCancellationTokenSource;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ShowSmartRoutingOverlayCommand))]
@@ -118,11 +117,9 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
 
     public void FetchSubItems()
     {
-        StopPingFilterProbes();
         _unfilteredSubItems = GetSubItems().ToList();
 
         ApplySubItems();
-        StartPingFilterProbes();
     }
 
     public void RefreshPingFilter()
@@ -132,9 +129,7 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
             return;
         }
 
-        StopPingFilterProbes();
         ApplySubItems();
-        StartPingFilterProbes();
 
         foreach (IHostLocationItem nestedHost in _unfilteredSubItems.OfType<IHostLocationItem>())
         {
@@ -144,7 +139,6 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
 
     protected void ClearSubItems()
     {
-        StopPingFilterProbes();
         _unfilteredSubItems.Clear();
         SubItems.Clear();
         SubGroups.Clear();
@@ -162,6 +156,8 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
         SubItems.Reset(
             items.OrderBy(item => item.GroupType)
                  .ThenBy(item => item.FirstSortProperty)
+                 .ThenBy(item => _pingFilter.IsActive && item is ServerLocationItemBase server &&
+                     _pingFilter.GetAverageLatencyMilliseconds(server) is null)
                  .ThenBy(item => item.SecondSortProperty));
 
         GroupSubItems();
@@ -188,66 +184,6 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
         }
 
         return !server.IsUnderMaintenance && _pingFilter.Matches(server);
-    }
-
-    private void StartPingFilterProbes()
-    {
-        if (!_pingFilter.IsActive)
-        {
-            return;
-        }
-
-        List<ServerLocationItemBase> servers = _unfilteredSubItems
-            .OfType<ServerLocationItemBase>()
-            .Where(server => !server.IsUnderMaintenance && !string.IsNullOrWhiteSpace(server.HealthProbeAddress))
-            .ToList();
-
-        if (servers.Count == 0)
-        {
-            return;
-        }
-
-        _pingFilterProbeCancellationTokenSource = new();
-        _ = ProbeForPingFilterAsync(servers, _pingFilterProbeCancellationTokenSource.Token);
-    }
-
-    private void StopPingFilterProbes()
-    {
-        _pingFilterProbeCancellationTokenSource?.Cancel();
-        _pingFilterProbeCancellationTokenSource?.Dispose();
-        _pingFilterProbeCancellationTokenSource = null;
-    }
-
-    private async Task ProbeForPingFilterAsync(
-        IReadOnlyCollection<ServerLocationItemBase> servers,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            List<Task<ServerHealthSnapshot>> pending = servers
-                .Select(server => _pingFilter.ProbeAsync(server, cancellationToken))
-                .ToList();
-            int completedSinceRefresh = 0;
-
-            while (pending.Count > 0)
-            {
-                Task<ServerHealthSnapshot> completed = await Task.WhenAny(pending);
-                pending.Remove(completed);
-                await completed;
-
-                cancellationToken.ThrowIfCancellationRequested();
-                completedSinceRefresh++;
-
-                if (completedSinceRefresh >= 8 || pending.Count == 0)
-                {
-                    ApplySubItems();
-                    completedSinceRefresh = 0;
-                }
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
     }
 
     private void GroupSubItems()

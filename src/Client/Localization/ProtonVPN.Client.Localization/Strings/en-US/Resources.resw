@@ -4524,4 +4524,10 @@
   <data name="Connection_Feedback_Question" xml:space="preserve">
     <value>How is your connection?</value>
   </data>
+  <data name="ServerPing_CachedFilterLabel" xml:space="preserve">
+    <value>Ping</value>
+  </data>
+  <data name="ServerPing_CachedFilterHint" xml:space="preserve">
+    <value>First replies are used immediately; later checks refine the average. Unmeasured servers stay visible while pings arrive.</value>
+  </data>
 </root>

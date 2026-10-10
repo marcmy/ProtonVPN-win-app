@@ -9,4 +9,7 @@ public interface IServerHealthSource
     string? HealthProbeAddress { get; }
     double HealthServerLoad { get; }
     Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken);
+
+    Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken, bool quickFirstResponse) =>
+        ProbeHealthAsync(cancellationToken);
 }

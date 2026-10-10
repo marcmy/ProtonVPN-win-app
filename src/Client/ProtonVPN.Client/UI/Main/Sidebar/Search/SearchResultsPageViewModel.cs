@@ -62,8 +62,12 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private string _input = string.Empty;
     private long _resultsGeneration;
     private CancellationTokenSource? _resultsCancellationTokenSource;
-    private CancellationTokenSource? _pingFilterProbeCancellationTokenSource;
     private List<ConnectionItemBase> _unfilteredSearchResult = [];
+    private ServerHealthRefreshScheduler.Discovery? _pingDiscovery;
+    private ServerHealthUiRefreshQueue? _pingUiRefresh;
+
+    public bool IsMeasuringPings => IsActive && ServerHealthHistorySession.Refresh.IsMeasuring;
+    public string PingProgressText => ServerHealthHistorySession.Refresh.ProgressText;
 
     [ObservableProperty]
     private bool _hasSearchInput;
@@ -74,15 +78,13 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     [ObservableProperty]
     private ICountriesComponent _selectedCountriesComponent;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowNoResults))]
-    private bool _isMeasuringPingFilter;
+    public bool IsPingFilterActive => PingFilter.IsActive;
 
     public List<ICountriesComponent> CountriesComponents { get; }
 
     public ServerPingFilterSession PingFilter { get; } = ServerPingFilterSession.Current;
 
-    public bool ShowNoResults => !HasItems && !IsMeasuringPingFilter;
+    public bool ShowNoResults => !HasItems;
 
     public string ExampleCountries => $"{Localizer.GetCountryName("JP")}, {Localizer.GetCountryName("US")}";
     public string ExampleCities => $"{Localizer.GetCityName("Tokyo", "JP")}, {Localizer.GetCityName("Los Angeles", "US")}";
@@ -127,6 +129,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
+        StopPingDiscovery();
         _ = ReloadResultsAsync();
     }
 
@@ -165,6 +168,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
                 }
 
                 HasSearchInput = false;
+                StopPingDiscovery();
                 SetSearchResult([]);
                 _serverFinder.Cancel();
                 return;
@@ -292,10 +296,26 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void SetSearchResult(IEnumerable<ConnectionItemBase> result)
     {
-        StopPingFilterProbes();
         _unfilteredSearchResult = result.ToList();
         ApplySearchResult();
-        StartPingFilterProbes();
+        StartPingDiscovery();
+    }
+
+    private void StartPingDiscovery()
+    {
+        if (!IsActive || !HasSearchInput || _pingDiscovery is { IsDisposed: false }) { return; }
+        ServerFeatures? features = GetServerFeatures();
+        IEnumerable<Server> servers = features is null ? ServersLoader.GetServers() : ServersLoader.GetServersByFeatures(features.Value);
+        _pingDiscovery = ServerHealthHistorySession.Refresh.StartDiscovery(servers
+            .Where(server => !server.IsUnderMaintenance() && !_exclusionChecker.IsServerExcluded(server))
+            .OrderBy(server => server.Score).ThenBy(server => server.Load)
+            .Select(server => new ServerPingSource(server)));
+    }
+
+    private void StopPingDiscovery()
+    {
+        _pingDiscovery?.Dispose();
+        _pingDiscovery = null;
     }
 
     private void ApplySearchResult()
@@ -304,7 +324,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
             ? _unfilteredSearchResult.Where(IsPingFilterMatch)
             : _unfilteredSearchResult;
 
-        ResetItems(result);
+        ResetItems(result, prioritizeMeasuredPings: PingFilter.IsActive);
         ResetGroups();
 
         InvalidateActiveConnection();
@@ -327,87 +347,57 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void OnPingFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(ServerPingFilterSession.SelectedOption) || !HasSearchInput)
+        if (e.PropertyName != nameof(ServerPingFilterSession.SelectedOption))
         {
             return;
         }
 
-        StopPingFilterProbes();
-        ApplySearchResult();
-        StartPingFilterProbes();
+        OnPropertyChanged(nameof(IsPingFilterActive));
+        if (HasSearchInput)
+        {
+            ApplySearchResult();
+        }
     }
 
-    private void StartPingFilterProbes()
+    protected override void OnActivated()
     {
-        if (!PingFilter.IsActive)
+        base.OnActivated();
+        _pingUiRefresh = new(action => ExecuteOnUIThread(action), RefreshPingPresentation);
+        ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged += OnPingProgressChanged;
+        StartPingDiscovery();
+        if (HasSearchInput)
         {
-            IsMeasuringPingFilter = false;
-            return;
+            ApplySearchResult();
         }
-
-        List<ServerLocationItemBase> servers = _unfilteredSearchResult
-            .OfType<ServerLocationItemBase>()
-            .Where(server => !server.IsUnderMaintenance && !string.IsNullOrWhiteSpace(server.HealthProbeAddress))
-            .ToList();
-
-        if (servers.Count == 0)
-        {
-            IsMeasuringPingFilter = false;
-            return;
-        }
-
-        _pingFilterProbeCancellationTokenSource = new();
-        IsMeasuringPingFilter = true;
-        _ = ProbeForPingFilterAsync(servers, _pingFilterProbeCancellationTokenSource.Token);
     }
 
-    private void StopPingFilterProbes()
+    protected override void OnDeactivated()
     {
-        _pingFilterProbeCancellationTokenSource?.Cancel();
-        _pingFilterProbeCancellationTokenSource?.Dispose();
-        _pingFilterProbeCancellationTokenSource = null;
-        IsMeasuringPingFilter = false;
+        ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged -= OnPingProgressChanged;
+        _pingUiRefresh?.Dispose();
+        _pingUiRefresh = null;
+        StopPingDiscovery();
+        base.OnDeactivated();
     }
 
-    private async Task ProbeForPingFilterAsync(
-        IReadOnlyCollection<ServerLocationItemBase> servers,
-        CancellationToken cancellationToken)
+    private void OnPingCacheChanged(object? sender, ServerHealthSnapshotChangedEventArgs args)
     {
-        try
+        if (!args.Snapshot.IsChecking && !args.Snapshot.IsRechecking)
         {
-            List<Task<ServerHealthSnapshot>> pending = servers
-                .Select(server => PingFilter.ProbeAsync(server, cancellationToken))
-                .ToList();
-            int completedSinceRefresh = 0;
-
-            while (pending.Count > 0)
-            {
-                Task<ServerHealthSnapshot> completed = await Task.WhenAny(pending);
-                pending.Remove(completed);
-                await completed;
-
-                cancellationToken.ThrowIfCancellationRequested();
-                completedSinceRefresh++;
-
-                if (completedSinceRefresh >= 8 || pending.Count == 0)
-                {
-                    ApplySearchResult();
-                    completedSinceRefresh = 0;
-                }
-            }
-
-            if (!cancellationToken.IsCancellationRequested)
-            {
-                IsMeasuringPingFilter = false;
-            }
+            _pingUiRefresh?.Request();
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        finally
-        {
-            OnPropertyChanged(nameof(ShowNoResults));
-        }
+    }
+
+    private void OnPingProgressChanged(object? sender, EventArgs args) => _pingUiRefresh?.Request();
+
+    private void RefreshPingPresentation()
+    {
+        if (!IsActive) { return; }
+        OnPropertyChanged(nameof(IsMeasuringPings));
+        OnPropertyChanged(nameof(PingProgressText));
+        if (HasSearchInput && PingFilter.IsActive) { ApplySearchResult(); }
     }
 
     private Func<ILocation, ConnectionItemBase?> GetConnectionItemCreationFunction()
@@ -511,6 +501,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         {
             if (HasSearchInput)
             {
+                StopPingDiscovery();
                 _ = ReloadResultsAsync();
             }
             else

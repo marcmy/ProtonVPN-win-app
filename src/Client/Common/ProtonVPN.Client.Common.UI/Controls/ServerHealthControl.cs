@@ -19,8 +19,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -32,14 +30,12 @@ namespace ProtonVPN.Client.Common.UI.Controls;
 
 public sealed class ServerHealthControl : Grid
 {
-    private static readonly TimeSpan _refreshInterval = TimeSpan.FromSeconds(60);
-
     private readonly Border[] _bars;
     private readonly TextBlock _latencyText;
     private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
     private readonly ServerHealthHistoryDetailsControl _detailsControl = new();
 
-    private CancellationTokenSource? _probeCancellationTokenSource;
+    private IDisposable? _refreshInterest;
     private ServerHealthHistoryKey? _historyKey;
     private IServerHealthSource? _probeSource;
     private double _serverLoad;
@@ -56,7 +52,7 @@ public sealed class ServerHealthControl : Grid
             }
 
             _probeSource = value;
-            RestartProbeLoop();
+            RestartRefreshInterest();
         }
     }
 
@@ -122,19 +118,19 @@ public sealed class ServerHealthControl : Grid
     {
         _isLoaded = true;
         _historyStore.SnapshotChanged += OnSnapshotChanged;
-        RestartProbeLoop();
+        RestartRefreshInterest();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _isLoaded = false;
         _historyStore.SnapshotChanged -= OnSnapshotChanged;
-        StopProbeLoop();
+        StopRefreshInterest();
     }
 
-    private void RestartProbeLoop()
+    private void RestartRefreshInterest()
     {
-        StopProbeLoop();
+        StopRefreshInterest();
         RestoreSnapshot();
 
         if (!_isLoaded || ProbeSource is null || _historyKey is null)
@@ -142,15 +138,13 @@ public sealed class ServerHealthControl : Grid
             return;
         }
 
-        _probeCancellationTokenSource = new CancellationTokenSource();
-        _ = RunProbeLoopAsync(_probeCancellationTokenSource.Token);
+        _refreshInterest = ServerHealthHistorySession.Refresh.Track(ProbeSource);
     }
 
-    private void StopProbeLoop()
+    private void StopRefreshInterest()
     {
-        _probeCancellationTokenSource?.Cancel();
-        _probeCancellationTokenSource?.Dispose();
-        _probeCancellationTokenSource = null;
+        _refreshInterest?.Dispose();
+        _refreshInterest = null;
     }
 
     private bool TryGetHistoryKey(out ServerHealthHistoryKey key)
@@ -178,34 +172,6 @@ public sealed class ServerHealthControl : Grid
 
         _historyKey = key;
         ApplySnapshot(_historyStore.GetSnapshot(key));
-    }
-
-    private async Task RunProbeLoopAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                IServerHealthSource? source = ProbeSource;
-                if (source is null || string.IsNullOrWhiteSpace(source.HealthProbeAddress))
-                {
-                    return;
-                }
-
-                ApplySnapshot(await _historyStore.ProbeAsync(source, cancellationToken));
-                await Task.Delay(_refreshInterval, cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch
-        {
-            if (!cancellationToken.IsCancellationRequested)
-            {
-                SetUnavailableState("The direct health check could not be completed.");
-            }
-        }
     }
 
     private void ApplySnapshot(ServerHealthSnapshot snapshot)

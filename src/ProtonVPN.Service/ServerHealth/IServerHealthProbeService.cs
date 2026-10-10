@@ -25,5 +25,5 @@ namespace ProtonVPN.Service.ServerHealth;
 
 public interface IServerHealthProbeService
 {
-    Task<ServerHealthProbeResultIpcEntity> ProbeAsync(string address, CancellationToken cancellationToken);
+    Task<ServerHealthProbeResultIpcEntity> ProbeAsync(string address, CancellationToken cancellationToken, bool quickFirstResponse = false);
 }

@@ -28,7 +28,11 @@ using ProtonVPN.Client.Core.Enums;
 using ProtonVPN.Client.Core.Services.Navigation;
 using ProtonVPN.Client.Factories;
 using ProtonVPN.Client.Logic.Connection.Contracts;
+using ProtonVPN.Client.Logic.Connection.Contracts.Preferences;
 using ProtonVPN.Client.Logic.Servers.Contracts;
+using ProtonVPN.Client.Logic.Servers.Contracts.Enums;
+using ProtonVPN.Client.Logic.Servers.Contracts.Extensions;
+using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 using ProtonVPN.Client.Models.Connections;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.UI.Main.Sidebar.Connections.Bases.Contracts;
@@ -38,6 +42,13 @@ namespace ProtonVPN.Client.UI.Main.Sidebar.Connections.Countries;
 
 public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 {
+    private readonly IExclusionChecker _exclusionChecker;
+    private ServerHealthRefreshScheduler.Discovery? _pingDiscovery;
+    private ServerHealthUiRefreshQueue? _pingUiRefresh;
+
+    public bool IsMeasuringPings => IsActive && ServerHealthHistorySession.Refresh.IsMeasuring;
+    public string PingProgressText => ServerHealthHistorySession.Refresh.ProgressText;
+
     [ObservableProperty]
     private ICountriesComponent _selectedCountriesComponent;
 
@@ -60,6 +71,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
         IConnectionManager connectionManager,
         IConnectionGroupFactory connectionGroupFactory,
         IEnumerable<ICountriesComponent> countriesComponents,
+        IExclusionChecker exclusionChecker,
         IViewModelHelper viewModelHelper)
         : base(parentViewNavigator,
                settings,
@@ -69,6 +81,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
                viewModelHelper)
     {
         CountriesComponents = new(countriesComponents.OrderBy(p => p.SortIndex));
+        _exclusionChecker = exclusionChecker;
 
         _selectedCountriesComponent = CountriesComponents.First();
         PingFilter.PropertyChanged += OnPingFilterPropertyChanged;
@@ -81,9 +94,66 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
         GoToCountryFeature(CountriesConnectionType.All);
     }
 
+    protected override void OnActivated()
+    {
+        base.OnActivated();
+        _pingUiRefresh = new(action => ExecuteOnUIThread(action), RefreshPingPresentation);
+        ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged += OnPingProgressChanged;
+        StartPingDiscovery();
+        if (PingFilter.IsActive)
+        {
+            RefreshCachedFilter();
+        }
+    }
+
+    protected override void OnDeactivated()
+    {
+        ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        ServerHealthHistorySession.Refresh.ProgressChanged -= OnPingProgressChanged;
+        _pingUiRefresh?.Dispose();
+        _pingUiRefresh = null;
+        _pingDiscovery?.Dispose();
+        _pingDiscovery = null;
+        base.OnDeactivated();
+    }
+
+    private void OnPingCacheChanged(object? sender, ServerHealthSnapshotChangedEventArgs args)
+    {
+        if (!args.Snapshot.IsChecking && !args.Snapshot.IsRechecking)
+        {
+            _pingUiRefresh?.Request();
+        }
+    }
+
+    private void OnPingProgressChanged(object? sender, EventArgs args) => _pingUiRefresh?.Request();
+
+    private void RefreshPingPresentation()
+    {
+        if (!IsActive) { return; }
+        OnPropertyChanged(nameof(IsMeasuringPings));
+        OnPropertyChanged(nameof(PingProgressText));
+        if (PingFilter.IsActive) { RefreshCachedFilter(); }
+    }
+
+    private void RefreshCachedFilter()
+    {
+        foreach (IHostLocationItem host in Items.OfType<IHostLocationItem>())
+        {
+            host.RefreshPingFilter();
+        }
+    }
+
     protected override IEnumerable<ConnectionItemBase> GetItems()
     {
         return SelectedCountriesComponent.GetItems();
+    }
+
+    protected override void OnServerListChanged()
+    {
+        base.OnServerListChanged();
+        // The catalogue can arrive after activation or change while the tab is open.
+        StartPingDiscovery();
     }
 
     private void GoToCountryFeature(CountriesConnectionType connectionType)
@@ -95,6 +165,27 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
         FetchItems();
+        StartPingDiscovery();
+    }
+
+    private void StartPingDiscovery()
+    {
+        _pingDiscovery?.Dispose();
+        _pingDiscovery = null;
+        if (!IsActive) { return; }
+        ServerFeatures? features = SelectedCountriesComponent.ConnectionType switch
+        {
+            CountriesConnectionType.SecureCore => ServerFeatures.SecureCore,
+            CountriesConnectionType.P2P => ServerFeatures.P2P,
+            CountriesConnectionType.Tor => ServerFeatures.Tor,
+            _ => null,
+        };
+        IEnumerable<Server> servers = features is null ? ServersLoader.GetServers() : ServersLoader.GetServersByFeatures(features.Value);
+        _pingDiscovery = ServerHealthHistorySession.Refresh.StartDiscovery(servers
+            .Where(server => !server.IsUnderMaintenance() && !_exclusionChecker.IsServerExcluded(server))
+            // The same ascending score used by Proton's fastest-server selection.
+            .OrderBy(server => server.Score).ThenBy(server => server.Load)
+            .Select(server => new ServerPingSource(server)));
     }
 
     private void OnPingFilterPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -104,9 +195,6 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
             return;
         }
 
-        foreach (IHostLocationItem host in Items.OfType<IHostLocationItem>())
-        {
-            host.RefreshPingFilter();
-        }
+        RefreshCachedFilter();
     }
 }

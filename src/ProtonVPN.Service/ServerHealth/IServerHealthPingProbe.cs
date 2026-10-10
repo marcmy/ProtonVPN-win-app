@@ -28,5 +28,6 @@ internal interface IServerHealthPingProbe
 {
     Task<ServerHealthProbeResultIpcEntity> MeasureAsync(
         IPAddress ipAddress,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool quickFirstResponse = false);
 }

@@ -44,12 +44,12 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
     IEventMessageReceiver<SettingChangedMessage>
 {
     private const int REFRESH_TIMER_INTERVAL_IN_MS = 1000;
-    private const int HEALTH_REFRESH_TIMER_INTERVAL_IN_MS = 30000;
+    private const int HEALTH_REFRESH_TIMER_INTERVAL_IN_MS = 60000;
     private const int HEALTH_PROBE_SAMPLE_COUNT = 4;
 
     private static readonly TimeSpan _healthProbeTimeout = TimeSpan.FromSeconds(8);
     private static readonly ServerHealthHistoryStore _healthHistoryStore =
-        new(maximumConcurrentProbes: 1);
+        ServerHealthHistorySession.Current;
 
     private readonly IDispatcherTimer _refreshTimer;
     private readonly IDispatcherTimer _healthRefreshTimer;
@@ -281,15 +281,22 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
             return;
         }
 
-        _currentHealthKey = ServerHealthHistoryKey.Create(
+        ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(
             source.HealthServerId,
             probeAddress);
+        if (_currentHealthKey == key)
+        {
+            ApplyHealthSnapshot(_healthHistoryStore.GetSnapshot(key));
+            return; // Load/statistics messages must not restart measurement of an unchanged endpoint.
+        }
+        _currentHealthKey = key;
         ApplyHealthSnapshot(_healthHistoryStore.GetSnapshot(_currentHealthKey.Value));
         _ = RefreshCurrentServerHealthAsync();
     }
 
     private void StopHealthMonitoring()
     {
+        _currentHealthKey = null;
         if (_healthRefreshTimer.IsEnabled)
         {
             _healthRefreshTimer.Stop();
@@ -392,14 +399,12 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
         HealthGrade = presentation.GradeText;
         HealthLatency = presentation.LatencyText;
         HealthPacketLoss = presentation.PacketLossText;
-        if (snapshot.Aggregate is not null)
-        {
-            HealthLoad = presentation.LoadText;
-        }
+        // Load comes from current connection metadata, not a potentially days-old ping.
+        InvalidateCurrentServerDetails();
         HealthRoute = snapshot.IsRechecking
             ? $"Rechecking in progress — {presentation.RouteText}"
             : presentation.RouteText;
-        HealthLastChecked = presentation.ConfidenceText;
+        HealthLastChecked = presentation.LastCheckedText;
         SetHealthState(snapshot.Aggregate?.Grade switch
         {
             ServerHealthGrade.Excellent => HealthState.Excellent,

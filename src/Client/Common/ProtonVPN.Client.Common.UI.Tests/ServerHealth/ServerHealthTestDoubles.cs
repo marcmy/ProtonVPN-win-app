@@ -37,6 +37,13 @@ internal sealed class QueueServerHealthSource : IServerHealthSource
     public required string? HealthProbeAddress { get; init; }
     public double HealthServerLoad { get; set; }
     public int ProbeCount { get; private set; }
+    public List<bool> QuickRequests { get; } = [];
+
+    public Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken, bool quickFirstResponse)
+    {
+        QuickRequests.Add(quickFirstResponse);
+        return ProbeHealthAsync(cancellationToken);
+    }
 
     public void Enqueue(ServerHealthProbeMeasurement measurement) =>
         _results.Enqueue(_ => Task.FromResult(measurement));

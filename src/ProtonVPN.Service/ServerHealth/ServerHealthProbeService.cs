@@ -44,7 +44,7 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
     private readonly IServerHealthPermitManager _permitManager;
     private readonly IServerHealthPingProbe _pingProbe;
     private readonly IIpv6 _ipv6;
-    private readonly SemaphoreSlim _probeSlots = new(8, 8);
+    private readonly SemaphoreSlim _probeSlots = new(32, 32);
     private readonly object _addressLocksSync = new();
     private readonly Dictionary<string, AddressLock> _addressLocks = new(StringComparer.OrdinalIgnoreCase);
 
@@ -79,7 +79,8 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
 
     public async Task<ServerHealthProbeResultIpcEntity> ProbeAsync(
         string address,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool quickFirstResponse = false)
     {
         if (!IPAddress.TryParse(address, out IPAddress? ipAddress) ||
             ipAddress.AddressFamily != AddressFamily.InterNetwork)
@@ -94,7 +95,7 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         {
             try
             {
-                return await ProbeThroughPhysicalAdapterAsync(ipAddress, cancellationToken);
+                return await ProbeThroughPhysicalAdapterAsync(ipAddress, cancellationToken, quickFirstResponse);
             }
             catch (OperationCanceledException)
             {
@@ -113,7 +114,8 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
 
     private async Task<ServerHealthProbeResultIpcEntity> ProbeThroughPhysicalAdapterAsync(
         IPAddress ipAddress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool quickFirstResponse)
     {
         string excludedHardwareId = _configuration.GetHardwareId(_ipv6.VpnProtocol, _serviceSettings.OpenVpnAdapter);
         INetworkInterface physicalInterface = _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId);
@@ -158,7 +160,7 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
             }
 
             await Task.Delay(ROUTE_SETTLE_DELAY_IN_MILLISECONDS, cancellationToken);
-            return await _pingProbe.MeasureAsync(ipAddress, cancellationToken);
+            return await _pingProbe.MeasureAsync(ipAddress, cancellationToken, quickFirstResponse);
         }
         finally
         {
