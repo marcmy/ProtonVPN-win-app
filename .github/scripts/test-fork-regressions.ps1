@@ -90,6 +90,7 @@ $coreClientProjects = @(
 )
 
 $serviceProjects = @(
+    'src/Tests/ProtonVPN.NetworkFilter.Tests/ProtonVPN.NetworkFilter.Tests.csproj',
     'src/Tests/ProtonVPN.Vpn.Tests/ProtonVPN.Vpn.Tests.csproj',
     'src/Tests/ProtonVPN.Service.Tests/ProtonVPN.Service.Tests.csproj',
     'src/Tests/ProtonVPN.Update.Tests/ProtonVPN.Update.Tests.csproj'
