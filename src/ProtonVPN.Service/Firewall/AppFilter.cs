@@ -79,7 +79,15 @@ public class AppFilter : IAppFilter
         }
         catch (InvalidArgumentException)
         {
+            Remove(path);
             _logger.Error<SplitTunnelLog>($"Failed to create app filter for path {path} due to invalid argument.");
+        }
+        catch
+        {
+            // A path is installed only when all of its layer filters succeed.
+            // Remove partial filters and the path entry so a later Apply can retry.
+            Remove(path);
+            throw;
         }
     }
 

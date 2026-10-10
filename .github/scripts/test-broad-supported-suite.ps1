@@ -62,6 +62,7 @@ $focusedProjects = [Collections.Generic.HashSet[string]]::new([StringComparer]::
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Mappers.Tests/ProtonVPN.Client.Logic.Servers.Mappers.Tests.csproj',
     'src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection.Tests/ProtonVPN.Client.Logic.Connection.Tests.csproj',
     'src/Tests/ProtonVPN.Vpn.Tests/ProtonVPN.Vpn.Tests.csproj',
+    'src/Tests/ProtonVPN.NetworkFilter.Tests/ProtonVPN.NetworkFilter.Tests.csproj',
     'src/Tests/ProtonVPN.Service.Tests/ProtonVPN.Service.Tests.csproj',
     'src/Tests/ProtonVPN.Update.Tests/ProtonVPN.Update.Tests.csproj',
     'src/Tests/ProtonVPN.Integration.Tests/ProtonVPN.Integration.Tests.csproj'

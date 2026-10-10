@@ -25,7 +25,9 @@ namespace ProtonVPN.NetworkFilter
     public class Sublayer
     {
         private readonly IpFilter _ipFilter;
-        private readonly HashSet<Guid> _filters = new();
+        // Native WFP owns the filter inventory. App rules and probe leases own
+        // their returned IDs; a second append-only cache races across callers
+        // and can throw after native creation succeeds.
 
         public Sublayer(IpFilter ipFilter, Guid id)
         {
@@ -76,7 +78,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateLayerFilter(
+            return IpFilterNative.CreateLayerFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -88,10 +90,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid CreateRemoteIPv4Filter(
@@ -103,7 +101,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateRemoteIPv4Filter(
+            return IpFilterNative.CreateRemoteIPv4Filter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -116,10 +114,6 @@ namespace ProtonVPN.NetworkFilter
                 address,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         /// <summary>
@@ -136,7 +130,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateAppFilter(
+            return IpFilterNative.CreateAppFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -150,10 +144,6 @@ namespace ProtonVPN.NetworkFilter
                 isDnsPortExcluded,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid CreateAppCalloutFilter(DisplayData displayData,
@@ -166,7 +156,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateAppFilter(
+            return IpFilterNative.CreateAppFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -180,10 +170,6 @@ namespace ProtonVPN.NetworkFilter
                 isDnsPortExcluded,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid CreateRemoteNetworkIPFilter(
@@ -195,7 +181,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateRemoteNetworkIPFilter(
+            return IpFilterNative.CreateRemoteNetworkIPFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -208,10 +194,6 @@ namespace ProtonVPN.NetworkFilter
                 addr,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid CreateRemoteUdpPortFilter(
@@ -223,7 +205,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateRemoteUdpPortFilter(
+            return IpFilterNative.CreateRemoteUdpPortFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -234,10 +216,6 @@ namespace ProtonVPN.NetworkFilter
                 port,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid CreateRemoteTcpPortFilter(
@@ -249,7 +227,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateRemoteTcpPortFilter(
+            return IpFilterNative.CreateRemoteTcpPortFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -260,10 +238,6 @@ namespace ProtonVPN.NetworkFilter
                 port,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid CreateNetInterfaceFilter(
@@ -275,7 +249,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.CreateNetInterfaceFilter(
+            return IpFilterNative.CreateNetInterfaceFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -286,10 +260,6 @@ namespace ProtonVPN.NetworkFilter
                 index,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid CreateLoopbackFilter(
@@ -299,7 +269,7 @@ namespace ProtonVPN.NetworkFilter
             uint weight,
             bool persistent = false)
         {
-            Guid filterId = IpFilterNative.CreateLoopbackFilter(
+            return IpFilterNative.CreateLoopbackFilter(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -308,10 +278,6 @@ namespace ProtonVPN.NetworkFilter
                 action,
                 weight,
                 persistent);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid BlockOutsideDns(DisplayData displayData,
@@ -321,7 +287,7 @@ namespace ProtonVPN.NetworkFilter
             uint index,
             bool persistent = false)
         {
-            Guid filterId = IpFilterNative.BlockOutsideDns(
+            return IpFilterNative.BlockOutsideDns(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -332,10 +298,6 @@ namespace ProtonVPN.NetworkFilter
                 calloutGuid,
                 index,
                 (uint) (persistent ? 1 : 0));
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid BlockOutsideOpenVpn(DisplayData displayData,
@@ -346,7 +308,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.BlockOutsideOpenVpn(
+            return IpFilterNative.BlockOutsideOpenVpn(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -357,10 +319,6 @@ namespace ProtonVPN.NetworkFilter
                 serverIpAddress,
                 (uint)(persistent ? 1 : 0),
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid PermitRouterSolicitationMessage(
@@ -371,7 +329,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.PermitRouterSolicitationMessage(
+            return IpFilterNative.PermitRouterSolicitationMessage(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -383,10 +341,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid PermitRouterAdvertisementMessage(
@@ -397,7 +351,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.PermitRouterAdvertisementMessage(
+            return IpFilterNative.PermitRouterAdvertisementMessage(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -409,10 +363,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid PermitNeighborSolicitationMessage(
@@ -423,7 +373,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.PermitNeighborSolicitationMessage(
+            return IpFilterNative.PermitNeighborSolicitationMessage(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -435,10 +385,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid PermitNeighborAdvertisementMessage(
@@ -449,7 +395,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.PermitNeighborAdvertisementMessage(
+            return IpFilterNative.PermitNeighborAdvertisementMessage(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -461,10 +407,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid PermitIcmpRedirectMessage(
@@ -475,7 +417,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.PermitIcmpRedirectMessage(
+            return IpFilterNative.PermitIcmpRedirectMessage(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -487,10 +429,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid PermitOutboundIpv6Dhcp(
@@ -501,7 +439,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.PermitOutboundIpv6Dhcp(
+            return IpFilterNative.PermitOutboundIpv6Dhcp(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -513,10 +451,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
         }
 
         public Guid PermitInboundIpv6Dhcp(
@@ -527,7 +461,7 @@ namespace ProtonVPN.NetworkFilter
             bool persistent = false,
             Guid id = new())
         {
-            Guid filterId = IpFilterNative.PermitInboundIpv6Dhcp(
+            return IpFilterNative.PermitInboundIpv6Dhcp(
                 Session.Handle,
                 ProviderId,
                 Id,
@@ -539,15 +473,6 @@ namespace ProtonVPN.NetworkFilter
                 Guid.Empty,
                 persistent,
                 id);
-
-            AddFilter(filterId);
-
-            return filterId;
-        }
-
-        private void AddFilter(Guid id)
-        {
-            _filters.Add(id);
         }
 
         private Session Session => _ipFilter.Session;

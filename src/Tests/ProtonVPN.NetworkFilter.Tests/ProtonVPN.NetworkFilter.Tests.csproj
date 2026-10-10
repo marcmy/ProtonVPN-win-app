@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <IsTestProject>true</IsTestProject>
+        <IsPublishable>false</IsPublishable>
+        <Nullable>enable</Nullable>
+        <LangVersion>12</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="MSTest.TestAdapter" />
+        <PackageReference Include="MSTest.TestFramework" />
+        <PackageReference Include="NSubstitute" />
+        <ProjectReference Include="..\..\Logging\ProtonVPN.Logging.Contracts\ProtonVPN.Logging.Contracts.csproj" />
+    </ItemGroup>
+    <!-- Compile the actual wrappers and callers against an inert native boundary.
+         There is deliberately no NetworkFilter/Service assembly or P/Invoke reference:
+         these tests never open a real WFP session or change firewall policy. -->
+    <ItemGroup>
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\Sublayer.cs" Link="Production\Sublayer.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\Action.cs" Link="Production\Action.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\Layer.cs" Link="Production\Layer.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\DisplayData.cs" Link="Production\DisplayData.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\NetworkAddress.cs" Link="Production\NetworkAddress.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\Callout.cs" Link="Production\Callout.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\ProviderContext.cs" Link="Production\ProviderContext.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\NetworkFilterException.cs" Link="Production\NetworkFilterException.cs" />
+        <Compile Include="..\..\ProtonVPN.Service\Firewall\AppFilter.cs" Link="Production\Service\Firewall\AppFilter.cs" />
+        <Compile Include="..\..\ProtonVPN.Service\Firewall\IAppFilter.cs" Link="Production\Service\Firewall\IAppFilter.cs" />
+        <Compile Include="..\..\ProtonVPN.Service\Firewall\IFilterCollection.cs" Link="Production\Service\Firewall\IFilterCollection.cs" />
+        <Compile Include="..\..\ProtonVPN.Service\Firewall\Layer.cs" Link="Production\Service\Firewall\Layer.cs" />
+        <Compile Include="..\..\ProtonVPN.Service\ServerHealth\ServerHealthPermitManager.cs" Link="Production\Service\ServerHealth\ServerHealthPermitManager.cs" />
+        <Compile Include="..\..\ProtonVPN.Service\ServerHealth\IServerHealthPermitManager.cs" Link="Production\Service\ServerHealth\IServerHealthPermitManager.cs" />
+    </ItemGroup>
+</Project>

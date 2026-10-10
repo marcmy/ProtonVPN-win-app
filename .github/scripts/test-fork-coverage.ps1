@@ -45,6 +45,7 @@ $coverageProjects = @(
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Mappers.Tests/ProtonVPN.Client.Logic.Servers.Mappers.Tests.csproj',
     'src/ProcessCommunication/ProtonVPN.ProcessCommunication.EntityMapping.Tests/ProtonVPN.ProcessCommunication.EntityMapping.Tests.csproj',
     'src/Tests/ProtonVPN.Vpn.Tests/ProtonVPN.Vpn.Tests.csproj',
+    'src/Tests/ProtonVPN.NetworkFilter.Tests/ProtonVPN.NetworkFilter.Tests.csproj',
     'src/Tests/ProtonVPN.Service.Tests/ProtonVPN.Service.Tests.csproj',
     'src/Tests/ProtonVPN.Integration.Tests/ProtonVPN.Integration.Tests.csproj'
 )
@@ -55,6 +56,7 @@ $coverageProjects = @(
 $focusAreas = [ordered]@{
     'Guest Hole / connection transitions' = 'GuestHoleManager|ConnectionManager|MainSettingsRequestCreator|AutoConnectTriggerHandler'
     'Server-health / server refresh' = 'ServerHealth(Control|History|Probe|State)|ServerListUpdater'
+    'Shared firewall filter ownership' = 'ProtonVPN.NetworkFilter.Sublayer|ProtonVPN.Service.Firewall.AppFilter|ServerHealthPermitManager'
     'NAT-PMP / port mapping' = 'PortMappingProtocolClient|UdpClientWrapper|NatPmp|NAT.?PMP'
     'Endpoint candidate/scanner' = 'VpnEndpointCandidates|VpnEndpointScanner|TcpPortScanner|UdpPingClient'
     'App port-forwarding route shim' = 'PortForwardingForApps|PortForwarding.*Route|NatPmp.*Route'
