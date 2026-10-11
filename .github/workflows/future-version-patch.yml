@@ -363,7 +363,7 @@ jobs:
           }
 
       - name: Upload patched-branch bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: future-version-patched-branch
           path: artifacts/patched-branch.bundle
@@ -371,7 +371,7 @@ jobs:
           retention-days: 3
 
       - name: Upload raw patch artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-client-patch-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/ProtonVPN.Client.Patch
@@ -379,7 +379,7 @@ jobs:
           retention-days: 14
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-custom-patch-installer-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/Installer/*.exe
@@ -388,7 +388,7 @@ jobs:
 
       - name: Upload full bin artifact
         if: ${{ always() && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-client-bin-${{ steps.target-version.outputs.target_version }}-both
           path: src/bin
@@ -397,7 +397,7 @@ jobs:
 
       - name: Upload build logs
         if: ${{ always() && hashFiles('artifacts/logs/**') != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-client-patch-logs-${{ steps.target-version.outputs.target_version }}-both
           path: artifacts/logs
