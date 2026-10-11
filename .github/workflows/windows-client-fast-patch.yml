@@ -321,7 +321,7 @@ jobs:
 
       - name: Upload PR raw patch artifact
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-client-patch-${{ steps.app-version.outputs.target_version }}-pr-${{ github.event.pull_request.number }}
           path: artifacts/ProtonVPN.Client.Patch
@@ -330,7 +330,7 @@ jobs:
 
       - name: Upload PR installer artifact
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-custom-patch-installer-${{ steps.app-version.outputs.target_version }}-pr-${{ github.event.pull_request.number }}
           path: artifacts/Installer/*.exe
@@ -339,7 +339,7 @@ jobs:
 
       - name: Upload raw patch artifact
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-client-patch-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/ProtonVPN.Client.Patch
@@ -348,7 +348,7 @@ jobs:
 
       - name: Upload installer artifact
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-custom-patch-installer-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/Installer/*.exe
@@ -357,7 +357,7 @@ jobs:
 
       - name: Upload full bin artifact
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_full_bin && hashFiles('src/bin/**') != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-client-bin-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: src/bin
@@ -366,7 +366,7 @@ jobs:
 
       - name: Upload build logs
         if: ${{ github.event_name == 'workflow_dispatch' && always() && hashFiles('artifacts/logs/**') != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: protonvpn-client-patch-logs-${{ steps.app-version.outputs.target_version }}-${{ inputs.build_mode }}
           path: artifacts/logs
