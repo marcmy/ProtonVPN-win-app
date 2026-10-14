@@ -4,9 +4,9 @@ vulnerabilities:
       - "Directory.Packages.props"
     purls:
       - "pkg:nuget/log4net@3.2.0"
-    expired_at: 2026-10-31
+    expired_at: 2026-12-31
     statement: >-
-      Proton VPN 5.1.5 installs the strongly named log4net 3.2.0.0 assembly.
+      Proton VPN 5.1.8 installs the strongly named log4net 3.2.0.0 assembly.
       The current logger is configured programmatically with PatternLayout rather than
       the affected XmlLayout or XmlLayoutSchemaLog4J paths. Fast-patch artifacts must
       remain binary-compatible with the installed app. Reassess when the official
