@@ -140,11 +140,17 @@ public partial class NoServersPageViewModel : PageViewModelBase<IMainWindowViewN
 
             // Add some fake waiting time in case the response is fast,
             // so we prevent the user from refreshing too often
+            bool isServersUpdateAttempted = AuthResponseDetails is null;
             await Task.WhenAll(
-                AuthResponseDetails is null
+                isServersUpdateAttempted
                     ? _serversUpdater.ForceUpdateAsync()
                     : AutoLoginWithoutWindowRepositionAsync(),
                 Task.Delay(MIN_LOAD_TIME_IN_MS));
+
+            if (isServersUpdateAttempted && _serversUpdater.HasServersRequestFailed())
+            {
+                await _serversUpdater.ForceUpdateLoadsAsync();
+            }
         }
         finally
         {

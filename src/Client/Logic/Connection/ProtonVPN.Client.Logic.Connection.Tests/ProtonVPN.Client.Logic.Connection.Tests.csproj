@@ -12,6 +12,9 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="..\..\..\..\GlobalAssemblyInfo.cs" Link="Properties\GlobalAssemblyInfo.cs" />
+        <!-- The power handler has no UI dependency; exercise the production source directly. -->
+        <Compile Include="..\..\..\ProtonVPN.Client\Handlers\PowerModeAndWindowActivationHandler.cs" Link="Production\PowerModeAndWindowActivationHandler.cs" />
+        <Compile Include="..\..\..\ProtonVPN.Client\Handlers\Bases\IHandler.cs" Link="Production\IHandler.cs" />
     </ItemGroup>
     <ItemGroup>
         <SupportedPlatform Include="windows" />
@@ -31,5 +34,6 @@
     <ItemGroup>
         <ProjectReference Include="..\ProtonVPN.Client.Logic.Connection.Contracts\ProtonVPN.Client.Logic.Connection.Contracts.csproj" />
         <ProjectReference Include="..\ProtonVPN.Client.Logic.Connection\ProtonVPN.Client.Logic.Connection.csproj" />
+        <ProjectReference Include="..\..\..\..\OperatingSystems\PowerEvents\ProtonVPN.OperatingSystems.PowerEvents.Contracts\ProtonVPN.OperatingSystems.PowerEvents.Contracts.csproj" />
     </ItemGroup>
 </Project>

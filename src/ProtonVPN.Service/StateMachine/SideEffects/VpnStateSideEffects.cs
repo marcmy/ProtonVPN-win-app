@@ -90,7 +90,7 @@ internal sealed class VpnStateSideEffects : IVpnStateSideEffects
                     _killSwitch.OnVpnDisconnected(state);
                 }
 
-                _splitTunnel.OnVpnDisconnected(state);
+                _splitTunnel.OnVpnDisconnected(state, stateMachineState != State.Disconnected);
                 break;
         }
 

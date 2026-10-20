@@ -13,6 +13,7 @@
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Properties\" />
+        <EmbeddedResource Include="ReportIssueDefaultForm.json" LogicalName="ReportIssueDefaultForm.json" />
     </ItemGroup>
     <ItemGroup>
       <PackageReference Include="System.Formats.Asn1" />

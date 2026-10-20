@@ -18,6 +18,9 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="..\..\..\..\GlobalAssemblyInfo.cs" Link="Properties\GlobalAssemblyInfo.cs" />
+        <!-- Exercise the actual reporting model sources without requiring a WinUI window/runtime. -->
+        <Compile Include="..\..\..\ProtonVPN.Client.Core\Models\ReportIssue\IssueInputField.cs" Link="ReportIssueModels\IssueInputField.cs" />
+        <Compile Include="..\..\..\ProtonVPN.Client.Core\Models\ReportIssue\Fields\*.cs" Link="ReportIssueModels\%(Filename)%(Extension)" />
     </ItemGroup>
     <ItemGroup>
         <Content Include="TestData\bug-report-test-2.txt">
@@ -38,6 +41,7 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="FluentAssertions" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
         <PackageReference Include="MSTest.TestAdapter" />
         <PackageReference Include="MSTest.TestFramework" />

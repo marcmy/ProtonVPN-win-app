@@ -24,6 +24,7 @@ namespace ProtonVPN.Client.Logic.Servers.Contracts.Models;
 public class ServersFile
 {
     public string? DeviceCountryLocation { get; init; }
+    public string? DeviceIpAddress { get; init; }
 
     public sbyte? UserMaxTier { get; init; }
 

@@ -87,6 +87,7 @@ $coreClientProjects = @(
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Tests/ProtonVPN.Client.Logic.Servers.Tests.csproj',
     'src/Client/Logic/Servers/ProtonVPN.Client.Logic.Servers.Mappers.Tests/ProtonVPN.Client.Logic.Servers.Mappers.Tests.csproj',
     'src/Client/Logic/Connection/ProtonVPN.Client.Logic.Connection.Tests/ProtonVPN.Client.Logic.Connection.Tests.csproj'
+    'src/Client/Logic/Feedback/ProtonVPN.Client.Logic.Feedback.Tests/ProtonVPN.Client.Logic.Feedback.Tests.csproj'
 )
 
 $serviceProjects = @(

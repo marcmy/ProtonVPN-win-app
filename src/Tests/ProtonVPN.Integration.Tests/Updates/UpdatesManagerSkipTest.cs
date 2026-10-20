@@ -206,6 +206,7 @@ public class UpdatesManagerSkipTest
         // Assert
         Assert.IsFalse(_updatesManager.IsUpdateAvailable);
         _osProcesses.DidNotReceive().ElevatedProcess(Arg.Any<string>(), Arg.Any<string>());
+        _osProcesses.DidNotReceive().BuildElevatedProcess(Arg.Any<string>(), Arg.Any<IEnumerable<string>>());
         await _appExitInvoker.DidNotReceive().ForceExitAsync();
         await _appExitInvoker.DidNotReceive().RestartAsync(Arg.Any<bool>());
     }

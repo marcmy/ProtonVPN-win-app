@@ -23,12 +23,14 @@ namespace ProtonVPN.Client.Core.Models.ReportIssue.Fields;
 
 public class EmailInputField : TextInputFieldBase
 {
-    public EmailInputField(bool isFieldMandatory)
+    protected override int DefaultMaximumLength => 254;
+
+    public EmailInputField(bool isFieldMandatory = true)
         : base(isFieldMandatory)
     { }
 
     protected override bool IsValid()
     {
-        return (string.IsNullOrEmpty(Value) && !IsMandatory) || (Value?.IsValidEmailAddress() ?? false);
+        return base.IsValid() && (string.IsNullOrEmpty(Value) || (Value?.IsValidEmailAddress() ?? false));
     }
 }

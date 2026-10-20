@@ -112,6 +112,10 @@ public partial class ReportIssueContactPageViewModel : ReportIssuePageViewModelB
                 IsSendingReport = false;
                 await ParentViewNavigator.NavigateToResultViewAsync(isReportSent);
             }
+            if (isReportSent)
+            {
+                InvalidateInputFields();
+            }
         }
     }
 
@@ -143,7 +147,11 @@ public partial class ReportIssueContactPageViewModel : ReportIssuePageViewModelB
 
         List<IssueCategoryResponse> categories = await _dataProvider.GetCategoriesAsync();
 
-        Category = ReportIssueMapper.Map(categories.First(c => c.SubmitLabel == Category.Key));
+        IssueCategoryResponse? category = categories.FirstOrDefault(c => c.SubmitLabel == Category.Key);
+        if (category is not null)
+        {
+            Category = ReportIssueMapper.Map(category);
+        }
     }
 
     private void InvalidateInputFields()
@@ -164,6 +172,13 @@ public partial class ReportIssueContactPageViewModel : ReportIssuePageViewModelB
 
         foreach (IssueInputField field in Category.InputFields)
         {
+            field.Reset();
+            if (field is TextInputFieldBase textField)
+            {
+                textField.LengthHint = textField.HasMinimumLength
+                    ? Localizer.GetFormat("Dialogs_ReportIssue_ContactForm_Field_MinLength", textField.EffectiveMinimumLength)
+                    : string.Empty;
+            }
             InputFields.Add(field);
         }
     }

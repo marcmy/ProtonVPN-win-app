@@ -68,8 +68,8 @@ public class OpenVpnProcess : IOpenVpnProcess
         _startCompletionSource?.TrySetCanceled();
         _startCompletionSource = new TaskCompletionSource<bool>();
 
-        string arguments = GetCommandLineArguments(processParams);
-        _process = _processes.Process(_staticConfig.OpenVpn.ExePath, arguments);
+        CommandLineArguments arguments = GetCommandLineArguments(processParams);
+        _process = _processes.BuildProcess(_staticConfig.OpenVpn.ExePath, arguments.ToArgumentList());
         AddEventHandlers();
         _process.Start();
 
@@ -88,7 +88,7 @@ public class OpenVpnProcess : IOpenVpnProcess
         Cleanup();
     }
 
-    private string GetCommandLineArguments(OpenVpnProcessParams processParams)
+    private CommandLineArguments GetCommandLineArguments(OpenVpnProcessParams processParams)
     {
         CommandLineArguments arguments = new CommandLineArguments()
             .Add(new BasicArguments(_staticConfig.OpenVpn))

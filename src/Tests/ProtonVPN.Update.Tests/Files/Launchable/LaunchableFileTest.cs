@@ -18,6 +18,8 @@
  */
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
@@ -47,23 +49,26 @@ namespace ProtonVPN.Update.Tests.Files.Launchable
 
             launchable.Launch(filename, args);
 
-            _processes.Received(1).ElevatedProcess(filename, args);
+            _processes.Received(1).BuildElevatedProcess(filename,
+                Arg.Is<IEnumerable<string>>(tokens => tokens.SequenceEqual(new[] { "Launch", "arguments" })));
         }
 
         [TestMethod]
         public void Launch_ShouldStart_ElevatedProcess()
         {
+            IOsProcess process = Substitute.For<IOsProcess>();
+            _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).Returns(process);
             LaunchableFile launchable = new LaunchableFile(_processes);
 
             launchable.Launch("", "");
 
-            _processes.ElevatedProcess("", "").Received(1).Start();
+            process.Received(1).Start();
         }
 
         [TestMethod]
         public void Valid_ShouldPassException_WhenOsProcesses_ElevatedProcess_Throws()
         {
-            _processes.ElevatedProcess("", "").ThrowsForAnyArgs<Exception>();
+            _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).ThrowsForAnyArgs<Exception>();
             LaunchableFile launchable = new LaunchableFile(_processes);
 
             Action action = () => launchable.Launch("", "");
@@ -74,7 +79,7 @@ namespace ProtonVPN.Update.Tests.Files.Launchable
         [TestMethod]
         public void Valid_ShouldPassException_WhenElevatedProcess_Start_Throws()
         {
-            _processes.ElevatedProcess("", "").WhenForAnyArgs(x => x.Start()).Throws<Exception>();
+            _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).WhenForAnyArgs(x => x.Start()).Throws<Exception>();
             LaunchableFile launchable = new LaunchableFile(_processes);
 
             Action action = () => launchable.Launch("", "");

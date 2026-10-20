@@ -154,6 +154,14 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                             Style="{StaticResource PrimaryButtonStyle}" />
                 </toolkit:SettingsCard>
 
+                <toolkit:SettingsCard Header="Refresh server loads"
+                                      IsTabStop="False"
+                                      Style="{StaticResource DefaultSettingsCardStyle}">
+                    <Button Command="{x:Bind ViewModel.ForceUpdateLoadsCommand, Mode=OneTime}"
+                            Content="Trigger refresh"
+                            Style="{StaticResource PrimaryButtonStyle}" />
+                </toolkit:SettingsCard>
+
                 <toolkit:SettingsCard Header="Logout user with client outdated reason"
                                       IsTabStop="False"
                                       Style="{StaticResource DefaultSettingsCardStyle}">

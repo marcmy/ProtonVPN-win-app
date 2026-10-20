@@ -37,6 +37,8 @@ using ProtonVPN.Vpn.SynchronizationEvent;
 using ProtonVPN.Vpn.Wintun;
 using ProtonVPN.Vpn.WireGuard;
 
+using ProtonVPN.Vpn.Common;
+
 namespace ProtonVPN.Vpn.Config;
 
 public class Module
@@ -61,6 +63,7 @@ public class Module
         builder.RegisterType<WintunTrafficManager>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<WireGuardService>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<WireGuardConfigFileCreator>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<SecureConfigFileWriter>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<LocalAgent.LocalAgent>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<LocalAgentEventReceiver>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<ProTunConnection>().AsImplementedInterfaces().SingleInstance();

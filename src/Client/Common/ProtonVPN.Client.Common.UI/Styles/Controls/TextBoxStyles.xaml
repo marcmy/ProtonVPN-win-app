@@ -644,6 +644,8 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                 Visibility="Collapsed" />
 
                         <ScrollViewer x:Name="ContentElement"
+                                      MinHeight="{Binding Path=(attached:TextBoxContentSizing.ContentMinHeight), RelativeSource={RelativeSource TemplatedParent}}"
+                                      MaxHeight="{Binding Path=(attached:TextBoxContentSizing.ContentMaxHeight), RelativeSource={RelativeSource TemplatedParent}}"
                                       Grid.Row="1"
                                       Grid.Column="0"
                                       Margin="{TemplateBinding BorderThickness}"
