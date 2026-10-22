@@ -17,71 +17,75 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Client.EventMessaging.Contracts;
-using ProtonVPN.Client.Logic.Auth.Contracts.Messages;
 using ProtonVPN.Client.Logic.Servers.Cache;
 using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Configurations.Contracts;
+using ProtonVPN.IssueReporting.Contracts;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.AppLogs;
 
 namespace ProtonVPN.Client.Logic.Servers;
 
-public class ServersUpdater : IServersUpdater,
-    IEventMessageReceiver<LoggedInMessage>,
-    IEventMessageReceiver<LoggedOutMessage>
+public class ServersUpdater : IServersUpdater
 {
     private readonly ILogger _logger;
+
+    private readonly IIssueReporter _issueReporter;
+
     private readonly IServersCache _serversCache;
+
     private readonly IServerCountCache _serverCountCache;
+
     private readonly ISettings _settings;
 
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private readonly IConfiguration _config;
 
-    private bool _isLoggedIn = false;
+    private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
-    public ServersUpdater(
-        ILogger logger,
-        IServersCache serversCache,
-        IServerCountCache serverCountCache,
-        ISettings settings)
+    public ServersUpdater(ILogger logger, IIssueReporter issueReporter, IServersCache serversCache, IServerCountCache serverCountCache, ISettings settings, IConfiguration config)
     {
         _logger = logger;
+        _issueReporter = issueReporter;
         _serversCache = serversCache;
         _serverCountCache = serverCountCache;
         _settings = settings;
+        _config = config;
     }
 
     public async Task UpdateAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
-
         try
         {
             _logger.Info<AppLog>("Server update requested");
-
             _serversCache.LoadFromFileIfEmpty();
-
-            if (_serversCache.IsEmpty() || _serversCache.IsStale())
+            bool isServersCacheInvalid = IsServersCacheInvalid();
+            bool isServersUpdateNeeded = IsServersUpdateNeeded();
+            if (isServersCacheInvalid)
             {
                 _logger.Info<AppLog>("Server cache is invalid, forcing full update");
-
                 await ForceUpdateServersAsync(cancellationToken);
             }
-            else if (_serversCache.IsOutdated())
+            else if (isServersUpdateNeeded)
             {
                 _logger.Info<AppLog>("Server cache is outdated, updating");
-
                 await UpdateServersAsync(cancellationToken);
             }
-            else if (_serversCache.IsLoadOutdated())
+            bool isLoadsUpdateNeeded = IsLoadsUpdateNeeded();
+            if (isLoadsUpdateNeeded)
             {
                 _logger.Info<AppLog>("Load cache is outdated, updating");
-
-                await UpdateLoadsAsync(cancellationToken);
+                await _serversCache.UpdateLoadsAsync(cancellationToken);
             }
-            else
+            bool flag = IsLoadsRecomputeNeeded();
+            if (flag)
+            {
+                _logger.Info<AppLog>("Device coordinates changed, recomputing the server scores");
+                _serversCache.RecomputeLoads();
+            }
+            if (!isServersCacheInvalid && !isServersUpdateNeeded && !isLoadsUpdateNeeded && !flag)
             {
                 _logger.Info<AppLog>("No server update needed, using cached servers");
             }
@@ -92,17 +96,56 @@ public class ServersUpdater : IServersUpdater,
         }
     }
 
+    public async Task UpdateOverdueLoadsAsync()
+    {
+        try
+        {
+            if (IsLoadsOverdue())
+            {
+                _logger.Info<AppLog>("Server loads are overdue, updating");
+                _issueReporter.CaptureMessage("Overdue server loads detected");
+                if (!(await UpdateLoadsIfOverdueAsync(CancellationToken.None).WaitOrFireAndForgetAsync(_config.OverdueServerLoadUpdateTimeout)))
+                {
+                    _logger.Warn<AppLog>("Server loads are overdue but were not updated in time, using the cached ones.");
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.Error<AppLog>("Failed to update the overdue server loads, using the cached ones.", exception);
+        }
+    }
+
     public async Task ForceUpdateAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
-
         try
         {
             _logger.Info<AppLog>("Force server update requested");
-
             _serversCache.LoadFromFileIfEmpty();
-
             await ForceUpdateServersAsync(cancellationToken);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task ForceUpdateLoadsAsync(CancellationToken cancellationToken)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            _logger.Info<AppLog>("Force loads update requested");
+            _serversCache.LoadFromFileIfEmpty();
+            if (_serversCache.IsEmpty())
+            {
+                _logger.Info<AppLog>("Server cache is empty, skipping the loads update");
+            }
+            else
+            {
+                await _serversCache.UpdateLoadsAsync(cancellationToken);
+            }
         }
         finally
         {
@@ -113,11 +156,9 @@ public class ServersUpdater : IServersUpdater,
     public async Task ClearCacheAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
-
         try
         {
             _logger.Info<AppLog>("Clear server cache requested");
-
             _serversCache.Clear();
         }
         finally
@@ -126,33 +167,77 @@ public class ServersUpdater : IServersUpdater,
         }
     }
 
-    public void Receive(LoggedInMessage message)
+    public bool HasServersRequestFailed()
     {
-        _isLoggedIn = true;
+        return _serversCache.HasServersRequestFailed();
     }
 
-    public void Receive(LoggedOutMessage message)
+    private bool IsLoadsOverdue()
     {
-        _isLoggedIn = false;
+        if (!_serversCache.IsEmpty())
+        {
+            return _serversCache.IsLoadOverdue();
+        }
+        return false;
+    }
+
+    private async Task UpdateLoadsIfOverdueAsync(CancellationToken cancellationToken)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            if (IsLoadsOverdue())
+            {
+                await _serversCache.UpdateLoadsAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private bool IsServersCacheInvalid()
+    {
+        if (!_serversCache.IsEmpty())
+        {
+            return _serversCache.IsStale();
+        }
+        return true;
+    }
+
+    private bool IsServersUpdateNeeded()
+    {
+        return _serversCache.IsOutdated();
+    }
+
+    private bool IsLoadsUpdateNeeded()
+    {
+        if (!_serversCache.IsEmpty())
+        {
+            return _serversCache.IsLoadOutdated();
+        }
+        return false;
+    }
+
+    private bool IsLoadsRecomputeNeeded()
+    {
+        if (!_serversCache.IsEmpty())
+        {
+            return _serversCache.IsLoadStale();
+        }
+        return false;
     }
 
     private Task ForceUpdateServersAsync(CancellationToken cancellationToken)
     {
         _settings.LogicalsLastModifiedDate = DefaultSettings.LogicalsLastModifiedDate;
-
         return UpdateServersAsync(cancellationToken);
     }
 
     private Task UpdateServersAsync(CancellationToken cancellationToken)
     {
-        // No need to await here, the server count is not critical for the servers cache update
         _serverCountCache.UpdateAsync().FireAndForget();
-
         return _serversCache.UpdateAsync(cancellationToken);
-    }
-
-    private Task UpdateLoadsAsync(CancellationToken cancellationToken)
-    {
-        return _serversCache.UpdateLoadsAsync(cancellationToken);
     }
 }

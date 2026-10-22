@@ -30,7 +30,7 @@ public sealed class SublayerConcurrencyTest
     public void Initialize()
     {
         _sublayer = new(_native, Guid.NewGuid());
-        ServiceIpFilter sharedFilter = new(_sublayer);
+        ServiceIpFilter sharedFilter = new(_native, _sublayer);
         _apps = new(Substitute.For<ILogger>(), sharedFilter, new IpLayer());
         _permits = new(sharedFilter, new IpLayer());
         IpFilterNative.CreationFailure = null;

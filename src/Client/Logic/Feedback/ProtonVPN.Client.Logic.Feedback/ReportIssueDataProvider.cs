@@ -41,7 +41,13 @@ public class ReportIssueDataProvider : IReportIssueDataProvider, IEventMessageRe
     {
         if (!_categories.Any())
         {
-            await FetchDataAsync();
+            List<IssueCategoryResponse>? categories = await FetchDataAsync();
+            if (categories is null)
+            {
+                // A temporary fallback is not a successful API cache: retry next time.
+                return ReportIssueDefaultDataProvider.GetCategories();
+            }
+            _categories = categories;
         }
 
         return _categories.ToList();
@@ -53,7 +59,7 @@ public class ReportIssueDataProvider : IReportIssueDataProvider, IEventMessageRe
         _categories.Clear();
     }
 
-    private async Task FetchDataAsync()
+    private async Task<List<IssueCategoryResponse>?> FetchDataAsync()
     {
         try
         {
@@ -69,23 +75,33 @@ public class ReportIssueDataProvider : IReportIssueDataProvider, IEventMessageRe
                 throw new InvalidDataException("Invalid data received from the API for Report an issue form data ");
             }
 
-            _categories = response.Value.Categories;
+            return response.Value.Categories;
         }
         catch
         {
-            _categories = ReportIssueDefaultDataProvider.GetCategories();
+            return null;
         }
     }
 
     private bool IsDataValid(IList<IssueCategoryResponse> categories)
     {
-        return categories.All(category =>
+        return categories is { Count: > 0 } && categories.All(category =>
             !string.IsNullOrEmpty(category.Label) &&
             !string.IsNullOrEmpty(category.SubmitLabel) &&
             category.InputFields != null &&
             !category.InputFields.Any(
                 input => string.IsNullOrEmpty(input.Label) ||
                          string.IsNullOrEmpty(input.SubmitLabel) ||
-                         !_validInputTypes.Contains(input.Type)));
+                         !_validInputTypes.Contains(input.Type) ||
+                         !AreConstraintsValid(input.Constraints)));
+    }
+
+    private static bool AreConstraintsValid(IssueInputConstraintsResponse? constraints)
+    {
+        return constraints is null ||
+            ((!constraints.MinimumLength.HasValue || constraints.MinimumLength >= 0) &&
+             (!constraints.MaximumLength.HasValue || constraints.MaximumLength > 0) &&
+             (!constraints.MinimumLength.HasValue || !constraints.MaximumLength.HasValue ||
+              constraints.MinimumLength <= constraints.MaximumLength));
     }
 }

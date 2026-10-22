@@ -63,6 +63,7 @@ public class ConnectionManagerTest
     private IGuestHoleDisconnectionRequestCreator? _guestHoleDisconnectionRequestCreator;
     private IConnectionStatisticalEventsManager? _statisticalEventManager;
     private IConnectionKeyManager? _connectionKeyManager;
+    private IServersUpdater _serversUpdater = null!;
 
     [TestInitialize]
     public void Initialize()
@@ -82,6 +83,7 @@ public class ConnectionManagerTest
         _guestHoleDisconnectionRequestCreator = Substitute.For<IGuestHoleDisconnectionRequestCreator>();
         _statisticalEventManager = Substitute.For<IConnectionStatisticalEventsManager>();
         _connectionKeyManager = Substitute.For<IConnectionKeyManager>();
+        _serversUpdater = Substitute.For<IServersUpdater>();
 
         _connectionRequestCreator!.CreateAsync(Arg.Any<IConnectionIntent>()).Returns(GetConnectionRequestIpcEntity());
         _reconnectionRequestCreator!.CreateAsync(Arg.Any<IConnectionIntent>()).Returns(GetConnectionRequestIpcEntity());
@@ -366,6 +368,29 @@ public class ConnectionManagerTest
             "The cached normal Connected state was lost when the Guest Hole inactive event arrived after it.");
     }
 
+    [TestMethod]
+    public async Task ConnectAsync_RefreshesOverdueLoadsBeforeSelectingServer()
+    {
+        _settings!.VpnPlan.Returns(new VpnPlan(string.Empty, string.Empty, PAID_PLAN_TIER, false));
+        TaskCompletionSource refresh = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _serversUpdater.UpdateOverdueLoadsAsync().Returns(refresh.Task);
+        ConnectionManager manager = GetConnectionManager();
+
+        Task connect = manager.ConnectAsync(VpnTriggerDimension.Auto,
+            GetConnectionIntent(new SecureCoreFeatureIntent()));
+        try
+        {
+            Assert.IsFalse(connect.IsCompleted);
+            _ = _connectionRequestCreator!.DidNotReceive().CreateAsync(Arg.Any<IConnectionIntent>());
+        }
+        finally
+        {
+            refresh.TrySetResult();
+        }
+        await connect.WaitAsync(TimeSpan.FromSeconds(5));
+        _ = _connectionRequestCreator!.Received(1).CreateAsync(Arg.Any<IConnectionIntent>());
+    }
+
     private ConnectionRequestIpcEntity GetConnectionRequestIpcEntity()
     {
         return new ConnectionRequestIpcEntity()
@@ -404,7 +429,8 @@ public class ConnectionManagerTest
             _guestHoleConnectionRequestCreator!,
             _guestHoleDisconnectionRequestCreator!,
             _statisticalEventManager!,
-            _connectionKeyManager!);
+            _connectionKeyManager!,
+            _serversUpdater);
     }
 
     private IConnectionIntent GetConnectionIntent(IFeatureIntent featureIntent)

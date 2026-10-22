@@ -25,6 +25,7 @@
         <Compile Include="..\..\ProtonVPN.NetworkFilter\Callout.cs" Link="Production\Callout.cs" />
         <Compile Include="..\..\ProtonVPN.NetworkFilter\ProviderContext.cs" Link="Production\ProviderContext.cs" />
         <Compile Include="..\..\ProtonVPN.NetworkFilter\NetworkFilterException.cs" Link="Production\NetworkFilterException.cs" />
+        <Compile Include="..\..\ProtonVPN.NetworkFilter\NonLocalAppPathException.cs" Link="Production\NonLocalAppPathException.cs" />
         <Compile Include="..\..\ProtonVPN.Service\Firewall\AppFilter.cs" Link="Production\Service\Firewall\AppFilter.cs" />
         <Compile Include="..\..\ProtonVPN.Service\Firewall\IAppFilter.cs" Link="Production\Service\Firewall\IAppFilter.cs" />
         <Compile Include="..\..\ProtonVPN.Service\Firewall\IFilterCollection.cs" Link="Production\Service\Firewall\IFilterCollection.cs" />

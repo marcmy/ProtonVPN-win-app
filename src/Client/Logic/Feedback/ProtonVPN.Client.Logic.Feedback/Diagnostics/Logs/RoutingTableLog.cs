@@ -30,7 +30,7 @@ public class RoutingTableLog : LogBase
     {
         get
         {
-            using IOsProcess process = _osProcesses.CommandLineProcess("/c route print");
+            using IOsProcess process = _osProcesses.BuildCommandLineProcess(["/c", "route", "print"]);
             process.Start();
             return process.StandardOutput.ReadToEnd();
         }

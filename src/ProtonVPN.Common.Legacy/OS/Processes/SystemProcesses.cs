@@ -42,6 +42,41 @@ public class SystemProcesses : IOsProcesses
         return new SystemProcess(_logger, process);
     }
 
+    public IOsProcess BuildProcess(string filename, IEnumerable<string> arguments = null)
+    {
+        ProcessStartInfo startInfo = new ProcessStartInfo(filename).StandardInfo();
+        foreach (string argument in arguments ?? System.Array.Empty<string>())
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+        return new SystemProcess(_logger, new Process { StartInfo = startInfo, EnableRaisingEvents = true });
+    }
+
+    public IOsProcess BuildElevatedProcess(string filename, IEnumerable<string> arguments = null)
+    {
+        ProcessStartInfo startInfo = new ProcessStartInfo
+        {
+            FileName = filename,
+            CreateNoWindow = true,
+            UseShellExecute = true,
+            Verb = "runas",
+            WorkingDirectory = Environment.CurrentDirectory,
+        };
+        foreach (string argument in arguments ?? System.Array.Empty<string>())
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+        return new SystemProcess(_logger, new Process { StartInfo = startInfo, EnableRaisingEvents = true });
+    }
+
+    public IOsProcess BuildCommandLineProcess(IEnumerable<string> arguments = null)
+    {
+        return new CmdOutputProcess(_logger, new Process
+        {
+            StartInfo = new ProcessStartInfo("cmd.exe", arguments ?? System.Array.Empty<string>()).NoRedirectInfo(),
+        });
+    }
+
     public IOsProcess ElevatedProcess(string filename, string arguments)
     {
         var process = CreateElevatedProcess(filename, arguments);

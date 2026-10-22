@@ -25,4 +25,5 @@ namespace ProtonVPN.Service.Firewall;
 public interface IAppFilter : IFilterCollection
 {
     void Add(string[] paths, Tuple<Layer, NetworkFilter.Action>[] filters);
+    void Replace(string[] paths, Tuple<Layer, NetworkFilter.Action>[] filters);
 }

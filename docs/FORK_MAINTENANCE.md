@@ -74,9 +74,19 @@ The binary release watch compares the newest Proton release with the version
 on `marc/proton`. If its source is not public yet, retain the binary archaeology
 report and develop a reviewed candidate on `future/proton/v<version>` from the
 current official-source base. That candidate is not a second current release.
+A fully reviewed binary-based port can be promoted to `marc/proton` before the
+source tag exists. Record its official installer hash, last public source base,
+reconstruction limits, and feature-by-feature decisions in a versioned port ledger.
+The current FastPatch then targets that exact installed official release; it does
+not replace the official release's signed drivers or release-injected configuration.
+Retire a promoted candidate so an older branch cannot become the next source-watch
+input. Promotion does not mean the unpublished source has been merged.
+
 When Proton publishes the source tag, the source watcher checks that the
 candidate and tag share an official ancestor, then runs the future-port build
-against the new source. Historical pre-5.1.8 backport cleanup applies only to
+against the new source (or uses `marc/proton` if no candidate remains). Review
+semantic overlaps with the binary-based port instead of dropping its fork changes.
+Historical pre-5.1.8 backport cleanup applies only to
 old fork deltas; a source branch already based on official v5.1.8 or newer
 ports its current delta directly. New semantic conflicts fail closed and need
 the same feature-by-feature review described below. After the reviewed port is

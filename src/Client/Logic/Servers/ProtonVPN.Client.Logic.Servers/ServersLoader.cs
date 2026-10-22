@@ -261,4 +261,6 @@ public class ServersLoader : IServersLoader
     {
         return _serversCache.Gateways.Any();
     }
+
+    public IEnumerable<KeyValuePair<string, dynamic?>> GetStats() => _serversCache.GetStats();
 }

@@ -17,13 +17,62 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace ProtonVPN.Client.Core.Models.ReportIssue.Fields;
 
-public abstract class TextInputFieldBase : IssueInputField<string>
+public abstract partial class TextInputFieldBase : IssueInputField<string>
 {
-    protected TextInputFieldBase(bool isFieldMandatory)
-        : base(isFieldMandatory)
-    { }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveMinimumLength), nameof(EffectiveMaximumLength), nameof(IsMandatory),
+        nameof(HasMinimumLength), nameof(HasMaximumLength), nameof(HasLengthConstraint), nameof(IsMinimumLengthMet), nameof(FormattedCurrentLength))]
+    private int? _minimumLength;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveMaximumLength), nameof(HasMaximumLength), nameof(HasLengthConstraint), nameof(FormattedCurrentLength))]
+    private int? _maximumLength;
+
+    protected abstract int DefaultMaximumLength { get; }
+    public int EffectiveMinimumLength => MinimumLength ?? 1;
+    public int EffectiveMaximumLength => MaximumLength ?? Math.Max(DefaultMaximumLength, EffectiveMinimumLength);
+    public bool IsMandatory => EffectiveMinimumLength > 0;
+    public bool HasMinimumLength => EffectiveMinimumLength > 1;
+    public bool HasMaximumLength => EffectiveMaximumLength > 0;
+    public bool HasLengthConstraint => HasMinimumLength || HasMaximumLength;
+    public int CurrentLength => Value?.Length ?? 0;
+    public string FormattedCurrentLength => $"{CurrentLength}/{EffectiveMaximumLength}";
+    public bool IsMinimumLengthMet => !HasMinimumLength || CurrentLength >= EffectiveMinimumLength;
+    public string LengthHint { get; set; } = string.Empty;
+
+    protected TextInputFieldBase(bool isFieldMandatory = true)
+    {
+        if (!isFieldMandatory)
+        {
+            MinimumLength = 0;
+        }
+    }
+
+    protected override bool IsValid()
+    {
+        if (string.IsNullOrWhiteSpace(Value))
+        {
+            return !IsMandatory;
+        }
+        return (!HasMinimumLength || CurrentLength >= EffectiveMinimumLength)
+            && (!HasMaximumLength || CurrentLength <= EffectiveMaximumLength);
+    }
+
+    protected override void OnValueChanged()
+    {
+        base.OnValueChanged();
+        OnPropertyChanged(nameof(CurrentLength));
+        OnPropertyChanged(nameof(FormattedCurrentLength));
+        OnPropertyChanged(nameof(IsMinimumLengthMet));
+    }
+
+    partial void OnMinimumLengthChanged(int? value) => ValidateProperty(Value, nameof(Value));
+    partial void OnMaximumLengthChanged(int? value) => ValidateProperty(Value, nameof(Value));
 
     protected override string GetSerializedValue()
     {

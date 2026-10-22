@@ -17,14 +17,20 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using ProtonVPN.Client.Contracts.Messages;
 using ProtonVPN.Client.EventMessaging.Contracts;
 using ProtonVPN.Client.Handlers.Bases;
 using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Logic.Connection.Contracts;
+using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Services.Contracts;
 using ProtonVPN.Client.Logic.Users.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Common.Core.Extensions;
+using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.Logging.Contracts;
 using ProtonVPN.Logging.Contracts.Events.AppLogs;
 using ProtonVPN.OperatingSystems.PowerEvents.Contracts;
@@ -32,25 +38,27 @@ using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
 
 namespace ProtonVPN.Client.Handlers;
 
-public class PowerModeAndWindowActivationHandler : IHandler,
-    IEventMessageReceiver<MainWindowVisibilityChangedMessage>
+public class PowerModeAndWindowActivationHandler : IHandler, IEventMessageReceiver<MainWindowVisibilityChangedMessage>, IEventMessageReceiver, IRecipient<MainWindowVisibilityChangedMessage>
 {
     private readonly ILogger _logger;
+
     private readonly ISettings _settings;
+
     private readonly IVpnServiceCaller _vpnServiceCaller;
+
     private readonly IConnectionCertificateManager _connectionCertificateManager;
+
     private readonly IUserAuthenticator _userAuthenticator;
+
     private readonly IConnectionManager _connectionManager;
+
     private readonly IVpnPlanUpdater _vpnPlanUpdater;
 
-    public PowerModeAndWindowActivationHandler(ILogger logger,
-        ISettings settings,
-        IVpnServiceCaller vpnServiceCaller,
-        IConnectionCertificateManager connectionCertificateManager,
-        IUserAuthenticator userAuthenticator,
-        IPowerEventNotifier powerEventNotifier,
-        IConnectionManager connectionManager,
-        IVpnPlanUpdater vpnPlanUpdater)
+    private readonly IServersUpdater _serversUpdater;
+
+    private readonly IConfiguration _config;
+
+    public PowerModeAndWindowActivationHandler(ILogger logger, ISettings settings, IVpnServiceCaller vpnServiceCaller, IConnectionCertificateManager connectionCertificateManager, IUserAuthenticator userAuthenticator, IPowerEventNotifier powerEventNotifier, IConnectionManager connectionManager, IVpnPlanUpdater vpnPlanUpdater, IServersUpdater serversUpdater, IConfiguration config)
     {
         _logger = logger;
         _settings = settings;
@@ -59,52 +67,85 @@ public class PowerModeAndWindowActivationHandler : IHandler,
         _userAuthenticator = userAuthenticator;
         _connectionManager = connectionManager;
         _vpnPlanUpdater = vpnPlanUpdater;
-
+        _serversUpdater = serversUpdater;
+        _config = config;
         powerEventNotifier.OnResume += OnResume;
     }
 
     public void Receive(MainWindowVisibilityChangedMessage message)
     {
-        if (!_userAuthenticator.IsLoggedIn)
-        {
-            return;
-        }
-
-        if (message.IsMainWindowVisible)
+        if (_userAuthenticator.IsLoggedIn && message.IsMainWindowVisible)
         {
             _logger.Debug<AppLog>("Main window activated while logged in");
-            OnResumeOrWindowActivation();
+            OnWindowActivationAsync().FireAndForget();
         }
     }
 
     private void OnResume(object? sender, EventArgs e)
     {
-        if (_userAuthenticator.IsLoggedIn)
-        {
-            _logger.Info<AppLog>("Resuming from sleep while logged in");
-
-            if (_connectionManager.IsConnected)
-            {
-                _connectionManager.ReconnectAsync(VpnTriggerDimension.Auto);
-            }
-
-            OnResumeOrWindowActivation();
-        }
-        else
+        if (!_userAuthenticator.IsLoggedIn)
         {
             _logger.Info<AppLog>("Resuming from sleep while logged out");
+            return;
+        }
+        _logger.Info<AppLog>("Resuming from sleep while logged in");
+        OnResumeAsync().FireAndForget();
+    }
+
+    private async Task OnWindowActivationAsync()
+    {
+        await RepeatServiceStateAsync();
+        await RefreshPlanAndCertificateAsync();
+    }
+
+    private async Task OnResumeAsync()
+    {
+        await RepeatServiceStateAsync();
+        await RefreshWithinTimeoutAsync();
+        if (_connectionManager.IsConnected)
+        {
+            await ReconnectAsync();
         }
     }
 
-    private void OnResumeOrWindowActivation()
+    private async Task ReconnectAsync()
     {
-        _vpnServiceCaller.RepeatStateAsync();
+        try
+        {
+            await _connectionManager.ReconnectAsync(VpnTriggerDimension.Auto);
+        }
+        catch (Exception exception)
+        {
+            _logger.Error<AppLog>("Failed to reconnect after resuming from sleep.", exception);
+        }
+    }
+
+    private async Task RepeatServiceStateAsync()
+    {
+        await _vpnServiceCaller.RepeatStateAsync();
         if (_settings.IsPortForwardingEnabled)
         {
-            _vpnServiceCaller.RepeatPortForwardingStateAsync();
+            await _vpnServiceCaller.RepeatPortForwardingStateAsync();
         }
+    }
 
-        _connectionCertificateManager.RequestNewCertificateAsync();
-        _vpnPlanUpdater.UpdateAsync();
+    private async Task RefreshWithinTimeoutAsync()
+    {
+        try
+        {
+            if (!(await Task.WhenAll(RefreshPlanAndCertificateAsync(), _serversUpdater.UpdateAsync()).WaitOrFireAndForgetAsync(_config.ResumeRefreshTimeout)))
+            {
+                _logger.Warn<AppLog>("The plan, the certificate and the servers were not refreshed in time, reconnecting with the cached ones.");
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.Error<AppLog>("Failed to refresh the plan, the certificate and the servers after resuming from sleep.", exception);
+        }
+    }
+
+    private async Task RefreshPlanAndCertificateAsync()
+    {
+        await Task.WhenAll(_vpnPlanUpdater.UpdateAsync(), _connectionCertificateManager.RequestNewCertificateAsync());
     }
 }

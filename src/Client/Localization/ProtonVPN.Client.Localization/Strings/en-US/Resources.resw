@@ -4530,4 +4530,8 @@
   <data name="ServerPing_CachedFilterHint" xml:space="preserve">
     <value>First replies are used immediately; later checks refine the average. Unmeasured servers stay visible while pings arrive.</value>
   </data>
+  <data name="Dialogs_ReportIssue_ContactForm_Field_MinLength" xml:space="preserve">
+    <value>Minimum {0} characters</value>
+    <comment>Hint below a Report an issue field. {0} is the minimum character count.</comment>
+  </data>
 </root>

@@ -38,6 +38,8 @@ namespace ProtonVPN.Vpn.OpenVpn.Arguments
 
         public static implicit operator string(CommandLineArguments item) => item.ToString();
 
+        public IReadOnlyList<string> ToArgumentList() => Arguments().ToArray();
+
         public override string ToString()
         {
             return string.Join(" ", Arguments());

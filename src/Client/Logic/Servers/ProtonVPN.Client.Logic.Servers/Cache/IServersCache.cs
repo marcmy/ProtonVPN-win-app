@@ -38,12 +38,16 @@ public interface IServersCache
     bool IsStale();
     bool IsOutdated();
     bool IsLoadOutdated();
+    bool IsLoadOverdue();
+    bool IsLoadStale();
     bool HasServersRequestFailed();
     bool HasNoServers();
+    IEnumerable<KeyValuePair<string, dynamic?>> GetStats();
 
     void Clear();
     void LoadFromFileIfEmpty();
     void ReprocessServers();
+    void RecomputeLoads();
 
     Task UpdateAsync(CancellationToken cancellationToken);
     Task UpdateLoadsAsync(CancellationToken cancellationToken);

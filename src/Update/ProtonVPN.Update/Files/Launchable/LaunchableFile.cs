@@ -35,7 +35,7 @@ namespace ProtonVPN.Update.Files.Launchable
 
         public void Launch(string filename, string arguments)
         {
-            _processes.ElevatedProcess(filename, arguments)
+            _processes.BuildElevatedProcess(filename, CommandLineArgumentsParser.Parse(arguments))
                 .Start();
         }
     }

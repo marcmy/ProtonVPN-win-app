@@ -139,7 +139,7 @@ public partial class SsoLoginOverlayViewModel :  OverlayViewModelBase<IMainWindo
             // Delete cookies to prevent auto authentication after a first successful login.
             webView.CoreWebView2.CookieManager.DeleteAllCookies();
 
-            Uri requestUri = new(new Uri(_configuration.Urls.ApiUrl), $"auth/sso/{ssoChallengeToken}");
+            Uri requestUri = new(new Uri(_configuration.Urls.ApiUrl), $"auth/v4/sso/{ssoChallengeToken}");
             _ssoBootstrapUri = requestUri;
 
             webView.CoreWebView2.AddWebResourceRequestedFilter(

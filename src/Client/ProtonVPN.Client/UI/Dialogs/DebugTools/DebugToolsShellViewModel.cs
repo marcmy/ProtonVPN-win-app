@@ -222,6 +222,12 @@ public partial class DebugToolsShellViewModel : ShellViewModelBase<IDebugToolsWi
     }
 
     [RelayCommand]
+    public async Task ForceUpdateLoadsAsync()
+    {
+        await _serversUpdater.ForceUpdateLoadsAsync();
+    }
+
+    [RelayCommand]
     public async Task LogoutUserWithClientOutdatedReasonAsync()
     {
         await _userAuthenticator.LogoutAsync(LogoutReason.ClientOutdated);

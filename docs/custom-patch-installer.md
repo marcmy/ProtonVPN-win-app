@@ -12,8 +12,8 @@ This tooling replaces the manual copy-over step for patch artifacts built from t
 4. Copies the complete official version folder to a timestamped sibling folder, for example:
 
    ```text
-   C:\Program Files\Proton\VPN\v5.1.5
-   C:\Program Files\Proton\VPN\v5.1.5-backup-20260729-204416
+   C:\Program Files\Proton\VPN\v5.1.9
+   C:\Program Files\Proton\VPN\v5.1.9-backup-20261020-204416
    ```
 
 5. Overlays the custom patch files without deleting untouched official files.
@@ -30,7 +30,7 @@ Backup retention can be changed per run:
 
 ```powershell
 .\scripts\Install-ProtonVPNPatch.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.5-both.zip `
+    -PatchPath .\protonvpn-client-patch-5.1.9-both.zip `
     -BackupRetentionCount 5
 ```
 
@@ -54,18 +54,18 @@ without changing the installed application:
 
 ```powershell
 .\scripts\Install-ProtonVPNPatch.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.5-both `
-    -TargetVersion 5.1.5 `
+    -PatchPath .\protonvpn-client-patch-5.1.9-both `
+    -TargetVersion 5.1.9 `
     -ValidateOnly
 ```
 
-The self-extracting installer builder requires this manifest and bakes its `targetVersion` into the launcher. An installer built for `5.1.5` therefore passes:
+The self-extracting installer builder requires this manifest and bakes its `targetVersion` into the launcher. An installer built for `5.1.9` therefore passes:
 
 ```text
--TargetVersion 5.1.5
+-TargetVersion 5.1.9
 ```
 
-The install stops if `C:\Program Files\Proton\VPN\v5.1.5` is not present. It will not silently apply 5.1.5 binaries to a newer `v5.1.6` folder.
+The install stops if `C:\Program Files\Proton\VPN\v5.1.9` is not present. It will not silently apply 5.1.9 binaries to a newer `v5.1.10` folder.
 
 `Install-ProtonVPNPatch.ps1` requires a valid manifest. If `-TargetVersion` is
 omitted, the selected installed folder must still exactly match the manifest's
@@ -75,8 +75,8 @@ target version.
 
 ```powershell
 .\scripts\Install-ProtonVPNPatch.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.5-both.zip `
-    -TargetVersion 5.1.5
+    -PatchPath .\protonvpn-client-patch-5.1.9-both.zip `
+    -TargetVersion 5.1.9
 ```
 
 The script also accepts an already-extracted patch directory.
@@ -95,8 +95,8 @@ The supplied patch ZIP or directory must contain exactly one `patch-manifest.jso
 
 ```powershell
 .\scripts\New-ProtonVPNPatchSfx.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.5-both.zip `
-    -OutputPath .\ProtonVPN-Custom-Patch-5.1.5.exe
+    -PatchPath .\protonvpn-client-patch-5.1.9-both.zip `
+    -OutputPath .\ProtonVPN-Custom-Patch-5.1.9.exe
 ```
 
 Double-clicking the resulting EXE extracts the payload to a temporary directory, launches the installer, triggers a normal UAC elevation prompt, relaunches Proton VPN when it was open before patching, and leaves the final result visible until Enter is pressed. The relaunched client starts disconnected, and the installer process chain exits afterward.
@@ -106,23 +106,23 @@ Double-clicking the resulting EXE extracts the payload to a temporary directory,
 `Windows fast patch build` produces two separate downloads:
 
 ```text
-protonvpn-client-patch-5.1.5-both.zip
+protonvpn-client-patch-5.1.9-both.zip
 ├─ patch-manifest.json
 └─ raw patch files
 
-protonvpn-custom-patch-installer-5.1.5-both.zip
-└─ ProtonVPN-Custom-Patch-5.1.5.exe
+protonvpn-custom-patch-installer-5.1.9-both.zip
+└─ ProtonVPN-Custom-Patch-5.1.9.exe
 ```
 
 `both` is the default and recommended build mode. It stages the client files plus every first-party service runtime assembly declared by `ProtonVPNService.deps.json`; packaging stops if a required assembly is missing or if client and service builds produce different files for the same install path.
 
-GitHub Actions always wraps an artifact in a ZIP. A future GitHub Release can publish `ProtonVPN-Custom-Patch-5.1.5.exe` directly as a release asset.
+GitHub Actions always wraps an artifact in a ZIP. A future GitHub Release can publish `ProtonVPN-Custom-Patch-5.1.9.exe` directly as a release asset.
 
 Manual build workflows also publish GitHub build-provenance attestations. After
 installing the GitHub CLI, verify a downloaded artifact before use:
 
 ```powershell
-gh attestation verify .\ProtonVPN-Custom-Patch-5.1.5.exe `
+gh attestation verify .\ProtonVPN-Custom-Patch-5.1.9.exe `
     --repo marcmy/ProtonVPN-win-app
 ```
 
@@ -146,6 +146,6 @@ When Proton publishes source for a new version such as 5.1.6:
 2. Run `Future version patch automation` with `source_patch_branch=marc/proton` and `target_version=5.1.6`.
 3. The workflow computes the complete fork delta from the common upstream base and ports it onto the new release. This includes NAT-PMP and app port forwarding, split tunneling, server list/search/health, updater behavior, installer tooling, and any other maintained fork changes.
 4. The workflow stamps the fork-aware version, runs the fork regression suite, builds the client and service, creates the manifest, and produces `ProtonVPN-Custom-Patch-5.1.6.exe`.
-5. Resolve any genuine conflicts where both Proton and the fork changed the same code, then test the installer against an official `v5.1.6` installation before publishing it.
+5. Resolve any genuine conflicts where both Proton and the fork changed the same code, then test the installer against an official `v5.1.10` installation before publishing it.
 
 Changing only the assembly version is not a substitute for syncing Proton's actual new source. Each release installer must be built from that release's real codebase.

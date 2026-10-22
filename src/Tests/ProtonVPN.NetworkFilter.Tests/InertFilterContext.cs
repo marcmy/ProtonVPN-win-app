@@ -12,6 +12,14 @@ namespace ProtonVPN.NetworkFilter
     {
         private static long _nextHandle;
         public IntPtr Handle { get; } = new(Interlocked.Increment(ref _nextHandle));
+        private KeyValuePair<Guid, InertFilter>[]? _snapshot;
+        public void StartTransaction() => _snapshot = IpFilterNative.Snapshot(Handle);
+        public void CommitTransaction() => _snapshot = null;
+        public void AbortTransaction()
+        {
+            if (_snapshot is not null) { IpFilterNative.Restore(Handle, _snapshot); }
+            _snapshot = null;
+        }
     }
 
     public sealed class IpFilter(Session session, Guid providerId)
@@ -43,6 +51,16 @@ namespace ProtonVPN.NetworkFilter
         }
 
         internal static InertFilter GetFilter(Guid id) => _filters[id];
+        internal static KeyValuePair<Guid, InertFilter>[] Snapshot(IntPtr session) =>
+            _filters.Where(pair => pair.Value.Session == session).ToArray();
+        internal static void Restore(IntPtr session, KeyValuePair<Guid, InertFilter>[] snapshot)
+        {
+            foreach (Guid id in _filters.Where(pair => pair.Value.Session == session).Select(pair => pair.Key))
+            {
+                _filters.TryRemove(id, out _);
+            }
+            foreach (KeyValuePair<Guid, InertFilter> pair in snapshot) { _filters[pair.Key] = pair.Value; }
+        }
 
         public static List<Guid> GetSublayerFilters(IntPtr session, Guid provider, Guid sublayer) =>
             _filters.Where(pair => pair.Value.Session == session
@@ -78,8 +96,9 @@ namespace ProtonVPN.NetworkFilter
 
 namespace ProtonVPN.Service.Firewall
 {
-    public sealed class IpFilter(ProtonVPN.NetworkFilter.Sublayer sublayer)
+    public sealed class IpFilter(ProtonVPN.NetworkFilter.IpFilter instance, ProtonVPN.NetworkFilter.Sublayer sublayer)
     {
+        public ProtonVPN.NetworkFilter.IpFilter DynamicInstance { get; } = instance;
         public ProtonVPN.NetworkFilter.Sublayer DynamicSublayer { get; } = sublayer;
     }
 }

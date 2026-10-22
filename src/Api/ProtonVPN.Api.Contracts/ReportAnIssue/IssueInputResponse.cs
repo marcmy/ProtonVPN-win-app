@@ -28,6 +28,7 @@ namespace ProtonVPN.Api.Contracts.ReportAnIssue
         public string SubmitLabel { get; set; }
         public string Type { get; set; }
         public string Placeholder { get; set; }
+        public IssueInputConstraintsResponse Constraints { get; set; }
 
         [DefaultValue(true)]
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Populate)]

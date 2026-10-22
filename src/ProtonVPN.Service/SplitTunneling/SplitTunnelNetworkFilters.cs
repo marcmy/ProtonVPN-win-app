@@ -19,7 +19,10 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Net;
+using ProtonVPN.Logging.Contracts;
+using ProtonVPN.Logging.Contracts.Events.SplitTunnelLogs;
 using ProtonVPN.NetworkFilter;
 
 namespace ProtonVPN.Service.SplitTunneling;
@@ -35,6 +38,9 @@ public class SplitTunnelNetworkFilters
 
     private IpFilter? _ipFilter;
     private Sublayer? _subLayer;
+    private readonly ILogger _logger;
+
+    public SplitTunnelNetworkFilters(ILogger logger) => _logger = logger;
 
     public void EnableExcludeMode(string[] apps, IPAddress localIpv4Address, IPAddress? localIpv6Address)
     {
@@ -111,6 +117,15 @@ public class SplitTunnelNetworkFilters
     [MemberNotNull(nameof(_ipFilter), nameof(_subLayer))]
     private void Create()
     {
+        if (_ipFilter is not null)
+        {
+            _logger.Info<SplitTunnelLog>("SplitTunnel: Closing a WFP session that was left open.");
+            try { Remove(); }
+            catch (NetworkFilterException ex)
+            {
+                _logger.Error<SplitTunnelLog>($"SplitTunnel: Failed to close the leftover WFP session. Error code: {ex.Code}", ex);
+            }
+        }
         _ipFilter = IpFilter.Create(
             Session.Dynamic(),
             new DisplayData { Name = "Proton AG", Description = "ProtonVPN Split Tunnel provider" });
@@ -122,27 +137,35 @@ public class SplitTunnelNetworkFilters
 
     private void Remove()
     {
-        _ipFilter?.Session.Close();
-        _ipFilter = null;
-        _subLayer = null;
+        try { _ipFilter?.Session.Close(); }
+        finally
+        {
+            _ipFilter = null;
+            _subLayer = null;
+        }
     }
 
     private void CreateAppCalloutFilters(string[] apps, Callout callout, Layer layer, ProviderContext providerContext)
     {
+        int created = 0;
         foreach (string app in apps)
         {
-            SafeCreateAppFilter(app, callout, layer, providerContext);
+            if (SafeCreateAppFilter(app, callout, layer, providerContext)) { created++; }
         }
+        _logger.Info<SplitTunnelLog>($"SplitTunnel: Created {created}/{apps.Length} redirect filters for layer {layer}.");
     }
 
-    private void SafeCreateAppFilter(string app, Callout callout, Layer layer, ProviderContext providerContext)
+    private bool SafeCreateAppFilter(string app, Callout callout, Layer layer, ProviderContext providerContext)
     {
         try
         {
             CreateAppFilter(app, callout, layer, providerContext);
+            return true;
         }
-        catch (NetworkFilterException)
+        catch (NetworkFilterException ex)
         {
+            _logger.Error<SplitTunnelLog>($"SplitTunnel: Failed to create redirect filter for {Path.GetFileName(app)} on layer {layer}. Error code: {ex.Code}");
+            return false;
         }
     }
 

@@ -32,7 +32,7 @@ public class AppFilter : IAppFilter
     private readonly ILogger _logger;
     private readonly IpFilter _ipFilter;
     private readonly IpLayer _ipLayer;
-    private readonly Dictionary<string, List<Guid>> _list = [];
+    private Dictionary<string, List<Guid>> _list = new(StringComparer.OrdinalIgnoreCase);
 
     public AppFilter(ILogger logger, IpFilter ipFilter, IpLayer ipLayer)
     {
@@ -56,26 +56,14 @@ public class AppFilter : IAppFilter
             return;
         }
 
-        _list[path] = [];
-
         try
         {
-            foreach ((Layer layer, Action action) in filters)
-            {
-
-                _ipLayer.Apply(appliedLayer =>
-                {
-                    Guid guid = _ipFilter.DynamicSublayer.CreateAppFilter(
-                        new DisplayData("ProtonVPN app filter", ""),
-                        action,
-                        appliedLayer,
-                        14,
-                        path,
-                        isDnsPortExcluded: action == Action.HardPermit);
-
-                    _list[path].Add(guid);
-                }, [layer]);
-            }
+            _list[path] = CreateFilters(path, filters);
+        }
+        catch (NonLocalAppPathException)
+        {
+            Remove(path);
+            _logger.Warn<SplitTunnelLog>($"Skipped app filter for path {path} because it is not on a local drive.");
         }
         catch (InvalidArgumentException)
         {
@@ -91,6 +79,53 @@ public class AppFilter : IAppFilter
         }
     }
 
+    public void Replace(string[] paths, Tuple<Layer, Action>[] filters)
+    {
+        Dictionary<string, List<Guid>> previous = _list;
+        StartTransaction();
+        try
+        {
+            _list = new(StringComparer.OrdinalIgnoreCase);
+            Add(paths, filters);
+            foreach (List<Guid> guids in previous.Values) { RemoveGuids(guids); }
+            CommitTransaction();
+        }
+        catch
+        {
+            try { AbortTransaction(); }
+            finally { _list = previous; }
+            throw;
+        }
+    }
+
+    protected virtual List<Guid> CreateFilters(string path, Tuple<Layer, Action>[] filters)
+    {
+        List<Guid> created = [];
+        try
+        {
+            foreach ((Layer layer, Action action) in filters)
+            {
+                _ipLayer.Apply(appliedLayer => created.Add(_ipFilter.DynamicSublayer.CreateAppFilter(
+                    new DisplayData("ProtonVPN app filter", ""), action, appliedLayer, 14,
+                    path, isDnsPortExcluded: action == Action.HardPermit)), [layer]);
+            }
+            return created;
+        }
+        catch
+        {
+            RemoveGuids(created);
+            throw;
+        }
+    }
+
+    protected virtual void StartTransaction() => _ipFilter.DynamicInstance.Session.StartTransaction();
+    protected virtual void CommitTransaction() => _ipFilter.DynamicInstance.Session.CommitTransaction();
+    protected virtual void AbortTransaction() => _ipFilter.DynamicInstance.Session.AbortTransaction();
+    protected virtual void RemoveGuids(List<Guid> guids)
+    {
+        foreach (Guid guid in guids) { _ipFilter.DynamicSublayer.DestroyFilter(guid); }
+    }
+
     public void Remove(string path)
     {
         if (!_list.TryGetValue(path, out List<Guid>? guids) || guids is null)
@@ -98,10 +133,7 @@ public class AppFilter : IAppFilter
             return;
         }
 
-        foreach (Guid guid in guids)
-        {
-            _ipFilter.DynamicSublayer.DestroyFilter(guid);
-        }
+        RemoveGuids(guids);
 
         _list.Remove(path);
     }

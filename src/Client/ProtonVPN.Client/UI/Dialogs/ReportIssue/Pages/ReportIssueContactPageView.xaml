@@ -35,45 +35,79 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
 
         <DataTemplate x:Key="SingleLineTextInputFieldTemplate"
                       x:DataType="fields:SingleLineTextInputField">
-            <TextBox HorizontalAlignment="Stretch"
-                     attached:FieldValidation.HasErrors="{x:Bind HasErrors, Mode=OneWay}"
-                     Style="{StaticResource ValidationTextBoxStyle}"
-                     AutomationProperties.AutomationId="SingleLineTextInputField"
-                     Header="{x:Bind Name, Mode=OneTime}"
-                     PlaceholderText="{x:Bind Placeholder, Mode=OneTime}"
-                     Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <StackPanel Spacing="4">
+                <TextBox HorizontalAlignment="Stretch"
+                         attached:FieldValidation.HasErrors="{x:Bind ShouldShowAsInvalid, Mode=OneWay}"
+                         Style="{StaticResource ValidationTextBoxStyle}"
+                         AutomationProperties.AutomationId="SingleLineTextInputField"
+                         Header="{x:Bind Name, Mode=OneTime}"
+                         LostFocus="OnInputFieldLostFocus"
+                         MaxLength="{x:Bind EffectiveMaximumLength}"
+                         PlaceholderText="{x:Bind Placeholder, Mode=OneTime}"
+                         Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock TextWrapping="Wrap" Text="{x:Bind LengthHint}" Foreground="{ThemeResource TextWeakColorBrush}"
+                               Visibility="{x:Bind HasMinimumLength, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind FormattedCurrentLength}" HorizontalAlignment="Right"
+                               Foreground="{ThemeResource TextWeakColorBrush}"
+                               Visibility="{x:Bind HasMaximumLength, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </Grid>
+            </StackPanel>
         </DataTemplate>
 
         <DataTemplate x:Key="MultiLineTextInputFieldTemplate"
                       x:DataType="fields:MultiLineTextInputField">
-            <TextBox Height="96"
-                     HorizontalAlignment="Stretch"
-                     attached:FieldValidation.HasErrors="{x:Bind HasErrors, Mode=OneWay}"
-                     AcceptsReturn="True"
-                     Style="{StaticResource ValidationMultiLineTextBoxStyle}"
-                     AutomationProperties.AutomationId="MultiLineTextInputField"
-                     Header="{x:Bind Name, Mode=OneTime}"
-                     PlaceholderText="{x:Bind Placeholder, Mode=OneTime}"
-                     Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     TextWrapping="Wrap" />
+            <StackPanel Spacing="4">
+                <TextBox attached:TextBoxContentSizing.ContentMinHeight="80"
+                         attached:TextBoxContentSizing.ContentMaxHeight="160"
+                         HorizontalAlignment="Stretch"
+                         attached:FieldValidation.HasErrors="{x:Bind ShouldShowAsInvalid, Mode=OneWay}"
+                         AcceptsReturn="True"
+                         Style="{StaticResource ValidationMultiLineTextBoxStyle}"
+                         AutomationProperties.AutomationId="MultiLineTextInputField"
+                         Header="{x:Bind Name, Mode=OneTime}"
+                         LostFocus="OnInputFieldLostFocus"
+                         MaxLength="{x:Bind EffectiveMaximumLength}"
+                         PlaceholderText="{x:Bind Placeholder, Mode=OneTime}"
+                         Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" />
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock TextWrapping="Wrap" Text="{x:Bind LengthHint}" Foreground="{ThemeResource TextWeakColorBrush}"
+                               Visibility="{x:Bind HasMinimumLength, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Grid.Column="1" Text="{x:Bind FormattedCurrentLength}" HorizontalAlignment="Right"
+                               Foreground="{ThemeResource TextWeakColorBrush}"
+                               Visibility="{x:Bind HasMaximumLength, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </Grid>
+            </StackPanel>
         </DataTemplate>
 
         <DataTemplate x:Key="EmailInputFieldTemplate"
                       x:DataType="fields:EmailInputField">
             <TextBox HorizontalAlignment="Stretch"
-                     attached:FieldValidation.HasErrors="{x:Bind HasErrors, Mode=OneWay}"
+                     attached:FieldValidation.HasErrors="{x:Bind ShouldShowAsInvalid, Mode=OneWay}"
                      Style="{StaticResource ValidationTextBoxStyle}"
                      AutomationProperties.AutomationId="EmailInputField"
                      Header="{x:Bind Name, Mode=OneTime}"
                      IsSpellCheckEnabled="False"
+                     LostFocus="OnInputFieldLostFocus"
+                     MaxLength="{x:Bind EffectiveMaximumLength}"
                      PlaceholderText="{x:Bind Placeholder, Mode=OneTime}"
                      Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </DataTemplate>
 
         <DataTemplate x:Key="CheckboxInputFieldTemplate"
                       x:DataType="fields:CheckboxInputField">
-            <CheckBox attached:FieldValidation.HasErrors="{x:Bind HasErrors, Mode=OneWay}"
+            <CheckBox attached:FieldValidation.HasErrors="{x:Bind ShouldShowAsInvalid, Mode=OneWay}"
                       AutomationProperties.AutomationId="CheckboxInputField"
+                      LostFocus="OnInputFieldLostFocus"
                       IsChecked="{x:Bind Value, Mode=TwoWay}">
                 <CheckBox.Content>
                     <StackPanel Orientation="Horizontal"
@@ -140,7 +174,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
             </StackPanel>
         </ScrollViewer>
 
-        <Button Grid.Row="2"
+        <Button Grid.Row="1"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 AutomationProperties.AutomationId="SendReportButton"

@@ -250,7 +250,7 @@ public class SplitTunnelTest
         splitTunnel.OnVpnConnected(GetConnectedVpnState());
 
         // Assert
-        _appFilter.Received(1).Add(Arg.Is<string[]>(paths => paths.SequenceEqual(apps)), Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+        _appFilter.Received(1).Replace(Arg.Is<string[]>(paths => paths.SequenceEqual(apps)), Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
     }
 
     [TestMethod]
@@ -532,16 +532,22 @@ public class SplitTunnelTest
             _splitTunnelClient.Received(1).EnableExcludeMode(
                 Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
                 Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+            _appFilter.Received().Replace(
+                Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
+                Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+            _appFilter.DidNotReceive().Replace(
+                Arg.Is<string[]>(paths => paths.Any(path => path.Contains('*'))),
+                Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
         }
         else
         {
             _splitTunnelClient.Received(1).EnableIncludeMode(
                 Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
                 Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+            _appFilter.Received().Add(
+                Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
+                Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
         }
-        _appFilter.Received().Add(
-            Arg.Is<string[]>(paths => paths.Length == expected.Length && expected.All(path => paths.Contains(path))),
-            Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
         _appFilter.DidNotReceive().Add(
             Arg.Is<string[]>(paths => paths.Any(path => path.Contains('*'))),
             Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
@@ -662,6 +668,70 @@ public class SplitTunnelTest
             NetworkFilter.Action.HardPermit);
         _splitTunnelRouting.DidNotReceive().DeleteRoutes(Arg.Any<VpnConfig>());
         _domainPoller.DidNotReceive().Stop();
+    }
+
+    [TestMethod]
+    public void Reconnecting_BlockMode_PreservesUnchangedExclusionsAndFolderSnapshot()
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [@"C:\explicit.exe"], FolderPaths = [@"C:\games"], Ips = [],
+        });
+        _folderMonitor.AppPaths.Returns(new[] { @"C:\games\game.exe" });
+        _networkUtilities.GetBestInterfaceIPv4Address(Arg.Any<string>()).Returns(IPAddress.Parse("192.0.2.10"));
+        SplitTunnel subject = GetSplitTunnel();
+        subject.OnVpnConnected(GetConnectedVpnState());
+        _splitTunnelClient.ClearReceivedCalls();
+        _folderMonitor.ClearReceivedCalls();
+        _appFilter.ClearReceivedCalls();
+
+        subject.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: true);
+        subject.OnVpnConnecting(GetConnectingVpnState());
+        subject.OnVpnConnected(GetConnectedVpnState());
+
+        _splitTunnelClient.DidNotReceive().Disable();
+        _splitTunnelClient.DidNotReceive().EnableExcludeMode(Arg.Any<string[]>(), Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        _appFilter.DidNotReceive().RemoveAll();
+        _folderMonitor.DidNotReceive().Stop();
+    }
+
+    [TestMethod]
+    public void OnVpnConnecting_BlockMode_InstallsExplicitAndDiscoveredExclusionsBeforeConnected()
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = [@"C:\explicit.exe"], FolderPaths = [@"C:\games"], Ips = [],
+        });
+        _folderMonitor.AppPaths.Returns(new[] { @"C:\games\game.exe" });
+        SplitTunnel subject = GetSplitTunnel();
+
+        subject.OnVpnConnecting(GetConnectingVpnState());
+
+        _splitTunnelClient.Received(1).EnableExcludeMode(
+            Arg.Is<string[]>(paths => paths.Contains(@"C:\explicit.exe") && paths.Contains(@"C:\games\game.exe")),
+            Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        _folderMonitor.DidNotReceive().Stop();
+    }
+
+    [TestMethod]
+    public void Reconnecting_BlockMode_ChangedPhysicalAddressRefreshesRedirects()
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        { Mode = SplitTunnelModeIpcEntity.Block, AppPaths = [@"C:\app.exe"], Ips = [] });
+        _networkUtilities.GetBestInterfaceIPv4Address(Arg.Any<string>()).Returns(IPAddress.Parse("192.0.2.10"));
+        SplitTunnel subject = GetSplitTunnel();
+        subject.OnVpnConnected(GetConnectedVpnState());
+        _splitTunnelClient.ClearReceivedCalls();
+        _networkUtilities.GetBestInterfaceIPv4Address(Arg.Any<string>()).Returns(IPAddress.Parse("198.51.100.20"));
+
+        subject.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: true);
+        subject.OnVpnConnecting(GetConnectingVpnState());
+        subject.OnVpnConnected(GetConnectedVpnState());
+
+        _splitTunnelClient.Received(1).Disable();
+        _splitTunnelClient.Received(1).EnableExcludeMode(Arg.Any<string[]>(), IPAddress.Parse("198.51.100.20"), Arg.Any<IPAddress>());
     }
 
     private SplitTunnel GetSplitTunnel(bool enabled = false, bool reverseEnabled = false)

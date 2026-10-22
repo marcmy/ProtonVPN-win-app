@@ -25,6 +25,15 @@ public static class TaskExtensions
 {
     public static Task<Task> Wrap(this Task task) => Task.FromResult(task);
 
+    public static async Task<bool> WaitOrFireAndForgetAsync(this Task task, TimeSpan timeout)
+    {
+        try { await task.WaitAsync(timeout); return true; }
+        catch (TimeoutException) { task.FireAndForget(); return false; }
+    }
+
+    public static Task WaitOrCancelAsync(Func<CancellationToken, Task> action, TimeSpan timeout, CancellationToken cancellationToken) =>
+        TimeoutAfter(action, timeout, cancellationToken);
+
     public static async Task TimeoutAfter(this Task task, TimeSpan timeout)
     {
         using CancellationTokenSource cancellationTokenSource = new();

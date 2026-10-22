@@ -17,10 +17,16 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Collections.Generic;
+
 namespace ProtonVPN.Common.Legacy.OS.Processes;
 
 public interface IOsProcesses
 {
+    IOsProcess BuildProcess(string filename, IEnumerable<string> arguments = null);
+    IOsProcess BuildElevatedProcess(string filename, IEnumerable<string> arguments = null);
+    IOsProcess BuildCommandLineProcess(IEnumerable<string> arguments = null);
+
     IOsProcess Process(string filename, string arguments = null);
 
     IOsProcess ElevatedProcess(string filename, string arguments = null);
