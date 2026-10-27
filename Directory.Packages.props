@@ -45,7 +45,7 @@
     <PackageVersion Include="Microsoft.UI.Xaml" Version="2.8.4" />
     <PackageVersion Include="Microsoft.Windows.Compatibility" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7705" />
-    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.260209005" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.1" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.39" />
     <PackageVersion Include="MSTest.TestAdapter" Version="4.5.1" />
