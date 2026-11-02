@@ -12,6 +12,7 @@ $baseInstallerScript = Join-Path $repositoryRoot 'scripts\Install-ProtonVPNPatch
 $completeInstallerScript = Join-Path $repositoryRoot 'scripts\Install-ProtonVPNCompletePatch.ps1'
 $sfxBuilderScript = Join-Path $repositoryRoot 'scripts\New-ProtonVPNPatchSfx.ps1'
 $installerLauncher = Join-Path $repositoryRoot 'scripts\Install-ProtonVPNPatch.cmd'
+$secureStagingTestScript = $PSCommandPath
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("protonvpn-fastpatch-secure-stage-{0}" -f [Guid]::NewGuid().ToString('N'))
 
 # Production functions imported below normally receive these from the installer param block.
@@ -392,7 +393,23 @@ function Test-ProtectedRollbackIgnoresMutableRetainedBackup {
         'Rollback consumed the mutable retained BackupRoot copy instead of the protected trusted-stage snapshot.'
 }
 
+# The base installer stops every ProtonVPN* service regardless of -InstallRoot, which is intended
+# when patching the real install. A test that runs it for real against a fixture would therefore
+# stop a live Proton VPN service on a developer PC, dropping the tunnel and its leak protection.
+function Assert-NoLiveProtonServices {
+    $liveServices = @(
+        Get-CimInstance -ClassName Win32_Service |
+            Where-Object { $_.Name -like 'ProtonVPN*' -or $_.DisplayName -like 'ProtonVPN*' } |
+            ForEach-Object { '{0} ({1})' -f $_.Name, $_.State }
+    )
+    Assert-Condition ($liveServices.Count -eq 0) `
+        ("Refusing to run the real FastPatch installer: it stops every ProtonVPN* service, and this machine has " +
+         "Proton VPN installed ({0}). Run this regression on a machine without Proton VPN, such as CI." -f ($liveServices -join ', '))
+}
+
 function Test-BaseInstallerEndToEnd {
+    Assert-NoLiveProtonServices
+
     $fixtureRoot = Join-Path $testRoot 'base-end-to-end'
     $installRoot = Join-Path $fixtureRoot 'install'
     $target = Join-Path $installRoot 'v5.1.8'
@@ -755,6 +772,25 @@ exit 0
         ("Compiled SFX leaked runtime staging directories: {0}" -f ($newStages -join ', '))
 }
 
+function Assert-RealInstallerTestsAreGuarded {
+    $tokens = $null
+    $errors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseFile($secureStagingTestScript, [ref] $tokens, [ref] $errors)
+    $realInstallerTests = @(
+        $ast.FindAll({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] }, $true) |
+            Where-Object { $_.Extent.Text.Contains(' -File "'' + $baseInstallerScript') }
+    )
+    Assert-Condition ($realInstallerTests.Count -gt 0) 'Expected at least one test that runs the real base installer.'
+
+    foreach ($test in $realInstallerTests) {
+        $text = $test.Body.Extent.Text
+        $guardIndex = $text.IndexOf('Assert-NoLiveProtonServices')
+        $runIndex = $text.IndexOf('Invoke-TestProcessCapture')
+        Assert-Condition ($guardIndex -ge 0 -and ($runIndex -lt 0 -or $guardIndex -lt $runIndex)) `
+            "$($test.Name) runs the real base installer without first refusing machines with live Proton VPN services."
+    }
+}
+
 function Test-StaticSecurityContracts {
     $base = Get-Content -LiteralPath $baseInstallerScript -Raw
     $complete = Get-Content -LiteralPath $completeInstallerScript -Raw
@@ -856,6 +892,8 @@ function Test-StaticSecurityContracts {
     Assert-Condition ($sfx.Contains("-ExpectedPatchArchiveSha256 '__PAYLOAD_HASH__'")) `
         'Compiled SFX loader does not bind payload.zip to its build-time SHA-256.'
 
+    Assert-RealInstallerTestsAreGuarded
+
     foreach ($content in @($base, $complete)) {
         Assert-Condition ($content.Contains('[IO.FileShare]::Read)')) `
             'FastPatch installer does not hold a no-write/no-delete read-sharing lock while expanding a hash-pinned archive.'
@@ -883,8 +921,9 @@ try {
     Test-CompiledSfxVerifiedInMemoryEntry
     Test-ReparseSourceRejected
     Test-ProtectedRollbackIgnoresMutableRetainedBackup
-    Test-BaseInstallerEndToEnd
     Test-CompleteLauncherRollbackAfterProtectedStageFailure
+    # Last, because it refuses to run on a machine with Proton VPN installed.
+    Test-BaseInstallerEndToEnd
 
     Write-Host 'FastPatch secure staging regression tests passed.'
     exit 0
