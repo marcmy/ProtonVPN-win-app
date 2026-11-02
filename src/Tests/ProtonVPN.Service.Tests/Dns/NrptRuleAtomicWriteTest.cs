@@ -29,8 +29,8 @@ public class NrptRuleAtomicWriteTest
 {
     private const string NAME_SERVERS = "10.2.0.1";
 
-    // The NRPT lives in the SYSTEM hive, which supports registry transactions. HKCU does not, so it
-    // exercises the fallback. The SYSTEM hive scratch key requires elevation, which CI runners have.
+    // The NRPT lives in the SYSTEM hive, which supports registry transactions. Its scratch key requires
+    // elevation, which CI runners have.
     private const string SYSTEM_HIVE_SCRATCH_ROOT = @"SYSTEM\ProtonVPN.Tests";
     private const string USER_HIVE_SCRATCH_ROOT = @"Software\ProtonVPN.Tests";
 
@@ -100,19 +100,19 @@ public class NrptRuleAtomicWriteTest
         Assert.IsNull(ruleKey, "An uncommitted NRPT rule must be rolled back.");
     }
 
+    // Whether a user hive supports registry transactions depends on the machine (CI runners do, many
+    // desktops do not), so this covers the fallback where it is unsupported and the transaction elsewhere.
     [TestMethod]
-    public void CreateRule_WhenHiveDoesNotSupportTransactions_ShouldStillWriteCompleteRule()
+    public void CreateRule_WithOrWithoutHiveTransactionSupport_ShouldWriteCompleteRule()
     {
         UseScratchKey(RegistryHive.CurrentUser, USER_HIVE_SCRATCH_ROOT);
-        bool wasTransactionUsed = false;
 
         bool isCreated = StaticNrptInvoker.CreateRule(_baseKey, _rulesPath, NAME_SERVERS,
             onException: (message, ex) => Assert.Fail($"{message}: {ex}"),
             onError: Assert.Fail,
-            beforeCommit: _ => wasTransactionUsed = true);
+            beforeCommit: null);
 
         Assert.IsTrue(isCreated);
-        Assert.IsFalse(wasTransactionUsed, "HKCU is not expected to support registry transactions.");
         using RegistryKey rulesKey = _baseKey.OpenSubKey(_rulesPath);
         string[] ruleNames = rulesKey.GetSubKeyNames();
         Assert.HasCount(1, ruleNames);
