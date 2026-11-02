@@ -125,18 +125,34 @@ public abstract class DnsResolverBase
                 if (e.IsOrAnyInnerIsOfExceptionType<OperationCanceledException>())
                 {
                     LogOperationCancelled("Task cancelled when waiting for DNS resolve tasks.");
+                    break;
                 }
-                else
-                {
-                    Logger.Error<DnsErrorLog>("Unexpected error in DNS resolve task wait.", e);
-                }
-                break;
+
+                // One unreachable address must not abandon the others still racing for the same answer.
+                Logger.Warn<DnsErrorLog>($"A DNS resolve task failed. Reason: {e.GetBaseException().Message}");
             }
         }
 
-        resolveTasks.ForEach(t => t.FireAndForget());
         cancellationTokenSource.Cancel();
+        resolveTasks.ForEach(ObserveAbandonedResolveTask);
         return dnsResponse;
+    }
+
+    // Abandoned tasks lost the race or were cancelled, so their failures are expected and must not be
+    // reported as unhandled exceptions (which are written to the Windows event log as errors).
+    private void ObserveAbandonedResolveTask(Task<DnsResponse> task)
+    {
+        task.ContinueWith(t =>
+            {
+                Exception exception = t.Exception.GetBaseException();
+                if (exception is not OperationCanceledException)
+                {
+                    Logger.Info<DnsLog>($"An abandoned DNS resolve task failed. Reason: {exception.Message}");
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     protected void LogOperationCancelled(string message,

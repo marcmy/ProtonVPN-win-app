@@ -163,7 +163,7 @@ public abstract class DnsOverHttpsResolverBase : DnsResolverBase
         List<Func<CancellationToken, Task<DnsResponse>>> resolveFuncs = new();
         foreach (IpAddress ipAddress in ipAddresses)
         {
-            resolveFuncs.Add(ct => ResolveForHostAsync(ipAddress, config, cancellationToken));
+            resolveFuncs.Add(ct => ResolveForHostAsync(ipAddress, config, ct));
         }
         return await WaitAnySuccessfulResolveAsync(resolveFuncs, _dnsOverHttpsPerProviderTimeout, cancellationToken);
     }
