@@ -245,13 +245,26 @@ function Test-OfficialV518SourceBase {
         [string] $SourceBase
     )
 
+    # The public v5.1.8 source tip is immutable. The release watcher fetches the
+    # new base with --no-tags, so a missing *local* v5.1.8 tag must not cause us
+    # to treat the already-promoted 5.1.8 ancestry as historical pre-5.1.8
+    # backports. Check the exact official commit first; retain the tag path
+    # for synthetic test histories where that commit is not present.
+    $officialV518Commit = 'd2a4f8bc92a0fd296943a7cdd15f4f870c8a87f9'
     $officialTag = 'refs/tags/v5.1.8'
-    & git rev-parse --verify --quiet "$officialTag^{commit}" 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        return $false
+    & git cat-file -e "$officialV518Commit^{commit}" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        $officialRef = $officialV518Commit
+    }
+    else {
+        & git rev-parse --verify --quiet "$officialTag^{commit}" 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            return $false
+        }
+        $officialRef = $officialTag
     }
 
-    & git merge-base --is-ancestor $officialTag $SourceBase
+    & git merge-base --is-ancestor $officialRef $SourceBase
     if ($LASTEXITCODE -eq 0) {
         return $true
     }
