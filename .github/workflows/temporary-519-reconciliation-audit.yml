@@ -1,0 +1,96 @@
+name: Temporary 5.1.9 reconciliation audit
+
+on:
+  push:
+    branches:
+      - audit/proton-5.1.9-reconcile-20261109
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit merged candidate
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout isolated review candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Inventory duplicate declarations and resources
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = 'src/Client/Logic/Feedback/ProtonVPN.Client.Logic.Feedback'
+          $project = Get-Content "$root/ProtonVPN.Client.Logic.Feedback.csproj" -Raw
+          $matches = [regex]::Matches($project, '<EmbeddedResource[^>]*LogicalName="([^"]+)"[^>]*>')
+          $resourceNames = @($matches | ForEach-Object { $_.Groups[1].Value })
+          $duplicateResources = @($resourceNames | Group-Object | Where-Object Count -gt 1)
+          $process = Get-Content 'src/ProtonVPN.Common.Legacy/OS/Processes/IOsProcesses.cs' -Raw
+          $duplicateMembers = @(([regex]::Matches($process, '(?m)^\s*IOsProcess\s+(BuildElevatedProcess|BuildCommandLineProcess)\s*\([^;]+;') | ForEach-Object { $_.Value.Trim() }) | Group-Object | Where-Object Count -gt 1)
+          $files = @('src/ProtonVPN.NetworkFilter/NonLocalAppPathException.cs','src/ProtonVPN.NetworkFilter/NetworkFilterException.cs')
+          $duplicateTypes = @($files | Where-Object { (Get-Content $_ -Raw) -match 'class\s+NonLocalAppPathException\b' })
+          Add-Content $env:GITHUB_STEP_SUMMARY '## Duplicate inventory'
+          Add-Content $env:GITHUB_STEP_SUMMARY ('Embedded-resource duplicate names: ' + $duplicateResources.Count)
+          Add-Content $env:GITHUB_STEP_SUMMARY ('Process interface duplicate signatures: ' + $duplicateMembers.Count)
+          Add-Content $env:GITHUB_STEP_SUMMARY ('NonLocalAppPathException class locations: ' + $duplicateTypes.Count)
+          $duplicateResources | ForEach-Object { Write-Host "DUPLICATE RESOURCE: $($_.Name)" }
+          $duplicateMembers | ForEach-Object { Write-Host "DUPLICATE MEMBER: $($_.Name)" }
+          $duplicateTypes | ForEach-Object { Write-Host "EXCEPTION TYPE LOCATION: $_" }
+
+      - name: Build client
+        id: client
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force artifacts/reconciliation | Out-Null
+          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 -p:Platform=x64 -v:minimal *> artifacts/reconciliation/client-build.log
+          $code = $LASTEXITCODE
+          Get-Content artifacts/reconciliation/client-build.log | Select-Object -Last 45
+          if ($code -ne 0) { exit $code }
+
+      - name: Build service
+        id: service
+        continue-on-error: true
+        run: |
+          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj --configuration Release --runtime win-x64 -p:Platform=x64 -v:minimal *> artifacts/reconciliation/service-build.log
+          $code = $LASTEXITCODE
+          Get-Content artifacts/reconciliation/service-build.log | Select-Object -Last 45
+          if ($code -ne 0) { exit $code }
+
+      - name: Summarize failures
+        if: always()
+        run: |
+          Add-Content $env:GITHUB_STEP_SUMMARY '## Build outcomes'
+          Add-Content $env:GITHUB_STEP_SUMMARY ('Client: ' + '${{ steps.client.outcome }}')
+          Add-Content $env:GITHUB_STEP_SUMMARY ('Service: ' + '${{ steps.service.outcome }}')
+          foreach ($name in @('client','service')) {
+            $path = "artifacts/reconciliation/$name-build.log"
+            if (Test-Path $path) {
+              $errors = @(Select-String -Path $path -Pattern ': error | error CS\d+|error MSB\d+|error NU\d+' | Select-Object -First 80)
+              Write-Host "=== $name error inventory: $($errors.Count) ==="
+              foreach ($errorLine in $errors) { Write-Host $errorLine.Line }
+            }
+          }
+
+      - name: Upload audit logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: upstream-519-reconciliation-build-logs
+          path: artifacts/reconciliation/*.log
+          if-no-files-found: ignore
+          retention-days: 7
