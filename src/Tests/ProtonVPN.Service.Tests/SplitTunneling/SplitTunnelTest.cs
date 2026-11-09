@@ -734,6 +734,169 @@ public class SplitTunnelTest
         _splitTunnelClient.Received(1).EnableExcludeMode(Arg.Any<string[]>(), IPAddress.Parse("198.51.100.20"), Arg.Any<IPAddress>());
     }
 
+    // Official 5.1.9 reconnect scenarios (VPNWIN-3409), adapted to the fork's transactional
+    // address reconciliation (Add instead of Replace) and its settings-derived effective routes.
+
+    [TestMethod]
+    public void OnVpnConnecting_WhenBlockMode_PermitsExcludedAppsAndIps()
+    {
+        // Arrange
+        string[] apps = ["app1", "app2"];
+        SetBlockModeSettings(apps, ["8.8.8.8"]);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+
+        // Act
+        splitTunnel.OnVpnConnecting(GetConnectingVpnState());
+
+        // Assert
+        _splitTunnelClient.Received(1).EnableExcludeMode(
+            Arg.Is<string[]>(paths => paths.SequenceEqual(apps)), Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        _appFilter.Received(1).Replace(
+            Arg.Is<string[]>(paths => paths.SequenceEqual(apps)), Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+        _permittedRemoteAddress.Received(1).Add(
+            Arg.Is<string[]>(addresses => addresses.SequenceEqual(new[] { "8.8.8.8" })), NetworkFilter.Action.HardPermit);
+    }
+
+    [TestMethod]
+    public void OnVpnConnected_WhenBlockModeAndNothingChangedSinceConnecting_KeepsRedirect()
+    {
+        // Arrange
+        string[] apps = ["app1", "app2"];
+        SetBlockModeSettings(apps, []);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+
+        // Act
+        splitTunnel.OnVpnConnecting(GetConnectingVpnState());
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        // Assert
+        _splitTunnelClient.Received(1).EnableExcludeMode(Arg.Any<string[]>(), Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        _splitTunnelClient.DidNotReceive().Disable();
+        _appFilter.Received(2).Replace(
+            Arg.Is<string[]>(paths => paths.SequenceEqual(apps)), Arg.Any<Tuple<Layer, NetworkFilter.Action>[]>());
+    }
+
+    [TestMethod]
+    public void OnVpnConnecting_WhenBlockModeAndAppsChanged_RecreatesRedirect()
+    {
+        // Arrange
+        string[] newApps = ["app1", "app2"];
+        SetBlockModeSettings(["app1"], []);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.OnVpnConnecting(GetConnectingVpnState());
+        SetBlockModeSettings(newApps, []);
+
+        // Act
+        splitTunnel.OnVpnConnecting(GetConnectingVpnState());
+
+        // Assert
+        Received.InOrder(() =>
+        {
+            _splitTunnelClient.Disable();
+            _splitTunnelClient.EnableExcludeMode(
+                Arg.Is<string[]>(paths => paths.SequenceEqual(newApps)), Arg.Any<IPAddress>(), Arg.Any<IPAddress>());
+        });
+    }
+
+    [TestMethod]
+    public void OnVpnDisconnected_WhenReconnectingInBlockMode_KeepsFiltersAndRoutes()
+    {
+        // Arrange
+        SetBlockModeSettings(["app1"], ["8.8.8.8"]);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["8.8.8.8"]));
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+        _splitTunnelClient.ClearReceivedCalls();
+        _appFilter.ClearReceivedCalls();
+        _permittedRemoteAddress.ClearReceivedCalls();
+
+        // Act
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: true);
+
+        // Assert
+        _splitTunnelClient.DidNotReceive().Disable();
+        _appFilter.DidNotReceive().RemoveAll();
+        _permittedRemoteAddress.DidNotReceive().RemoveAll();
+        _splitTunnelRouting.DidNotReceive().DeleteRoutes(Arg.Any<VpnConfig>());
+    }
+
+    [TestMethod]
+    public void OnVpnDisconnected_WhenReconnectingInPermitMode_ShouldDisableReversed()
+    {
+        // Arrange
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Permit
+        });
+        SplitTunnel splitTunnel = GetSplitTunnel(false, true);
+
+        // Act
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: true);
+
+        // Assert
+        _splitTunnelClient.Received(1).Disable();
+    }
+
+    [TestMethod]
+    public void OnVpnConnected_WhenReconnectingWithSameIps_KeepsRoutes()
+    {
+        // Arrange
+        SetBlockModeSettings([], ["8.8.8.8"]);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["8.8.8.8"]));
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: true);
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["8.8.8.8"]));
+
+        // Act
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        // Assert
+        _splitTunnelRouting.DidNotReceive().DeleteRoutes(Arg.Any<VpnConfig>());
+    }
+
+    [TestMethod]
+    public void OnVpnConnected_WhenReconnectingWithDifferentIps_DeletesPreviousRoutes()
+    {
+        // Arrange
+        SetBlockModeSettings([], ["8.8.8.8"]);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["8.8.8.8"]));
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: true);
+        SetBlockModeSettings([], ["1.1.1.1"]);
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["1.1.1.1"]));
+
+        // Act
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+
+        // Assert
+        _splitTunnelRouting.Received(1).DeleteRoutes(Arg.Is<VpnConfig>(c => HasSplitTunnelIps(c, "8.8.8.8")));
+        _splitTunnelRouting.Received(1).SetUpRoutingTable(
+            Arg.Is<VpnConfig>(c => HasSplitTunnelIps(c, "1.1.1.1")), Arg.Any<string>(), Arg.Any<bool>());
+    }
+
+    [TestMethod]
+    public void OnVpnDisconnected_ManualDisconnectAfterReconnect_DeletesRoutesThatWereAdded()
+    {
+        // Arrange
+        SetBlockModeSettings([], ["8.8.8.8"]);
+        SplitTunnel splitTunnel = GetSplitTunnel();
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["8.8.8.8"]));
+        splitTunnel.OnVpnConnected(GetConnectedVpnState());
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: true);
+        SetBlockModeSettings([], ["1.1.1.1"]);
+        splitTunnel.UpdateContext(CreateSplitTunnelContext(["1.1.1.1"]));
+
+        // Act
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: false);
+
+        // Assert
+        _splitTunnelRouting.Received(1).DeleteRoutes(Arg.Is<VpnConfig>(c => HasSplitTunnelIps(c, "8.8.8.8")));
+        _appFilter.Received().RemoveAll();
+        _permittedRemoteAddress.Received().RemoveAll();
+    }
+
     private SplitTunnel GetSplitTunnel(bool enabled = false, bool reverseEnabled = false)
     {
         return new SplitTunnel(
@@ -763,17 +926,9 @@ public class SplitTunnelTest
         });
     }
 
-    private static SplitTunnelContext GetSplitTunnelContext(string[] ips)
+    private static bool HasSplitTunnelIps(VpnConfig config, params string[] ips)
     {
-        VpnConfig config = new(new VpnConfigParameters
-        {
-            Ports = new Dictionary<VpnProtocol, IReadOnlyCollection<int>>(),
-            SplitTunnelMode = SplitTunnelMode.Block,
-            SplitTunnelIPs = ips,
-        });
-        VpnHost server = new("node.protonvpn.net", "10.0.0.1", "1", null, string.Empty, false, null);
-
-        return new SplitTunnelContext(config, new VpnEndpoint(server, VpnProtocol.WireGuardUdp, 443));
+        return config.SplitTunnelIPs.SequenceEqual(ips);
     }
 
     private VpnState GetConnectedVpnState()
