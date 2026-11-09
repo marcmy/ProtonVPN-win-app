@@ -85,6 +85,9 @@ jobs:
               foreach ($errorLine in $errors) { Write-Host $errorLine.Line }
             }
           }
+          if ('${{ steps.client.outcome }}' -ne 'success' -or '${{ steps.service.outcome }}' -ne 'success') {
+            throw 'One or more build steps failed; inspect the uploaded audit logs.'
+          }
 
       - name: Upload audit logs
         if: always()
