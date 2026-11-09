@@ -42,7 +42,12 @@ namespace ProtonVPN.Vpn.OpenVpn.Arguments
 
         public override string ToString()
         {
-            return _arguments.SelectMany(a => a).ToList();
+            return string.Join(" ", Arguments());
+        }
+
+        private IEnumerable<string> Arguments()
+        {
+            return _arguments.SelectMany(a => a);
         }
     }
 }

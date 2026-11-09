@@ -31,23 +31,18 @@ public class LaunchableFile : ILaunchableFile
 
     public LaunchableFile(IOsProcesses processes)
     {
-        private readonly IOsProcesses _processes;
-
-        public LaunchableFile(IOsProcesses processes)
-        {
-            _processes = processes;
-        }
-
-        public void Launch(string filename, string arguments)
-        {
-            _processes.BuildElevatedProcess(filename, CommandLineArgumentsParser.Parse(arguments))
-                .Start();
-        }
+        _processes = processes;
     }
 
     public void Launch(string filename, IEnumerable<string> arguments)
     {
         _processes.BuildElevatedProcess(filename, arguments)
             .Start();
+    }
+
+    // Preserve the fork's string-argument call path for existing consumers.
+    public void Launch(string filename, string arguments)
+    {
+        Launch(filename, CommandLineArgumentsParser.Parse(arguments));
     }
 }
