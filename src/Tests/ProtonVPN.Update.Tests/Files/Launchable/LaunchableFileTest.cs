@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -37,61 +38,10 @@ public class LaunchableFileTest
     [TestInitialize]
     public virtual void TestInitialize()
     {
-        private IOsProcesses _processes;
-
-        [TestInitialize]
-        public virtual void TestInitialize()
-        {
-            _processes = Substitute.For<IOsProcesses>();
-        }
-
-        [TestMethod]
-        public void Launch_ShouldCreate_ElevatedProcess()
-        {
-            const string filename = "File to launch";
-            const string args = "Launch arguments";
-            LaunchableFile launchable = new LaunchableFile(_processes);
-
-            launchable.Launch(filename, args);
-
-            _processes.Received(1).BuildElevatedProcess(filename,
-                Arg.Is<IEnumerable<string>>(tokens => tokens.SequenceEqual(new[] { "Launch", "arguments" })));
-        }
-
-        [TestMethod]
-        public void Launch_ShouldStart_ElevatedProcess()
-        {
-            IOsProcess process = Substitute.For<IOsProcess>();
-            _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).Returns(process);
-            LaunchableFile launchable = new LaunchableFile(_processes);
-
-            launchable.Launch("", "");
-
-            process.Received(1).Start();
-        }
-
-        [TestMethod]
-        public void Valid_ShouldPassException_WhenOsProcesses_ElevatedProcess_Throws()
-        {
-            _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).ThrowsForAnyArgs<Exception>();
-            LaunchableFile launchable = new LaunchableFile(_processes);
-
-            Action action = () => launchable.Launch("", "");
-
-            action.Should().Throw<Exception>();
-        }
-
-        [TestMethod]
-        public void Valid_ShouldPassException_WhenElevatedProcess_Start_Throws()
-        {
-            _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).WhenForAnyArgs(x => x.Start()).Throws<Exception>();
-            LaunchableFile launchable = new LaunchableFile(_processes);
-
-            Action action = () => launchable.Launch("", "");
-
-            action.Should().Throw<Exception>();
-        }
+        _processes = Substitute.For<IOsProcesses>();
     }
+
+    // Official 5.1.9 argv API.
 
     [TestMethod]
     public void Launch_ShouldCreate_ElevatedProcess()
@@ -108,20 +58,22 @@ public class LaunchableFileTest
     [TestMethod]
     public void Launch_ShouldStart_ElevatedProcess()
     {
+        IOsProcess process = Substitute.For<IOsProcess>();
+        _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).Returns(process);
         LaunchableFile launchable = new LaunchableFile(_processes);
 
-        launchable.Launch("", []);
+        launchable.Launch("", Array.Empty<string>());
 
-        _processes.BuildElevatedProcess("", []).Received(1).Start();
+        process.Received(1).Start();
     }
 
     [TestMethod]
     public void Valid_ShouldPassException_WhenOsProcesses_ElevatedProcess_Throws()
     {
-        _processes.BuildElevatedProcess("", []).ThrowsForAnyArgs<Exception>();
+        _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).ThrowsForAnyArgs<Exception>();
         LaunchableFile launchable = new LaunchableFile(_processes);
 
-        Action action = () => launchable.Launch("", []);
+        Action action = () => launchable.Launch("", Array.Empty<string>());
 
         action.Should().Throw<Exception>();
     }
@@ -129,10 +81,48 @@ public class LaunchableFileTest
     [TestMethod]
     public void Valid_ShouldPassException_WhenElevatedProcess_Start_Throws()
     {
-        _processes.BuildElevatedProcess("", []).WhenForAnyArgs(x => x.Start()).Throws<Exception>();
+        _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).WhenForAnyArgs(x => x.Start()).Throws<Exception>();
         LaunchableFile launchable = new LaunchableFile(_processes);
 
-        Action action = () => launchable.Launch("", []);
+        Action action = () => launchable.Launch("", Array.Empty<string>());
+
+        action.Should().Throw<Exception>();
+    }
+
+    // Fork-retained legacy string API: release-supplied installer arguments are
+    // tokenized with Windows rules, never passed through as one argument.
+
+    [TestMethod]
+    public void LegacyLaunch_ShouldTokenizeArgumentString_WithWindowsRules()
+    {
+        const string filename = "File to launch";
+        LaunchableFile launchable = new LaunchableFile(_processes);
+
+        launchable.Launch(filename, "Launch arguments \"quoted value\"");
+
+        _processes.Received(1).BuildElevatedProcess(filename,
+            Arg.Is<IEnumerable<string>>(tokens => tokens.SequenceEqual(new[] { "Launch", "arguments", "quoted value" })));
+    }
+
+    [TestMethod]
+    public void LegacyLaunch_ShouldStart_ElevatedProcess()
+    {
+        IOsProcess process = Substitute.For<IOsProcess>();
+        _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).Returns(process);
+        LaunchableFile launchable = new LaunchableFile(_processes);
+
+        launchable.Launch("", "");
+
+        process.Received(1).Start();
+    }
+
+    [TestMethod]
+    public void LegacyLaunch_ShouldPassException_WhenElevatedProcess_Start_Throws()
+    {
+        _processes.BuildElevatedProcess("", Arg.Any<IEnumerable<string>>()).WhenForAnyArgs(x => x.Start()).Throws<Exception>();
+        LaunchableFile launchable = new LaunchableFile(_processes);
+
+        Action action = () => launchable.Launch("", "");
 
         action.Should().Throw<Exception>();
     }

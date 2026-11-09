@@ -107,7 +107,7 @@ public class ConnectionManagerTest
         _guestHoleDisconnectionRequestCreator = null;
         _statisticalEventManager = null;
         _connectionKeyManager = null;
-        _serversUpdater = null;
+        _serversUpdater = null!;
     }
 
     [TestMethod]
