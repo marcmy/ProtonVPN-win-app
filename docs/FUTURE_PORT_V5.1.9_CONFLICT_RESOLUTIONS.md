@@ -1,7 +1,8 @@
 # Proton VPN 5.1.9 early-source port
 
-Status: reconstructed source port implemented; local validation below. Not
-installed or accepted for production use. Public-source reconciliation is pending.
+Status: reconstructed source port implemented and reconciled with the official
+`v5.1.9` source tag (see "Public-source reconciliation" below). Not installed or
+accepted for production use.
 
 ## Provenance and scope
 
@@ -67,6 +68,54 @@ not establish runtime acceptance.
 - The final local package is built from isolated client outputs and the matching
   service outputs, excluding test DLLs and the release-private Builds.Variables
   assembly. Package creation and CI are separate from installing it.
+
+## Public-source reconciliation
+
+Official source: tag `v5.1.9`, `bd8380fe92c2b07f07ee6e48858307f12780fcb9`
+(23 commits after `v5.1.8`). The initial merge resolved 59 text conflicts with
+`-X ours`; Git then auto-merged non-conflicting upstream regions that
+re-implemented behavior the binary port already had, producing duplicate
+members and, in places, double execution. Each overlap was resolved
+individually. Method: diff the candidate against `marc/proton` (everything there
+is upstream content needing a keep/drop decision) and against `v5.1.9` (any
+upstream-only line is a possibly dropped upstream behavior).
+
+| Area | Merged state | Resolution | Evidence |
+| --- | --- | --- | --- |
+| Server cache `UpdateAsync` | Upstream body appended after the fork's equivalent: a modified list would fetch binary loads and save twice; duplicate `AllServers`, `IsLoadStale`, `_config`, `DeviceIpAddress`. | Fork files restored (identical logic, already reviewed). | Official `StatusRefreshTests` (553 lines) and `ServerAvailabilityTest` run unmodified against the fork implementation. |
+| Load/update cadence | Fork lines kept `GetWithRandomizedDeviation`; upstream's `GetWithStableDeviation` merged but unused. | Adopt official stable deviation for `ServerUpdateInterval` and `ServerLoadUpdateInterval` (timestamp comparison needs a stable interval). | Official `ConfigurationTest` stability/bounds tests. |
+| Reconnect load refresh | Upstream adds `UpdateOverdueLoadsAsync` before reconnection; fork only refreshed before connect. | Adopt (single call, no duplicate). | Official `ConnectionManagerTest` ordering tests. |
+| Node status / availability | Upstream makes physical-node status informational; `Partner` no longer non-standard. | Adopt official behavior. | `ServerAvailabilityTest`, `ServerFeatureExtensionsTest`. |
+| `ConnectedServerChecker` | Deleted by upstream commit `8e4d9a465` with its settings. | **Reversal of the binary-port decision.** The port kept it only because an absent type did not prove intent; the source now does. It polled node `Status == 0`, which 5.1.9 says must not gate connectability, and is replaced by the stale-load refresh. Not a fork feature. Isolated for easy revert. | No remaining references; client builds clean. |
+| Report-issue fields | Duplicate partial `OnValueChanged`/`Reset`; mapper switched to parameterless constructors. | Restore fork model and mapper. Upstream's constructors compile against the fork's `isFieldMandatory = true` default and would silently make optional API fields mandatory. | Feedback suite; official `ReportIssueDataProviderTest`. |
+| Report-issue XAML/resources | Duplicate `MaxLength` on the email box (XAML compiler failure); duplicate en-US `ContactForm_Field_MinLength`. | Remove duplicates; keep upstream's Crowdin-positioned resource entry. | XML/duplicate-key scans of all XAML and resw; localization tests. |
+| Split-tunnel `Enable` | Upstream tail appended after the fork's transactional reconciliation: second `AppFilter.Replace` and `PermittedRemoteAddress.Replace` with an undefined variable; duplicate `SplitTunnelNetworkFilters` constructor. | Restore fork files; drop unused upstream `Replace` (recorded decision above). | Official VPNWIN-3409 reconnect and route-lifecycle tests ported, adapted to `Add`-based permits and settings-derived effective routes. |
+| Leftover WFP session, app-path validation | Present in fork in decompiled-equivalent form. | No change. | Line-by-line comparison with `v5.1.9`. |
+| Unused API endpoints/contracts, versioned paths | Upstream removes events/partners/streaming/promo/loads endpoints and versions paths. | Adopt; nothing in the fork references them. | Integration suite mocks updated paths. |
+| `RequiredIfAttribute`, `DriverInstallLogTest` | Deleted upstream. | Accept: attribute unreferenced since length constraints; test removed upstream as machine-dependent. | Build. |
+| OpenVPN `CommandLineArgumentsTest` | Deleted upstream with the argv rewrite. | Restore: the fork keeps `ToString()` (repaired during this merge) beside `ToArgumentList()`; add a token-preservation test. | Vpn suite. |
+| Debug tools | Duplicate `ForceUpdateLoadsAsync`; missing `UpdateLogicalsAsync`. | Adopt official Servers card and commands. | Client build. |
+| GitLab CI, devsecops kit, UI/installer tests, translations | Upstream-only. | Adopt. No fork resource key was lost. | Key-set comparison of every resw. |
+| Updater `LaunchableFileTest` | Fork block-namespace class nested inside upstream's file-scoped class (did not compile; the temporary audit built only client and service). | Keep both: official argv tests plus the fork's legacy string path, which tokenizes installer arguments with Windows rules. | Update suite. |
+
+### Reconciliation validation (local, Release/x64, 2026-11-09)
+
+- All 199 solution projects build individually with zero errors. Client and
+  service: zero warnings. Remaining nullable warnings are in upstream's
+  verbatim `StatusRefreshTests` and the untouched `Builds.ConsoleJob`.
+- UI/localization: **114 passed, 1 skipped**.
+- Core: **1052 passed, 2 skipped** across 11 projects, plus 3 DNS failures
+  (`DnsOverUdpResolverTest` cancellation/non-working-nameserver cases). These
+  fail identically on an unmodified `marc/proton` worktree on the same machine
+  (local resolver answers queries meant to fail); DNS source is unchanged by
+  this merge. CI runners are authoritative for them.
+- Integration: **56 passed**.
+- Merge-touched projects outside the fork matrix: Common 243, Api 165,
+  Configurations 5, all passed.
+- Public-source watcher 10/10; patch tooling passed, including fail-closed
+  semantic conflicts.
+- Not run locally: elevated FastPatch secure staging, CodeQL, dependency/SBOM
+  scans, and installed-runtime acceptance against an official 5.1.9 install.
 
 ## Acceptance boundary
 
