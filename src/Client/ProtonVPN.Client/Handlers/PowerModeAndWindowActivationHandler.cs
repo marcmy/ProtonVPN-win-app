@@ -27,8 +27,6 @@ using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Logic.Connection.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Services.Contracts;
-using ProtonVPN.Common.Core.Extensions;
-using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.Client.Logic.Users.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Common.Core.Extensions;
@@ -55,8 +53,6 @@ public class PowerModeAndWindowActivationHandler : IHandler, IEventMessageReceiv
     private readonly IConnectionManager _connectionManager;
 
     private readonly IVpnPlanUpdater _vpnPlanUpdater;
-    private readonly IServersUpdater _serversUpdater;
-    private readonly IConfiguration _config;
 
     private readonly IServersUpdater _serversUpdater;
 

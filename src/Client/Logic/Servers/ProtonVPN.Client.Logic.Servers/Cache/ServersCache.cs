@@ -68,7 +68,6 @@ public class ServersCache : IServersCache
     private DateTime _lastLoadsUpdateUtc = DateTime.MinValue;
 
     private IReadOnlyList<Server> _originalServers = [];
-    private IReadOnlyList<Server> AllServers => GetWithReadLock(() => _originalServers);
 
     private IReadOnlyList<Server> _filteredServers = [];
     public IReadOnlyList<Server> Servers => GetWithReadLock(() => _filteredServers);
@@ -296,58 +295,6 @@ public class ServersCache : IServersCache
             else
             {
                 _hasServersRequestFailed = true;
-                return;
-            }
-
-            _hasServersRequestFailed = false;
-
-            if (response.IsNotModified)
-            {
-                _logger.Info<ApiLog>("API: Get servers response was not modified since last call, using cached data.");
-
-                // _lastLoadsUpdateUtc is left stale on purpose, so the caller still runs a loads update.
-                _lastFullUpdateUtc = utcNow;
-                return;
-            }
-
-            List<Server> servers = _entityMapper.Map<LogicalServerResponse, Server>(response.Value.Servers);
-
-            _logger.Info<ApiLog>($"API: Get servers response was modified since last call, " +
-                $"updating cached data. Number of servers received: {servers.Count}");
-
-            // Handle race condition when new favorite servers are added between API request and response
-            if (response.Value.ResponseMetadata is not null && response.Value.ResponseMetadata.ListIsTruncated && favoriteServerIds.Any())
-            {
-                IEnumerable<string> favoriteServerIdsUpdated = GetFavoriteServerIds();
-                IEnumerable<string> preserveIds = favoriteServerIdsUpdated.Except(favoriteServerIds);
-                if (preserveIds.Any())
-                {
-                    servers.AddRange(_originalServers.Where(s => preserveIds.Contains(s.Id)));
-                }
-            }
-
-            // IsVisible and IsAutoconnectable are only set by the loads calculator, so the list cannot be
-            // published without them, they would default to true for every server.
-            byte[]? statusFile = await UpdateBinaryLoadsAsync(servers, response.Value.StatusId, deviceLocation, cancellationToken);
-            if (statusFile is null)
-            {
-                _logger.Warn<ApiLog>("Loads were not updated, the server list is discarded.");
-                return;
-            }
-
-            sbyte userMaxTier = _settings.VpnPlan.MaxTier;
-
-            SaveToFile(deviceLocation ?? DeviceLocation.Unknown, userMaxTier, servers);
-            ProcessServers(deviceLocation ?? DeviceLocation.Unknown, userMaxTier, servers, statusFile);
-
-            // Committed only once the list is applied.
-            _settings.LastLogicalsStatusId = response.Value.StatusId;
-            _lastFullUpdateUtc = utcNow;
-            _lastLoadsUpdateUtc = utcNow;
-
-            if (response.LastModified.HasValue)
-            {
-                _settings.LogicalsLastModifiedDate = response.LastModified.Value;
             }
         }
         catch (Exception e)
@@ -716,7 +663,6 @@ public class ServersCache : IServersCache
             DeviceIpAddress = deviceLocation.IpAddress,
             UserMaxTier = userMaxTier,
             Servers = servers,
-            DeviceIpAddress = deviceLocation.IpAddress,
         };
         _serversFileReaderWriter.Save(serversFile);
     }

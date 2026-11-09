@@ -163,7 +163,7 @@ public partial class ReportIssueContactPageViewModel : ReportIssuePageViewModelB
             throw new ArgumentException(nameof(Category), "Cannot load contact form with no category");
         }
 
-        InputFields.Add(new EmailInputField()
+        InputFields.Add(new EmailInputField(true)
         {
             Key = "Email",
             Name = Localizer.Get("Dialogs_ReportIssue_ContactForm_Email"),
@@ -181,13 +181,6 @@ public partial class ReportIssueContactPageViewModel : ReportIssuePageViewModelB
             }
             InputFields.Add(field);
         }
-    }
-
-    private string GetLengthHint(TextInputFieldBase field)
-    {
-        return field.HasMinimumLength
-            ? Localizer.GetFormat("Dialogs_ReportIssue_ContactForm_Field_MinLength", field.EffectiveMinimumLength)
-            : string.Empty;
     }
 
     partial void OnCategoryChanged(IssueCategory? value)

@@ -36,7 +36,6 @@ public interface IServersCache
     bool IsEmpty(); 
     bool AreAllServersUnderMaintenance();
     bool IsStale();
-    bool IsLoadStale();
     bool IsOutdated();
     bool IsLoadOutdated();
     bool IsLoadOverdue();

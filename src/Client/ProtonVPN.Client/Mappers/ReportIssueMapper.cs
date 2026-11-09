@@ -67,8 +67,8 @@ public static class ReportIssueMapper
     {
         IssueInputField input = inputField.Type switch
         {
-            TEXT_FIELD_TYPE => new SingleLineTextInputField(),
-            MULTI_TEXT_FIELD_TYPE => new MultiLineTextInputField(),
+            TEXT_FIELD_TYPE => new SingleLineTextInputField(inputField.IsMandatory),
+            MULTI_TEXT_FIELD_TYPE => new MultiLineTextInputField(inputField.IsMandatory),
             _ => throw new InvalidOperationException($"Unknown input type for Report an issue contact form ('{inputField.Type}')")
         };
 

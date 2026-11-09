@@ -446,14 +446,6 @@ public class SplitTunnel : ISplitTunnel, IServiceSettingsAware
         // simpler address collection implementation.
         _permittedRemoteAddress.Add(resolvedAddresses, Action.HardPermit);
 
-        // Permit filters are replaced every time, because leak protection removes them when it gets disabled
-        List<Tuple<Layer, Action>> appFilters = [
-            Tuple.Create(Layer.AppAuthConnectV4, Action.HardPermit),
-            Tuple.Create(Layer.AppAuthConnectV6, localIpv6Address is null ? Action.HardBlock : Action.HardPermit),
-        ];
-        _appFilter.Replace(appPaths, [.. appFilters]);
-        _permittedRemoteAddress.Replace(ips, Action.HardPermit);
-
         _enabled = true;
     }
 

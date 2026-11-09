@@ -17,7 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -87,21 +86,6 @@ public abstract partial class IssueInputField<TValue> : IssueInputField
     protected IssueInputField()
     {
         ValidateProperty(Value, nameof(Value));
-    }
-
-    partial void OnValueChanged(TValue? value)
-    {
-        OnValueChanged();
-    }
-
-    protected virtual void OnValueChanged()
-    { }
-
-    public override void Reset()
-    {
-        base.Reset();
-
-        Value = default;
     }
 
     protected override bool IsValid()
