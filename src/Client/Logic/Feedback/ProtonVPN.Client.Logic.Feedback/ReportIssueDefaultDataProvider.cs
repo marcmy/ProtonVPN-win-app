@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -23,8 +23,12 @@ using ProtonVPN.Api.Contracts.ReportAnIssue;
 
 namespace ProtonVPN.Client.Logic.Feedback;
 
+// Fallback form used when the API is unreachable. The embedded JSON is a copy of the (English) API response body,
+// so it can be refreshed by pasting a new response. Never paste request headers (tokens, cookies) into it.
 internal class ReportIssueDefaultDataProvider
 {
+    private const string RESOURCE_NAME = "ReportIssueDefaultForm.json";
+
     public static List<IssueCategoryResponse> GetCategories()
     {
         using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ReportIssueDefaultForm.json")

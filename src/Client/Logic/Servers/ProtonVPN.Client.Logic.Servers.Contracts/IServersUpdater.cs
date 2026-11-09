@@ -22,10 +22,15 @@ namespace ProtonVPN.Client.Logic.Servers.Contracts;
 public interface IServersUpdater
 {
     Task UpdateAsync(CancellationToken cancellationToken = default);
+
+    Task UpdateOverdueLoadsAsync();
+
     Task ForceUpdateAsync(CancellationToken cancellationToken = default);
     Task ForceUpdateLoadsAsync(CancellationToken cancellationToken = default);
     Task UpdateOverdueLoadsAsync();
     bool HasServersRequestFailed();
+
+    Task ForceUpdateLoadsAsync(CancellationToken cancellationToken = default);
 
     Task ClearCacheAsync(CancellationToken cancellationToken = default);
 }

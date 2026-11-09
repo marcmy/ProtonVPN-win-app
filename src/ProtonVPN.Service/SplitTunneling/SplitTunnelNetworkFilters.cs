@@ -42,6 +42,11 @@ public class SplitTunnelNetworkFilters
 
     public SplitTunnelNetworkFilters(ILogger logger) => _logger = logger;
 
+    public SplitTunnelNetworkFilters(ILogger logger)
+    {
+        _logger = logger;
+    }
+
     public void EnableExcludeMode(string[] apps, IPAddress localIpv4Address, IPAddress? localIpv6Address)
     {
         Create();

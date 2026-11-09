@@ -39,6 +39,7 @@ public class ServersUpdater : IServersUpdater
     private readonly IServerCountCache _serverCountCache;
 
     private readonly ISettings _settings;
+    private readonly IConfiguration _config;
 
     private readonly IConfiguration _config;
 

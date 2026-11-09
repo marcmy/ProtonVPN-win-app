@@ -283,7 +283,7 @@ public class SplitTunnelTest
         SplitTunnel splitTunnel = GetSplitTunnel(true);
 
         // Act
-        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true));
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: false);
 
         // Assert
         _splitTunnelClient.Received(1).Disable();
@@ -300,7 +300,7 @@ public class SplitTunnelTest
         SplitTunnel splitTunnel = GetSplitTunnel(false, true);
 
         // Act
-        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true));
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: false);
 
         // Assert
         _splitTunnelClient.Received(1).Disable();
@@ -317,7 +317,7 @@ public class SplitTunnelTest
         SplitTunnel splitTunnel = GetSplitTunnel();
 
         // Act
-        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true));
+        splitTunnel.OnVpnDisconnected(GetDisconnectedVpnState(true), isReconnecting: false);
     }
 
     [TestMethod]
@@ -751,6 +751,29 @@ public class SplitTunnelTest
             _proTunAdapterDetailsCache,
             _domainPoller,
             _folderMonitor);
+    }
+
+    private void SetBlockModeSettings(string[] apps, string[] ips)
+    {
+        _serviceSettings.SplitTunnelSettings.Returns(new SplitTunnelSettingsIpcEntity
+        {
+            Mode = SplitTunnelModeIpcEntity.Block,
+            AppPaths = apps,
+            Ips = ips,
+        });
+    }
+
+    private static SplitTunnelContext GetSplitTunnelContext(string[] ips)
+    {
+        VpnConfig config = new(new VpnConfigParameters
+        {
+            Ports = new Dictionary<VpnProtocol, IReadOnlyCollection<int>>(),
+            SplitTunnelMode = SplitTunnelMode.Block,
+            SplitTunnelIPs = ips,
+        });
+        VpnHost server = new("node.protonvpn.net", "10.0.0.1", "1", null, string.Empty, false, null);
+
+        return new SplitTunnelContext(config, new VpnEndpoint(server, VpnProtocol.WireGuardUdp, 443));
     }
 
     private VpnState GetConnectedVpnState()

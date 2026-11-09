@@ -22,6 +22,7 @@ using NSubstitute;
 using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Logic.Feedback.Diagnostics.Logs;
+using ProtonVPN.Client.Logic.Servers.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
 
 namespace ProtonVPN.Client.Logic.Feedback.Tests.Diagnostics;
@@ -31,6 +32,7 @@ public class UserSettingsLogTest : LogBaseTest
 {
     private ISettings? _settings;
     private IUserAuthenticator? _userAuthenticator;
+    private IServersLoader? _serversLoader;
 
     [TestInitialize]
     public override void Initialize()
@@ -41,6 +43,9 @@ public class UserSettingsLogTest : LogBaseTest
 
         _userAuthenticator = Substitute.For<IUserAuthenticator>();
         _userAuthenticator.IsLoggedIn.Returns(true);
+
+        _serversLoader = Substitute.For<IServersLoader>();
+        _serversLoader.GetStats().Returns([]);
     }
 
     [TestCleanup]
@@ -50,6 +55,7 @@ public class UserSettingsLogTest : LogBaseTest
 
         _settings = null;
         _userAuthenticator = null;
+        _serversLoader = null;
     }
 
     [TestMethod]

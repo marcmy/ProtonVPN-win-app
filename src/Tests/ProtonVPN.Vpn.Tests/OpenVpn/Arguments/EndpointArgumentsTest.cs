@@ -44,7 +44,7 @@ public class EndpointArgumentsTest
             relayIpByProtocol: null);
 
     [TestMethod]
-    public void Enumerable_ShouldContain_ExpectedNumberOfOptions()
+    public void Enumerable_ShouldContain_ExpectedNumberOfArguments()
     {
         // Arrange
         VpnEndpoint endpoint = new(_vpnHost, VpnProtocol.OpenVpnUdp, 48965);

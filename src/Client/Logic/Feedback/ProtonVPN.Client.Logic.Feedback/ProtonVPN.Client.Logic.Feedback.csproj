@@ -16,6 +16,10 @@
         <EmbeddedResource Include="ReportIssueDefaultForm.json" LogicalName="ReportIssueDefaultForm.json" />
     </ItemGroup>
     <ItemGroup>
+        <EmbeddedResource Include="Resources\ReportIssueDefaultForm.json" LogicalName="ReportIssueDefaultForm.json" />
+    </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" />
       <PackageReference Include="System.Formats.Asn1" />
       <PackageReference Include="System.Text.Json" />
     </ItemGroup>

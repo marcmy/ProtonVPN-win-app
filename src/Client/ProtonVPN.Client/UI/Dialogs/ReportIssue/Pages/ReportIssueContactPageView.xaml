@@ -94,6 +94,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
             <TextBox HorizontalAlignment="Stretch"
                      attached:FieldValidation.HasErrors="{x:Bind ShouldShowAsInvalid, Mode=OneWay}"
                      Style="{StaticResource ValidationTextBoxStyle}"
+                     MaxLength="{x:Bind EffectiveMaximumLength, Mode=OneTime}"
                      AutomationProperties.AutomationId="EmailInputField"
                      Header="{x:Bind Name, Mode=OneTime}"
                      IsSpellCheckEnabled="False"

@@ -192,6 +192,11 @@ public class UserSettingsLog : LogBase
         yield return new(nameof(IUserSettings.LastSeenWhatsNewOverlayVersion), _settings.LastSeenWhatsNewOverlayVersion);
     }
 
+    private IEnumerable<KeyValuePair<string, dynamic?>> GetServers()
+    {
+        return _serversLoader.GetStats();
+    }
+
     private string Serialize(dynamic? value)
     {
         if (value == null ||

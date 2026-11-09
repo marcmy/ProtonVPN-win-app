@@ -266,6 +266,8 @@ public class ConnectionManager : IInternalConnectionManager, IGuestHoleConnector
 
         _logger.Info<ConnectTriggerLog>($"[CONNECTION_PROCESS] Reconnection attempt to: {connectionIntent}. Triggered by {reconnectionTrigger}.", stackTraceDepth: 1);
 
+        await _serversUpdater.UpdateOverdueLoadsAsync();
+
         ConnectionRequestIpcEntity request = await _reconnectionRequestCreator.CreateAsync(connectionIntent);
 
         return await SendRequestIfValidAsync(request);
