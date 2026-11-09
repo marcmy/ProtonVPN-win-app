@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2026 Proton AG
+ * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -36,9 +36,9 @@ public class SystemProcesses : IOsProcesses
         _logger = logger;
     }
 
-    public IOsProcess BuildProcess(string filename, IEnumerable<string> arguments)
+    public IOsProcess Process(string filename, string arguments)
     {
-        Process process = CreateProcess(filename, arguments);
+        var process = CreateProcess(filename, arguments);
         return new SystemProcess(_logger, process);
     }
 
@@ -79,31 +79,39 @@ public class SystemProcesses : IOsProcesses
 
     public IOsProcess ElevatedProcess(string filename, string arguments)
     {
-        Process process = CreateElevatedProcess(filename, arguments);
+        var process = CreateElevatedProcess(filename, arguments);
         return new SystemProcess(_logger, process);
     }
 
-    public IOsProcess BuildCommandLineProcess(IEnumerable<string> arguments)
+    public IOsProcess CommandLineProcess(string arguments)
     {
         return new CmdOutputProcess(_logger, new Process
         {
-            StartInfo = new ProcessStartInfo("cmd.exe", arguments ?? []).NoRedirectInfo()
+            StartInfo = new ProcessStartInfo("cmd.exe", arguments).NoRedirectInfo()
         });
     }
 
-    public IOsProcess[] GetProcessesByName(string filename)
+    public IOsProcess ElevatedCommandLineProcess(string arguments)
     {
-        string name = GetProcessName(filename);
-        return GetProcessesByNameInner(name).Select(p => (IOsProcess)new SystemProcess(_logger, p)).ToArray();
+        return new CmdOutputProcess(_logger, new Process
+        {
+            StartInfo = new ProcessStartInfo("cmd.exe", arguments).ElevatedInfo()
+        });
     }
 
-    public IOsProcess[] GetProcessesByPath(string path)
+    public IOsProcess[] ProcessesByName(string filename)
     {
-        string filename = Path.GetFileNameWithoutExtension(path) ?? string.Empty;
-        Process[] list = Process.GetProcessesByName(filename);
-        List<IOsProcess> result = [];
+        var name = GetProcessName(filename);
+        return GetProcessesByName(name).Select(p => (IOsProcess)new SystemProcess(_logger, p)).ToArray();
+    }
 
-        foreach (Process p in list)
+    public IOsProcess[] ProcessesByPath(string path)
+    {
+        var filename = Path.GetFileNameWithoutExtension(path) ?? string.Empty;
+        var list = System.Diagnostics.Process.GetProcessesByName(filename);
+        var result = new List<IOsProcess>();
+
+        foreach (var p in list)
         {
             try
             {
@@ -129,7 +137,7 @@ public class SystemProcesses : IOsProcesses
     {
         try
         {
-            Process.Start(new ProcessStartInfo
+            System.Diagnostics.Process.Start(new ProcessStartInfo
             {
                 FileName = filename,
                 UseShellExecute = true
@@ -140,51 +148,38 @@ public class SystemProcesses : IOsProcesses
         }
     }
 
-    private static Process CreateProcess(string filename, IEnumerable<string> arguments)
+    private Process CreateProcess(string filename, string arguments)
     {
-        ProcessStartInfo startInfo = new ProcessStartInfo(filename).StandardInfo();
-
-        foreach (string argument in arguments ?? [])
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
         return new Process
         {
-            StartInfo = startInfo,
+            StartInfo = new ProcessStartInfo(filename, arguments).StandardInfo(),
             EnableRaisingEvents = true
         };
     }
 
-    private static Process CreateElevatedProcess(string filename, IEnumerable<string> arguments)
+    private Process CreateElevatedProcess(string filename, string arguments)
     {
-        ProcessStartInfo startInfo = new()
-        {
-            FileName = filename,
-            CreateNoWindow = true,
-            UseShellExecute = true,
-            Verb = "runas",
-            WorkingDirectory = Environment.CurrentDirectory,
-        };
-
-        foreach (string argument in arguments ?? [])
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
         return new Process
         {
-            StartInfo = startInfo,
+            StartInfo =
+            {
+                FileName = filename,
+                Arguments = arguments,
+                CreateNoWindow = true,
+                UseShellExecute = true,
+                Verb = "runas",
+                WorkingDirectory = Environment.CurrentDirectory
+            },
             EnableRaisingEvents = true
         };
     }
 
-    private static Process[] GetProcessesByNameInner(string name)
+    private Process[] GetProcessesByName(string name)
     {
-        return Process.GetProcessesByName(name);
+        return System.Diagnostics.Process.GetProcessesByName(name);
     }
 
-    private static string GetProcessName(string filename)
+    private string GetProcessName(string filename)
     {
         return Path.GetFileNameWithoutExtension(filename);
     }

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2026 Proton AG
+ * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
  *
@@ -29,13 +29,14 @@ public interface IOsProcesses
 
     IOsProcess Process(string filename, string arguments = null);
 
-    IOsProcess BuildElevatedProcess(string filename, IEnumerable<string> arguments = null);
+    IOsProcess ElevatedProcess(string filename, string arguments = null);
 
-    IOsProcess BuildCommandLineProcess(IEnumerable<string> arguments = null);
+    IOsProcess CommandLineProcess(string arguments = null);
+    IOsProcess ElevatedCommandLineProcess(string arguments = null);
 
-    IOsProcess[] GetProcessesByName(string filename);
+    IOsProcess[] ProcessesByName(string filename);
 
-    IOsProcess[] GetProcessesByPath(string path);
+    IOsProcess[] ProcessesByPath(string path);
 
     void Open(string filename);
 }

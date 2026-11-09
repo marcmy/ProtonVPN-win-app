@@ -94,11 +94,4 @@ namespace ProtonVPN.NetworkFilter
         {
         }
     }
-
-    public class NonLocalAppPathException : InvalidArgumentException
-    {
-        public NonLocalAppPathException(uint code) : base(code)
-        {
-        }
-    }
 }
