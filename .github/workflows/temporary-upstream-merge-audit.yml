@@ -1,0 +1,39 @@
+name: Temporary upstream merge conflict audit
+on:
+  push:
+    branches:
+      - integration/proton-5.1.9-20261109
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Audit upstream merge without pushing
+        shell: bash
+        run: |
+          set -uo pipefail
+          git config user.name 'ProtonVPN merge audit'
+          git config user.email 'merge-audit@users.noreply.github.com'
+          git fetch https://github.com/ProtonVPN/win-app.git bd8380fe92c2b07f07ee6e48858307f12780fcb9
+          echo '--- Merge base ---'
+          git merge-base HEAD FETCH_HEAD
+          echo '--- Attempt merge ---'
+          if git merge --no-ff --no-commit FETCH_HEAD; then
+            echo 'MERGE_CLEAN=YES'
+            echo '### Merge clean' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'MERGE_CLEAN=NO'
+            echo '### Merge conflicts' >> "$GITHUB_STEP_SUMMARY"
+            git diff --name-only --diff-filter=U | tee /tmp/upstream-conflicts.txt
+            cat /tmp/upstream-conflicts.txt >> "$GITHUB_STEP_SUMMARY"
+            echo -n 'CONFLICT_COUNT='
+            wc -l < /tmp/upstream-conflicts.txt
+          fi
+          git status --short | tail -n 100
