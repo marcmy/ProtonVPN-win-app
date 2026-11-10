@@ -49,6 +49,7 @@ public interface IUserSettings
     bool IsLocalAreaNetworkAccessEnabled { get; set; }
     bool IsLocalDnsEnabled { get; set; }
     bool IsNotificationEnabled { get; set; }
+    bool AreAnnouncementsBlocked { get; set; }
     bool IsShareStatisticsEnabled { get; set; }
     bool IsIpv6LeakProtectionEnabled { get; set; }
     bool IsIpv6Enabled { get; set; }

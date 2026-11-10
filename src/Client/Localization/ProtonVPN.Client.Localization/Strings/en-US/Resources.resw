@@ -1980,6 +1980,12 @@
   <data name="Settings_General_Notifications_Description" xml:space="preserve">
     <value>Get notified about changes to your connection status.</value>
   </data>
+  <data name="Settings_General_BlockAnnouncements" xml:space="preserve">
+    <value>Block Proton offers and announcements</value>
+  </data>
+  <data name="Settings_General_BlockAnnouncements_Description" xml:space="preserve">
+    <value>Don't download or show promotional pop-ups, banners and offers from Proton.</value>
+  </data>
   <data name="Settings_General_Theme" xml:space="preserve">
     <value>Theme</value>
   </data>
