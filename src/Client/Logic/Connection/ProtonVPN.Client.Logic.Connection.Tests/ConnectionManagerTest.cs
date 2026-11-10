@@ -107,6 +107,40 @@ public class ConnectionManagerTest
         _guestHoleDisconnectionRequestCreator = null;
         _statisticalEventManager = null;
         _connectionKeyManager = null;
+        _serversUpdater = null!;
+    }
+
+    [TestMethod]
+    public async Task ConnectAsync_UpdatesOverdueLoads_BeforeCreatingTheRequest()
+    {
+        // Act
+        await GetConnectionManager().ConnectAsync(VpnTriggerDimension.Auto, GetConnectionIntent(new TorFeatureIntent()));
+
+        // Assert
+        Received.InOrder(() =>
+        {
+            _serversUpdater!.UpdateOverdueLoadsAsync();
+            _connectionRequestCreator!.CreateAsync(Arg.Any<IConnectionIntent>());
+        });
+    }
+
+    [TestMethod]
+    public async Task ReconnectAsync_UpdatesOverdueLoads_BeforeCreatingTheRequest()
+    {
+        // Arrange
+        ConnectionManager connectionManager = GetConnectionManager();
+        await connectionManager.ConnectAsync(VpnTriggerDimension.Auto, GetConnectionIntent(new TorFeatureIntent()));
+        _serversUpdater!.ClearReceivedCalls();
+
+        // Act
+        await connectionManager.ReconnectAsync(VpnTriggerDimension.Auto);
+
+        // Assert
+        Received.InOrder(() =>
+        {
+            _serversUpdater!.UpdateOverdueLoadsAsync();
+            _reconnectionRequestCreator!.CreateAsync(Arg.Any<IConnectionIntent>());
+        });
     }
 
     [TestMethod]

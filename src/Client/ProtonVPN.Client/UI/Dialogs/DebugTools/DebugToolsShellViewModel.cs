@@ -216,15 +216,21 @@ public partial class DebugToolsShellViewModel : ShellViewModelBase<IDebugToolsWi
     }
 
     [RelayCommand]
-    public async Task TriggerLogicalsRefreshAsync()
+    public async Task ForceUpdateLoadsAsync()
+    {
+        await _serversUpdater.ForceUpdateLoadsAsync();
+    }
+
+    [RelayCommand]
+    public async Task ForceUpdateLogicalsAsync()
     {
         await _serversUpdater.ForceUpdateAsync();
     }
 
     [RelayCommand]
-    public async Task ForceUpdateLoadsAsync()
+    public async Task UpdateLogicalsAsync()
     {
-        await _serversUpdater.ForceUpdateLoadsAsync();
+        await _serversUpdater.UpdateAsync();
     }
 
     [RelayCommand]

@@ -45,5 +45,20 @@ namespace ProtonVPN.Vpn.Tests.OpenVpn.Arguments
             // Assert
             result.Should().Be("arg1 arg3 arg2 arg10 \"arg11\" --arg20");
         }
+
+        [TestMethod]
+        public void ToArgumentList_ShouldKeepEachArgumentAsOneToken()
+        {
+            // Arrange
+            CommandLineArguments subject = new CommandLineArguments()
+                                           .Add(new[] { "--config", @"C:\Program Files\Proton\VPN\a b.ovpn" })
+                                           .Add(new[] { "--auth-user-pass", string.Empty, "\"quoted\"" });
+
+            // Act
+            System.Collections.Generic.IReadOnlyList<string> result = subject.ToArgumentList();
+
+            // Assert
+            result.Should().Equal("--config", @"C:\Program Files\Proton\VPN\a b.ovpn", "--auth-user-pass", string.Empty, "\"quoted\"");
+        }
     }
 }
