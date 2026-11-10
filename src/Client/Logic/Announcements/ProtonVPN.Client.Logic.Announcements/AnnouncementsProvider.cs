@@ -27,6 +27,7 @@ using ProtonVPN.Client.Logic.Announcements.Files;
 using ProtonVPN.Client.Logic.Announcements.Images;
 using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts.Messages;
+using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.EntityMapping.Contracts;
 using ProtonVPN.Logging.Contracts;
@@ -44,6 +45,7 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
     private readonly ILogger _logger;
     private readonly IUserAuthenticator _userAuthenticator;
     private readonly IAnnouncementImagesDeleter _announcementImagesDeleter;
+    private readonly ISettings _settings;
 
     private readonly ReaderWriterLockSlim _readWriteLock = new();
     private readonly SemaphoreSlim _updateLock = new(1, 1);
@@ -56,7 +58,8 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
         IEventMessageSender eventMessageSender,
         ILogger logger,
         IUserAuthenticator userAuthenticator,
-        IAnnouncementImagesDeleter announcementImagesDeleter)
+        IAnnouncementImagesDeleter announcementImagesDeleter,
+        ISettings settings)
     {
         _apiClient = apiClient;
         _entityMapper = entityMapper;
@@ -65,7 +68,10 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
         _logger = logger;
         _userAuthenticator = userAuthenticator;
         _announcementImagesDeleter = announcementImagesDeleter;
+        _settings = settings;
     }
+
+    private bool AreAnnouncementsBlocked => _settings.AreAnnouncementsBlocked;
 
     public async Task UpdateAsync()
     {
@@ -73,7 +79,11 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
 
         try
         {
-            if (_userAuthenticator.IsLoggedIn)
+            if (AreAnnouncementsBlocked)
+            {
+                ClearBlockedAnnouncements();
+            }
+            else if (_userAuthenticator.IsLoggedIn)
             {
                 LoadFromFileIfEmpty();
                 AnnouncementsRequest request = CreateAnnouncementsRequest();
@@ -102,6 +112,21 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
         }
     }
 
+    private void ClearBlockedAnnouncements()
+    {
+        _logger.Info<AppLog>("Skipping announcements update because announcements are blocked in settings.");
+        bool isLoggedIn = _userAuthenticator.IsLoggedIn;
+        SetWithWriteLock(() =>
+        {
+            _announcements = [];
+            if (isLoggedIn)
+            {
+                // Overwrite the cached file so previously downloaded offers can't reappear.
+                SaveToFile(_announcements);
+            }
+        });
+    }
+
     private void LoadFromFileIfEmpty()
     {
         if (!HasAnyAnnouncements())
@@ -114,7 +139,7 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
 
     public bool HasAnyAnnouncements()
     {
-        return GetWithReadLock(() => _announcements is not null && _announcements.Count > 0);
+        return !AreAnnouncementsBlocked && GetWithReadLock(() => _announcements is not null && _announcements.Count > 0);
     }
 
     private void ProcessAnnouncements(List<Announcement> newAnnouncements)
@@ -147,7 +172,12 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
 
     public IReadOnlyList<Announcement> GetAllActive()
     {
-        return GetWithReadLock(() => _announcements.Where(a => a.IsActive())).ToList();
+        if (AreAnnouncementsBlocked)
+        {
+            return [];
+        }
+
+        return GetWithReadLock(() => _announcements.Where(a => a.IsActive()).ToList());
     }
 
     private T GetWithReadLock<T>(Func<T> func)
@@ -165,11 +195,21 @@ public class AnnouncementsProvider : IAnnouncementsProvider, IAnnouncementsUpdat
 
     public Announcement? GetActiveById(string id)
     {
+        if (AreAnnouncementsBlocked)
+        {
+            return null;
+        }
+
         return GetWithReadLock(() => _announcements.FirstOrDefault(a => a.Id == id && a.IsActive()));
     }
 
     public Announcement? GetActiveAndUnseenByType(AnnouncementType type)
     {
+        if (AreAnnouncementsBlocked)
+        {
+            return null;
+        }
+
         return GetWithReadLock(() => _announcements
             .OrderBy(a => a.EndDateTimeUtc)
             .FirstOrDefault(a => a.Type == type && a.IsActiveAndUnseen())

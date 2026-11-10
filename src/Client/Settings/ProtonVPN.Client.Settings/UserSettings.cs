@@ -196,6 +196,12 @@ public class UserSettings : GlobalSettings, IUserSettings
         set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
     }
 
+    public bool AreAnnouncementsBlocked
+    {
+        get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.AreAnnouncementsBlocked;
+        set => _userCache.SetValueType<bool>(value, SettingEncryption.Unencrypted);
+    }
+
     public bool IsShareStatisticsEnabled
     {
         get => _userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? DefaultSettings.IsShareStatisticsEnabled;

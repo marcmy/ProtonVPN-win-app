@@ -44,6 +44,8 @@ public static class DefaultSettings
     public static bool IsRecentsPaneOpened = true;
     public static bool IsConnectionDetailsPaneOpened = true;
     public static bool IsNotificationEnabled = true;
+    // Fork default: Proton's server-pushed offers and announcements are blocked unless the user opts in.
+    public static bool AreAnnouncementsBlocked = true;
     public static bool IsBetaAccessEnabled = false;
     public static bool AreAutomaticUpdatesEnabled = true;
     public static bool IsShareStatisticsEnabled = true;

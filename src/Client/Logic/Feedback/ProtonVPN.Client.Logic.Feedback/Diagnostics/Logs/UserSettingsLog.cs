@@ -130,6 +130,7 @@ public class UserSettingsLog : LogBase
         yield return new($"{nameof(IUserSettings.ChangeServerAttempts)}.{nameof(ChangeServerAttempts.LastAttemptUtcDate)}", _settings.ChangeServerAttempts.LastAttemptUtcDate);
 
         yield return new(nameof(IUserSettings.IsNotificationEnabled), _settings.IsNotificationEnabled);
+        yield return new(nameof(IUserSettings.AreAnnouncementsBlocked), _settings.AreAnnouncementsBlocked);
         yield return new(nameof(IUserSettings.OpenVpnAdapter), _settings.OpenVpnAdapter);
         yield return new(nameof(IUserSettings.IsIpv6Enabled), _settings.IsIpv6Enabled);
         yield return new(nameof(IUserSettings.IsIpv6LeakProtectionEnabled), _settings.IsIpv6LeakProtectionEnabled);

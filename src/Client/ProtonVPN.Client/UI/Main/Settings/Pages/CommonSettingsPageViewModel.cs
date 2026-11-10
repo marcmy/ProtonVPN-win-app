@@ -79,6 +79,12 @@ public partial class CommonSettingsPageViewModel : SettingsPageViewModelBase
         set => _settings.IsNotificationEnabled = value;
     }
 
+    public bool AreAnnouncementsBlocked
+    {
+        get => _settings.AreAnnouncementsBlocked;
+        set => _settings.AreAnnouncementsBlocked = value;
+    }
+
     public bool IsBetaAccessEnabled
     {
         get => _settings.IsBetaAccessEnabled;
@@ -226,6 +232,10 @@ public partial class CommonSettingsPageViewModel : SettingsPageViewModelBase
         {
             case nameof(ISettings.IsNotificationEnabled):
                 OnPropertyChanged(nameof(IsNotificationEnabled));
+                break;
+
+            case nameof(ISettings.AreAnnouncementsBlocked):
+                OnPropertyChanged(nameof(AreAnnouncementsBlocked));
                 break;
 
             case nameof(ISettings.IsBetaAccessEnabled):
