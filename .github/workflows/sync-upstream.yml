@@ -1,0 +1,99 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+env:
+  FORK_BRANCH: marc/proton
+  UPSTREAM_REPO: ProtonVPN/win-app
+  UPSTREAM_BRANCH: master
+  # Paths that always keep the fork's version, so upstream CI changes never land here
+  KEEP_FORK_PATHS: .github/workflows
+
+jobs:
+  sync:
+    if: github.repository == 'marcmy/ProtonVPN-win-app'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out fork branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.FORK_BRANCH }}
+          fetch-depth: 0
+          # A PAT lets the push trigger the fork's CI
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Merge upstream
+        id: sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "https://github.com/$UPSTREAM_REPO.git"
+          git fetch --prune --no-tags upstream "$UPSTREAM_BRANCH"
+
+          base="$(git rev-parse HEAD)"
+          echo "base_sha=$base" >> "$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
+              echo "$FORK_BRANCH already contains upstream/$UPSTREAM_BRANCH."
+              exit 0
+          fi
+
+          merge_status=0
+          git merge --no-commit --no-ff "upstream/$UPSTREAM_BRANCH" || merge_status=$?
+
+          read -r -a keep <<< "$KEEP_FORK_PATHS"
+          for path in "${keep[@]}"; do
+              git rm -r -q -f --ignore-unmatch -- "$path"
+              if git cat-file -e "$base:$path" 2>/dev/null; then
+                  git checkout "$base" -- "$path"
+              fi
+          done
+
+          if [[ -n "$(git diff --name-only --diff-filter=U)" ]]; then
+              echo "::warning::Upstream merge has conflicts; opening a pull request to resolve them."
+              git diff --name-only --diff-filter=U
+              git merge --abort
+              echo "conflict=true" >> "$GITHUB_OUTPUT"
+              exit 0
+          fi
+          if [[ "$merge_status" -ne 0 ]] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+              echo "::error::git merge failed without a resolvable merge state."
+              exit "$merge_status"
+          fi
+
+          git commit --no-edit
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # OPTIONAL: build or test the merge before it is pushed
+      # - name: Validate merged branch
+      #   if: steps.sync.outputs.changed == 'true'
+      #   run: make test
+
+      - name: Push sync
+        if: steps.sync.outputs.changed == 'true'
+        run: git push origin "HEAD:refs/heads/$FORK_BRANCH"
+
+      - name: Open conflict pull request
+        if: steps.sync.outputs.conflict == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE_SHA: ${{ steps.sync.outputs.base_sha }}
+          UPSTREAM_REF: upstream/${{ env.UPSTREAM_BRANCH }}
+          UPSTREAM_NAME: ${{ env.UPSTREAM_REPO }}@${{ env.UPSTREAM_BRANCH }}
+        run: bash .github/scripts/sync-conflict-pr.sh
