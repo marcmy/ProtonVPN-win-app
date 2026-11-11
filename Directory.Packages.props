@@ -6,8 +6,8 @@
     <PackageVersion Include="Albireo.Base32" Version="1.2.0" />
     <PackageVersion Include="Appium.WebDriver" Version="4.4.5" />
     <PackageVersion Include="ARSoft.Tools.Net.Dns" Version="2.3.1" />
-    <PackageVersion Include="Autofac" Version="9.0.0" />
-    <PackageVersion Include="Autofac.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageVersion Include="Autofac" Version="9.3.1" />
+    <PackageVersion Include="Autofac.Extensions.DependencyInjection" Version="11.0.2" />
     <PackageVersion Include="BouncyCastle.NetCore" Version="2.2.1" />
     <PackageVersion Include="Caliburn.Micro.Core" Version="4.0.212" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
