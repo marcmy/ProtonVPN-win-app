@@ -39,6 +39,7 @@ namespace ProtonVPN.Dns.Tests.Mocks
         {
             _endpoints = new List<IPEndPoint> { endpoint };
         }
+
         public IList<IPEndPoint> Get()
         {
             return _endpoints;
