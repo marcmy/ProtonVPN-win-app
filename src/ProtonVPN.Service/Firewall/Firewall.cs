@@ -435,7 +435,7 @@ internal class Firewall : IFirewall, IStartable
 
     private void CreateDnsBlock(FirewallParams firewallParams)
     {
-        DnsBlockMode dnsBlockMode = firewallParams?.DnsBlockMode ?? DnsBlockMode.Nrpt;
+        DnsBlockMode dnsBlockMode = firewallParams.DnsBlockMode;
 
         switch (dnsBlockMode)
         {
@@ -607,7 +607,7 @@ internal class Firewall : IFirewall, IStartable
         }
 
         int index = 0;
-        ServerAddressFilterCollection item = null;
+        ServerAddressFilterCollection? item = null;
 
         foreach (ServerAddressFilterCollection collection in _serverAddressFilterCollection)
         {
@@ -631,15 +631,15 @@ internal class Firewall : IFirewall, IStartable
     {
         if (_serverAddressFilterCollection.Count >= 3)
         {
-            ServerAddressFilterCollection serverAddressFilterCollection = _serverAddressFilterCollection.FirstOrDefault();
-            if (serverAddressFilterCollection == null || serverAddressFilterCollection.Filters?.Count == 0)
+            ServerAddressFilterCollection? serverAddressFilterCollection = _serverAddressFilterCollection.FirstOrDefault();
+            if (serverAddressFilterCollection?.Filters is not { Count: > 0 } filters)
             {
                 return;
             }
 
             //Use permanent session here to be able to remove filters created
             //on both dynamic and permanent sublayers.
-            DeleteIpFilters(serverAddressFilterCollection.Filters, SessionType.Permanent);
+            DeleteIpFilters(filters, SessionType.Permanent);
             _serverAddressFilterCollection.Remove(serverAddressFilterCollection);
         }
 

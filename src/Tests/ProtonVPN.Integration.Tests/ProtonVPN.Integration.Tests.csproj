@@ -6,6 +6,7 @@
     <OutputPath>..\..\bin\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <IsPublishable>false</IsPublishable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -33,6 +34,8 @@
     <PackageReference Include="System.Threading.Tasks.Extensions" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\Client\ProtonVPN.Client\UI\Main\Settings\Pages\Connection\SplitTunnelingPageView.xaml"
+          Link="TestData\SplitTunnelingPageView.xaml" CopyToOutputDirectory="PreserveNewest" />
     <None Update="TestData\IPv6FragmentsResponseMock.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	</None>

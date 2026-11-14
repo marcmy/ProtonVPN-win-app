@@ -730,6 +730,11 @@ public class ServersCache : IServersCache
         _serversFileReaderWriter.Save(serversFile);
     }
 
+    public void ReprocessServers()
+    {
+        _logger.Info<AppLog>("Reprocessing servers.");
+        ProcessServers(ServersDeviceLocation, ServersUserMaxTier, AllServers, StatusFile);
+    }
     public async Task<ApiResponseResult<LookupServerResponse>?> LookupAsync(string input)
     {
         LoadFromFileIfEmpty();
