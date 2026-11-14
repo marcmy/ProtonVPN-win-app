@@ -41,10 +41,8 @@ public class TlsVerifyArguments : IEnumerable<string>
         yield return "--setenv";
         yield return SERVER_NAME_ENVIRONMENT_VARIABLE;
         yield return _serverName;
-
         yield return "--tls-export-cert";
         yield return _openVpnConfigs.TlsExportCertFolder;
-
         yield return "--tls-verify";
         yield return _openVpnConfigs.TlsVerifyExePath;
     }

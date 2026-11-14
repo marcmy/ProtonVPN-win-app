@@ -28,8 +28,6 @@ public readonly struct FeatureFlagChange
     public string? NewPayload { get; init; }
 
     public bool HasValueChanged => OldValue != NewValue;
-
     public bool HasPayloadChanged => OldPayload != NewPayload;
-
     public bool HasChanged => HasValueChanged || HasPayloadChanged;
 }

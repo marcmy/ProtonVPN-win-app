@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -17,25 +17,22 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using ProtonVPN.Common.Core.Extensions;
-
 namespace ProtonVPN.Vpn.Management;
 
 /// <summary>
-/// Message to be send to OpenVPN management interface.
+/// Message to be sent to the OpenVPN management interface.
 /// </summary>
 public class ManagementMessage
 {
     private readonly string _messageText;
 
-    public ManagementMessage(string messageText)
+    public ManagementMessage(string messageText, string logText)
     {
         _messageText = messageText;
+        LogText = logText;
     }
 
+    public string LogText { get; }
+
     public override string ToString() => _messageText;
-
-    public string LogText => IsPasswordMessage? "password [...]" : ToString();
-
-    private bool IsPasswordMessage => _messageText.StartsWithIgnoringCase("password");
 }

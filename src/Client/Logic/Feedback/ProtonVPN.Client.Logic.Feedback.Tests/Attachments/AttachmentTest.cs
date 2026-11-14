@@ -31,7 +31,7 @@ public class AttachmentTest
     public void Attachment_ShouldThrow_WhenFilePath_IsNull()
     {
         // Act
-        Action action = () => new Attachment(null);
+        Action action = () => new Attachment(null!);
         // Assert
         action.Should().Throw<ArgumentException>();
     }

@@ -94,11 +94,34 @@ public partial class GlobalSearchTest
     }
 
     [TestMethod]
+    [DataRow("US-")]
+    [DataRow("us-")]
+    public async Task TestSecureCore_ServerPrefix_Async(string input)
+    {
+        List<ILocation> result = await _globalSearch!.SearchAsync(input, ServerFeatures.SecureCore);
+
+        Assert.IsNotNull(result);
+        Assert.HasCount(2, result);
+        Assert.IsTrue(result.All(l => l is Server server && server.Name.StartsWith("US-", StringComparison.InvariantCultureIgnoreCase)));
+    }
+
+    [TestMethod]
+    [DataRow("123")]
+    [DataRow("#123")]
+    public async Task TestSecureCore_ServerNumber_Async(string input)
+    {
+        List<ILocation> result = await _globalSearch!.SearchAsync(input, ServerFeatures.SecureCore);
+
+        Assert.IsNotNull(result);
+        Assert.HasCount(1, result);
+        Assert.IsNotNull(result.Single(l => l is Server server && server.Name == "US-WI#123"));
+    }
+
+    [TestMethod]
     [DataRow("WI#123")]
     [DataRow("wi123")]
     [DataRow("us#")]
     [DataRow("#")]
-    [DataRow("123")]
     public async Task TestSecureCore_Servers_NotStartsWith_DoesNotReturn_Async(string input)
     {
         List<ILocation> result = await _globalSearch!.SearchAsync(input, ServerFeatures.SecureCore);

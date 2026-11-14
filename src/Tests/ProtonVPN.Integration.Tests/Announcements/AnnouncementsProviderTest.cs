@@ -24,6 +24,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ProtonVPN.Client.Logic.Announcements;
 using ProtonVPN.Client.Logic.Announcements.Contracts;
 using ProtonVPN.Client.Logic.Announcements.Contracts.Entities;
+using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.Integration.Tests;
 using RichardSzalay.MockHttp;
@@ -46,6 +47,9 @@ public class AnnouncementsProviderTest : AuthenticatedUserTests
 
         SetApiResponsesForAuth();
         await MakeUserAuthAsync(CORRECT_PASSWORD);
+
+        // The fork blocks announcements by default; these tests cover the opted-in behavior.
+        Resolve<ISettings>().AreAnnouncementsBlocked = false;
     }
 
     [TestCleanup]
@@ -155,6 +159,52 @@ public class AnnouncementsProviderTest : AuthenticatedUserTests
         Resolve<IAnnouncementsProvider>().GetAllActive().Count.Should().Be(0);
     }
 
+    [TestMethod]
+    public async Task ItShouldNotRequestAnnouncementsWhenBlockedAsync()
+    {
+        // Arrange
+        MockedRequest request = InitializeAnnouncementMock("AnnouncementsResponseMock");
+        Resolve<ISettings>().AreAnnouncementsBlocked = true;
+
+        // Act
+        await Resolve<IAnnouncementsUpdater>().UpdateAsync();
+
+        // Assert
+        MessageHandler!.GetMatchCount(request).Should().Be(0);
+        _announcementsProvider!.GetAllActive().Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public async Task ItShouldHideAndClearCachedAnnouncementsWhenBlockedAsync()
+    {
+        // Arrange
+        InitializeAnnouncementMock("AnnouncementsResponseMock");
+        await Resolve<IAnnouncementsUpdater>().UpdateAsync();
+        Announcement cached = _announcementsProvider!.GetAllActive().Single();
+
+        // Act
+        Resolve<ISettings>().AreAnnouncementsBlocked = true;
+
+        // Assert: hidden immediately, before the next refresh
+        _announcementsProvider.GetAllActive().Should().BeEmpty();
+        _announcementsProvider.GetActiveById(cached.Id).Should().BeNull();
+        _announcementsProvider.GetActiveAndUnseenByType(cached.Type).Should().BeNull();
+
+        // Act: the next refresh wipes the cache, so unblocking doesn't resurrect the old offer offline
+        await Resolve<IAnnouncementsUpdater>().UpdateAsync();
+        MessageHandler!.ResetBackendDefinitions();
+        Resolve<ISettings>().AreAnnouncementsBlocked = false;
+
+        // Assert
+        _announcementsProvider.GetAllActive().Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public void ItShouldBlockAnnouncementsByDefault()
+    {
+        DefaultSettings.AreAnnouncementsBlocked.Should().BeTrue();
+    }
+
     private MockedRequest InitializeFullScreenImageMock()
     {
         MockedRequest mockedRequest = MessageHandler!.When(HttpMethod.Get, FULL_SCREEN_IMAGE_PATH)
@@ -174,9 +224,9 @@ public class AnnouncementsProviderTest : AuthenticatedUserTests
         return mockedRequest;
     }
 
-    private void InitializeAnnouncementMock(string nameOfMock)
+    private MockedRequest InitializeAnnouncementMock(string nameOfMock)
     {
-        MessageHandler!.When(HttpMethod.Get, "/core/v4/notifications").Respond(_ => new HttpResponseMessage
+        return MessageHandler!.When(HttpMethod.Get, "/core/v4/notifications").Respond(_ => new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
             Content = new StringContent(GetJsonMock(nameOfMock))

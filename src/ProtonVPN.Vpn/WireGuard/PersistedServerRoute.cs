@@ -26,7 +26,7 @@ public class PersistedServerRoute : IEquatable<PersistedServerRoute>
     public string DestinationIpAddress { get; set; } = string.Empty;
     public bool IsIpv6 { get; set; }
 
-    public bool Equals(PersistedServerRoute other)
+    public bool Equals(PersistedServerRoute? other)
     {
         if (other is null)
         {
@@ -42,7 +42,7 @@ public class PersistedServerRoute : IEquatable<PersistedServerRoute>
                StringComparer.OrdinalIgnoreCase.Equals(DestinationIpAddress, other.DestinationIpAddress);
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return Equals(obj as PersistedServerRoute);
     }

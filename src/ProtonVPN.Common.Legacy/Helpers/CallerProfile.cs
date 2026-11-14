@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using System;
 using System.IO;
 
@@ -76,8 +78,5 @@ public class CallerProfile
 
     public override int GetHashCode() => System.HashCode.Combine(SourceClassName, SourceMemberName, SourceLineNumber);
 
-    public override string ToString()
-    {
-        return $"{SourceClassName}.{SourceMemberName}:{SourceLineNumber}";
-    }
+    public override string ToString() => $"{SourceClassName}.{SourceMemberName}:{SourceLineNumber}";
 }

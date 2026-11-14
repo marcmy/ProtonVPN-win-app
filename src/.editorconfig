@@ -1,0 +1,50 @@
+root = false
+
+# These RPC controller methods intentionally complete synchronously while satisfying Task-returning contracts.
+[ProtonVPN.Service/VpnController.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# ServiceBase requires a void override; startup currently performs no asynchronous work.
+[ProtonVPN.Service/VpnService.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# StopAsync intentionally performs only immediate cancellation and registry cleanup.
+[ProcessCommunication/Server/ProtonVPN.ProcessCommunication.Server/GrpcServer.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# Preserve the legacy exception serialization constructor without emitting the .NET 8 formatter warning.
+[ProtonVPN.Service/Firewall/FirewallException.cs]
+dotnet_diagnostic.SYSLIB0051.severity = none
+
+# These configuration properties are required by IConfiguration to be non-null.
+[Configurations/ProtonVPN.Configurations/Configuration.cs]
+dotnet_diagnostic.CS8603.severity = none
+
+# IsHttpUri may annotate its out value as nullable even when it returns true.
+[Configurations/ProtonVPN.Configurations/BigTestInfra/BtiDohProvidersLoader.cs]
+dotnet_diagnostic.CS8600.severity = none
+dotnet_diagnostic.CS8602.severity = none
+
+# IAdapterSingleVpnConnection requires this event, but the OpenVPN adapter does not publish connection details.
+[ProtonVPN.Vpn/Connection/OpenVpnConnection.cs]
+dotnet_diagnostic.CS0067.severity = none
+
+# IAdapterSingleVpnConnection requires this event, but the WireGuard adapter does not publish connection details.
+[ProtonVPN.Vpn/WireGuard/WireGuardConnection.cs]
+dotnet_diagnostic.CS0067.severity = none
+
+# The login receiver contracts are part of event-bus registration; the cached flag is retained for compatibility.
+[Client/Logic/Servers/ProtonVPN.Client.Logic.Servers/ServersUpdater.cs]
+dotnet_diagnostic.CS0414.severity = none
+
+# This setting getter intentionally reads the obsolete DNS mode once to migrate older cached settings.
+[Client/Settings/ProtonVPN.Client.Settings/UserSettings.cs]
+dotnet_diagnostic.CS0618.severity = none
+
+# The debug restart command intentionally blocks while a dedicated thread performs the thread-affine restart.
+[Client/ProtonVPN.Client/UI/Dialogs/DebugTools/DebugToolsShellViewModel.cs]
+dotnet_diagnostic.CS1998.severity = none
+
+# WinUI-generated type metadata touches an obsolete compatibility Icon member.
+[Client/ProtonVPN.Client/obj/**/XamlTypeInfo.g.cs]
+dotnet_diagnostic.CS0612.severity = none

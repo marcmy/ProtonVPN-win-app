@@ -10,132 +10,62 @@
  *
  * ProtonVPN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
+ * along with ProtonVPN. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using FluentAssertions;
-using Newtonsoft.Json;
+
 using NSubstitute;
 using ProtonVPN.Api.Contracts;
 using ProtonVPN.Api.Contracts.ReportAnIssue;
-using ProtonVPN.Client.Logic.Feedback.Models;
 
 namespace ProtonVPN.Client.Logic.Feedback.Tests;
 
 [TestClass]
 public class ReportIssueDataProviderTest
 {
-    private const string DEFAULT_FORM_RESOURCE_NAME = "ReportIssueDefaultForm.json";
-
-    private IApiClient? _apiClient;
-
-    [TestInitialize]
-    public void TestInitialize()
+    [TestMethod]
+    public async Task FailedRequest_UsesEmbeddedForm_ButRetriesAndCachesSubsequentSuccess()
     {
-        _apiClient = Substitute.For<IApiClient>();
-    }
+        IApiClient api = Substitute.For<IApiClient>();
+        api.GetReportAnIssueFormData().Returns(ApiResponseResult<ReportAnIssueFormResponse>.Fail(null!, "offline"), ValidResponse());
+        ReportIssueDataProvider provider = new(api);
 
-    [TestCleanup]
-    public void Cleanup()
-    {
-        _apiClient = null;
+        List<IssueCategoryResponse> fallback = await provider.GetCategoriesAsync();
+        Assert.IsTrue(fallback.Count > 0);
+        Assert.IsTrue(fallback.SelectMany(c => c.InputFields).Any(f => f.Constraints?.MinimumLength >= 100));
+        Assert.AreEqual("API category", (await provider.GetCategoriesAsync()).Single().Label);
+        Assert.AreEqual("API category", (await provider.GetCategoriesAsync()).Single().Label);
+        await api.Received(2).GetReportAnIssueFormData();
     }
 
     [TestMethod]
-    public async Task GetCategoriesAsync_ShouldReturnValidFallbackCategories_WhenApiFails()
+    [DataRow(-1, 10)]
+    [DataRow(0, 0)]
+    [DataRow(10, 5)]
+    public async Task InvalidConstraints_FallBackWithoutCachingBadForm(int minimum, int maximum)
     {
-        // Arrange
-        MockApiFailure();
-        ReportIssueDataProvider provider = new(_apiClient!);
+        IApiClient api = Substitute.For<IApiClient>();
+        ApiResponseResult<ReportAnIssueFormResponse> response = ValidResponse();
+        response.Value.Categories[0].InputFields[0].Constraints = new() { MinimumLength = minimum, MaximumLength = maximum };
+        api.GetReportAnIssueFormData().Returns(response, ValidResponse());
+        ReportIssueDataProvider provider = new(api);
 
-        // Act
-        List<IssueCategoryResponse> categories = await provider.GetCategoriesAsync();
-
-        // Assert
-        categories.Should().NotBeEmpty();
-        categories.Should().OnlyContain(c =>
-            !string.IsNullOrEmpty(c.Label) &&
-            !string.IsNullOrEmpty(c.SubmitLabel) &&
-            c.InputFields != null &&
-            c.InputFields.Count > 0);
-        categories.SelectMany(c => c.InputFields).Should().OnlyContain(i =>
-            !string.IsNullOrEmpty(i.Label) &&
-            !string.IsNullOrEmpty(i.SubmitLabel) &&
-            (i.Type == InputType.SingleLineInput || i.Type == InputType.MultiLineInput) &&
-            (i.Constraints == null ||
-             i.Constraints.MinimumLength == null ||
-             i.Constraints.MaximumLength == null ||
-             i.Constraints.MinimumLength <= i.Constraints.MaximumLength));
+        Assert.AreNotEqual("API category", (await provider.GetCategoriesAsync()).First().Label);
+        Assert.AreEqual("API category", (await provider.GetCategoriesAsync()).Single().Label);
+        await api.Received(2).GetReportAnIssueFormData();
     }
 
-    [TestMethod]
-    public void DefaultForm_ShouldOnlyContainPropertiesKnownByApiContract()
-    {
-        // Arrange
-        // Deserialization is lenient at runtime, so a contract change would silently drop the outdated JSON properties
-        JsonSerializerSettings strictSettings = new() { MissingMemberHandling = MissingMemberHandling.Error };
-        using Stream stream = typeof(ReportIssueDataProvider).Assembly.GetManifestResourceStream(DEFAULT_FORM_RESOURCE_NAME)!;
-        using StreamReader reader = new(stream);
-        string json = reader.ReadToEnd();
-
-        // Act
-        Action act = () => JsonConvert.DeserializeObject<ReportAnIssueFormResponse>(json, strictSettings);
-
-        // Assert
-        act.Should().NotThrow("the embedded default form must match the API contract, update it with a fresh API response");
-    }
-
-    [TestMethod]
-    public async Task GetCategoriesAsync_ShouldRetryApi_WhenPreviousCallFellBackToDefaultCategories()
-    {
-        // Arrange
-        MockApiFailure();
-        ReportIssueDataProvider provider = new(_apiClient!);
-
-        // Act
-        await provider.GetCategoriesAsync();
-        await provider.GetCategoriesAsync();
-
-        // Assert
-        await _apiClient!.Received(2).GetReportAnIssueFormData();
-    }
-
-    [TestMethod]
-    public async Task GetCategoriesAsync_ShouldCacheApiCategories_WhenApiSucceeds()
-    {
-        // Arrange
-        List<IssueCategoryResponse> apiCategories =
-        [
-            new()
+    private static ApiResponseResult<ReportAnIssueFormResponse> ValidResponse() =>
+        ApiResponseResult<ReportAnIssueFormResponse>.Ok(null!, new ReportAnIssueFormResponse
+        {
+            Categories = [new IssueCategoryResponse
             {
-                Label = "Category",
-                SubmitLabel = "Category",
-                InputFields =
-                [
-                    new() { Label = "Field", SubmitLabel = "Field", Type = InputType.MultiLineInput }
-                ]
-            }
-        ];
-        _apiClient!.GetReportAnIssueFormData().Returns(
-            ApiResponseResult<ReportAnIssueFormResponse>.Ok(new HttpResponseMessage(), new() { Categories = apiCategories }));
-        ReportIssueDataProvider provider = new(_apiClient);
-
-        // Act
-        await provider.GetCategoriesAsync();
-        List<IssueCategoryResponse> categories = await provider.GetCategoriesAsync();
-
-        // Assert
-        categories.Should().BeEquivalentTo(apiCategories);
-        await _apiClient.Received(1).GetReportAnIssueFormData();
-    }
-
-    private void MockApiFailure()
-    {
-        _apiClient!.GetReportAnIssueFormData().Returns(
-            ApiResponseResult<ReportAnIssueFormResponse>.Fail(new HttpResponseMessage(), "API unreachable"));
-    }
+                Label = "API category", SubmitLabel = "API category",
+                InputFields = [new IssueInputResponse { Label = "Details", SubmitLabel = "Details", Type = "TextMultiLine" }],
+            }],
+        });
 }

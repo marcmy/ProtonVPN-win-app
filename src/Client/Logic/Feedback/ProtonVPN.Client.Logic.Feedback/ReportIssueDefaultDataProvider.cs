@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -23,20 +23,13 @@ using ProtonVPN.Api.Contracts.ReportAnIssue;
 
 namespace ProtonVPN.Client.Logic.Feedback;
 
-// Fallback form used when the API is unreachable. The embedded JSON is a copy of the (English) API response body,
-// so it can be refreshed by pasting a new response. Never paste request headers (tokens, cookies) into it.
 internal class ReportIssueDefaultDataProvider
 {
-    private const string RESOURCE_NAME = "ReportIssueDefaultForm.json";
-
     public static List<IssueCategoryResponse> GetCategories()
     {
-        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(RESOURCE_NAME)
-            ?? throw new InvalidOperationException($"Embedded resource '{RESOURCE_NAME}' not found");
+        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ReportIssueDefaultForm.json")
+            ?? throw new InvalidOperationException("Embedded resource 'ReportIssueDefaultForm.json' not found");
         using StreamReader reader = new(stream);
-
-        ReportAnIssueFormResponse? response = JsonConvert.DeserializeObject<ReportAnIssueFormResponse>(reader.ReadToEnd());
-
-        return response?.Categories ?? [];
+        return JsonConvert.DeserializeObject<ReportAnIssueFormResponse>(reader.ReadToEnd())?.Categories ?? [];
     }
 }

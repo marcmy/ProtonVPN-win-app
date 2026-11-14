@@ -64,7 +64,7 @@ public class ManagementArgumentsTest
         List<string> result = subject.ToList();
 
         // Assert
-        result.Should().ContainInOrder("--management", _openVpnConfig.ManagementHost, $"{managementPort}", "stdin");
+        result.Should().ContainInOrder("--management", _openVpnConfig.ManagementHost, managementPort.ToString(), "stdin");
     }
 
     [TestMethod]

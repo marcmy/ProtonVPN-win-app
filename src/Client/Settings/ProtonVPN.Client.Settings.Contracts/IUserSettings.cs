@@ -21,6 +21,7 @@ using ProtonVPN.Client.Logic.Auth.Contracts.Models;
 using ProtonVPN.Client.Logic.Users.Contracts.Messages;
 using ProtonVPN.Client.Settings.Contracts.Enums;
 using ProtonVPN.Client.Settings.Contracts.Models;
+using ProtonVPN.Common.Core.Dns;
 using ProtonVPN.Common.Core.Networking;
 
 namespace ProtonVPN.Client.Settings.Contracts;
@@ -48,6 +49,7 @@ public interface IUserSettings
     bool IsLocalAreaNetworkAccessEnabled { get; set; }
     bool IsLocalDnsEnabled { get; set; }
     bool IsNotificationEnabled { get; set; }
+    bool AreAnnouncementsBlocked { get; set; }
     bool IsShareStatisticsEnabled { get; set; }
     bool IsIpv6LeakProtectionEnabled { get; set; }
     bool IsIpv6Enabled { get; set; }
@@ -58,11 +60,14 @@ public interface IUserSettings
     NetShieldMode NetShieldMode { get; set; }
     bool IsPortForwardingEnabled { get; set; }
     bool IsPortForwardingNotificationEnabled { get; set; }
+    bool IsPortForwardingForAppsEnabled { get; set; }
     bool IsSplitTunnelingEnabled { get; set; }
     bool IsSmartReconnectEnabled { get; set; }
     bool IsUserSettingsMigrationDone { get; set; }
     SplitTunnelingMode SplitTunnelingMode { get; set; }
     List<SplitTunnelingApp> SplitTunnelingStandardAppsList { get; set; }
+    List<SplitTunnelingFolder> SplitTunnelingStandardFoldersList { get; set; }
+    List<SplitTunnelingFolder> SplitTunnelingInverseFoldersList { get; set; }
     List<SplitTunnelingApp> SplitTunnelingInverseAppsList { get; set; }
     List<SplitTunnelingIpAddress> SplitTunnelingStandardIpAddressesList { get; set; }
     List<SplitTunnelingIpAddress> SplitTunnelingInverseIpAddressesList { get; set; }
@@ -86,4 +91,6 @@ public interface IUserSettings
     List<ExcludedLocation> ExcludedLocationsList { get; set; }
     bool WasExcludedLocationsSmartDiscoveryPromptDisplayed { get; set; }
     bool WasExcludedLocationsTeachingTipDisplayed { get; set; }
+    [Obsolete("Use IsLocalDnsEnabled instead. DnsBlockMode is maintained in order to migrate the value for existing users.")]
+    DnsBlockMode DnsBlockMode { get; set; }
 }

@@ -19,6 +19,7 @@
 
 using Microsoft.UI.Xaml.Data;
 using ProtonVPN.Client.Common.Collections;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Bases.ViewModels;
 using ProtonVPN.Client.Core.Services.Navigation.Bases;
@@ -68,11 +69,13 @@ public abstract class ConnectionListViewModelBase<TParentViewNavigator> : PageVi
         };
     }
 
-    protected void ResetItems(IEnumerable<ConnectionItemBase> newItems)
+    protected void ResetItems(IEnumerable<ConnectionItemBase> newItems, bool prioritizeMeasuredPings = false)
     {
         Items.Reset(
             newItems.OrderBy(item => item.GroupType)
                     .ThenBy(item => item.FirstSortProperty)
+                    .ThenBy(item => prioritizeMeasuredPings && item is ServerLocationItemBase server &&
+                        ServerPingFilterSession.Current.GetAverageLatencyMilliseconds(server) is null)
                     .ThenBy(item => item.SecondSortProperty));
     }
 

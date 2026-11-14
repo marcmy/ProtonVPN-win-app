@@ -1,0 +1,139 @@
+/*
+ * Copyright (c) 2026 Proton AG
+ *
+ * This file is part of ProtonVPN.
+ *
+ * ProtonVPN is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * ProtonVPN is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using NSubstitute;
+using ProtonVPN.Client.Logic.Connection.RequestCreators;
+using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Client.Settings.Contracts.Enums;
+using ProtonVPN.Client.Settings.Contracts.Models;
+using ProtonVPN.Common.Core.Networking;
+using ProtonVPN.EntityMapping.Contracts;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Dns;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Settings;
+using ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
+
+namespace ProtonVPN.Client.Logic.Connection.Tests;
+
+[TestClass]
+public class MainSettingsRequestCreatorTest
+{
+    [TestMethod]
+    [DataRow(SplitTunnelingMode.Standard)]
+    [DataRow(SplitTunnelingMode.Inverse)]
+    public void Create_FolderRulesAreSeparateModeSpecificAndActiveOnly(SplitTunnelingMode mode)
+    {
+        ISettings settings = Substitute.For<ISettings>();
+        IEntityMapper mapper = Substitute.For<IEntityMapper>();
+        settings.IsSplitTunnelingEnabled.Returns(true);
+        settings.SplitTunnelingMode.Returns(mode);
+        settings.SplitTunnelingStandardFoldersList.Returns(new List<SplitTunnelingFolder> { new(@"C:\EA", true), new(@"C:\inactive", false) });
+        settings.SplitTunnelingInverseFoldersList.Returns(new List<SplitTunnelingFolder> { new(@"C:\tools", true) });
+        settings.SplitTunnelingStandardAppsList.Returns(new List<SplitTunnelingApp>());
+        settings.SplitTunnelingInverseAppsList.Returns(new List<SplitTunnelingApp>());
+        settings.SplitTunnelingStandardIpAddressesList.Returns(new List<SplitTunnelingIpAddress>());
+        settings.SplitTunnelingInverseIpAddressesList.Returns(new List<SplitTunnelingIpAddress>());
+        MainSettingsRequestCreator creator = new(settings, mapper);
+        MainSettingsIpcEntity result = creator.Create(null);
+        CollectionAssert.AreEqual(new[] { mode == SplitTunnelingMode.Standard ? @"C:\EA" : @"C:\tools" }, result.SplitTunnel.FolderPaths);
+        Assert.AreEqual(0, result.SplitTunnel.AppPaths.Length);
+        Assert.AreEqual(0, creator.CreateForGuestHole().SplitTunnel.FolderPaths.Length);
+        settings.IsSplitTunnelingEnabled.Returns(false);
+        Assert.AreEqual(0, creator.Create(null).SplitTunnel.FolderPaths.Length);
+    }
+
+    [TestMethod]
+    public void CreateForGuestHole_ShouldUseSafeDefaultsRegardlessOfUserSettings()
+    {
+        // Arrange: deliberately enable ordinary user settings that must not leak into Guest Hole.
+        ISettings settings = Substitute.For<ISettings>();
+        IEntityMapper entityMapper = Substitute.For<IEntityMapper>();
+
+        settings.IsSplitTunnelingEnabled.Returns(true);
+        settings.IsPortForwardingEnabled.Returns(true);
+        settings.IsNetShieldEnabled.Returns(true);
+        settings.NatType.Returns(NatType.Moderate);
+        settings.IsIpv6LeakProtectionEnabled.Returns(false);
+        settings.IsIpv6Enabled.Returns(true);
+        settings.IsLocalAreaNetworkAccessEnabled.Returns(true);
+        settings.IsLocalDnsEnabled.Returns(true);
+        settings.IsVpnAcceleratorEnabled.Returns(false);
+        settings.OpenVpnAdapter.Returns(OpenVpnAdapter.Tun);
+        settings.WireGuardConnectionTimeout.Returns(TimeSpan.FromSeconds(1));
+        settings.IsShareCrashReportsEnabled.Returns(true);
+
+        MainSettingsRequestCreator creator = new(settings, entityMapper);
+
+        // Act
+        MainSettingsIpcEntity guestHoleSettings = creator.CreateForGuestHole();
+
+        // Assert
+        Assert.AreEqual(KillSwitchModeIpcEntity.Off, guestHoleSettings.KillSwitchMode);
+        Assert.AreEqual(SplitTunnelModeIpcEntity.Disabled, guestHoleSettings.SplitTunnel.Mode);
+        Assert.AreEqual(0, guestHoleSettings.SplitTunnel.AppPaths.Length);
+        Assert.AreEqual(0, guestHoleSettings.SplitTunnel.Ips.Length);
+        Assert.IsFalse(guestHoleSettings.PortForwarding);
+        Assert.AreEqual(0, guestHoleSettings.NetShieldMode);
+        Assert.IsFalse(guestHoleSettings.ModerateNat);
+        Assert.IsTrue(guestHoleSettings.Ipv6LeakProtection);
+        Assert.IsFalse(guestHoleSettings.IsIpv6Enabled);
+        Assert.IsFalse(guestHoleSettings.IsLocalAreaNetworkAccessEnabled);
+        Assert.IsTrue(guestHoleSettings.SplitTcp);
+        Assert.AreEqual(OpenVpnAdapterIpcEntity.Tap, guestHoleSettings.OpenVpnAdapter);
+        Assert.AreEqual(DefaultSettings.ProlongedWireGuardConnectionTimeout, guestHoleSettings.WireGuardConnectionTimeout);
+        Assert.AreEqual(DnsBlockModeIpcEntity.Nrpt, guestHoleSettings.DnsBlockMode);
+        Assert.AreEqual(DefaultSettings.ShouldDisableWeakHostSetting, guestHoleSettings.ShouldDisableWeakHostSetting);
+        Assert.IsTrue(guestHoleSettings.IsShareCrashReportsEnabled);
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void CreateForGuestHole_ShouldPreserveAppPortForwardingPreference(bool isEnabled)
+    {
+        ISettings settings = Substitute.For<ISettings>();
+        IEntityMapper entityMapper = Substitute.For<IEntityMapper>();
+        settings.IsPortForwardingForAppsEnabled.Returns(isEnabled);
+
+        MainSettingsRequestCreator creator = new(settings, entityMapper);
+
+        MainSettingsIpcEntity guestHoleSettings = creator.CreateForGuestHole();
+
+        Assert.AreEqual(isEnabled, guestHoleSettings.PortForwardingForApps);
+        Assert.IsFalse(guestHoleSettings.PortForwarding);
+    }
+
+    [TestMethod]
+    public void CreateForGuestHole_ShouldPreserveEnabledKillSwitchMode()
+    {
+        ISettings settings = Substitute.For<ISettings>();
+        IEntityMapper entityMapper = Substitute.For<IEntityMapper>();
+
+        settings.IsKillSwitchEnabled.Returns(true);
+        settings.KillSwitchMode.Returns(KillSwitchMode.Advanced);
+        entityMapper
+            .Map<KillSwitchMode, KillSwitchModeIpcEntity>(KillSwitchMode.Advanced)
+            .Returns(KillSwitchModeIpcEntity.Hard);
+
+        MainSettingsRequestCreator creator = new(settings, entityMapper);
+
+        MainSettingsIpcEntity guestHoleSettings = creator.CreateForGuestHole();
+
+        Assert.AreEqual(KillSwitchModeIpcEntity.Hard, guestHoleSettings.KillSwitchMode);
+    }
+}

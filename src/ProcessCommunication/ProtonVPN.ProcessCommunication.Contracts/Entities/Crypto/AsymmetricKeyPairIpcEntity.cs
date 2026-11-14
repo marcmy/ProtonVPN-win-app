@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using System.Runtime.Serialization;
 
 namespace ProtonVPN.ProcessCommunication.Contracts.Entities.Crypto

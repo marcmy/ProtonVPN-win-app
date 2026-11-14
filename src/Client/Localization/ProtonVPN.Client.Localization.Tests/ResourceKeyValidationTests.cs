@@ -19,6 +19,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -38,6 +39,15 @@ public class ResourceKeyValidationTests
         "Settings_Theme_",
         "Settings_Connection_Default_",
         "Settings_SelectedProtocol_",
+    };
+
+    /// <summary>
+    /// Localized resources that still require a neutral candidate for MakePri,
+    /// even though the current source tree does not reference the key directly.
+    /// </summary>
+    private static readonly HashSet<string> _neutralFallbackOnlyKeys = new(StringComparer.Ordinal)
+    {
+        "Settings_Common_IpAddresses_Watermark",
     };
 
     [TestMethod]
@@ -74,6 +84,27 @@ public class ResourceKeyValidationTests
             string.Join("\n", unusedKeys.Select(k => $"  • {k}")));
     }
 
+    [TestMethod]
+    public void EnUsResw_ShouldContainEveryLocalizedPluralVariant()
+    {
+        HashSet<string> enUsKeys = ReswFileParser.GetResourceKeys(SourcePathResolver.EnUsReswPath);
+        HashSet<string> localizedPluralKeys = Directory
+            .EnumerateFiles(SourcePathResolver.LocalizationStringsRoot, "Resources.resw", SearchOption.AllDirectories)
+            .Where(path => !string.Equals(path, SourcePathResolver.EnUsReswPath, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(ReswFileParser.GetResourceKeys)
+            .Where(PluralKeyHelper.IsPluralKey)
+            .ToHashSet();
+
+        List<string> missingFallbacks = localizedPluralKeys
+            .Except(enUsKeys)
+            .OrderBy(key => key)
+            .ToList();
+
+        missingFallbacks.Should().BeEmpty(
+            $"Found {missingFallbacks.Count} localized plural key(s) without an en-US fallback:\n" +
+            string.Join("\n", missingFallbacks.Select(key => $"  • {key}")));
+    }
+
     private static bool IsKeyReferencedOrDynamic(string key, HashSet<string> referencedKeys)
     {
         if (referencedKeys.Contains(key))
@@ -87,6 +118,11 @@ public class ResourceKeyValidationTests
             {
                 return true;
             }
+        }
+
+        if (_neutralFallbackOnlyKeys.Contains(key))
+        {
+            return true;
         }
 
         return PluralKeyHelper.IsPluralVariantOfReferencedKey(key, referencedKeys);

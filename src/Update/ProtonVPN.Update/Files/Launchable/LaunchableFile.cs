@@ -39,4 +39,10 @@ public class LaunchableFile : ILaunchableFile
         _processes.BuildElevatedProcess(filename, arguments)
             .Start();
     }
+
+    // Preserve the fork's string-argument call path for existing consumers.
+    public void Launch(string filename, string arguments)
+    {
+        Launch(filename, CommandLineArgumentsParser.Parse(arguments));
+    }
 }

@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable annotations
+
 using ProtoBuf;
 using ProtonVPN.Common.Core.Extensions;
 using ProtonVPN.Crypto.Contracts;

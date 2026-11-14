@@ -23,15 +23,37 @@ namespace ProtonVPN.Common.Core.Helpers;
 
 public static class AssemblyVersion
 {
-    private static Lazy<string> _version = new Lazy<string>(CreateVersion);
+    private static readonly Lazy<string> _version = new(CreateVersion);
+    private static readonly Lazy<string> _displayVersion = new(CreateDisplayVersion);
 
     private static string CreateVersion()
     {
-        return (Assembly.GetExecutingAssembly().GetName().Version ?? new()).ToString(3);
+        Version version = Assembly.GetExecutingAssembly().GetName().Version ?? new();
+        return version.Revision > 0 ? version.ToString(4) : version.ToString(3);
+    }
+
+    private static string CreateDisplayVersion()
+    {
+        Assembly assembly = Assembly.GetExecutingAssembly();
+        AssemblyInformationalVersionAttribute? informationalVersion =
+            assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+
+        string? version = informationalVersion?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(version))
+        {
+            return version;
+        }
+
+        return CreateVersion();
     }
 
     public static string Get()
     {
         return _version.Value;
+    }
+
+    public static string GetDisplayVersion()
+    {
+        return _displayVersion.Value;
     }
 }

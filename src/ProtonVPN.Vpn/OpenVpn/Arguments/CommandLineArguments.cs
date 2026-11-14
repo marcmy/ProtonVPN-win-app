@@ -36,9 +36,18 @@ namespace ProtonVPN.Vpn.OpenVpn.Arguments
             return this;
         }
 
-        public IReadOnlyList<string> ToArgumentList()
+        public static implicit operator string(CommandLineArguments item) => item.ToString();
+
+        public IReadOnlyList<string> ToArgumentList() => Arguments().ToArray();
+
+        public override string ToString()
         {
-            return _arguments.SelectMany(a => a).ToList();
+            return string.Join(" ", Arguments());
+        }
+
+        private IEnumerable<string> Arguments()
+        {
+            return _arguments.SelectMany(a => a);
         }
     }
 }

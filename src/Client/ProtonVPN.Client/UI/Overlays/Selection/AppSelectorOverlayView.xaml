@@ -45,7 +45,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -128,9 +128,28 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses />.-->
             </ListView.ItemTemplate>
         </ListView>
 
+        <Grid Grid.Row="2"
+              Margin="0,0,12,16"
+              ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="0"
+                     AutomationProperties.AutomationId="CustomAppPathTextBox"
+                     PlaceholderText="C:\Program Files\WindowsApps\Microsoft.WindowsStore_*\WinStore.App.exe"
+                     Text="{x:Bind ViewModel.CustomAppPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <Button Grid.Column="1"
+                    AutomationProperties.AutomationId="AddCustomPathButton"
+                    Command="{x:Bind ViewModel.AddCustomAppCommand, Mode=OneTime}"
+                    Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Add')}" />
+        </Grid>
+
         <Button Grid.Row="3"
                 AutomationProperties.AutomationId="AddButton"
                 Command="{x:Bind ViewModel.AddAppCommand, Mode=OneTime}"
-                Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Add')}" />
+                Content="{x:Bind ViewModel.Localizer.Get('Common_Actions_Browse')}" />
     </Grid>
 </custom:MessageContentDialog>

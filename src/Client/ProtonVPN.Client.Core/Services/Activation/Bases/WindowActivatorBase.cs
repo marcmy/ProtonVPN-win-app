@@ -103,13 +103,9 @@ public abstract class WindowActivatorBase<TWindow> : WindowHostActivatorBase<TWi
         }
     }
 
-    public void Activate(
-        [CallerFilePath] string sourceFilePath = "",
-        [CallerMemberName] string sourceMemberName = "",
-        [CallerLineNumber] int sourceLineNumber = 0)
+    public void Activate([CallerFilePath] string sourceFilePath = "", [CallerMemberName] string sourceMemberName = "", [CallerLineNumber] int sourceLineNumber = 0)
     {
         CallerProfile callerProfile = new(sourceFilePath, sourceMemberName, sourceLineNumber);
-
         if (Host == null)
         {
             CreateWindowInstanceAndSetAutoActivation(callerProfile);

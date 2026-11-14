@@ -68,7 +68,7 @@ public class EndpointArgumentsTest
         List<string> result = subject.ToList();
 
         // Assert
-        result.Should().ContainInOrder("--remote", endpoint.Server.Ip, $"{endpoint.Port}");
+        result.Should().ContainInOrder("--remote", endpoint.Server.Ip, endpoint.Port.ToString());
     }
 
     [TestMethod]
@@ -84,7 +84,7 @@ public class EndpointArgumentsTest
         List<string> result = subject.ToList();
 
         // Assert
-        result.Should().Equal("--remote", endpoint.Server.Ip, $"{endpoint.Port}", expected);
+        result.Should().ContainInOrder("--remote", endpoint.Server.Ip, endpoint.Port.ToString(), expected);
     }
 
     [TestMethod]

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -26,7 +26,7 @@ using ProtonVPN.Logging.Contracts.Events.ProtocolLogs;
 namespace ProtonVPN.Vpn.Management;
 
 /// <summary>
-/// Messaging wrapper over <see cref="IManagementChannel"/>. 
+/// Messaging wrapper over <see cref="IManagementChannel"/>.
 /// </summary>
 internal class MessagingManagementChannel : IMessagingManagementChannel
 {
@@ -73,12 +73,19 @@ internal class MessagingManagementChannel : IMessagingManagementChannel
     {
         if (!message.IsByteCount)
         {
-            _logger.Info<OpenVpnProtocolLog>($"Management -> {message}");
+            _logger.Info<OpenVpnProtocolLog>($"Management -> {SanitizeForLog(message.ToString())}");
         }
     }
 
     private void Log(ManagementMessage message)
     {
         _logger.Info<OpenVpnProtocolLog>($"Management <- {message.LogText}");
+    }
+
+    private static string SanitizeForLog(string value)
+    {
+        return value
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
     }
 }

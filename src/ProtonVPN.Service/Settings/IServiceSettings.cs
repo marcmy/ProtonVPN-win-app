@@ -38,6 +38,7 @@ public interface IServiceSettings
     VpnProtocol VpnProtocol { get; }
     OpenVpnAdapter OpenVpnAdapter { get; }
     DnsBlockMode DnsBlockMode { get; }
+    bool IsPortForwardingForAppsEnabled { get; }
 
     event EventHandler<MainSettingsIpcEntity> SettingsChanged;
 

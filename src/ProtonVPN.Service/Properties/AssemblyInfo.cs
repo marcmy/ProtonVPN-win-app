@@ -22,4 +22,5 @@ using System.Runtime.InteropServices;
 
 [assembly: Guid("b23ab123-f51e-49b4-b434-282d8eeb137c")]
 [assembly: InternalsVisibleTo("ProtonVPN.Service.Test")]
+[assembly: InternalsVisibleTo("ProtonVPN.Service.Tests")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]

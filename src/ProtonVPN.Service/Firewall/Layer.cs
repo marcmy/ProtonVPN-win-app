@@ -26,7 +26,7 @@ public class IpLayer
 {
     private static readonly Layer[] _ipv4Layers = { Layer.AppAuthConnectV4 };
 
-    private static readonly Layer[] _ipv6Layers = { Layer.AppAuthConnectV6 };
+    private static readonly Layer[] _ipv6Layers = { Layer.AppAuthConnectV6, Layer.AppAuthRecvAcceptV6 };
 
     public void ApplyToIpv4(Action<Layer> action)
     {

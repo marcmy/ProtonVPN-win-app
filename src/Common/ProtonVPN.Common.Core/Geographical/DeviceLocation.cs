@@ -29,21 +29,9 @@ public readonly struct DeviceLocation
     public double? Latitude { get; init; }
     public double? Longitude { get; init; }
 
-    public bool HasCountryChanged(DeviceLocation? other)
-    {
-        return (CountryCode ?? string.Empty) != (other?.CountryCode ?? string.Empty);
-    }
-
-    public bool HasIpAddressChanged(DeviceLocation? other)
-    {
-        return (IpAddress ?? string.Empty) != (other?.IpAddress ?? string.Empty);
-    }
-
-    public bool HaveCoordinatesChanged(DeviceLocation? other)
-    {
-        return Latitude != other?.Latitude
-            || Longitude != other?.Longitude;
-    }
+    public bool HasCountryChanged(DeviceLocation? other) => (CountryCode ?? string.Empty) != (other?.CountryCode ?? string.Empty);
+    public bool HasIpAddressChanged(DeviceLocation? other) => (IpAddress ?? string.Empty) != (other?.IpAddress ?? string.Empty);
+    public bool HaveCoordinatesChanged(DeviceLocation? other) => Latitude != other?.Latitude || Longitude != other?.Longitude;
 
     public static bool operator ==(DeviceLocation? dl1, DeviceLocation? dl2)
     {

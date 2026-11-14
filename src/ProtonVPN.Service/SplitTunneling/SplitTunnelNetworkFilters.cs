@@ -18,6 +18,7 @@
  */
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net;
 using ProtonVPN.Logging.Contracts;
@@ -35,15 +36,11 @@ public class SplitTunnelNetworkFilters
     private static readonly Guid _bindRedirectV4CalloutKey = Guid.Parse("{10636af3-50d6-4f53-acb7-d5af33217fca}");
     private static readonly Guid _bindRedirectV6CalloutKey = Guid.Parse("{10636af3-50d6-4f53-acb7-d5af33217faa}");
 
+    private IpFilter? _ipFilter;
+    private Sublayer? _subLayer;
     private readonly ILogger _logger;
 
-    private IpFilter _ipFilter;
-    private Sublayer _subLayer;
-
-    public SplitTunnelNetworkFilters(ILogger logger)
-    {
-        _logger = logger;
-    }
+    public SplitTunnelNetworkFilters(ILogger logger) => _logger = logger;
 
     public void EnableExcludeMode(string[] apps, IPAddress localIpv4Address, IPAddress? localIpv6Address)
     {
@@ -103,7 +100,7 @@ public class SplitTunnelNetworkFilters
 
     private ProviderContext GetProviderContext(IPAddress ipAddress)
     {
-        return _ipFilter.CreateProviderContext(
+        return GetRequiredIpFilter().CreateProviderContext(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel redirect context",
@@ -117,22 +114,18 @@ public class SplitTunnelNetworkFilters
         Remove();
     }
 
+    [MemberNotNull(nameof(_ipFilter), nameof(_subLayer))]
     private void Create()
     {
         if (_ipFilter is not null)
         {
-            // A session that is not closed keeps its filters and makes the filters of later sessions fail.
             _logger.Info<SplitTunnelLog>("SplitTunnel: Closing a WFP session that was left open.");
-            try
+            try { Remove(); }
+            catch (NetworkFilterException ex)
             {
-                Remove();
-            }
-            catch (NetworkFilterException e)
-            {
-                _logger.Error<SplitTunnelLog>($"SplitTunnel: Failed to close the leftover WFP session. Error code: {e.Code}", e);
+                _logger.Error<SplitTunnelLog>($"SplitTunnel: Failed to close the leftover WFP session. Error code: {ex.Code}", ex);
             }
         }
-
         _ipFilter = IpFilter.Create(
             Session.Dynamic(),
             new DisplayData { Name = "Proton AG", Description = "ProtonVPN Split Tunnel provider" });
@@ -144,10 +137,7 @@ public class SplitTunnelNetworkFilters
 
     private void Remove()
     {
-        try
-        {
-            _ipFilter?.Session.Close();
-        }
+        try { _ipFilter?.Session.Close(); }
         finally
         {
             _ipFilter = null;
@@ -160,12 +150,8 @@ public class SplitTunnelNetworkFilters
         int created = 0;
         foreach (string app in apps)
         {
-            if (SafeCreateAppFilter(app, callout, layer, providerContext))
-            {
-                created++;
-            }
+            if (SafeCreateAppFilter(app, callout, layer, providerContext)) { created++; }
         }
-
         _logger.Info<SplitTunnelLog>($"SplitTunnel: Created {created}/{apps.Length} redirect filters for layer {layer}.");
     }
 
@@ -176,16 +162,17 @@ public class SplitTunnelNetworkFilters
             CreateAppFilter(app, callout, layer, providerContext);
             return true;
         }
-        catch (NetworkFilterException e)
+        catch (NetworkFilterException ex)
         {
-            _logger.Error<SplitTunnelLog>($"SplitTunnel: Failed to create redirect filter for {Path.GetFileName(app)} on layer {layer}. Error code: {e.Code}");
+            _logger.Error<SplitTunnelLog>($"SplitTunnel: Failed to create redirect filter for {Path.GetFileName(app)} on layer {layer}. Error code: {ex.Code}");
             return false;
         }
     }
 
     private void CreateAppFilter(string app, Callout callout, Layer layer, ProviderContext providerContext)
     {
-        _subLayer.CreateAppCalloutFilter(
+        Sublayer subLayer = _subLayer ?? throw new InvalidOperationException("Split tunnel filters are not initialized.");
+        subLayer.CreateAppCalloutFilter(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel redirect app",
@@ -201,7 +188,7 @@ public class SplitTunnelNetworkFilters
 
     private Callout CreateConnectRedirectCallout(Layer layer, Guid calloutKey)
     {
-        return _ipFilter.CreateCallout(
+        return GetRequiredIpFilter().CreateCallout(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel callout",
@@ -214,7 +201,7 @@ public class SplitTunnelNetworkFilters
 
     private Callout CreateUDPRedirectCallout(Layer layer, Guid calloutKey)
     {
-        return _ipFilter.CreateCallout(
+        return GetRequiredIpFilter().CreateCallout(
             new DisplayData
             {
                 Name = "ProtonVPN Split Tunnel callout",
@@ -223,5 +210,10 @@ public class SplitTunnelNetworkFilters
             calloutKey,
             layer
         );
+    }
+
+    private IpFilter GetRequiredIpFilter()
+    {
+        return _ipFilter ?? throw new InvalidOperationException("Split tunnel filters are not initialized.");
     }
 }

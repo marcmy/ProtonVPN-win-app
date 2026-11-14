@@ -10,46 +10,27 @@
  *
  * ProtonVPN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
+ * along with ProtonVPN. If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using Microsoft.UI.Xaml;
 
 namespace ProtonVPN.Client.Common.UI.AttachedProperties;
 
-/// <summary>
-/// Lets a TextBox grow/shrink with its content within a min/max range, 
-/// without that range being shared with (and shrunk by) the control's Header row. (Unlike TextBox.MinHeight/MaxHeight)
-/// </summary>
 public class TextBoxContentSizing
 {
-    public static readonly DependencyProperty ContentMinHeightProperty =
-        DependencyProperty.RegisterAttached("ContentMinHeight", typeof(double), typeof(TextBoxContentSizing), new PropertyMetadata(0d));
+    public static readonly DependencyProperty ContentMinHeightProperty = DependencyProperty.RegisterAttached(
+        "ContentMinHeight", typeof(double), typeof(TextBoxContentSizing), new PropertyMetadata(0.0));
+    public static readonly DependencyProperty ContentMaxHeightProperty = DependencyProperty.RegisterAttached(
+        "ContentMaxHeight", typeof(double), typeof(TextBoxContentSizing), new PropertyMetadata(double.PositiveInfinity));
 
-    public static readonly DependencyProperty ContentMaxHeightProperty =
-        DependencyProperty.RegisterAttached("ContentMaxHeight", typeof(double), typeof(TextBoxContentSizing), new PropertyMetadata(double.PositiveInfinity));
-
-    public static double GetContentMinHeight(DependencyObject obj)
-    {
-        return (double)obj.GetValue(ContentMinHeightProperty);
-    }
-
-    public static void SetContentMinHeight(DependencyObject obj, double value)
-    {
-        obj.SetValue(ContentMinHeightProperty, value);
-    }
-
-    public static double GetContentMaxHeight(DependencyObject obj)
-    {
-        return (double)obj.GetValue(ContentMaxHeightProperty);
-    }
-
-    public static void SetContentMaxHeight(DependencyObject obj, double value)
-    {
-        obj.SetValue(ContentMaxHeightProperty, value);
-    }
+    public static double GetContentMinHeight(DependencyObject obj) => (double)obj.GetValue(ContentMinHeightProperty);
+    public static void SetContentMinHeight(DependencyObject obj, double value) => obj.SetValue(ContentMinHeightProperty, value);
+    public static double GetContentMaxHeight(DependencyObject obj) => (double)obj.GetValue(ContentMaxHeightProperty);
+    public static void SetContentMaxHeight(DependencyObject obj, double value) => obj.SetValue(ContentMaxHeightProperty, value);
 }

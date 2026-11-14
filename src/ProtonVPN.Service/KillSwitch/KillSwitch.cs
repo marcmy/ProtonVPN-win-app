@@ -191,7 +191,7 @@ public class KillSwitch : IKillSwitch, IServiceSettingsAware, IStartable
         uint interfaceIndex = networkInterface?.Index ?? 0;
         FirewallParams firewallParams = new()
         {
-            ServerIp = state.RemoteIp,
+            ServerIp = state.RemoteIp ?? string.Empty,
             DnsLeakOnly = dnsLeakOnly,
             InterfaceIndex = interfaceIndex,
             AddInterfaceFilters = interfaceIndex > 0,

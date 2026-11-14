@@ -36,6 +36,7 @@ using ProtonVPN.OperatingSystems.PowerEvents.Contracts;
 using ProtonVPN.ProcessCommunication.Contracts;
 using ProtonVPN.ProTun.Contracts;
 using ProtonVPN.Service.Firewall;
+using ProtonVPN.Service.PortMapping;
 using ProtonVPN.Service.StateMachine;
 using ProtonVPN.Vpn.Common;
 
@@ -53,6 +54,7 @@ internal partial class VpnService : ServiceBase
     private readonly IIpv6 _ipv6;
     private readonly IGrpcServer _grpcServer;
     private readonly INrptInvoker _nrptInvoker;
+    private readonly PortForwardingForAppsRouteShim _portForwardingForAppsRouteShim;
     private readonly IProTunManager _proTunManager;
     private readonly INrptWatchdogScheduler _nrptWatchdogScheduler;
     private readonly INrptWatchdogStarter _nrptWatchdogStarter;
@@ -68,9 +70,10 @@ internal partial class VpnService : ServiceBase
         IPowerEventNotifier powerEventNotifier,
         INrptInvoker nrptInvoker,
         IProTunManager proTunManager,
-        INrptWatchdogScheduler nrptWatchdogScheduler,   
+        INrptWatchdogScheduler nrptWatchdogScheduler,
         INrptWatchdogStarter nrptWatchdogStarter,
-        IVpnConnectionStateMachine vpnConnectionStateMachine)
+        IVpnConnectionStateMachine vpnConnectionStateMachine,
+        PortForwardingForAppsRouteShim portForwardingForAppsRouteShim)
     {
         _logger = logger;
         _issueReporter = issueReporter;
@@ -83,6 +86,7 @@ internal partial class VpnService : ServiceBase
         _nrptWatchdogScheduler = nrptWatchdogScheduler;
         _nrptWatchdogStarter = nrptWatchdogStarter;
         _vpnConnectionStateMachine = vpnConnectionStateMachine;
+        _portForwardingForAppsRouteShim = portForwardingForAppsRouteShim;
 
         powerEventNotifier.OnResume += OnPowerEventResume;
         _grpcServer.InvokingServiceStop += OnInvokingServiceStop;
@@ -148,6 +152,7 @@ internal partial class VpnService : ServiceBase
             _logger.Info<AppServiceStopLog>("Service is stopping");
             LogEvent("Service is stopping");
 
+            await _portForwardingForAppsRouteShim.StopAsync();
             await _vpnConnectionStateMachine.DisconnectAsync();
 
             if (!_ipv6.IsEnabled)

@@ -36,7 +36,7 @@ public class ExternalApp : ObservableObject
     public string AppName { get; }
     public ImageSource? AppIcon { get; private set; }
 
-    public bool IsValid => IsAppPathValid(AppPath);
+    public virtual bool IsValid => IsAppPathValid(AppPath);
 
     protected ExternalApp(string appPath, string appName, ImageSource? appIcon)
         : this(appPath, appName)

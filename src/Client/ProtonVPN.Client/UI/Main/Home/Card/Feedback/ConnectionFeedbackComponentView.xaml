@@ -52,7 +52,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                    Opacity="0"
                    RenderTransformOrigin="0.5,0">
             <TextBlock.RenderTransform>
-                <TranslateTransform x:Name="ConnectionFeedbackTextTransform" 
+                <TranslateTransform x:Name="ConnectionFeedbackTextTransform"
                                     Y="-8" />
             </TextBlock.RenderTransform>
         </TextBlock>

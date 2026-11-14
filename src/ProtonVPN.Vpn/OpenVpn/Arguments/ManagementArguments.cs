@@ -40,9 +40,7 @@ public class ManagementArguments : IEnumerable<string>
         yield return _openVpnConfigs.ManagementHost;
         yield return _managementPort.ToString();
         yield return "stdin";
-
         yield return "--management-query-passwords";
-
         yield return "--management-hold";
     }
 

@@ -22,6 +22,8 @@ using ProtonVPN.Client.EventMessaging.Contracts;
 using ProtonVPN.Client.Localization.Contracts.Messages;
 using ProtonVPN.Client.Logic.Auth.Contracts.Messages;
 using ProtonVPN.Client.Logic.Users.Contracts.Messages;
+using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Client.Settings.Contracts.Messages;
 using ProtonVPN.Configurations.Contracts;
 using ProtonVPN.IssueReporting.Contracts;
 using ProtonVPN.Logging.Contracts;
@@ -32,7 +34,8 @@ public class AnnouncementsObserver : PollingObserverBase, IObserver,
     IEventMessageReceiver<LoggedInMessage>,
     IEventMessageReceiver<LoggedOutMessage>,
     IEventMessageReceiver<LanguageChangedMessage>,
-    IEventMessageReceiver<VpnPlanChangedMessage>
+    IEventMessageReceiver<VpnPlanChangedMessage>,
+    IEventMessageReceiver<SettingChangedMessage>
 {
     private readonly IAnnouncementsUpdater _announcementsUpdater;
     private readonly IConfiguration _config;
@@ -80,5 +83,14 @@ public class AnnouncementsObserver : PollingObserverBase, IObserver,
     public void Receive(VpnPlanChangedMessage message)
     {
         TriggerIfTimerIsEnabled();
+    }
+
+    public void Receive(SettingChangedMessage message)
+    {
+        // Clears offers right away when blocked, and fetches them again when unblocked.
+        if (message.PropertyName == nameof(ISettings.AreAnnouncementsBlocked))
+        {
+            TriggerIfTimerIsEnabled();
+        }
     }
 }

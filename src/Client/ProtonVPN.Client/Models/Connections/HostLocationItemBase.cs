@@ -17,10 +17,12 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Data;
 using ProtonVPN.Client.Common.Collections;
+using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Factories;
 using ProtonVPN.Client.Localization.Contracts;
@@ -39,8 +41,10 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
     protected readonly IConnectionGroupFactory ConnectionGroupFactory;
     protected readonly ILocationItemFactory LocationItemFactory;
 
+    private readonly ServerPingFilterSession _pingFilter = ServerPingFilterSession.Current;
     private bool _lastKnownIsPaidUser = false;
     private ConnectionDetails? _lastKnownConnectionDetails = null;
+    private List<ConnectionItemBase> _unfilteredSubItems = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ShowSmartRoutingOverlayCommand))]
@@ -113,10 +117,48 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
 
     public void FetchSubItems()
     {
+        _unfilteredSubItems = GetSubItems().ToList();
+
+        ApplySubItems();
+    }
+
+    public void RefreshPingFilter()
+    {
+        if (_unfilteredSubItems.Count == 0)
+        {
+            return;
+        }
+
+        ApplySubItems();
+
+        foreach (IHostLocationItem nestedHost in _unfilteredSubItems.OfType<IHostLocationItem>())
+        {
+            nestedHost.RefreshPingFilter();
+        }
+    }
+
+    protected void ClearSubItems()
+    {
+        _unfilteredSubItems.Clear();
+        SubItems.Clear();
+        SubGroups.Clear();
+
+        HasVirtualServers = false;
+        SmartRoutingDescription = null;
+    }
+
+    private void ApplySubItems()
+    {
+        IEnumerable<ConnectionItemBase> items = _pingFilter.IsActive
+            ? _unfilteredSubItems.Where(IsPingFilterMatch)
+            : _unfilteredSubItems;
+
         SubItems.Reset(
-            GetSubItems().OrderBy(item => item.GroupType)
-                         .ThenBy(item => item.FirstSortProperty)
-                         .ThenBy(item => item.SecondSortProperty));
+            items.OrderBy(item => item.GroupType)
+                 .ThenBy(item => item.FirstSortProperty)
+                 .ThenBy(item => _pingFilter.IsActive && item is ServerLocationItemBase server &&
+                     _pingFilter.GetAverageLatencyMilliseconds(server) is null)
+                 .ThenBy(item => item.SecondSortProperty));
 
         GroupSubItems();
 
@@ -134,13 +176,14 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
             : null;
     }
 
-    protected void ClearSubItems()
+    private bool IsPingFilterMatch(ConnectionItemBase item)
     {
-        SubItems.Clear();
-        SubGroups.Clear();
+        if (item is not ServerLocationItemBase server)
+        {
+            return true;
+        }
 
-        HasVirtualServers = false;
-        SmartRoutingDescription = null;
+        return !server.IsUnderMaintenance && _pingFilter.Matches(server);
     }
 
     private void GroupSubItems()

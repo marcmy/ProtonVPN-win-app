@@ -293,7 +293,7 @@ public class DnsCacheManagerTest
             DnsResponse newDnsResponse = dnsResponses.Single(dr => dr.Host == cachedDnsResponse.Host);
             Assert.AreNotEqual(cachedDnsResponse, newDnsResponse);
             Assert.AreNotEqual(cachedDnsResponse.TimeToLive, newDnsResponse.TimeToLive);
-            Assert.AreNotEqual(cachedDnsResponse.IpAddresses, newDnsResponse.IpAddresses);
+            Assert.IsFalse(cachedDnsResponse.IpAddresses.SequenceEqual(newDnsResponse.IpAddresses));
         }
 
         IList<Task<DnsResponse>> tasks = new List<Task<DnsResponse>>();

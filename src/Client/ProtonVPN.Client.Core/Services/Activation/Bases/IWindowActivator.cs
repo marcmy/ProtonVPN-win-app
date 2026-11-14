@@ -32,10 +32,7 @@ public interface IWindowActivator
 
     event EventHandler? HostSizeChanged;
 
-    void Activate(
-        [CallerFilePath] string sourceFilePath = "",
-        [CallerMemberName] string sourceMemberName = "",
-        [CallerLineNumber] int sourceLineNumber = 0);
+    void Activate([CallerFilePath] string sourceFilePath = "", [CallerMemberName] string sourceMemberName = "", [CallerLineNumber] int sourceLineNumber = 0);
 
     void Hide();
 

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -18,6 +18,8 @@
  */
 
 using ProtonVPN.Client.Common.Extensions;
+using ProtonVPN.Client.Common.UI.ServerHealth;
+using ProtonVPN.Client.Contracts.Enums;
 using ProtonVPN.Client.Core.Services.Activation;
 using ProtonVPN.Client.Localization.Contracts;
 using ProtonVPN.Client.Localization.Extensions;
@@ -34,8 +36,9 @@ using ProtonVPN.StatisticalEvents.Contracts.Dimensions;
 
 namespace ProtonVPN.Client.Models.Connections;
 
-public abstract class ServerLocationItemBase : LocationItemBase<Server>
+public abstract class ServerLocationItemBase : LocationItemBase<Server>, IServerHealthSource
 {
+    private readonly ServerPingSource _pingSource;
     public Server Server { get; }
 
     public override string Header { get; }
@@ -52,6 +55,12 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>
                 : null;
 
     public double Load => Server.Load / 100d;
+
+    public string HealthServerId => Server.Id;
+
+    public double HealthServerLoad => Load;
+
+    public string? HealthProbeAddress => _pingSource.HealthProbeAddress;
 
     public override object FirstSortProperty => IsUnderMaintenance;
 
@@ -95,6 +104,7 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>
                isSearchItem)
     {
         Server = server;
+        _pingSource = new(server);
         Header = server.Name;
         ServerTag = server.Name.GetServerTag();
         ServerNumber = server.Name.GetServerNumber();
@@ -103,6 +113,12 @@ public abstract class ServerLocationItemBase : LocationItemBase<Server>
             ? SingleServerLocationIntent.From(Server.ExitCountry, Server.State, Server.City, ServerInfo.From(Server.Id, Server.Name))
             : SingleGatewayServerLocationIntent.From(Server.GatewayName, GatewayServerInfo.From(Server.Id, Server.Name, Server.ExitCountry));
     }
+
+    public Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken) =>
+        _pingSource.ProbeHealthAsync(cancellationToken);
+
+    public Task<ServerHealthProbeMeasurement> ProbeHealthAsync(CancellationToken cancellationToken, bool quickFirstResponse) =>
+        _pingSource.ProbeHealthAsync(cancellationToken, quickFirstResponse);
 
     protected override bool MatchesActiveConnection(ConnectionDetails? currentConnectionDetails)
     {

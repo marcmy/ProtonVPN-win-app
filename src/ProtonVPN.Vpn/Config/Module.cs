@@ -18,7 +18,6 @@
  */
 
 using Autofac;
-using ProtonVPN.Vpn.Common;
 using ProtonVPN.Vpn.Connection;
 using ProtonVPN.Vpn.Gateways;
 using ProtonVPN.Vpn.LocalAgent;
@@ -38,6 +37,8 @@ using ProtonVPN.Vpn.SynchronizationEvent;
 using ProtonVPN.Vpn.Wintun;
 using ProtonVPN.Vpn.WireGuard;
 
+using ProtonVPN.Vpn.Common;
+
 namespace ProtonVPN.Vpn.Config;
 
 public class Module
@@ -50,7 +51,7 @@ public class Module
         builder.RegisterType<DnsServerCache>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<OpenVpnDnsServersCreator>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<TcpPortScanner>().AsImplementedInterfaces().SingleInstance();
-        builder.RegisterType<SplitTunnelRouting>().AsImplementedInterfaces().SingleInstance();
+        builder.RegisterType<SplitTunnelRouting>().As<ISplitTunnelRouting>().SingleInstance();
         builder.RegisterType<UdpPingClient>().AsImplementedInterfaces().SingleInstance();
         builder.RegisterType<WintunAdapter>().SingleInstance();
         builder.RegisterType<TapAdapter>().SingleInstance();

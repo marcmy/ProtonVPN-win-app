@@ -44,10 +44,9 @@ public class ReportIssueDataProvider : IReportIssueDataProvider, IEventMessageRe
             List<IssueCategoryResponse>? categories = await FetchDataAsync();
             if (categories is null)
             {
-                // Fallback is not cached so the API is tried again next time
+                // A temporary fallback is not a successful API cache: retry next time.
                 return ReportIssueDefaultDataProvider.GetCategories();
             }
-
             _categories = categories;
         }
 
@@ -86,7 +85,7 @@ public class ReportIssueDataProvider : IReportIssueDataProvider, IEventMessageRe
 
     private bool IsDataValid(IList<IssueCategoryResponse> categories)
     {
-        return categories.All(category =>
+        return categories is { Count: > 0 } && categories.All(category =>
             !string.IsNullOrEmpty(category.Label) &&
             !string.IsNullOrEmpty(category.SubmitLabel) &&
             category.InputFields != null &&
@@ -97,16 +96,12 @@ public class ReportIssueDataProvider : IReportIssueDataProvider, IEventMessageRe
                          !AreConstraintsValid(input.Constraints)));
     }
 
-    private static bool AreConstraintsValid(IssueInputConstraintsResponse constraints)
+    private static bool AreConstraintsValid(IssueInputConstraintsResponse? constraints)
     {
-        if (constraints == null)
-        {
-            return true;
-        }
-
-        return (constraints.MinimumLength is null || constraints.MinimumLength >= 0) &&
-               (constraints.MaximumLength is null || constraints.MaximumLength > 0) &&
-               (constraints.MinimumLength is null || constraints.MaximumLength is null ||
-                constraints.MinimumLength <= constraints.MaximumLength);
+        return constraints is null ||
+            ((!constraints.MinimumLength.HasValue || constraints.MinimumLength >= 0) &&
+             (!constraints.MaximumLength.HasValue || constraints.MaximumLength > 0) &&
+             (!constraints.MinimumLength.HasValue || !constraints.MaximumLength.HasValue ||
+              constraints.MinimumLength <= constraints.MaximumLength));
     }
 }

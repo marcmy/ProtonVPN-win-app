@@ -184,7 +184,6 @@ public class ServerLoadsCalculator : IServerLoadsCalculator
             server.IsVisible = load.IsVisible;
             server.IsAutoconnectable = load.IsAutoconnectable;
 
-            // Physical statuses are left alone, they no longer gate availability.
         }
 
         return true;

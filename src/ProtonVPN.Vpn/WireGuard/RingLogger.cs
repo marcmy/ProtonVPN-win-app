@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2023 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -18,10 +18,10 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Text;
-using System.Collections.Generic;
 
 namespace ProtonVPN.Vpn.WireGuard;
 
@@ -139,7 +139,7 @@ public class RingLogger
         DeleteFile();
         FileStream file = File.Open(_filename, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
         file.SetLength(Log.Bytes);
-        
+
         _memoryMappedFile = MemoryMappedFile.CreateFromFile(file, null, 0, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
         _memoryMappedViewAccessor = _memoryMappedFile.CreateViewAccessor(0, Log.Bytes, MemoryMappedFileAccess.ReadWrite);
         _log = new Log(_memoryMappedViewAccessor);

@@ -30,12 +30,15 @@ public interface IVpnServiceCaller
     Task DisconnectAsync(DisconnectionRequestIpcEntity connectionRequest);
 
     Task<Result<NetworkTrafficIpcEntity>> GetNetworkTrafficAsync();
+    Task<Result<ServerHealthProbeResultIpcEntity>> ProbeServerHealthAsync(ServerHealthProbeRequestIpcEntity request);
     Task RequestNetShieldStatsAsync();
     Task RequestConnectionDetailsAsync();
 
     Task UpdateLocalAgentTlsCredentialsAsync(LocalAgentTlsCredentialsIpcEntity credentials);
 
     Task ApplySettingsAsync(MainSettingsIpcEntity settings);
+    Task<Result<FolderScanStatusIpcEntity>> GetFolderScanStatusAsync();
+    Task<Result<FolderScanStatusIpcEntity>> PrepareFolderRuleAsync(string folder, CancellationToken cancellationToken);
 
     Task RepeatStateAsync();
     Task RepeatPortForwardingStateAsync();

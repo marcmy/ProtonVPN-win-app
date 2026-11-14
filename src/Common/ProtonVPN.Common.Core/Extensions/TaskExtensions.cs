@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2024 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -25,32 +25,74 @@ public static class TaskExtensions
 {
     public static Task<Task> Wrap(this Task task) => Task.FromResult(task);
 
-    /// <summary>
-    /// Waits for <paramref name="task"/> at most <paramref name="timeout"/> and returns whether it
-    /// completed in time. On timeout the task is left running and observed in the background.
-    /// A TimeoutException raised by the task itself is reported as a timeout too.
-    /// Use <see cref="Task.WaitAsync(TimeSpan)"/> instead to throw rather than report.
-    /// </summary>
     public static async Task<bool> WaitOrFireAndForgetAsync(this Task task, TimeSpan timeout)
     {
-        try
-        {
-            await task.WaitAsync(timeout);
-            return true;
-        }
-        catch (TimeoutException)
-        {
-            task.FireAndForget();
-            return false;
-        }
+        try { await task.WaitAsync(timeout); return true; }
+        catch (TimeoutException) { task.FireAndForget(); return false; }
     }
 
-    /// <summary>
-    /// Runs <paramref name="action"/> with a token cancelled after <paramref name="timeout"/> and throws
-    /// <see cref="TimeoutException"/> if it stops for that reason. The action has to honour the token.
-    /// Unlike <see cref="Task.WaitAsync(TimeSpan)"/>, which only bounds the wait, this stops the work.
-    /// </summary>
-    public static async Task WaitOrCancelAsync(Func<CancellationToken, Task> action, TimeSpan timeout, CancellationToken cancellationToken)
+    public static Task WaitOrCancelAsync(Func<CancellationToken, Task> action, TimeSpan timeout, CancellationToken cancellationToken) =>
+        TimeoutAfter(action, timeout, cancellationToken);
+
+    public static async Task TimeoutAfter(this Task task, TimeSpan timeout)
+    {
+        using CancellationTokenSource cancellationTokenSource = new();
+
+        Task completedTask = await Task.WhenAny(task, Task.Delay(timeout, cancellationTokenSource.Token));
+        if (completedTask != task)
+        {
+            throw new TimeoutException();
+        }
+
+        cancellationTokenSource.Cancel();
+
+        // Task completed within timeout. The task may have faulted or been canceled.
+        // Await the task so that any exceptions/cancellation is rethrown.
+        await task;
+    }
+
+    public static async Task<TResult> TimeoutAfter<TResult>(this Task<TResult> task, TimeSpan timeout)
+    {
+        using CancellationTokenSource cancellationTokenSource = new();
+
+        Task completedTask = await Task.WhenAny(task, Task.Delay(timeout, cancellationTokenSource.Token));
+        if (completedTask != task)
+        {
+            throw new TimeoutException();
+        }
+
+        cancellationTokenSource.Cancel();
+
+        // Task completed within timeout. The task may have faulted or been canceled.
+        // Await the task so that any exceptions/cancellation is rethrown.
+        return await task;
+    }
+
+    public static async Task WithTimeout(this Task task, Task timeoutTask)
+    {
+        if (await Task.WhenAny(task, timeoutTask) != task)
+        {
+            throw new TimeoutException();
+        }
+
+        // Task completed within timeout. The task may have faulted or been canceled.
+        // Await the task so that any exceptions/cancellation is rethrown.
+        await task;
+    }
+
+    public static async Task<TResult> WithTimeout<TResult>(this Task<TResult> task, Task timeoutTask)
+    {
+        if (await Task.WhenAny(task, timeoutTask) != task)
+        {
+            throw new TimeoutException();
+        }
+
+        // Task completed within timeout. The task may have faulted or been canceled.
+        // Await the task so that any exceptions/cancellation is rethrown.
+        return await task;
+    }
+
+    public static async Task TimeoutAfter(Func<CancellationToken, Task> action, TimeSpan timeout, CancellationToken cancellationToken)
     {
         using CancellationTokenSource timeoutSource = new(timeout);
         using CancellationTokenSource linkedCancellationSource =

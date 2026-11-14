@@ -68,6 +68,9 @@ public partial class AdvancedSettingsPageViewModel : SettingsPageViewModelBase,
     private bool _isIpv6Enabled;
 
     [ObservableProperty]
+    private bool _isPortForwardingForAppsEnabled;
+
+    [ObservableProperty]
     [property: SettingName(nameof(ISettings.OpenVpnAdapter))]
     [NotifyPropertyChangedFor(nameof(IsTunAdapter))]
     [NotifyPropertyChangedFor(nameof(IsTapAdapter))]
@@ -174,6 +177,7 @@ public partial class AdvancedSettingsPageViewModel : SettingsPageViewModelBase,
         PageSettings =
         [
             ChangedSettingArgs.Create(() => Settings.NatType, () => CurrentNatType),
+            ChangedSettingArgs.Create(() => Settings.IsPortForwardingForAppsEnabled, () => IsPortForwardingForAppsEnabled),
             ChangedSettingArgs.Create(() => Settings.IsAlternativeRoutingEnabled, () => IsAlternativeRoutingEnabled),
             ChangedSettingArgs.Create(() => Settings.OpenVpnAdapter, () => CurrentOpenVpnAdapter),
             ChangedSettingArgs.Create(() => Settings.IsIpv6LeakProtectionEnabled, () => IsIpv6LeakProtectionEnabled),
@@ -245,6 +249,7 @@ public partial class AdvancedSettingsPageViewModel : SettingsPageViewModelBase,
     protected override void OnRetrieveSettings()
     {
         CurrentNatType = Settings.NatType;
+        IsPortForwardingForAppsEnabled = Settings.IsPortForwardingForAppsEnabled;
         IsAlternativeRoutingEnabled = Settings.IsAlternativeRoutingEnabled;
         IsIpv6LeakProtectionEnabled = Settings.IsIpv6LeakProtectionEnabled;
         IsIpv6Enabled = Settings.IsIpv6Enabled;

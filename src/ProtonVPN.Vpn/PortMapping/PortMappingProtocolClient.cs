@@ -19,6 +19,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -125,7 +126,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         _logger.Info<ConnectionLog>(logMessage.ToString());
     }
 
-    private void InvokeState(PortForwardingState state)
+    private void InvokeState(PortForwardingState? state)
     {
         state ??= PortForwardingState.Default;
         StateChanged?.Invoke(this, new(state));
@@ -212,11 +213,11 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         ChangeState(PortMappingStatus.PortMappingCommunication);
 
         queryMessages ??= new();
-        queryMessages.TcpQuery ??= CreateTcpPortMappingQueryMessage();
-        queryMessages.UdpQuery ??= CreateUdpPortMappingQueryMessage();
+        PortMappingQueryMessage tcpQuery = queryMessages.TcpQuery ??= CreateTcpPortMappingQueryMessage();
+        PortMappingQueryMessage udpQuery = queryMessages.UdpQuery ??= CreateUdpPortMappingQueryMessage();
 
-        PortMappingReplyMessage tcpReply = await SendPortMappingMessageAndRetryIfPortsMismatchAsync(queryMessages.TcpQuery, cancellationToken);
-        PortMappingReplyMessage udpReply = await SendPortMappingMessageAndRetryIfPortsMismatchAsync(queryMessages.UdpQuery, cancellationToken);
+        PortMappingReplyMessage? tcpReply = await SendPortMappingMessageAndRetryIfPortsMismatchAsync(tcpQuery, cancellationToken);
+        PortMappingReplyMessage? udpReply = await SendPortMappingMessageAndRetryIfPortsMismatchAsync(udpQuery, cancellationToken);
 
         HandlePortMappingResponses(tcpReply: tcpReply, udpReply: udpReply, cancellationToken);
     }
@@ -240,10 +241,10 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         return CreatePortMappingQueryMessage(UDP_OPERATION);
     }
 
-    private async Task<PortMappingReplyMessage> SendPortMappingMessageAndRetryIfPortsMismatchAsync(
+    private async Task<PortMappingReplyMessage?> SendPortMappingMessageAndRetryIfPortsMismatchAsync(
         PortMappingQueryMessage queryMessage, CancellationToken cancellationToken)
     {
-        PortMappingReplyMessage reply = await SendPortMappingMessageAsync(queryMessage, cancellationToken);
+        PortMappingReplyMessage? reply = await SendPortMappingMessageAsync(queryMessage, cancellationToken);
 
         if (reply is not null && reply.IsSuccess() && reply.InternalPort != reply.ExternalPort &&
             (queryMessage.InternalPort != 0 || queryMessage.ExternalPort != 0))
@@ -256,7 +257,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         return reply;
     }
 
-    private async Task<PortMappingReplyMessage> SendPortMappingMessageAsync(PortMappingQueryMessage queryMessage,
+    private async Task<PortMappingReplyMessage?> SendPortMappingMessageAsync(PortMappingQueryMessage queryMessage,
         CancellationToken cancellationToken)
     {
         try
@@ -272,7 +273,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         }
     }
 
-    private void HandlePortMappingResponses(PortMappingReplyMessage tcpReply, PortMappingReplyMessage udpReply,
+    private void HandlePortMappingResponses(PortMappingReplyMessage? tcpReply, PortMappingReplyMessage? udpReply,
         CancellationToken cancellationToken)
     {
         if (HasRequestFailed(tcpReply) && HasRequestFailed(udpReply))
@@ -292,6 +293,12 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
             _logger.Error<ConnectionLog>($"Port mapping UDP response was not successful. " +
                 $"[ResultCode: {udpReply?.ResultCode}, Operation: {udpReply?.Operation}]");
             udpReply = tcpReply;
+        }
+
+        if (tcpReply is null || udpReply is null)
+        {
+            HandlePortMappingUnsuccessfulResponses(tcpReply, udpReply);
+            return;
         }
 
         TemporaryMappedPort mappedTcpPort = CreateTemporaryMappedPort(tcpReply);
@@ -345,12 +352,12 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         yield return $"Error: {_vpnState.Error}";
     }
 
-    private bool HasRequestFailed(PortMappingReplyMessage reply)
+    private bool HasRequestFailed(PortMappingReplyMessage? reply)
     {
         return reply is null || !reply.IsSuccess();
     }
 
-    private void HandlePortMappingUnsuccessfulResponses(PortMappingReplyMessage tcpReply, PortMappingReplyMessage udpReply)
+    private void HandlePortMappingUnsuccessfulResponses(PortMappingReplyMessage? tcpReply, PortMappingReplyMessage? udpReply)
     {
         _logger.Error<ConnectionLog>($"Port mapping responses were not successful. " +
             $"[TCP ResultCode: {tcpReply?.ResultCode}, Operation: {tcpReply?.Operation}]" +
@@ -408,7 +415,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         }
     }
 
-    private void SetMappedPort(TemporaryMappedPort mappedPort)
+    private void SetMappedPort(TemporaryMappedPort? mappedPort)
     {
         _mappedPort = mappedPort;
     }
@@ -496,7 +503,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
 
     private async Task DestroyMappedPortAsync()
     {
-        MappedPort mappedPort = _mappedPort?.MappedPort;
+        MappedPort? mappedPort = _mappedPort?.MappedPort;
         CancellationToken stopCancellationToken = GenerateNewStopCancellationToken();
         try
         {
@@ -571,7 +578,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
 
     private async Task<byte[]> SendMessageWithSingleTryAsync(byte[] serializedMessage, CancellationToken cancellationToken)
     {
-        byte[] serializedReply = null;
+        byte[]? serializedReply = null;
         Exception exception = new("The serialized reply received is empty.");
         try
         {
@@ -592,6 +599,7 @@ public class PortMappingProtocolClient : IPortMappingProtocolClient
         return serializedReply;
     }
 
+    [DoesNotReturn]
     private void HandleSendMessageWithSingleTryFailed(byte[] serializedMessage, Exception exception)
     {
         try

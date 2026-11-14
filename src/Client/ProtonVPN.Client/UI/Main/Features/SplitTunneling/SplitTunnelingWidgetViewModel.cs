@@ -97,14 +97,14 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
 
     public bool IsInverseSplitTunnelingEnabled => IsSplitTunnelingEnabled && IsInverseSplitTunneling;
 
-    public SmartObservableCollection<SelectableNetworkAddress> IncludedIpAddresses { get; } = [];
-    public SmartObservableCollection<SelectableNetworkAddress> ExcludedIpAddresses { get; } = [];
+    public SmartObservableCollection<SelectableSplitTunnelingAddress> IncludedIpAddresses { get; } = [];
+    public SmartObservableCollection<SelectableSplitTunnelingAddress> ExcludedIpAddresses { get; } = [];
 
-    public SmartObservableCollection<SelectableNetworkAddress> IpAddresses
+    public SmartObservableCollection<SelectableSplitTunnelingAddress> IpAddresses
         => IsStandardSplitTunneling ? ExcludedIpAddresses : IncludedIpAddresses;
 
-    public IEnumerable<NetworkAddress> SelectedIpAddresses
-        => IpAddresses.Where(ip => ip.IsSelected).Select(ip => ip.Value);
+    public IEnumerable<SelectableSplitTunnelingAddress> SelectedIpAddresses
+        => IpAddresses.Where(ip => ip.IsSelected);
 
     public bool HasSelectedIpAddresses => SelectedIpAddresses.Any();
 
@@ -131,6 +131,21 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
     public string AppsHeader => Localizer.GetFormat(IsStandardSplitTunneling
         ? "Settings_Connection_SplitTunneling_Apps_Excluded_FormattedHeader"
         : "Settings_Connection_SplitTunneling_Apps_Included_FormattedHeader", SelectedApps.Count());
+
+    public int SelectedFolderCount => (IsStandardSplitTunneling
+        ? Settings.SplitTunnelingStandardFoldersList : Settings.SplitTunnelingInverseFoldersList).Count(folder => folder.IsActive);
+
+    public string FoldersHeader => Localizer.GetFormat(IsStandardSplitTunneling
+        ? "SplitTunneling_Folders_Excluded_FormattedHeader" : "SplitTunneling_Folders_Included_FormattedHeader", SelectedFolderCount);
+
+    public async Task SelectFoldersAsync()
+    {
+        // Reuse the settings dialog and Apply/conflict workflow rather than maintaining a second editor.
+        if (await InvokeAsync() && SettingsViewNavigator.GetCurrentPageContext() is SplitTunnelingPageViewModel page)
+        {
+            page.RequestFolderDialog();
+        }
+    }
 
     protected override UpsellModalContext ModalContext { get; } = new(ModalSource.SplitTunneling, ModalTrigger.Settings);
 
@@ -221,6 +236,8 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         yield return nameof(ISettings.SplitTunnelingStandardIpAddressesList);
         yield return nameof(ISettings.SplitTunnelingInverseAppsList);
         yield return nameof(ISettings.SplitTunnelingInverseIpAddressesList);
+        yield return nameof(ISettings.SplitTunnelingStandardFoldersList);
+        yield return nameof(ISettings.SplitTunnelingInverseFoldersList);
     }
 
     protected override string GetFeatureStatus()
@@ -242,11 +259,14 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
 
         OnPropertyChanged(nameof(InfoMessage));
         OnPropertyChanged(nameof(AppsHeader));
+        OnPropertyChanged(nameof(FoldersHeader));
         OnPropertyChanged(nameof(IpAddressesHeader));
     }
 
     protected override void OnSettingsChanged()
     {
+        OnPropertyChanged(nameof(SelectedFolderCount));
+        OnPropertyChanged(nameof(FoldersHeader));
         OnPropertyChanged(nameof(Status));
         OnPropertyChanged(nameof(InfoMessage));
         OnPropertyChanged(nameof(IsSplitTunnelingComponentVisible));
@@ -308,20 +328,20 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         }
     }
 
-    private List<SplitTunnelingIpAddress> GetSettingsIpAddresses(IEnumerable<SelectableNetworkAddress> ipAddresses)
+    private List<SplitTunnelingIpAddress> GetSettingsIpAddresses(IEnumerable<SelectableSplitTunnelingAddress> ipAddresses)
     {
-        return ipAddresses.Select(ip => new SplitTunnelingIpAddress(ip.Value.ToString(), ip.IsSelected)).ToList();
+        return ipAddresses.Select(ip => new SplitTunnelingIpAddress(ip.Value, ip.IsSelected)).ToList();
     }
 
-    private List<SelectableNetworkAddress> GetObservableIpAddresses(List<SplitTunnelingIpAddress> settingsIpAddresses)
+    private List<SelectableSplitTunnelingAddress> GetObservableIpAddresses(List<SplitTunnelingIpAddress> settingsIpAddresses)
     {
-        List<SelectableNetworkAddress> addresses = [];
+        List<SelectableSplitTunnelingAddress> addresses = [];
 
         foreach (SplitTunnelingIpAddress ip in settingsIpAddresses)
         {
-            if (NetworkAddress.TryParse(ip.IpAddress, out NetworkAddress address))
+            if (SelectableSplitTunnelingAddress.TryCreate(ip.IpAddress, ip.IsActive, out SelectableSplitTunnelingAddress? address) && address != null)
             {
-                addresses.Add(new SelectableNetworkAddress(address, ip.IsActive));
+                addresses.Add(address);
             }
         }
 
@@ -423,7 +443,7 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
         _ipSelector.CanReorder = false;
         _ipSelector.IsAddressRangeAuthorized = true;
 
-        List<SelectableNetworkAddress>? result = await _ipSelector.SelectAsync(IpAddresses.Select(ip => ip.Clone()).ToList());
+        List<SelectableSplitTunnelingAddress>? result = await _ipSelector.SelectSplitTunnelingAddressesAsync(IpAddresses.Select(ip => ip.Clone()).ToList());
         if (result == null)
         {
             return;

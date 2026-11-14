@@ -35,7 +35,6 @@ namespace ProtonVPN.Vpn.OpenVpn.Arguments
         {
             yield return "--local";
             yield return _localIp;
-
             yield return "--lport";
             yield return "0";
         }

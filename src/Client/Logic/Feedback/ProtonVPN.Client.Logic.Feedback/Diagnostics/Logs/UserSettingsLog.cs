@@ -80,12 +80,8 @@ public class UserSettingsLog : LogBase
             stringBuilder.AppendLine("The user is not logged in.");
         }
 
-        stringBuilder
-            .AppendLine()
-            .AppendLine("Servers")
-            .AppendLine();
-
-        foreach (KeyValuePair<string, dynamic?> property in GetServers())
+        stringBuilder.AppendLine().AppendLine("Servers").AppendLine();
+        foreach (KeyValuePair<string, dynamic?> property in _serversLoader.GetStats())
         {
             stringBuilder.AppendLine($"{property.Key}: {Serialize(property.Value)}");
         }
@@ -134,6 +130,7 @@ public class UserSettingsLog : LogBase
         yield return new($"{nameof(IUserSettings.ChangeServerAttempts)}.{nameof(ChangeServerAttempts.LastAttemptUtcDate)}", _settings.ChangeServerAttempts.LastAttemptUtcDate);
 
         yield return new(nameof(IUserSettings.IsNotificationEnabled), _settings.IsNotificationEnabled);
+        yield return new(nameof(IUserSettings.AreAnnouncementsBlocked), _settings.AreAnnouncementsBlocked);
         yield return new(nameof(IUserSettings.OpenVpnAdapter), _settings.OpenVpnAdapter);
         yield return new(nameof(IUserSettings.IsIpv6Enabled), _settings.IsIpv6Enabled);
         yield return new(nameof(IUserSettings.IsIpv6LeakProtectionEnabled), _settings.IsIpv6LeakProtectionEnabled);
@@ -194,11 +191,6 @@ public class UserSettingsLog : LogBase
         yield return new(nameof(IUserSettings.IsGatewayInfoBannerDismissed), _settings.IsGatewayInfoBannerDismissed);
 
         yield return new(nameof(IUserSettings.LastSeenWhatsNewOverlayVersion), _settings.LastSeenWhatsNewOverlayVersion);
-    }
-
-    private IEnumerable<KeyValuePair<string, dynamic?>> GetServers()
-    {
-        return _serversLoader.GetStats();
     }
 
     private string Serialize(dynamic? value)

@@ -48,7 +48,7 @@ public class Attachment : IEquatable<Attachment>
         return new Attachment(Name, Path, length);
     }
 
-    public bool Equals(Attachment other)
+    public bool Equals(Attachment? other)
     {
         return Path == other?.Path;
     }

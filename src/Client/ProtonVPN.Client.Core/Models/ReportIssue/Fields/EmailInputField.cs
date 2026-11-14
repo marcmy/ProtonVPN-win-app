@@ -25,9 +25,12 @@ public class EmailInputField : TextInputFieldBase
 {
     protected override int DefaultMaximumLength => 254;
 
+    public EmailInputField(bool isFieldMandatory = true)
+        : base(isFieldMandatory)
+    { }
+
     protected override bool IsValid()
     {
-        return base.IsValid()
-            && (string.IsNullOrWhiteSpace(Value) || Value.IsValidEmailAddress());
+        return base.IsValid() && (string.IsNullOrEmpty(Value) || (Value?.IsValidEmailAddress() ?? false));
     }
 }

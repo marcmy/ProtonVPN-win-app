@@ -131,7 +131,7 @@ public class OpenVpnProcess : IOpenVpnProcess
 
     private void KillNotExitedProcesses()
     {
-        IOsProcess[] processes = _processes.GetProcessesByPath(_staticConfig.OpenVpn.ExePath);
+        IOsProcess[] processes = _processes.ProcessesByPath(_staticConfig.OpenVpn.ExePath);
         foreach (IOsProcess process in processes)
         {
             process.Kill();

@@ -80,6 +80,7 @@ public class UpsellCarouselWindowActivator : DialogActivatorBase<UpsellCarouselW
         return _upsellCarouselViewNavigator.NavigateToFeatureViewAsync(upsellFeatureType);
     }
 
+#pragma warning disable CS0618 // Keep mapping legacy carousel sources for backward compatibility.
     private UpsellFeatureType? GetUpsellFeatureType(ModalSource? modalSource)
     {
         return modalSource switch
@@ -135,6 +136,7 @@ public class UpsellCarouselWindowActivator : DialogActivatorBase<UpsellCarouselW
             _ => null
         };
     }
+#pragma warning restore CS0618
 
     public void Receive(LoggedOutMessage message)
     {

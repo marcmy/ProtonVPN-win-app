@@ -48,8 +48,8 @@ public class UpdateController : IUpdateController
     private readonly IControllerRetryManager _controllerRetryManager;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    private AppUpdateStateContract _lastUpdateState;
-    private Version _lastInstalledVersion;
+    private AppUpdateStateContract? _lastUpdateState;
+    private Version? _lastInstalledVersion;
 
     public UpdateController(
         INotifyingAppUpdate notifyingAppUpdate,
@@ -73,11 +73,13 @@ public class UpdateController : IUpdateController
         _notifyingAppUpdate.StateChanged += OnUpdateStateChanged;
     }
 
-    public async Task CheckForUpdate(UpdateSettingsIpcEntity updateSettingsIpcEntity, CancellationToken cancelToken)
+    public Task CheckForUpdate(UpdateSettingsIpcEntity updateSettingsIpcEntity, CancellationToken cancelToken)
     {
         CacheUpdateSettings(updateSettingsIpcEntity);
         _appUpdates.Cleanup();
         _notifyingAppUpdate.StartCheckingForUpdate(updateSettingsIpcEntity.IsEarlyAccess);
+
+        return Task.CompletedTask;
     }
 
     public async Task StartAutoUpdate(StartAutoUpdateIpcEntity startAutoUpdateIpcEntity, CancellationToken cancelToken)
@@ -85,18 +87,19 @@ public class UpdateController : IUpdateController
         Ensure.NotNull(startAutoUpdateIpcEntity, nameof(startAutoUpdateIpcEntity));
         _controllerRetryManager.EnforceRetryId(startAutoUpdateIpcEntity);
 
-        if (_lastUpdateState.IsReady)
+        AppUpdateStateContract? lastUpdateState = _lastUpdateState;
+        if (lastUpdateState?.IsReady == true)
         {
             Version lastRegistryVersion = _currentAppVersionProvider.GetVersion();
 
-            if (_lastUpdateState.Version > lastRegistryVersion)
+            if (lastUpdateState.Version > lastRegistryVersion)
             {
-                await HandleAutoUpdate(_lastUpdateState);
+                await HandleAutoUpdate(lastUpdateState);
             }
-            else if (_lastUpdateState.Version == lastRegistryVersion)
+            else if (lastUpdateState.Version == lastRegistryVersion)
             {
-                _lastUpdateState.Status = AppUpdateStatus.AutoUpdated;
-                await SendUpdateStateAsync(_lastUpdateState);
+                lastUpdateState.Status = AppUpdateStatus.AutoUpdated;
+                await SendUpdateStateAsync(lastUpdateState);
             }
         }
     }
@@ -106,7 +109,7 @@ public class UpdateController : IUpdateController
         _feedUrlProvider.SetFeedType(feedType);
     }
 
-    private async void OnUpdateStateChanged(object sender, AppUpdateStateContract e)
+    private async void OnUpdateStateChanged(object? sender, AppUpdateStateContract e)
     {
         await SendUpdateStateAsync(e);
     }

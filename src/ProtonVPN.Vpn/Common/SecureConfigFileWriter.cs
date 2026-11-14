@@ -10,12 +10,13 @@
  *
  * ProtonVPN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
+ * along with ProtonVPN. If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using System.IO;
 using System.Security.AccessControl;
@@ -24,30 +25,25 @@ namespace ProtonVPN.Vpn.Common;
 
 public class SecureConfigFileWriter : ISecureConfigFileWriter
 {
-    // SYSTEM: Full Control; Administrators: Delete only; inheritance blocked.
-    // Only processes running under the SYSTEM account can read.
+    // SYSTEM: full control; Administrators: delete only; no inherited access.
     private const string SECURE_SDDL = "O:SYG:SYD:P(A;;FA;;;SY)(A;;SD;;;BA)";
 
     public void Write(string path, string content)
     {
-        // Delete first so FileMode.CreateNew applies the FileSecurity
         if (File.Exists(path))
         {
             File.Delete(path);
         }
-
-        FileSecurity fileSecurity = new();
-        fileSecurity.SetSecurityDescriptorSddlForm(SECURE_SDDL);
-
-        FileInfo fileInfo = new(path);
-        using FileStream stream = fileInfo.Create(
-            FileMode.CreateNew,
-            FileSystemRights.WriteData,
-            FileShare.None,
-            bufferSize: 4096,
-            FileOptions.None,
-            fileSecurity);
+        using FileStream stream = new FileInfo(path).Create(FileMode.CreateNew,
+            FileSystemRights.WriteData, FileShare.None, 4096, FileOptions.None, CreateFileSecurity());
         using StreamWriter writer = new(stream);
         writer.Write(content);
+    }
+
+    internal static FileSecurity CreateFileSecurity()
+    {
+        FileSecurity security = new();
+        security.SetSecurityDescriptorSddlForm(SECURE_SDDL);
+        return security;
     }
 }

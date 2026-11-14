@@ -58,6 +58,7 @@ public interface IConfiguration : IStaticConfiguration
     TimeSpan ServerLoadUpdateInterval { get; }
     TimeSpan OverdueServerLoadUpdateTimeout { get; }
     TimeSpan ResumeRefreshTimeout { get; }
+    TimeSpan MinimumServerLoadUpdateInterval { get; }
     TimeSpan AnnouncementsUpdateInterval { get; }
     TimeSpan AlternativeRoutingCheckInterval { get; }
     TimeSpan UpdateCheckInterval { get; }

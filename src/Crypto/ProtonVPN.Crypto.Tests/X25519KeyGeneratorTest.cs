@@ -28,18 +28,12 @@ public class X25519KeyGeneratorTest
     private const string Ed25519Asn1Base64SecretKey = "MC4CAQAwBQYDK2VwBCIEIJ1oDfMF/1sQ21ug3MtsR4gS/fSKrQjpltGaKPOzLrJW"; 
     private const string X25519Base64SecretKey = "uDiY1T9gYZO90r2fC63At9T2CnV1X8/NfWaQ/v/gT2g="; 
 
-    private IX25519KeyGenerator _generator;
+    private IX25519KeyGenerator _generator = null!;
 
     [TestInitialize]  
     public void Initialize()  
     {  
         _generator = new X25519KeyGenerator();
-    }
-
-    [TestCleanup]  
-    public void Cleanup()  
-    {  
-        _generator = null;
     }
 
     [TestMethod]

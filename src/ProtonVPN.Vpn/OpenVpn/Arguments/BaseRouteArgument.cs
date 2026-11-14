@@ -40,7 +40,6 @@ namespace ProtonVPN.Vpn.OpenVpn.Arguments
                     yield return "--pull-filter";
                     yield return "ignore";
                     yield return "redirect-gateway";
-
                     yield return "--route";
                     yield return "0.0.0.0";
                     yield return "0.0.0.0";

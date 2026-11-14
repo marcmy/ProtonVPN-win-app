@@ -91,7 +91,6 @@ public class ProfileConnectAndGoHandler : IHandler,
                 _logger.Info<AppLog>($"Connect and go - Open a website: {url}");
                 _urlsBrowser.BrowseTo(url, connectAndGo.UsePrivateBrowsingMode);
                 break;
-
             case ConnectAndGoMode.Application:
                 string appPath = connectAndGo.AppPath ?? string.Empty;
                 _logger.Info<AppLog>($"Connect and go - Open an app: {appPath}");

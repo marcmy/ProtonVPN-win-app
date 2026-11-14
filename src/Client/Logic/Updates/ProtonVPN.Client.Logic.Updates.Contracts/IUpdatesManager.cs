@@ -27,9 +27,13 @@ public interface IUpdatesManager
 
     Task UpdateAsync(bool isToOpenOnDesktop);
 
+    void SkipCurrentUpdate();
+
     bool IsAutoUpdated { get; }
 
     bool IsAutoUpdateInProgress { get; }
 
     bool IsUpdateAvailable { get; }
+
+    bool CanSkipCurrentUpdate { get; }
 }

@@ -313,6 +313,15 @@ public static class WindowExtensions
         }
     }
 
+    public static async Task<string> PickFolderAsync(this Window window)
+    {
+        FolderPicker picker = new() { SuggestedStartLocation = PickerLocationId.ComputerFolder };
+        picker.FileTypeFilter.Add("*");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(window));
+        StorageFolder? folder = await picker.PickSingleFolderAsync();
+        return folder?.Path ?? string.Empty;
+    }
+
     public static double GetTitleBarOpacity(this Window window)
     {
         return window is IFocusAware focusAware && focusAware.IsFocused()

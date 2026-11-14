@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) 2025 Proton AG
  *
  * This file is part of ProtonVPN.
@@ -20,7 +20,7 @@
 namespace ProtonVPN.Vpn.Management;
 
 /// <summary>
-/// Collection of predefined messages to be send to OpenVPN management interface.
+/// Collection of predefined messages to be sent to the OpenVPN management interface.
 /// </summary>
 public class ManagementMessages
 {
@@ -31,53 +31,61 @@ public class ManagementMessages
 
     public ManagementMessage EchoOn()
     {
-        return ManagementMessage("echo on");
+        return CreateMessage("echo on");
     }
 
     public ManagementMessage StateOn()
     {
-        return ManagementMessage("state on");
+        return CreateMessage("state on");
     }
 
     public ManagementMessage Bytecount()
     {
-        return ManagementMessage("bytecount 1");
+        return CreateMessage("bytecount 1");
     }
 
     public ManagementMessage LogOn()
     {
-        return ManagementMessage("log on");
+        return CreateMessage("log on");
     }
 
     public ManagementMessage HoldRelease()
     {
-        return ManagementMessage("hold release");
+        return CreateMessage("hold release");
     }
 
     public ManagementMessage Username(string username)
     {
-        return ManagementMessage($"username 'Auth' {EscapedString(username)}");
+        return CreateSensitiveMessage(
+            $"username 'Auth' {EscapedString(username)}",
+            "username 'Auth' [...]");
     }
 
     public ManagementMessage Password(string password)
     {
-        return ManagementMessage($"password 'Auth' {EscapedString(password)}");
+        return CreateSensitiveMessage(
+            $"password 'Auth' {EscapedString(password)}",
+            "password 'Auth' [...]");
     }
 
     public ManagementMessage Disconnect()
     {
-        return ManagementMessage("signal SIGTERM");
+        return CreateMessage("signal SIGTERM");
     }
 
     public ManagementMessage Exit()
     {
-        return ManagementMessage("exit");
+        return CreateMessage("exit");
     }
 
-
-    private ManagementMessage ManagementMessage(string messageText)
+    private static ManagementMessage CreateMessage(string messageText)
     {
-        return new ManagementMessage(messageText);
+        return new ManagementMessage(messageText, messageText);
+    }
+
+    private static ManagementMessage CreateSensitiveMessage(string messageText, string logText)
+    {
+        return new ManagementMessage(messageText, logText);
     }
 
     private static string EscapedString(string value)

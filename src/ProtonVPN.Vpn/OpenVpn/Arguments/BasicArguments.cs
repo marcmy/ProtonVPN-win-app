@@ -36,9 +36,7 @@ public class BasicArguments : IEnumerable<string>
     {
         yield return "--config";
         yield return _openVpnConfig.ConfigPath;
-
         yield return "--suppress-timestamps";
-
         yield return "--service";
         yield return _openVpnConfig.ExitEventName;
         yield return "0";

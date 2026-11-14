@@ -10,12 +10,13 @@
  *
  * ProtonVPN is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
+ * along with ProtonVPN. If not, see <https://www.gnu.org/licenses/>.
  */
+
 
 using System;
 using System.Collections.Generic;
@@ -26,43 +27,36 @@ namespace ProtonVPN.Common.Legacy.OS.Processes;
 
 public static class CommandLineArgumentsParser
 {
-    private const string PROGRAM_NAME_PLACEHOLDER = "placeholder";
-
     public static IReadOnlyList<string> Parse(string commandLine)
     {
         if (string.IsNullOrWhiteSpace(commandLine))
         {
-            return [];
+            return Array.Empty<string>();
         }
 
-        // CommandLineToArgvW parses a whole command line, whose first token is the program name and
-        // follows different rules than the rest. A throwaway name fills that slot and is skipped below.
-        IntPtr argumentsPointer = CommandLineToArgvW($"{PROGRAM_NAME_PLACEHOLDER} {commandLine}", out int count);
-        if (argumentsPointer == IntPtr.Zero)
+        // The first token has special parsing rules; provide a synthetic executable name.
+        IntPtr argv = CommandLineToArgvW("placeholder " + commandLine, out int count);
+        if (argv == IntPtr.Zero)
         {
             throw new Win32Exception(Marshal.GetLastWin32Error());
         }
-
         try
         {
-            List<string> arguments = [];
-
+            List<string> arguments = new();
             for (int i = 1; i < count; i++)
             {
-                IntPtr argumentPointer = Marshal.ReadIntPtr(argumentsPointer, i * IntPtr.Size);
-                arguments.Add(Marshal.PtrToStringUni(argumentPointer) ?? string.Empty);
+                arguments.Add(Marshal.PtrToStringUni(Marshal.ReadIntPtr(argv, i * IntPtr.Size)) ?? string.Empty);
             }
-
             return arguments;
         }
         finally
         {
-            LocalFree(argumentsPointer);
+            LocalFree(argv);
         }
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
-    private static extern IntPtr CommandLineToArgvW(string commandLine, out int argumentCount);
+    private static extern IntPtr CommandLineToArgvW(string commandLine, out int count);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern IntPtr LocalFree(IntPtr memoryHandle);

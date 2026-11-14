@@ -506,9 +506,17 @@ public class UnauthorizedResponseHandlerTest
 
         public Breakpoint Breakpoint { get; }
 
-        public event EventHandler<ActionableFailureApiResultEventArgs> OnActionableFailureResult;
+        public event EventHandler<ActionableFailureApiResultEventArgs> OnActionableFailureResult
+        {
+            add => _origin.OnActionableFailureResult += value;
+            remove => _origin.OnActionableFailureResult -= value;
+        }
 
-        public event EventHandler RefreshTokenExpired;
+        public event EventHandler RefreshTokenExpired
+        {
+            add => _origin.RefreshTokenExpired += value;
+            remove => _origin.RefreshTokenExpired -= value;
+        }
 
         public async Task<ApiResponseResult<RefreshTokenResponse>> RefreshTokenAsync(CancellationToken token)
         {

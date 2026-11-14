@@ -17,7 +17,6 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -36,36 +35,25 @@ public abstract class IssueInputField : ObservableValidator
     public bool HasPlaceholder => !string.IsNullOrEmpty(Placeholder);
 
     public bool IsTouched { get; private set; }
-
-    // Only surface validation errors once the user has interacted with the field.
     public bool ShouldShowAsInvalid => IsTouched && HasErrors;
 
     protected IssueInputField()
     {
-        ErrorsChanged += OnInputFieldErrorsChanged;
-    }
-
-    private void OnInputFieldErrorsChanged(object? sender, DataErrorsChangedEventArgs e)
-    {
-        OnPropertyChanged(nameof(ShouldShowAsInvalid));
+        ErrorsChanged += (_, _) => OnPropertyChanged(nameof(ShouldShowAsInvalid));
     }
 
     public void MarkAsTouched()
     {
-        if (IsTouched)
+        if (!IsTouched)
         {
-            return;
+            IsTouched = true;
+            OnPropertyChanged(nameof(ShouldShowAsInvalid));
         }
-
-        IsTouched = true;
-
-        OnPropertyChanged(nameof(ShouldShowAsInvalid));
     }
 
     public virtual void Reset()
     {
         IsTouched = false;
-
         OnPropertyChanged(nameof(ShouldShowAsInvalid));
     }
 
@@ -95,28 +83,23 @@ public abstract partial class IssueInputField<TValue> : IssueInputField
     [CustomValidation(typeof(IssueInputField), nameof(ValidateFieldValue))]
     private TValue? _value;
 
-    public IssueInputField()
+    protected IssueInputField()
     {
         ValidateProperty(Value, nameof(Value));
-    }
-
-    partial void OnValueChanged(TValue? value)
-    {
-        OnValueChanged();
-    }
-
-    protected virtual void OnValueChanged()
-    { }
-
-    public override void Reset()
-    {
-        base.Reset();
-
-        Value = default;
     }
 
     protected override bool IsValid()
     {
         return true;
+    }
+
+    protected virtual void OnValueChanged() { }
+
+    partial void OnValueChanged(TValue? value) => OnValueChanged();
+
+    public override void Reset()
+    {
+        base.Reset();
+        Value = default;
     }
 }

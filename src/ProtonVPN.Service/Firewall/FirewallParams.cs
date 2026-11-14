@@ -29,7 +29,7 @@ public class FirewallParams
         ServerIp = string.Empty,
     };
 
-    public string ServerIp { get; set; }
+    public string ServerIp { get; set; } = string.Empty;
 
     public bool DnsLeakOnly { get; set; }
 

@@ -38,18 +38,12 @@ public class VpnCredentialsMapperTest
 
     private AsymmetricKeyPairIpcEntity _expectedAsymmetricKeyPairIpcEntity;
     private AsymmetricKeyPair _expectedAsymmetricKeyPair;
-    private ConnectionCertificate _expectedConnectionCertificate;
 
     [TestInitialize]
     public void Initialize()
     {
         _entityMapper = Substitute.For<IEntityMapper>();
         _mapper = new(_entityMapper);
-
-        _expectedConnectionCertificate = new ConnectionCertificate("MAPPED CERT", DateTime.UtcNow.AddDays(1));
-        _entityMapper.Map<ConnectionCertificateIpcEntity, ConnectionCertificate>(Arg.Any<ConnectionCertificateIpcEntity>())
-            .Returns(_expectedConnectionCertificate);
-
         _expectedAsymmetricKeyPairIpcEntity = new AsymmetricKeyPairIpcEntity();
         _entityMapper.Map<AsymmetricKeyPair, AsymmetricKeyPairIpcEntity>(Arg.Any<AsymmetricKeyPair>())
             .Returns(_expectedAsymmetricKeyPairIpcEntity);
@@ -68,7 +62,6 @@ public class VpnCredentialsMapperTest
 
         _expectedAsymmetricKeyPairIpcEntity = null;
         _expectedAsymmetricKeyPair = null;
-        _expectedConnectionCertificate = null;
     }
 
     [TestMethod]
@@ -97,13 +90,19 @@ public class VpnCredentialsMapperTest
     [TestMethod]
     public void TestMapRightToLeft_WithCertificate()
     {
+        DateTime expirationDateUtc = DateTime.UtcNow.AddDays(1);
+        ConnectionCertificateIpcEntity certificateIpcEntity = new()
+        {
+            Pem = "CERT",
+            ExpirationDateUtc = expirationDateUtc,
+        };
+        ConnectionCertificate expectedCertificate = new("NORMALIZED_CERT", expirationDateUtc);
+        _entityMapper.Map<ConnectionCertificateIpcEntity, ConnectionCertificate>(certificateIpcEntity)
+            .Returns(expectedCertificate);
+
         VpnCredentialsIpcEntity entityToTest = new()
         {
-            Certificate = new ConnectionCertificateIpcEntity()
-            {
-                Pem = "UNMAPPED CERT",
-                ExpirationDateUtc = DateTime.UtcNow.AddDays(2),
-            },
+            Certificate = certificateIpcEntity,
             ClientKeyPair = new AsymmetricKeyPairIpcEntity(),
             Username = "username",
             Password = "password",
@@ -111,8 +110,33 @@ public class VpnCredentialsMapperTest
 
         VpnCredentials result = _mapper.Map(entityToTest);
 
-        Assert.AreEqual(_expectedConnectionCertificate.Pem, result.ClientCertPem);
-        Assert.AreEqual(_expectedConnectionCertificate.ExpirationDateUtc, result.ClientCertificateExpirationDateUtc);
+        Assert.AreEqual(expectedCertificate.ExpirationDateUtc, result.ClientCertificateExpirationDateUtc);
+        Assert.AreEqual(expectedCertificate.Pem, result.ClientCertPem);
+        Assert.AreEqual(_expectedAsymmetricKeyPair, result.ClientKeyPair);
+        Assert.AreEqual(entityToTest.Username, result.Username);
+        Assert.AreEqual(entityToTest.Password, result.Password);
+        _entityMapper.Received(1).Map<ConnectionCertificateIpcEntity, ConnectionCertificate>(certificateIpcEntity);
+    }
+
+    [TestMethod]
+    public void TestMapRightToLeft_WithMissingMappedCertificate()
+    {
+        ConnectionCertificateIpcEntity certificateIpcEntity = new();
+        _entityMapper.Map<ConnectionCertificateIpcEntity, ConnectionCertificate>(certificateIpcEntity)
+            .Returns((ConnectionCertificate)null);
+
+        VpnCredentialsIpcEntity entityToTest = new()
+        {
+            Certificate = certificateIpcEntity,
+            ClientKeyPair = new AsymmetricKeyPairIpcEntity(),
+            Username = "username",
+            Password = "password",
+        };
+
+        VpnCredentials result = _mapper.Map(entityToTest);
+
+        Assert.AreEqual(string.Empty, result.ClientCertPem);
+        Assert.IsNull(result.ClientCertificateExpirationDateUtc);
         Assert.AreEqual(_expectedAsymmetricKeyPair, result.ClientKeyPair);
         Assert.AreEqual(entityToTest.Username, result.Username);
         Assert.AreEqual(entityToTest.Password, result.Password);

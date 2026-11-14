@@ -94,7 +94,6 @@ namespace ProtonVPN.EntityMapping.Tests
 
             MockOfEnumB result = _entityMapper.Map<MockOfEnumA, MockOfEnumB>(mockOfEnumA);
 
-            Assert.IsNotNull(result);
             Assert.AreEqual(MockOfEnumB.One, result);
         }
 
@@ -105,7 +104,6 @@ namespace ProtonVPN.EntityMapping.Tests
 
             MockOfEnumA result = _entityMapper.Map<MockOfEnumB, MockOfEnumA>(mockOfEnumB);
 
-            Assert.IsNotNull(result);
             Assert.AreEqual(MockOfEnumA.Two, result);
         }
 

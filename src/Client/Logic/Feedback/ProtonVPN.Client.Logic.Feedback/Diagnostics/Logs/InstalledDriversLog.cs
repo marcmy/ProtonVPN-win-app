@@ -47,7 +47,7 @@ public class InstalledDriversLog : LogBase
                 ManagementObjectCollection queryCollection = searcher.Get();
                 foreach (ManagementBaseObject m in queryCollection)
                 {
-                    Dictionary<string, object> driverProperties = GetDriverProperties(m);
+                    Dictionary<string, object?> driverProperties = GetDriverProperties(m);
                     fileContent.AppendLine(GenerateDriverLine(driverProperties));
                 }
             }
@@ -59,9 +59,9 @@ public class InstalledDriversLog : LogBase
         }
     }
 
-    private Dictionary<string, object> GetDriverProperties(ManagementBaseObject m)
+    private Dictionary<string, object?> GetDriverProperties(ManagementBaseObject m)
     {
-        Dictionary<string, object> properties = new();
+        Dictionary<string, object?> properties = new();
         foreach (PropertyData p in m.Properties)
         {
             properties.Add(p.Name, p.Value);
@@ -69,7 +69,7 @@ public class InstalledDriversLog : LogBase
         return properties;
     }
 
-    private string GenerateDriverLine(Dictionary<string, object> driverProperties)
+    private string GenerateDriverLine(Dictionary<string, object?> driverProperties)
     {
         StringBuilder driverContent = new();
         AppendDriverProperty(driverContent, driverProperties, "DisplayName");
@@ -84,11 +84,11 @@ public class InstalledDriversLog : LogBase
         return driverContent.ToString();
     }
 
-    private void AppendDriverProperty(StringBuilder driverContent, Dictionary<string, object> driverProperties, string key)
+    private void AppendDriverProperty(StringBuilder driverContent, Dictionary<string, object?> driverProperties, string key)
     {
         try
         {
-            bool hasProperty = driverProperties.TryGetValue(key, out object value);
+            bool hasProperty = driverProperties.TryGetValue(key, out object? value);
             if (hasProperty)
             {
                 driverContent.AppendLine($"{key}: {value}");
