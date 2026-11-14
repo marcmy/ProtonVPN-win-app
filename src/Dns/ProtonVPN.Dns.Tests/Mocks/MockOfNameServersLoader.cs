@@ -35,6 +35,10 @@ namespace ProtonVPN.Dns.Tests.Mocks
             _endpoints = addresses.Select(a => new IPEndPoint(a, DNS_PORT)).ToList();
         }
 
+        public void SetEndpoint(IPEndPoint endpoint)
+        {
+            _endpoints = new List<IPEndPoint> { endpoint };
+        }
         public IList<IPEndPoint> Get()
         {
             return _endpoints;

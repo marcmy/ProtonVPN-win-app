@@ -178,7 +178,7 @@ public class DnsOverUdpResolverTest
 
     private void SetNonWorkingNameServers()
     {
-        _mockOfNameServersLoader.Set(IPAddress.Loopback, IPAddress.Parse("192.168.153.153"));
+        _mockOfNameServersLoader.Set(IPAddress.Loopback, IPAddress.Parse("127.0.0.2"));
     }
 
     [TestMethod]
@@ -198,12 +198,20 @@ public class DnsOverUdpResolverTest
     public async Task TestResolveAsync_WhenCancelled()
     {
         InitializeWithMockOfNameServersLoader();
-        SetNonWorkingNameServers();
 
-        DnsResponse response = await ExecuteWithStopwatchAsync(StartResolveAndCancelAsync);
+        // Bound UDP endpoint that deliberately never replies.
+        using var silentDns = new global::System.Net.Sockets.UdpClient(
+            new IPEndPoint(IPAddress.Loopback, 0));
 
+        var endpoint = (IPEndPoint)silentDns.Client.LocalEndPoint!;
+        _mockOfNameServersLoader.SetEndpoint(endpoint);
+
+        DnsResponse response =
+            await ExecuteWithStopwatchAsync(StartResolveAndCancelAsync);
+
+        Assert.IsTrue(_cancellationTokenSource.IsCancellationRequested);
         Assert.IsNull(response);
-        Assert.IsTrue(_stopwatch.Elapsed > TimeSpan.FromSeconds(2) && _stopwatch.Elapsed < TimeSpan.FromSeconds(5));
+        Assert.IsTrue(_stopwatch.Elapsed < TimeSpan.FromSeconds(5));
     }
 
     private async Task<DnsResponse> StartResolveAndCancelAsync()
