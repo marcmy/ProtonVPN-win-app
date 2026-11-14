@@ -17,5 +17,5 @@ using System.Runtime.Versioning;
 [assembly: AssemblyVersion("5.1.10.0")]
 [assembly: AssemblyFileVersion("5.1.10.0")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyInformationalVersion("5.1.9-marc-custom")]
+[assembly: AssemblyInformationalVersion("5.1.10-marc-custom")]
 [assembly: SupportedOSPlatform("windows")]
