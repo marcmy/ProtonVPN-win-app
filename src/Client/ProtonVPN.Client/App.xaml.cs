@@ -48,9 +48,12 @@ public partial class App : Application
 
     public App()
     {
+        StartupDiagnostics.Stage("App: installing exception handlers");
         _globalExceptionHandler.Initialize(this);
         IssueReportingInitializer.Run();
+        StartupDiagnostics.Stage("App: loading XAML resources");
         InitializeComponent();
+        StartupDiagnostics.Stage("App: building service container");
 
         Host = Microsoft.Extensions.Hosting.Host
             .CreateDefaultBuilder()
@@ -60,6 +63,7 @@ public partial class App : Application
             .Build();
 
         _globalExceptionHandler.SetLogger(GetService<ILogger>());
+        StartupDiagnostics.Stage("App: logger configured");
     }
 
     public static T GetService<T>()
@@ -78,12 +82,17 @@ public partial class App : Application
     {
         base.OnLaunched(args);
 
+        StartupDiagnostics.Stage("OnLaunched: loading typography");
         LoadTypographyResourceDictionary();
 
+        StartupDiagnostics.Stage("OnLaunched: constructing MainWindow");
         MainWindow = new();
+        StartupDiagnostics.Stage("OnLaunched: constructing TrayWindow");
         TrayWindow = new();
 
+        StartupDiagnostics.Stage("OnLaunched: starting bootstrapper");
         GetService<IBootstrapper>().StartAsync(args).FireAndForget();
+        StartupDiagnostics.Stage("OnLaunched returned");
     }
 
     private void LoadTypographyResourceDictionary()

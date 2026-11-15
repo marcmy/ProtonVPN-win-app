@@ -17,6 +17,7 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -37,6 +38,22 @@ public class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        StartupDiagnostics.Initialize();
+        try
+        {
+            RunApplication(args);
+        }
+        catch (Exception ex)
+        {
+            StartupDiagnostics.Record("Main escaped", ex);
+            throw;
+        }
+    }
+
+    // Keep WinUI type resolution/JIT after the optional diagnostic hooks are installed.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RunApplication(string[] args)
+    {
         if (args.ContainsIgnoringCase("-DoUninstallActions"))
         {
             UninstallActions.DeleteClientData();
@@ -48,11 +65,15 @@ public class Program
         {
             SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID);
 
+            StartupDiagnostics.Stage("Calling Application.Start");
             Application.Start(_ =>
             {
+                StartupDiagnostics.Stage("WinUI callback entered");
                 DispatcherQueueSynchronizationContext context = new(DispatcherQueue.GetForCurrentThread());
                 SynchronizationContext.SetSynchronizationContext(context);
+                StartupDiagnostics.Stage("Constructing App");
                 new App();
+                StartupDiagnostics.Stage("App constructed");
             });
         }
         else
