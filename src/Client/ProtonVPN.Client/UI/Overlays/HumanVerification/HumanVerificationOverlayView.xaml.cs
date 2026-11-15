@@ -74,7 +74,7 @@ public sealed partial class HumanVerificationOverlayView : IContextAware
 
     private static X509Certificate2 ConvertToX509Certificate2(CoreWebView2Certificate certificate)
     {
-        X509Certificate2 x509Certificate = new(Convert.FromBase64String(certificate.ToPemEncoding().Replace("-----BEGIN CERTIFICATE-----", string.Empty).Replace("-----END CERTIFICATE-----", string.Empty)))
+        X509Certificate2 x509Certificate = X509CertificateLoader.LoadCertificate(Convert.FromBase64String(certificate.ToPemEncoding().Replace("-----BEGIN CERTIFICATE-----", string.Empty).Replace("-----END CERTIFICATE-----", string.Empty)))
         {
             FriendlyName = certificate.DisplayName
         };

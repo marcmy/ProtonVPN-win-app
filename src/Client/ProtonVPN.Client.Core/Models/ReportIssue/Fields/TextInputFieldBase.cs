@@ -27,11 +27,11 @@ public abstract partial class TextInputFieldBase : IssueInputField<string>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveMinimumLength), nameof(EffectiveMaximumLength), nameof(IsMandatory),
         nameof(HasMinimumLength), nameof(HasMaximumLength), nameof(HasLengthConstraint), nameof(IsMinimumLengthMet), nameof(FormattedCurrentLength))]
-    private int? _minimumLength;
+    public partial int? MinimumLength { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveMaximumLength), nameof(HasMaximumLength), nameof(HasLengthConstraint), nameof(FormattedCurrentLength))]
-    private int? _maximumLength;
+    public partial int? MaximumLength { get; set; }
 
     protected abstract int DefaultMaximumLength { get; }
     public int EffectiveMinimumLength => MinimumLength ?? 1;
