@@ -154,9 +154,14 @@ jobs:
             -BaselinePackagesPath artifacts/upstream-baseline/Directory.Packages.props `
             -UpstreamBaseCommit $env:UPSTREAM_BASE_COMMIT `
             *> artifacts/logs/runtime-dependencies.log
-          if ($LASTEXITCODE -ne 0) {
+          if (-not (Test-Path -LiteralPath artifacts/runtime-dependency-metadata.json -PathType Leaf)) {
             Get-Content artifacts/logs/runtime-dependencies.log -Tail 65
-            throw 'Runtime dependency staging failed.'
+            throw 'Runtime dependency metadata was not produced.'
+          }
+          $metadata = Get-Content artifacts/runtime-dependency-metadata.json -Raw | ConvertFrom-Json
+          if ($metadata.buildMode -ne 'both' -or
+              $metadata.upstreamBaseCommit -ne $env:UPSTREAM_BASE_COMMIT) {
+            throw 'Runtime dependency metadata has unexpected provenance.'
           }
           Get-Content artifacts/logs/runtime-dependencies.log -Tail 8
 
@@ -170,9 +175,12 @@ jobs:
             -SourceRef $env:GITHUB_REF_NAME `
             -WorkflowRunId $env:GITHUB_RUN_ID `
             *> artifacts/logs/package.log
-          if ($LASTEXITCODE -ne 0) {
+          $manifestPath = 'artifacts/ProtonVPN.Client.Patch/patch-manifest.json'
+          $installerPath = "artifacts/Installer/ProtonVPN-Custom-Patch-$env:TARGET_VERSION.exe"
+          if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or
+              -not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
             Get-Content artifacts/logs/package.log -Tail 70
-            throw 'Complete FastPatch packaging failed.'
+            throw 'Packaging did not produce the required artifacts.'
           }
           Get-Content artifacts/logs/package.log -Tail 12
 
