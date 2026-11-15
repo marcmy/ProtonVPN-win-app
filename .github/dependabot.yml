@@ -17,6 +17,9 @@ updates:
       interval: "daily"
       time: "12:00"
       timezone: "America/New_York"
-    open-pull-requests-limit: 20
+    open-pull-requests-limit: 5
+    # Avoid repeated graph-wide rebases after every merge. Update PR branches
+    # explicitly when needed; all dependencies remain eligible for new updates.
+    rebase-strategy: disabled
     cooldown:
       default-days: 7
