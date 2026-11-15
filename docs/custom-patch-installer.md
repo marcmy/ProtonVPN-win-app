@@ -69,9 +69,9 @@ The self-extracting installer builder requires this manifest and bakes its `targ
 
 The install stops if `C:\Program Files\Proton\VPN\v5.1.10` is not present. It will not silently apply 5.1.10 binaries to a different future version folder such as `v5.1.11`.
 
-`Install-ProtonVPNPatch.ps1` requires a valid manifest. If `-TargetVersion` is
-omitted, the selected installed folder must still exactly match the manifest's
-target version.
+`Install-ProtonVPNCompletePatch.ps1` requires a valid manifest. If
+`-TargetVersion` is omitted, the selected installed folder must still exactly
+match the manifest's target version.
 
 ## Install from an existing patch ZIP
 
@@ -87,17 +87,20 @@ Use `-WhatIf` to resolve the target and payload without stopping services, creat
 
 ## Build a single self-extracting EXE
 
-`New-ProtonVPNPatchSfx.ps1` uses the Windows-built-in IExpress tool. For complete-runtime packages supply `-InstallerScriptPath .\scripts\Install-ProtonVPNCompletePatch.ps1`. It packages three files into one EXE:
+`New-ProtonVPNPatchSfx.ps1` compiles a self-contained C# executable using the Windows .NET Framework C# compiler (not IExpress). The EXE embeds three hash-verified resources:
 
-- `payload.zip`
-- `Install-ProtonVPNPatch.ps1`
-- `Install-ProtonVPNPatch.cmd`
+- `FastPatch.Payload`: `payload.zip`, containing the patch manifest and files
+- `FastPatch.Installer`: the selected installer PowerShell script, internally named `Install-ProtonVPNPatch.ps1`
+- `FastPatch.Loader`: the verified PowerShell loader script
+
+For complete-runtime packages, explicitly supply the complete-runtime installer script using `-InstallerScriptPath`.
 
 The supplied patch ZIP or directory must contain exactly one `patch-manifest.json`.
 
 ```powershell
 .\scripts\New-ProtonVPNPatchSfx.ps1 `
     -PatchPath .\protonvpn-client-patch-5.1.10-both.zip `
+    -InstallerScriptPath .\scripts\Install-ProtonVPNCompletePatch.ps1 `
     -OutputPath .\ProtonVPN-Custom-Patch-5.1.10.exe
 ```
 
