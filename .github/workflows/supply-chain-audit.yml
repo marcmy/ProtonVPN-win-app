@@ -37,6 +37,8 @@ jobs:
           python-version: '3.13'
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+      - name: Test the graph parser's fail-closed behavior
+        run: python .github/scripts/test_nuget_snapshot.py
       - name: Restore supported Windows projects with lockfiles
         run: ./.github/scripts/restore-nuget-lockfiles.ps1
       - name: Verify transitive NuGet graph
