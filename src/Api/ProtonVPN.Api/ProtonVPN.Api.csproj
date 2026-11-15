@@ -24,6 +24,7 @@
         <ProjectReference Include="..\ProtonVPN.Api.Contracts\ProtonVPN.Api.Contracts.csproj" />
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Polly" />
         <PackageReference Include="Polly.Contrib.WaitAndRetry" />
