@@ -11,8 +11,6 @@
         <Compile Include="..\..\..\GlobalAssemblyInfo.cs" Link="Properties\GlobalAssemblyInfo.cs" />
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Text.Json" />
       <PackageReference Include="Vanara.PInvoke.PowrProf" />
       <PackageReference Include="Vanara.PInvoke.Security" />
       <PackageReference Include="Vanara.PInvoke.User32" />
