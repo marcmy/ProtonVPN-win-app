@@ -1,0 +1,250 @@
+name: Proton VPN 5.1.10 migration packaging proof
+
+# One-time, branch-scoped build proof. No installation, release, or source branch updates.
+on:
+  push:
+    branches:
+      - migration/staging
+    paths:
+      - .github/workflows/migration-510-package.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-510-package-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  NUGET_XMLDOC_MODE: skip
+  TARGET_VERSION: '5.1.10'
+  UPSTREAM_BASE_COMMIT: 52b9967ae9b196117adce7a52774dc148672b72c
+
+jobs:
+  package:
+    name: Build and inspect 5.1.10 patch (no installation)
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout migration source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Verify exact source version and immutable upstream baseline
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF -ne 'refs/heads/migration/staging') {
+            throw 'This proof workflow only permits migration/staging.'
+          }
+          $assembly = Get-Content -LiteralPath src/GlobalAssemblyInfo.cs -Raw
+          $required = @(
+            '[assembly: AssemblyVersion("5.1.10.0")]',
+            '[assembly: AssemblyInformationalVersion("5.1.10-marc-custom")]'
+          )
+          foreach ($value in $required) {
+            if (-not $assembly.Contains($value)) {
+              throw "Expected migration version not found: $value"
+            }
+          }
+
+          $baseline = $env:UPSTREAM_BASE_COMMIT
+          & git merge-base --is-ancestor $baseline HEAD
+          if ($LASTEXITCODE -ne 0) {
+            throw "Official 5.1.10 base $baseline is not an ancestor of this branch."
+          }
+          $baseVersion = @(git show "${baseline}:src/GlobalAssemblyInfo.cs") -join "`n"
+          if ($LASTEXITCODE -ne 0 -or -not $baseVersion.Contains('AssemblyVersion("5.1.10.0")')) {
+            throw 'Official baseline does not contain the expected 5.1.10 assembly version.'
+          }
+          New-Item -ItemType Directory -Force -Path artifacts/logs, artifacts/upstream-baseline | Out-Null
+          $baselinePackages = @(git show "${baseline}:Directory.Packages.props")
+          if ($LASTEXITCODE -ne 0 -or $baselinePackages.Count -eq 0) {
+            throw 'Unable to read the baseline Directory.Packages.props.'
+          }
+          $path = 'artifacts/upstream-baseline/Directory.Packages.props'
+          [IO.File]::WriteAllLines(
+            [IO.Path]::GetFullPath($path),
+            [string[]]$baselinePackages,
+            [Text.UTF8Encoding]::new($false)
+          )
+          [xml](Get-Content -LiteralPath $path -Raw) | Out-Null
+          Write-Host "Pinned official base: $baseline"
+          Write-Host "Migration source: $env:GITHUB_SHA"
+
+      - name: Build client, launcher, and service with serialized NuGet restore
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+
+          function Invoke-LoggedDotnet {
+            param([Parameter(Mandatory)][string]$Name,
+                  [Parameter(Mandatory)][string[]]$Arguments)
+            $log = "artifacts/logs/$Name.log"
+            Write-Host "Running dotnet $($Arguments -join ' ')"
+            & dotnet @Arguments *> $log
+            $code = $LASTEXITCODE
+            if ($code -ne 0) {
+              Get-Content -LiteralPath $log -Tail 70
+              throw "dotnet operation '$Name' failed with exit code $code"
+            }
+            Get-Content -LiteralPath $log -Tail 3
+          }
+
+          $restoreOptions = @('--runtime','win-x64','-p:Platform=x64',
+                              '--disable-parallel','--no-cache','-m:1','-v:quiet')
+          $buildOptions = @('-c','Release','--runtime','win-x64','--no-restore',
+                            '-p:Platform=x64','-p:BuildInParallel=false',
+                            '-m:1','--nologo','-v:quiet')
+
+          $client = 'src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj'
+          $launcher = 'src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj'
+          $service = 'src/ProtonVPN.Service/ProtonVPN.Service.csproj'
+
+          Invoke-LoggedDotnet 'client-restore' (@('restore', $client) + $restoreOptions)
+          Invoke-LoggedDotnet 'client-build' (@('build', $client) + $buildOptions)
+
+          Invoke-LoggedDotnet 'launcher-restore' (@('restore', $launcher) + $restoreOptions)
+          New-Item -ItemType Directory -Force -Path artifacts/launcher-build-output | Out-Null
+          Invoke-LoggedDotnet 'launcher-publish' @(
+            'publish', $launcher, '-c', 'Release', '--runtime', 'win-x64',
+            '--no-restore', '--output', 'artifacts/launcher-build-output',
+            '-p:Platform=x64', '-p:SelfContained=true',
+            '-p:PublishSingleFile=true', '-p:PublishTrimmed=true',
+            '-p:BuildInParallel=false', '-m:1', '--nologo', '-v:quiet'
+          )
+          if (-not (Test-Path -LiteralPath artifacts/launcher-build-output/ProtonVPN.Launcher.exe -PathType Leaf)) {
+            throw 'The published launcher executable is missing.'
+          }
+
+          # Stage the client before the service contributes to the shared src/bin output.
+          & ./.github/scripts/stage-client-patch-output.ps1 `
+            *> artifacts/logs/client-stage.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content artifacts/logs/client-stage.log -Tail 50
+            throw 'Client staging failed.'
+          }
+
+          Invoke-LoggedDotnet 'service-restore' (@('restore', $service) + $restoreOptions)
+          Invoke-LoggedDotnet 'service-build' (@('build', $service) + $buildOptions)
+
+      - name: Stage changed runtime dependency closure
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./.github/scripts/stage-runtime-dependency-delta.ps1 `
+            -BuildMode both `
+            -BaselinePackagesPath artifacts/upstream-baseline/Directory.Packages.props `
+            -UpstreamBaseCommit $env:UPSTREAM_BASE_COMMIT `
+            *> artifacts/logs/runtime-dependencies.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content artifacts/logs/runtime-dependencies.log -Tail 65
+            throw 'Runtime dependency staging failed.'
+          }
+          Get-Content artifacts/logs/runtime-dependencies.log -Tail 8
+
+      - name: Package 5.1.10 patch and SFX installer
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./.github/scripts/package-complete-fast-patch.ps1 `
+            -BuildMode both `
+            -TargetVersion $env:TARGET_VERSION `
+            -SourceCommit $env:GITHUB_SHA `
+            -SourceRef $env:GITHUB_REF_NAME `
+            -WorkflowRunId $env:GITHUB_RUN_ID `
+            *> artifacts/logs/package.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content artifacts/logs/package.log -Tail 70
+            throw 'Complete FastPatch packaging failed.'
+          }
+          Get-Content artifacts/logs/package.log -Tail 12
+
+      - name: Independently verify packaged artifact hashes and provenance
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $payload = 'artifacts/ProtonVPN.Client.Patch'
+          $manifestPath = Join-Path $payload 'patch-manifest.json'
+          $installer = "artifacts/Installer/ProtonVPN-Custom-Patch-$env:TARGET_VERSION.exe"
+          if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+            throw 'Patch manifest missing.'
+          }
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+            throw 'Installer executable missing.'
+          }
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          if ([int]$manifest.schemaVersion -ne 2 -or
+              [string]$manifest.targetVersion -ne $env:TARGET_VERSION -or
+              [string]$manifest.buildMode -ne 'both' -or
+              [string]$manifest.sourceCommit -ne $env:GITHUB_SHA -or
+              [string]$manifest.upstreamBaseCommit -ne $env:UPSTREAM_BASE_COMMIT -or
+              $manifest.completeRuntimeCoverage -ne $true -or
+              $manifest.launcherIncluded -ne $true) {
+            throw 'Packaged manifest does not match expected 5.1.10 migration provenance.'
+          }
+          if (@($manifest.files).Count -lt 1) {
+            throw 'Packaged manifest lists no files.'
+          }
+          foreach ($entry in $manifest.files) {
+            $relative = [string]$entry.path
+            $segments = $relative.Replace('\','/').Split('/')
+            if ([IO.Path]::IsPathRooted($relative) -or $relative.Contains(':') -or
+                $segments -contains '..') {
+              throw "Unsafe manifest path: $relative"
+            }
+            $file = Join-Path $payload $relative
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+              throw "Packaged file missing: $relative"
+            }
+            $actual = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne ([string]$entry.sha256).ToLowerInvariant()) {
+              throw "Packaged file SHA256 mismatch: $relative"
+            }
+          }
+          if (Test-Path -LiteralPath (Join-Path $payload 'ProtonVPN.Builds.Variables.dll')) {
+            throw 'Release-private ProtonVPN.Builds.Variables.dll must be preserved, not replaced.'
+          }
+          Write-Host "Verified $(@($manifest.files).Count) payload files."
+          Get-FileHash -LiteralPath $installer -Algorithm SHA256 | Format-List
+          Write-Host 'No patch was installed. Artifacts are for inspection only.'
+
+      - name: Upload raw patch payload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: migration-510-payload-${{ github.run_id }}
+          path: artifacts/ProtonVPN.Client.Patch
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installer executable for inspection only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: migration-510-installer-UNTESTED-${{ github.run_id }}
+          path: artifacts/Installer/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build logs, including on failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: migration-510-build-logs-${{ github.run_id }}
+          path: artifacts/logs
+          if-no-files-found: warn
+          retention-days: 14
