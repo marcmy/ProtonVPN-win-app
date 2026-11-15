@@ -16,6 +16,7 @@
     <ItemGroup>
         <!-- Both app processes share a patch destination; resolve the same gRPC API assembly. -->
         <PackageReference Include="Grpc.Core.Api" />
+        <PackageReference Include="Grpc.Net.Common" />
         <PackageReference Include="protobuf-net.Grpc" />
         <PackageReference Include="System.Private.ServiceModel" />
         <PackageReference Include="System.Security.Cryptography.Pkcs" />
