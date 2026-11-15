@@ -56,19 +56,19 @@ public partial class ProfileSettingsSelectorViewModel : ViewModelBase,
     private IProfileSettings _originalProfileSettings = ProfileSettings.Default;
 
     [ObservableProperty]
-    private ProtocolItem? _selectedProtocol;
+    public partial ProtocolItem? SelectedProtocol { get; set; }
 
     [ObservableProperty]
-    private NetShieldModeItem? _selectedNetShieldMode;
+    public partial NetShieldModeItem? SelectedNetShieldMode { get; set; }
 
     [ObservableProperty]
-    private NatTypeItem? _selectedNatType;
+    public partial NatTypeItem? SelectedNatType { get; set; }
 
     [ObservableProperty]
-    private PortForwardingItem? _selectedPortForwardingState;
+    public partial PortForwardingItem? SelectedPortForwardingState { get; set; }
 
     [ObservableProperty]
-    private bool _isCustomSettingsSectionExpanded;
+    public partial bool IsCustomSettingsSectionExpanded { get; set; }
 
     public string NetShieldLearnMoreUrl => _urlsBrowser.NetShieldLearnMore;
 

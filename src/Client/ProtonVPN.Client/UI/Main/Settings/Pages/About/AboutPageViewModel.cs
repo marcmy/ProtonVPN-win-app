@@ -41,12 +41,12 @@ public partial class AboutPageViewModel : SettingsPageViewModelBase,
     private readonly ReleaseViewModelFactory _releaseViewModelFactory;
 
     [ObservableProperty]
-    private string _clientVersion;
+    public partial string ClientVersion { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsToShowErrorComponent))]
     [NotifyPropertyChangedFor(nameof(IsToShowLoadingComponent))]
-    private AppUpdateStatus _latestAppUpdateStatus = AppUpdateStatus.None;
+    public partial AppUpdateStatus LatestAppUpdateStatus { get; set; } = AppUpdateStatus.None;
 
     public bool IsToShowErrorComponent => LatestAppUpdateStatus == AppUpdateStatus.CheckFailed;
 

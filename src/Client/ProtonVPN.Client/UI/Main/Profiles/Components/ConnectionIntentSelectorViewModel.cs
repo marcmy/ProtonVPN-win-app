@@ -62,19 +62,19 @@ public partial class ConnectionIntentSelectorViewModel : ViewModelBase,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FirstLevelHeader))]
-    private FeatureItem? _selectedFeature;
+    public partial FeatureItem? SelectedFeature { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSecondLevel))]
     [NotifyPropertyChangedFor(nameof(HasThirdLevel))]
-    private ConnectionItemBase? _selectedFirstLevelLocationItem;
+    public partial ConnectionItemBase? SelectedFirstLevelLocationItem { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasThirdLevel))]
-    private ConnectionItemBase? _selectedSecondLevelLocationItem;
+    public partial ConnectionItemBase? SelectedSecondLevelLocationItem { get; set; }
 
     [ObservableProperty]
-    private ConnectionItemBase? _selectedThirdLevelLocationItem;
+    public partial ConnectionItemBase? SelectedThirdLevelLocationItem { get; set; }
 
     private IReadOnlyList<ConnectionItemBase> _gateways = [];
     private IReadOnlyList<ConnectionItemBase> _countries = [];

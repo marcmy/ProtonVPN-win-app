@@ -49,8 +49,23 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     public bool IsMeasuringPings => IsActive && ServerHealthHistorySession.Refresh.IsMeasuring;
     public string PingProgressText => ServerHealthHistorySession.Refresh.ProgressText;
 
-    [ObservableProperty]
+
     private ICountriesComponent _selectedCountriesComponent;
+
+    public ICountriesComponent SelectedCountriesComponent
+    {
+        get => _selectedCountriesComponent;
+        set
+        {
+            if (!EqualityComparer<ICountriesComponent>.Default.Equals(_selectedCountriesComponent, value))
+            {
+                OnPropertyChanging(nameof(SelectedCountriesComponent));
+                _selectedCountriesComponent = value;
+                OnSelectedCountriesComponentChanged(value);
+                OnPropertyChanged(nameof(SelectedCountriesComponent));
+            }
+        }
+    }
 
     public override string Header => Localizer.Get("Countries");
 
@@ -162,7 +177,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
                                   ?? CountriesComponents.First();
     }
 
-    partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
+    private void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
         FetchItems();
         StartPingDiscovery();

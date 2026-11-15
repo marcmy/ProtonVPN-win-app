@@ -10,7 +10,7 @@ The repository has two complementary Trivy paths.
 The Medium+ lane emits three durable views:
 
 1. a JSON report containing active findings plus Trivy's suppressed/accepted findings;
-2. a SARIF report containing only active findings, uploaded to GitHub Security on non-PR runs;
+2. a SARIF report containing only active findings, uploaded to GitHub Security on PR and default-branch runs;
 3. a GitHub job summary and rolling 14-day workflow artifact that separate active findings from accepted/suppressed risk and show exception expiry dates.
 
 High/Critical findings still belong to the blocking policy. The Medium+ lane also fails non-PR runs when active High/Critical findings appear so newly disclosed severe advisories become conspicuous between weekly blocking audits.
@@ -36,36 +36,15 @@ Entries in `.trivyignore.yaml` must be:
 
 The Medium+ workflow validates the canonical exception metadata format before scanning. Unexpected entry indentation, duplicate IDs, invalid/missing expiry dates, or missing statements fail closed instead of being interpreted as zero exceptions. The report then surfaces suppressed findings and their statements; an expired exception, or a vulnerability exception with no expiry date, also makes the workflow fail loudly.
 
-## CVE-2026-40021 / log4net 3.2.0
+## log4net 3.6.0 runtime acceptance
 
-Official Proton VPN 5.1.10 source and the maintained fork still pin `log4net` 3.2.0. The complete FastPatch can stage changed third-party dependencies but cannot assume compatibility with the existing official `.deps.json` and strongly named assembly bindings.
+The maintained fork uses log4net **3.6.0**, packaged through the complete FastPatch runtime-dependency closure for Proton VPN 5.1.10. The official source baseline remains at 3.2.0.
 
-Apache describes CVE-2026-40021 as a Medium-severity log-event suppression issue in `XmlLayout` and `XmlLayoutSchemaLog4J` before log4net 3.3.0. Forbidden XML 1.0 characters in attacker-influenced MDC property keys/values or the identity field can cause XML serialization to fail and silently drop the affected log event.
+On 2026-11-15, the maintainer tested PR #166's installer from workflow run 43679387030 on the installed 5.1.10 application. Both ProtonVPN.Client and ProtonVPNService reported loading `v5.1.10\\log4net.dll` version **3.6.0.0**. The maintainer confirmed the startup/reconnection and fresh-log checks, and that the existing dependency manifests remained unchanged.
 
-The current ProtonVPN logging implementation is programmatic: `Log4NetLoggerInitializer` builds a `RollingFileAppender` using `PatternLayout`, wrapped by `HangingIndentLayout`, and configures it with `BasicConfigurator`. The fork does not intentionally configure either affected XML layout. This makes the advisory low-reachability in the current application path, but it is still a vulnerable dependency version and remains an explicit temporary exception rather than being declared unreachable.
+The former CVE-2026-40021 compatibility exception, corresponding NuGet audit suppression, and Dependabot 3.3.x ignore have been removed. New log4net advisories and updates must be evaluated normally.
 
-### Review date
-
-Review this exception no later than **2026-12-31**, matching `.trivyignore.yaml`. The isolated log4net 3.6.0 trial is PR #166. Never merge solely because compile/test CI passes; validate runtime binding on an actual 5.1.10 install.
-
-### Removal conditions
-
-Remove the compatibility exception as soon as one of these paths is proven safe:
-
-1. the installed/released Proton VPN runtime moves to log4net **3.3.0 or newer** and FastPatch targets that runtime; or
-2. FastPatch's runtime packaging model is changed so the fork can safely ship the newer strongly named log4net assembly without assembly/binding incompatibility.
-
-Before removal:
-
-1. verify the installed target's log4net assembly/version and binding behavior;
-2. update `Directory.Packages.props` to the compatible fixed version;
-3. run the logging tests, client/service build, FastPatch runtime-dependency closure, packaging, and installer validation;
-4. perform a target-runtime smoke test that exercises application/service logging;
-5. remove the CVE entry from `.trivyignore.yaml`;
-6. remove the corresponding `NuGetAuditSuppress` from `ProtonVPN.Logging.csproj`;
-7. remove or revise the log4net Dependabot compatibility ignore.
-
-Dependabot intentionally ignores only the current **3.3.x** line using the NuGet `3.3.*` version pattern. A future 3.4+ release is allowed to surface as a new compatibility-review signal rather than being hidden indefinitely.
+Build and test success alone does not establish compatibility with installed official dependency manifests. Future logging upgrades still require client/service runtime loading and logging checks, package closure validation, and a retained rollback backup.
 
 ## Advanced CodeQL and Trivy versions
 

@@ -91,7 +91,7 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     [NotifyPropertyChangedFor(nameof(IsVirtual))]
     [NotifyPropertyChangedFor(nameof(SmartRoutingLabel))]
     [NotifyPropertyChangedFor(nameof(FlagType))]
-    private ConnectionStatus _currentConnectionStatus;
+    public partial ConnectionStatus CurrentConnectionStatus { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Profile))]
@@ -107,7 +107,7 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     [NotifyPropertyChangedFor(nameof(IsP2P))]
     [NotifyPropertyChangedFor(nameof(IsB2B))]
     [NotifyPropertyChangedFor(nameof(FlagType))]
-    private IConnectionIntent? _currentConnectionIntent;
+    public partial IConnectionIntent? CurrentConnectionIntent { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Profile))]
@@ -126,11 +126,11 @@ public partial class ConnectionCardComponentViewModel : ActivatableViewModelBase
     [NotifyPropertyChangedFor(nameof(IsVirtual))]
     [NotifyPropertyChangedFor(nameof(SmartRoutingLabel))]
     [NotifyPropertyChangedFor(nameof(FlagType))]
-    private ConnectionDetails? _currentConnectionDetails;
+    public partial ConnectionDetails? CurrentConnectionDetails { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedFreeCountriesCount))]
-    private int _freeCountriesCount;
+    public partial int FreeCountriesCount { get; set; }
 
     public string FormattedFreeCountriesCount => FreeCountriesCount > FREE_COUNTRIES_DISPLAYED_AS_FLAGS
         ? $"+{FreeCountriesCount - FREE_COUNTRIES_DISPLAYED_AS_FLAGS}"

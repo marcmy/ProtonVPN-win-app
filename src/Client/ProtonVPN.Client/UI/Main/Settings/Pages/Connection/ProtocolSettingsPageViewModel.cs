@@ -42,7 +42,7 @@ public partial class ProtocolSettingsPageViewModel : SettingsPageViewModelBase,
     private readonly IFeatureFlagsObserver _featureFlagsObserver;
 
     [ObservableProperty]
-    private bool _areProtonProtocolsEnabled;
+    public partial bool AreProtonProtocolsEnabled { get; set; }
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.VpnProtocol))]
@@ -55,7 +55,7 @@ public partial class ProtocolSettingsPageViewModel : SettingsPageViewModelBase,
     [NotifyPropertyChangedFor(nameof(IsWireGuardTlsProtocol))]
     [NotifyPropertyChangedFor(nameof(IsOpenVpnUdpProtocol))]
     [NotifyPropertyChangedFor(nameof(IsOpenVpnTcpProtocol))]
-    private VpnProtocol _currentVpnProtocol;
+    public partial VpnProtocol CurrentVpnProtocol { get; set; }
 
     public bool IsProtonProtocolsFeatureEnabled => _featureFlagsObserver.IsProTunEnabled;
 

@@ -31,10 +31,10 @@ public partial class ProfileIconSelectorViewModel : ViewModelBase, IProfileIconS
     private IProfileIcon _originalProfileIcon = ProfileIcon.Default;
 
     [ObservableProperty]
-    private ProfileCategory _selectedCategory;
+    public partial ProfileCategory SelectedCategory { get; set; }
 
     [ObservableProperty]
-    private ProfileColor _selectedColor;
+    public partial ProfileColor SelectedColor { get; set; }
 
     public ProfileIconSelectorViewModel(
         IViewModelHelper viewModelHelper)

@@ -48,10 +48,10 @@ public partial class ActivePortComponentViewModel : ActivatableViewModelBase,
     [NotifyPropertyChangedFor(nameof(IsFetchingPort))]
     [NotifyPropertyChangedFor(nameof(IsPortUnavailable))]
     [NotifyPropertyChangedFor(nameof(Header))]
-    private int? _activePortNumber;
+    public partial int? ActivePortNumber { get; set; }
 
     [ObservableProperty]
-    private string _lastPortChangeTagline = string.Empty;
+    public partial string LastPortChangeTagline { get; set; } = string.Empty;
 
     public string Header => HasActivePortNumber
         ? ActivePortNumber?.ToString() ?? PORT_NUMBER_PLACEHOLDER

@@ -44,10 +44,10 @@ public partial class SsoLoginOverlayViewModel :  OverlayViewModelBase<IMainWindo
     private readonly Regex _uriRegex = new(".+\\/sso\\/login#token=(?<token>.+)&uid=(?<uid>.+)");
 
     [ObservableProperty]
-    private bool _isLoadingPage;
+    public partial bool IsLoadingPage { get; set; }
 
     [ObservableProperty]
-    private WebView2? _ssoWebView;
+    public partial WebView2? SsoWebView { get; set; }
 
     private string? _ssoResponseToken;
     private Uri? _ssoBootstrapUri;

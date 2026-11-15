@@ -34,7 +34,7 @@ public partial class VpnAcceleratorSettingsPageViewModel : SettingsPageViewModel
     private readonly IUrlsBrowser _urlsBrowser;
 
     [ObservableProperty]
-    private bool _isVpnAcceleratorEnabled;
+    public partial bool IsVpnAcceleratorEnabled { get; set; }
 
     public override string Title => Localizer.Get("Settings_Connection_VpnAccelerator");
 

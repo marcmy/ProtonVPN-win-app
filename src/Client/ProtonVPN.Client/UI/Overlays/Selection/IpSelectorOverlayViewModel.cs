@@ -41,30 +41,30 @@ public partial class IpSelectorOverlayViewModel : OverlayViewModelBase<IMainWind
     private List<SelectableSplitTunnelingAddress> _originalAddresses = [];
 
     [ObservableProperty]
-    private string _title = string.Empty;
+    public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _description = string.Empty;
+    public partial string Description { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _caption = string.Empty;
+    public partial string Caption { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDragDropEnabled))]
-    private bool _canReorder;
+    public partial bool CanReorder { get; set; }
 
     [ObservableProperty]
-    private bool _isAddressRangeAuthorized;
+    public partial bool IsAddressRangeAuthorized { get; set; }
 
     [ObservableProperty]
-    private bool _isHostnameAuthorized;
+    public partial bool IsHostnameAuthorized { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddAddressCommand))]
-    private string _currentAddress = string.Empty;
+    public partial string CurrentAddress { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string? _currentAddressError;
+    public partial string? CurrentAddressError { get; set; }
 
     public SmartNotifyObservableCollection<SelectableSplitTunnelingAddress> Addresses { get; } = [];
 

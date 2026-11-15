@@ -24,9 +24,7 @@
     <ItemGroup>
         <PackageReference Include="Autofac" />
         <PackageReference Include="Newtonsoft.Json" />
-        <PackageReference Include="System.Collections.Immutable" />
         <PackageReference Include="System.Management" />
-        <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
     </ItemGroup>
     <PropertyGroup>
         <TargetFramework>$(NetVersion)-windows</TargetFramework>

@@ -17,13 +17,6 @@ updates:
       interval: "daily"
       time: "12:00"
       timezone: "America/New_York"
-    ignore:
-      # Official Proton VPN 5.1.10 source still specifies log4net 3.2.0.
-      # Suppress only the currently incompatible 3.3.x line. A future 3.4+
-      # release should surface as a fresh compatibility-review signal.
-      - dependency-name: "log4net"
-        versions:
-          - "3.3.*"
     open-pull-requests-limit: 100
     cooldown:
       default-days: 7

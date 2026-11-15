@@ -81,7 +81,7 @@ public partial class NoServersPageViewModel : PageViewModelBase<IMainWindowViewN
     public bool IsDebugModeEnabled => _settings.IsDebugModeEnabled;
 
     [ObservableProperty]
-    private bool _isRefreshing;
+    public partial bool IsRefreshing { get; set; }
 
     public NoServersPageViewModel(
         IServersUpdater serversUpdater,

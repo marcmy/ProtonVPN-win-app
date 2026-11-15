@@ -39,7 +39,7 @@ public partial class CurrentProfileIconViewModel : ViewModelBase,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FlagType))]
     [NotifyPropertyChangedFor(nameof(ExitCountry))]
-    private IConnectionProfile? _currentProfile;
+    public partial IConnectionProfile? CurrentProfile { get; set; }
 
     public FlagType FlagType => CurrentProfile?.Location.GetFlagType(_connectionManager.IsConnected) ?? FlagType.Fastest;
 

@@ -53,34 +53,34 @@ public partial class AdvancedSettingsPageViewModel : SettingsPageViewModelBase,
     private readonly IProfileEditor _profileEditor;
 
     [ObservableProperty]
-    private bool _isAlternativeRoutingEnabled;
+    public partial bool IsAlternativeRoutingEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isLocalAreaNetworkAccessEnabled;
+    public partial bool IsLocalAreaNetworkAccessEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isLocalDnsEnabled;
+    public partial bool IsLocalDnsEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isIpv6LeakProtectionEnabled;
+    public partial bool IsIpv6LeakProtectionEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isIpv6Enabled;
+    public partial bool IsIpv6Enabled { get; set; }
 
     [ObservableProperty]
-    private bool _isPortForwardingForAppsEnabled;
+    public partial bool IsPortForwardingForAppsEnabled { get; set; }
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.OpenVpnAdapter))]
     [NotifyPropertyChangedFor(nameof(IsTunAdapter))]
     [NotifyPropertyChangedFor(nameof(IsTapAdapter))]
-    private OpenVpnAdapter _currentOpenVpnAdapter;
+    public partial OpenVpnAdapter CurrentOpenVpnAdapter { get; set; }
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.NatType))]
     [NotifyPropertyChangedFor(nameof(IsStrictNatType))]
     [NotifyPropertyChangedFor(nameof(IsModerateNatType))]
-    private NatType _currentNatType;
+    public partial NatType CurrentNatType { get; set; }
 
     public IConnectionProfile? CurrentProfile => ConnectionManager.CurrentConnectionIntent as IConnectionProfile;
 

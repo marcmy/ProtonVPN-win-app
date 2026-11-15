@@ -44,17 +44,17 @@ public partial class IpAddressFlyoutViewModel : ActivatableViewModelBase,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DeviceIpAddressOrHidden))]
     [NotifyPropertyChangedFor(nameof(IsIpAddressExposed))]
-    private string _deviceIpAddress = EmptyValueExtensions.DEFAULT;
+    public partial string DeviceIpAddress { get; set; } = EmptyValueExtensions.DEFAULT;
 
     [ObservableProperty]
-    private string _serverIpv4Address = EmptyValueExtensions.DEFAULT;
+    public partial string ServerIpv4Address { get; set; } = EmptyValueExtensions.DEFAULT;
 
     [ObservableProperty]
-    private string _serverIpv6Address = EmptyValueExtensions.DEFAULT;
+    public partial string ServerIpv6Address { get; set; } = EmptyValueExtensions.DEFAULT;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DeviceIpAddressOrHidden))]
-    private bool _isIpAddressVisible;
+    public partial bool IsIpAddressVisible { get; set; }
 
     public string IpAddressLearnMoreUri => _urlsBrowser.IpAddressLearnMore;
 

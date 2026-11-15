@@ -81,7 +81,7 @@ public abstract partial class IssueInputField<TValue> : IssueInputField
     [ObservableProperty]
     [NotifyDataErrorInfo]
     [CustomValidation(typeof(IssueInputField), nameof(ValidateFieldValue))]
-    private TValue? _value;
+    public partial TValue? Value { get; set; }
 
     protected IssueInputField()
     {

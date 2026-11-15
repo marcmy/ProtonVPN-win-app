@@ -54,13 +54,13 @@ public partial class MapComponentViewModel : ActivatableViewModelBase,
     private readonly IMainWindowOverlayActivator _mainWindowOverlayActivator;
 
     [ObservableProperty]
-    private bool _isMainWindowVisible;
+    public partial bool IsMainWindowVisible { get; set; }
 
     [ObservableProperty]
-    private List<Country> _countries = [];
+    public partial List<Country> Countries { get; set; } = [];
 
     [ObservableProperty]
-    private Country? _currentCountry;
+    public partial Country? CurrentCountry { get; set; }
 
     public bool IsConnecting => _connectionManager.IsConnecting;
     public bool IsConnected => _connectionManager.IsConnected;

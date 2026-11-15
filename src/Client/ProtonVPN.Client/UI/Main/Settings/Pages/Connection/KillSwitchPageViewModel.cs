@@ -38,14 +38,14 @@ public partial class KillSwitchPageViewModel : SettingsPageViewModelBase
     private readonly IUrlsBrowser _urlsBrowser;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KillSwitchFeatureIconSource))]
-    private bool _isKillSwitchEnabled;
+    public partial bool IsKillSwitchEnabled { get; set; }
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.KillSwitchMode))]
     [NotifyPropertyChangedFor(nameof(IsStandardKillSwitch))]
     [NotifyPropertyChangedFor(nameof(IsAdvancedKillSwitch))]
     [NotifyPropertyChangedFor(nameof(KillSwitchFeatureIconSource))]
-    private KillSwitchMode _currentKillSwitchMode;
+    public partial KillSwitchMode CurrentKillSwitchMode { get; set; }
 
     public override string Title => Localizer.Get("Settings_Connection_KillSwitch");
     public ImageSource KillSwitchFeatureIconSource => GetFeatureIconSource(IsKillSwitchEnabled, CurrentKillSwitchMode);

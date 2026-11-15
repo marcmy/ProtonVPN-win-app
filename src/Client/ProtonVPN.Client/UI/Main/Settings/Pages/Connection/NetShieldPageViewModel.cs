@@ -44,7 +44,7 @@ public partial class NetShieldPageViewModel : SettingsPageViewModelBase,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NetShieldFeatureIconSource))]
     [NotifyPropertyChangedFor(nameof(IsNetShieldStatsPanelVisible))]
-    private bool _isNetShieldEnabled;
+    public partial bool IsNetShieldEnabled { get; set; }
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.NetShieldMode))]
@@ -53,7 +53,7 @@ public partial class NetShieldPageViewModel : SettingsPageViewModelBase,
     [NotifyPropertyChangedFor(nameof(IsNetShieldLevelThree))]
     [NotifyPropertyChangedFor(nameof(NetShieldFeatureIconSource))]
     [NotifyPropertyChangedFor(nameof(IsNetShieldStatsPanelVisible))]
-    private NetShieldMode _currentNetShieldMode;
+    public partial NetShieldMode CurrentNetShieldMode { get; set; }
 
     public bool IsNetShieldLevelOne
     {

@@ -42,7 +42,7 @@ public partial class ReportIssueCategoryPageViewModel : ReportIssuePageViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title))]
     [NotifyPropertyChangedFor(nameof(Suggestions))]
-    private IssueCategory? _category;
+    public partial IssueCategory? Category { get; set; }
 
     public List<IssueSuggestion> Suggestions => Category?.Suggestions ?? [];
 

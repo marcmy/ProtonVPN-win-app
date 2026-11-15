@@ -63,10 +63,10 @@ public abstract partial class FeatureWidgetViewModelBase : SideWidgetViewModelBa
     protected readonly IProfileEditor ProfileEditor;
 
     [ObservableProperty]
-    private bool _isFeaturePageDisplayed;
+    public partial bool IsFeaturePageDisplayed { get; set; }
 
     [ObservableProperty]
-    private bool _isFeatureFlyoutOpened;
+    public partial bool IsFeatureFlyoutOpened { get; set; }
 
     public override int SortIndex => (int)ConnectionFeature;
 

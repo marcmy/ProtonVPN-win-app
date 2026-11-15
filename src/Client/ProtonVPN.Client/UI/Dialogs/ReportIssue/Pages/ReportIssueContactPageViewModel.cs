@@ -43,14 +43,14 @@ public partial class ReportIssueContactPageViewModel : ReportIssuePageViewModelB
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title))]
     [NotifyCanExecuteChangedFor(nameof(SendReportCommand))]
-    private IssueCategory? _category;
+    public partial IssueCategory? Category { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendReportCommand))]
-    private bool _isSendingReport;
+    public partial bool IsSendingReport { get; set; }
 
     [ObservableProperty]
-    private bool _includeLogs;
+    public partial bool IncludeLogs { get; set; }
 
     public override string Title => Category?.Name ?? string.Empty;
 

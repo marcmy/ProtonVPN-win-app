@@ -1,5 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Toolkit 8.4 partial-property generation requires the explicit preview language mode. -->
+    <LangVersion>preview</LangVersion>
     <OutputType>WinExe</OutputType>
     <TargetFramework>$(NetVersion)-windows10.0.22621.0</TargetFramework>
     <PreserveCompilationContext>true</PreserveCompilationContext>
@@ -172,11 +174,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
     <PackageReference Include="Newtonsoft.Json" />
-    <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" />
-    <PackageReference Include="System.Private.Uri" />
     <PackageReference Include="System.ServiceModel.Primitives" />
-    <PackageReference Include="System.Text.Encoding.CodePages" />
     <PackageReference Include="WinUIEx" />
   </ItemGroup>
 

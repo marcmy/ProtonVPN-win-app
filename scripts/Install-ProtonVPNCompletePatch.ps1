@@ -1266,6 +1266,73 @@ function Write-AdministratorOnlyTextFile {
     }
 }
 
+function Merge-RuntimeDependencyManifest {
+    param(
+        [Parameter(Mandatory = $true)] [string] $BaselineJson,
+        [Parameter(Mandatory = $true)] $Overlay
+    )
+
+    $document = $BaselineJson | ConvertFrom-Json
+    $targetName = [string] $document.runtimeTarget.name
+    if ($targetName.Split('/')[0] -ne ([string] $Overlay.runtimeTarget).Split('/')[0]) {
+        throw "Runtime dependency overlay framework does not match installed manifest: $targetName"
+    }
+    $targetProperty = $document.targets.PSObject.Properties[$targetName]
+    if ($null -eq $targetProperty) {
+        throw "Installed dependency manifest has no active runtime target: $targetName"
+    }
+    $target = $targetProperty.Value
+    $replacementAssets = @{}
+    $entry = [ordered]@{}
+    foreach ($kind in @('runtime', 'native', 'resources')) {
+        $assets = [ordered]@{}
+        foreach ($asset in $Overlay.assets.$kind.PSObject.Properties) {
+            $path = $asset.Name.Replace('\', '/')
+            $segments = $path.Split('/')
+            if ([IO.Path]::IsPathRooted($path) -or $path.Contains(':') -or
+                $segments -contains '..' -or $segments -contains '' -or
+                ($kind -ne 'resources' -and $segments.Length -ne 1)) {
+                throw "Unsafe runtime dependency overlay asset: $path"
+            }
+            if ($path -match '^(hostfxr|hostpolicy|coreclr|ProtonVPN.*)\.(dll|exe)$') {
+                throw "Forbidden runtime dependency overlay asset: $path"
+            }
+            $replacementAssets["$kind/$path"] = $true
+            $assets[$path] = $asset.Value
+        }
+        if ($assets.Count -gt 0) { $entry[$kind] = [pscustomobject] $assets }
+    }
+
+    # A deps file controls probing even for DLLs physically next to the executable.
+    # Replace asset declarations, preserving the installed framework and all unrelated
+    # libraries. A project entry uses app-local probing instead of NuGet-cache probing.
+    foreach ($library in @($target.PSObject.Properties)) {
+        foreach ($kind in @('runtime', 'native', 'resources', 'runtimeTargets')) {
+            $group = $library.Value.PSObject.Properties[$kind]
+            if ($null -eq $group) { continue }
+            foreach ($asset in @($group.Value.PSObject.Properties)) {
+                $assetKind = $kind
+                if ($kind -eq 'runtimeTargets') { $assetKind = [string] $asset.Value.assetType }
+                $path = $asset.Name.Replace('\', '/')
+                $leaf = $path.Split('/')[-1]
+                $destination = if ($assetKind -eq 'resources') {
+                    $parts = $path.Split('/')
+                    ($parts | Select-Object -Last 2) -join '/'
+                } else { $leaf }
+                if ($replacementAssets.ContainsKey("$assetKind/$destination")) {
+                    $group.Value.PSObject.Properties.Remove($asset.Name)
+                }
+            }
+        }
+    }
+    $overlayKey = 'ProtonVPN.FastPatch.Runtime/1.0.0'
+    $target | Add-Member -NotePropertyName $overlayKey -NotePropertyValue ([pscustomobject] $entry) -Force
+    $document.libraries | Add-Member -NotePropertyName $overlayKey -NotePropertyValue ([pscustomobject]@{
+        type = 'project'; serviceable = $false; sha512 = ''
+    }) -Force
+    return $document | ConvertTo-Json -Depth 100
+}
+
 function New-VersionPayload {
     param(
         [Parameter(Mandatory = $true)] [string] $PayloadRoot,
@@ -1303,6 +1370,44 @@ function New-VersionPayload {
         }
     }
 
+    $generatedManifestFiles = @()
+    if (-not $ValidateOnly -and $null -ne $Manifest.PSObject.Properties['dependencyManifestOverlays']) {
+        $installedDirectory = Resolve-TargetDirectory
+        foreach ($overlay in @($Manifest.dependencyManifestOverlays)) {
+            $depsName = switch ([string] $overlay.graph) {
+                'client' { 'ProtonVPN.Client.deps.json' }
+                'service' { 'ProtonVPNService.deps.json' }
+                default { throw "Unknown runtime dependency graph: $($overlay.graph)" }
+            }
+            $installedPath = Join-Path $installedDirectory $depsName
+            if (-not (Test-Path -LiteralPath $installedPath -PathType Leaf)) {
+                throw "Installed runtime dependency manifest is missing: $installedPath"
+            }
+            foreach ($kind in @('runtime', 'native', 'resources')) {
+                foreach ($asset in $overlay.assets.$kind.PSObject.Properties) {
+                    $declared = @($versionFiles | Where-Object {
+                        ([string] $_.path).Replace('\', '/') -eq $asset.Name.Replace('\', '/')
+                    })
+                    if ($declared.Count -ne 1) {
+                        throw "Runtime dependency overlay asset is not a validated version payload file: $($asset.Name)"
+                    }
+                }
+            }
+            $mergedJson = Merge-RuntimeDependencyManifest -BaselineJson (Get-Content -LiteralPath $installedPath -Raw) -Overlay $overlay
+            $generatedPath = Join-Path $Destination $depsName
+            if ($TrustedDestination) {
+                Write-AdministratorOnlyTextFile -Path $generatedPath -Content $mergedJson
+            } else {
+                [IO.File]::WriteAllText($generatedPath, $mergedJson, [Text.UTF8Encoding]::new($false))
+            }
+            $generatedManifestFiles += [ordered]@{
+                path = $depsName
+                size = (Get-Item -LiteralPath $generatedPath).Length
+                sha256 = Get-Sha256HexFromFile -Path $generatedPath
+            }
+        }
+    }
+
     $versionManifestFiles = @(
         foreach ($file in $versionFiles) {
             [ordered]@{
@@ -1322,7 +1427,7 @@ function New-VersionPayload {
         sourceRef = $sourceRefValue
         workflowRunId = $workflowRunIdValue
         builtAtUtc = [DateTime]::UtcNow.ToString('o')
-        files = $versionManifestFiles
+        files = @($versionManifestFiles) + @($generatedManifestFiles)
     }
     $versionManifestJson = $versionManifest | ConvertTo-Json -Depth 6
     $versionManifestPath = Join-Path $Destination 'patch-manifest.json'

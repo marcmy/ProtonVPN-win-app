@@ -42,15 +42,15 @@ public partial class NetShieldStatsViewModel : ActivatableViewModelBase,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TrackersStoppedLabel))]
-    private long _numberOfTrackersStopped;
+    public partial long NumberOfTrackersStopped { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AdsBlockedLabel))]
-    private long _numberOfAdsBlocked;
+    public partial long NumberOfAdsBlocked { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DataSaved))]
-    private long _dataSavedInBytes;
+    public partial long DataSavedInBytes { get; set; }
 
     public string AdsBlockedLabel => Localizer.GetPlural("Home_NetShield_AdsBlocked", NumberOfAdsBlocked);
     public string TrackersStoppedLabel => Localizer.GetPlural("Home_NetShield_TrackersStopped", NumberOfTrackersStopped);

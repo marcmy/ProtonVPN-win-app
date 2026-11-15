@@ -44,11 +44,11 @@ public partial class CustomDnsServersViewModel : SettingsPageViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIpv6DnsServersWhileIpv6Disabled))]
-    private bool _isIpv6Enabled;
+    public partial bool IsIpv6Enabled { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIpv6DnsServersWhileIpv6Disabled))]
-    private bool _isCustomDnsServersEnabled;
+    public partial bool IsCustomDnsServersEnabled { get; set; }
 
     public override string Title => Localizer.Get("Settings_Connection_Advanced_CustomDnsServers");
 

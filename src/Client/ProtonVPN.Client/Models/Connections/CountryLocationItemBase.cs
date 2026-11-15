@@ -36,7 +36,7 @@ namespace ProtonVPN.Client.Models.Connections;
 public abstract partial class CountryLocationItemBase : HostLocationItemBase<Country>
 {
     [ObservableProperty]
-    private bool _isCountryExpanded;
+    public partial bool IsCountryExpanded { get; set; }
 
     public Country Country { get; }
 

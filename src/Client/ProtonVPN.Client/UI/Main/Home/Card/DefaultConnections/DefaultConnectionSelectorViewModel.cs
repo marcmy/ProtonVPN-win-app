@@ -52,7 +52,7 @@ public partial class DefaultConnectionSelectorViewModel : ActivatableViewModelBa
     public SmartObservableCollection<object> ConnectionsList => _defaultConnectionSelectionManager.Connections;
 
     [ObservableProperty]
-    private object? _selectedDefaultConnection;
+    public partial object? SelectedDefaultConnection { get; set; }
 
     public DefaultConnectionSelectorViewModel(
         IViewModelHelper viewModelHelper,

@@ -55,7 +55,7 @@ public abstract partial class SettingsPageViewModelBase : PageViewModelBase<ISet
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCommand))]
-    private bool _isPageReady;
+    public partial bool IsPageReady { get; set; }
 
     public string ApplyCommandText => Localizer.Get(IsReconnectionRequired()
         ? "Common_Actions_Reconnect"

@@ -52,7 +52,7 @@ public partial class ConnectionPreferencesSettingsPageViewModel : SettingsPageVi
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.DefaultConnection))]
-    private object? _selectedDefaultConnection;
+    public partial object? SelectedDefaultConnection { get; set; }
 
     public override string Title => Localizer.Get("Settings_Connection_ConnectionPreferences");
 

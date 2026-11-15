@@ -30,7 +30,7 @@ public abstract partial class SideWidgetViewModelBase : WidgetViewModelBase, ISi
     protected readonly IMainViewNavigator MainViewNavigator;
 
     [ObservableProperty]
-    private bool _isSelected;
+    public partial bool IsSelected { get; set; }
 
     protected SideWidgetViewModelBase(
         IMainViewNavigator mainViewNavigator,

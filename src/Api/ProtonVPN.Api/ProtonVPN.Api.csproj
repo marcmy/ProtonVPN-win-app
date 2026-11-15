@@ -27,7 +27,6 @@
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Polly" />
         <PackageReference Include="Polly.Contrib.WaitAndRetry" />
-        <PackageReference Include="System.Net.Http" />
         <PackageReference Include="TimeZoneConverter" />
     </ItemGroup>
 </Project>

@@ -41,18 +41,18 @@ public partial class TwoFactorPageViewModel : LoginPageViewModelBase
     private readonly IUrlsBrowser _urlsBrowser;
 
     [ObservableProperty]
-    private bool _isToShowError;
+    public partial bool IsToShowError { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AuthenticateWithCodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuthenticateWithSecurityKeyCommand))]
-    private bool _isAuthenticating;
+    public partial bool IsAuthenticating { get; set; }
 
     [ObservableProperty]
-    private bool _isAuthenticatorModeSelected;
+    public partial bool IsAuthenticatorModeSelected { get; set; }
 
     [ObservableProperty]
-    private bool _isSecurityKeyModeSelected;
+    public partial bool IsSecurityKeyModeSelected { get; set; }
 
     public bool CanSwitchTwoFactorMode => _userAuthenticator.IsTwoFactorAuthenticatorModeEnabled
                                        && _userAuthenticator.IsTwoFactorSecurityKeyModeEnabled;

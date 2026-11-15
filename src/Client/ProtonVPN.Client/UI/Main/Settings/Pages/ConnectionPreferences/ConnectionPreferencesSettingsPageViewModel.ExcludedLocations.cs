@@ -33,10 +33,10 @@ public partial class ConnectionPreferencesSettingsPageViewModel
     private string _normalizedSearchInput = string.Empty;
 
     [ObservableProperty]
-    private bool _isLocationSelectorOpen;
+    public partial bool IsLocationSelectorOpen { get; set; }
 
     [ObservableProperty]
-    private string _searchInput = string.Empty;
+    public partial string SearchInput { get; set; } = string.Empty;
 
     public bool IsInSearchMode => !string.IsNullOrWhiteSpace(_normalizedSearchInput);
 

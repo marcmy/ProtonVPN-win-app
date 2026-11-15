@@ -35,7 +35,7 @@ public partial class ServerLoadFlyoutViewModel : ActivatableViewModelBase,
     private readonly IConnectionManager _connectionManager;
 
     [ObservableProperty]
-    private double _serverLoad;
+    public partial double ServerLoad { get; set; }
 
     public string ServerLoadLearnMoreUri => _urlsBrowser.ServerLoadLearnMore;
 

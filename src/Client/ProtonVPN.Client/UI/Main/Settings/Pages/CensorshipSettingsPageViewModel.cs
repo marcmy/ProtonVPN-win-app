@@ -34,10 +34,10 @@ public partial class CensorshipSettingsPageViewModel : SettingsPageViewModelBase
     private readonly IUrlsBrowser _urlsBrowser;
 
     [ObservableProperty]
-    private bool _isShareStatisticsEnabled;
+    public partial bool IsShareStatisticsEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isShareCrashReportsEnabled;
+    public partial bool IsShareCrashReportsEnabled { get; set; }
 
     public override string Title => Localizer.Get("Settings_Improve_Censorship");
 

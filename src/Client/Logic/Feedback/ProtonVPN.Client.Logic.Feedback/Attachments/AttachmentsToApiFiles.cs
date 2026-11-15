@@ -52,7 +52,7 @@ public class AttachmentsToApiFiles : IEnumerable<File>
         {
             int length = (int)fs.Length;
             byte[] buffer = new byte[length];
-            fs.Read(buffer, 0, length);
+            fs.ReadExactly(buffer);
             return buffer;
         }
     }

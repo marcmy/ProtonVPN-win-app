@@ -45,7 +45,7 @@ public partial class ProtocolFlyoutViewModel : ActivatableViewModelBase,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProtocolName))]
     [NotifyPropertyChangedFor(nameof(ProtocolDescription))]
-    private VpnProtocol? _protocol;
+    public partial VpnProtocol? Protocol { get; set; }
 
     public string ProtocolName => Localizer.GetVpnProtocol(Protocol);
 

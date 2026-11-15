@@ -35,7 +35,7 @@ public partial class UpsellCarouselShellViewModel : ShellViewModelBase<IUpsellCa
     private readonly IAccountUpgradeUrlLauncher _accountUpgradeUrlLauncher;
 
     [ObservableProperty]
-    private IUpsellFeaturePage? _selectedUpsellFeaturePage;
+    public partial IUpsellFeaturePage? SelectedUpsellFeaturePage { get; set; }
 
     public ObservableCollection<IUpsellFeaturePage> UpsellFeaturePages { get; }
 
