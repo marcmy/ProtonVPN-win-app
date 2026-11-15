@@ -334,6 +334,45 @@ catch (System.IO.FileNotFoundException)
     Assert-Condition ($null -ne $again.libraries.PSObject.Properties['Probe/1.0.0']) 'Installed application library was removed.'
     Assert-Condition (@($again.targets.($again.runtimeTarget.name).PSObject.Properties | Where-Object Name -eq 'ProtonVPN.FastPatch.Runtime/1.0.0').Count -eq 1) 'Repeated merge duplicated the overlay.'
 
+    foreach ($name in @('New-VersionPayload', 'Get-Sha256HexFromFile')) {
+        $definition = $ast.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
+        }, $true)
+        Invoke-Expression $definition.Extent.Text
+    }
+    # Exercise the actual installer handoff, including the regenerated file hash.
+    $installed = Join-Path $fixture 'installed'
+    $versionPayload = Join-Path $fixture 'version-payload'
+    Write-TestText (Join-Path $installed 'ProtonVPN.Client.deps.json') $baselineJson
+    function Resolve-TargetDirectory { return $installed }
+    $ValidateOnly = $false
+    $dllPath = Join-Path $output 'FastPatch.NewDependency.dll'
+    $manifest = [pscustomobject]@{
+        targetVersion = '5.1.10'
+        buildMode = 'client'
+        sourceCommit = ('a' * 40)
+        dependencyManifestOverlays = @([pscustomobject]@{
+            graph = 'client'
+            runtimeTarget = $overlay.runtimeTarget
+            assets = $overlay.assets
+        })
+        files = @([pscustomobject]@{
+            path = 'FastPatch.NewDependency.dll'
+            scope = 'version'
+            size = (Get-Item $dllPath).Length
+            sha256 = (Get-FileHash $dllPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        })
+    }
+    New-VersionPayload -PayloadRoot $output -Manifest $manifest -Destination $versionPayload
+    $handoff = Get-Content (Join-Path $versionPayload 'patch-manifest.json') -Raw | ConvertFrom-Json
+    $generatedDeps = @($handoff.files | Where-Object path -eq 'ProtonVPN.Client.deps.json')
+    Assert-Condition ($generatedDeps.Count -eq 1) 'Installer did not include the regenerated dependency manifest in its validated handoff.'
+    Assert-Condition ($generatedDeps[0].sha256 -eq (Get-FileHash (Join-Path $versionPayload 'ProtonVPN.Client.deps.json') -Algorithm SHA256).Hash.ToLowerInvariant()) 'Generated dependency manifest hash is incorrect.'
+    Write-TestText $depsPath (Get-Content (Join-Path $versionPayload 'ProtonVPN.Client.deps.json') -Raw)
+    & dotnet (Join-Path $output 'Probe.dll')
+    Assert-Condition ($LASTEXITCODE -eq 0) 'Installer-generated manifest did not restore runtime probing.'
+
     $unsafe = [pscustomobject]@{
         runtimeTarget = $overlay.runtimeTarget
         assets = [pscustomobject]@{
