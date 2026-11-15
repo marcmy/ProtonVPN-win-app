@@ -14,6 +14,43 @@ on:
 permissions: {}
 
 jobs:
+  nuget-lockfiles:
+    name: Restore resolved NuGet dependency graph
+    runs-on: windows-latest
+    timeout-minutes: 55
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'schedule' && 'marc/proton-main' || github.sha }}
+          persist-credentials: false
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.13'
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+      - name: Test the graph parser's fail-closed behavior
+        run: python .github/scripts/test_nuget_snapshot.py
+      - name: Restore supported Windows projects with lockfiles
+        run: ./.github/scripts/restore-nuget-lockfiles.ps1
+      - name: Verify transitive NuGet graph
+        run: python .github/scripts/submit-nuget-snapshot.py
+      - name: Export generated lockfiles to SBOM job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: nuget-lockfiles-${{ github.run_id }}
+          path: src/**/packages.lock.json
+          if-no-files-found: error
+          retention-days: 1
+
   trivy:
     name: Trivy security scan
     runs-on: ubuntu-24.04
@@ -52,6 +89,7 @@ jobs:
 
   syft:
     name: Generate independent SBOM
+    needs: nuget-lockfiles
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -65,15 +103,50 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'schedule' && 'marc/proton-main' || github.sha }}
           persist-credentials: false
+      - name: Import restored NuGet lockfiles
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nuget-lockfiles-${{ github.run_id }}
+          path: src
+      - name: Confirm restored NuGet evidence is present
+        shell: bash
+        run: |
+          count=$(find src -name packages.lock.json -type f | wc -l)
+          test "$count" -ge 3 || { echo "::error::NuGet lockfile coverage missing ($count)"; exit 1; }
+          grep -R -i -q '"log4net"' src --include=packages.lock.json || {
+            echo "::error::Resolved log4net dependency absent from SBOM inputs"
+            exit 1
+          }
+          echo "Syft input includes $count restored NuGet lockfiles"
       - name: Generate SPDX SBOM with Syft
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: .
           config: .syft.yaml
           format: spdx-json
+          output-file: sbom.spdx.json
           artifact-name: sbom.spdx.json
 
           # Pull requests get a real SBOM check without a write-capable token.
           dependency-snapshot: false
           upload-artifact: true
           upload-release-assets: false
+      - name: Verify independent SBOM contains resolved NuGet packages
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('sbom.spdx.json')
+          if not p.is_file():
+              raise SystemExit('::error::Syft did not export an inspectable SPDX document')
+          d = json.loads(p.read_text(encoding='utf-8'))
+          packages = d.get('packages', [])
+          names = {x.get('name', '').lower() for x in packages}
+          if len(packages) < 90 or 'log4net' not in names:
+              raise SystemExit(
+                  f'::error::Incomplete SBOM: {len(packages)} package records; '
+                  f'log4net present: {"log4net" in names}'
+              )
+          print(f'Validated {len(packages)} SPDX package records including log4net.')
+          PY

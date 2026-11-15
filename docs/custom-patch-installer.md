@@ -4,7 +4,9 @@ This tooling replaces the manual copy-over step for patch artifacts built from t
 
 ## What the installer does
 
-`Install-ProtonVPNPatch.ps1`:
+The complete-runtime installer (`Install-ProtonVPNCompletePatch.ps1`) is recommended; the older `Install-ProtonVPNPatch.ps1` is retained as a legacy helper.
+
+`Install-ProtonVPNCompletePatch.ps1`:
 
 1. Requests elevation when it is not already running as administrator.
 2. Selects an installed Proton VPN version folder under `C:\Program Files\Proton\VPN`.
@@ -12,8 +14,8 @@ This tooling replaces the manual copy-over step for patch artifacts built from t
 4. Copies the complete official version folder to a timestamped sibling folder, for example:
 
    ```text
-   C:\Program Files\Proton\VPN\v5.1.9
-   C:\Program Files\Proton\VPN\v5.1.9-backup-20261020-204416
+   C:\Program Files\Proton\VPN\v5.1.10
+   C:\Program Files\Proton\VPN\v5.1.10-backup-20261114-204416
    ```
 
 5. Overlays the custom patch files without deleting untouched official files.
@@ -29,8 +31,8 @@ Backups are intentionally retained after a successful installation. A different 
 Backup retention can be changed per run:
 
 ```powershell
-.\scripts\Install-ProtonVPNPatch.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.9-both.zip `
+.\scripts\Install-ProtonVPNCompletePatch.ps1 `
+    -PatchPath .\protonvpn-client-patch-5.1.10-both.zip `
     -BackupRetentionCount 5
 ```
 
@@ -53,30 +55,30 @@ set, file sizes, and SHA-256 hashes. `-ValidateOnly` performs the same verificat
 without changing the installed application:
 
 ```powershell
-.\scripts\Install-ProtonVPNPatch.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.9-both `
-    -TargetVersion 5.1.9 `
+.\scripts\Install-ProtonVPNCompletePatch.ps1 `
+    -PatchPath .\protonvpn-client-patch-5.1.10-both `
+    -TargetVersion 5.1.10 `
     -ValidateOnly
 ```
 
-The self-extracting installer builder requires this manifest and bakes its `targetVersion` into the launcher. An installer built for `5.1.9` therefore passes:
+The self-extracting installer builder requires this manifest and bakes its `targetVersion` into the launcher. An installer built for `5.1.10` therefore passes:
 
 ```text
--TargetVersion 5.1.9
+-TargetVersion 5.1.10
 ```
 
-The install stops if `C:\Program Files\Proton\VPN\v5.1.9` is not present. It will not silently apply 5.1.9 binaries to a newer `v5.1.10` folder.
+The install stops if `C:\Program Files\Proton\VPN\v5.1.10` is not present. It will not silently apply 5.1.10 binaries to a different future version folder such as `v5.1.11`.
 
-`Install-ProtonVPNPatch.ps1` requires a valid manifest. If `-TargetVersion` is
-omitted, the selected installed folder must still exactly match the manifest's
-target version.
+`Install-ProtonVPNCompletePatch.ps1` requires a valid manifest. If
+`-TargetVersion` is omitted, the selected installed folder must still exactly
+match the manifest's target version.
 
 ## Install from an existing patch ZIP
 
 ```powershell
-.\scripts\Install-ProtonVPNPatch.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.9-both.zip `
-    -TargetVersion 5.1.9
+.\scripts\Install-ProtonVPNCompletePatch.ps1 `
+    -PatchPath .\protonvpn-client-patch-5.1.10-both.zip `
+    -TargetVersion 5.1.10
 ```
 
 The script also accepts an already-extracted patch directory.
@@ -85,18 +87,21 @@ Use `-WhatIf` to resolve the target and payload without stopping services, creat
 
 ## Build a single self-extracting EXE
 
-`New-ProtonVPNPatchSfx.ps1` uses the Windows-built-in IExpress tool. It packages three files into one EXE:
+`New-ProtonVPNPatchSfx.ps1` compiles a self-contained C# executable using the Windows .NET Framework C# compiler (not IExpress). The EXE embeds three hash-verified resources:
 
-- `payload.zip`
-- `Install-ProtonVPNPatch.ps1`
-- `Install-ProtonVPNPatch.cmd`
+- `FastPatch.Payload`: `payload.zip`, containing the patch manifest and files
+- `FastPatch.Installer`: the selected installer PowerShell script, internally named `Install-ProtonVPNPatch.ps1`
+- `FastPatch.Loader`: the verified PowerShell loader script
+
+For complete-runtime packages, explicitly supply the complete-runtime installer script using `-InstallerScriptPath`.
 
 The supplied patch ZIP or directory must contain exactly one `patch-manifest.json`.
 
 ```powershell
 .\scripts\New-ProtonVPNPatchSfx.ps1 `
-    -PatchPath .\protonvpn-client-patch-5.1.9-both.zip `
-    -OutputPath .\ProtonVPN-Custom-Patch-5.1.9.exe
+    -PatchPath .\protonvpn-client-patch-5.1.10-both.zip `
+    -InstallerScriptPath .\scripts\Install-ProtonVPNCompletePatch.ps1 `
+    -OutputPath .\ProtonVPN-Custom-Patch-5.1.10.exe
 ```
 
 Double-clicking the resulting EXE extracts the payload to a temporary directory, launches the installer, triggers a normal UAC elevation prompt, relaunches Proton VPN when it was open before patching, and leaves the final result visible until Enter is pressed. The relaunched client starts disconnected, and the installer process chain exits afterward.
@@ -106,23 +111,23 @@ Double-clicking the resulting EXE extracts the payload to a temporary directory,
 `Windows fast patch build` produces two separate downloads:
 
 ```text
-protonvpn-client-patch-5.1.9-both.zip
+protonvpn-client-patch-5.1.10-both.zip
 ├─ patch-manifest.json
 └─ raw patch files
 
-protonvpn-custom-patch-installer-5.1.9-both.zip
-└─ ProtonVPN-Custom-Patch-5.1.9.exe
+protonvpn-custom-patch-installer-5.1.10-both.zip
+└─ ProtonVPN-Custom-Patch-5.1.10.exe
 ```
 
-`both` is the default and recommended build mode. It stages the client files plus every first-party service runtime assembly declared by `ProtonVPNService.deps.json`; packaging stops if a required assembly is missing or if client and service builds produce different files for the same install path.
+`both` is the default and recommended build mode. It stages the client/launcher, first-party service runtime assemblies from `ProtonVPNService.deps.json`, and the validated changed third-party dependency closure; packaging stops if a required assembly is missing or if client and service builds produce different files for the same install path.
 
-GitHub Actions always wraps an artifact in a ZIP. A future GitHub Release can publish `ProtonVPN-Custom-Patch-5.1.9.exe` directly as a release asset.
+GitHub Actions always wraps an artifact in a ZIP. A future GitHub Release can publish `ProtonVPN-Custom-Patch-5.1.10.exe` directly as a release asset.
 
 Manual build workflows also publish GitHub build-provenance attestations. After
 installing the GitHub CLI, verify a downloaded artifact before use:
 
 ```powershell
-gh attestation verify .\ProtonVPN-Custom-Patch-5.1.9.exe `
+gh attestation verify .\ProtonVPN-Custom-Patch-5.1.10.exe `
     --repo marcmy/ProtonVPN-win-app
 ```
 
@@ -140,12 +145,12 @@ until the matching fork patch is available.
 
 ## Future Proton VPN releases
 
-When Proton publishes source for a new version such as 5.1.6:
+For a hypothetical future 5.1.11 source release:
 
-1. Sync the real 5.1.6 upstream source into the selected base branch.
-2. Run `Future version patch automation` with `source_patch_branch=marc/proton` and `target_version=5.1.6`.
+1. Sync the real 5.1.11 upstream source into the selected base branch.
+2. Run `Future version patch automation` with `source_patch_branch=marc/proton-main` and `target_version=5.1.11`.
 3. The workflow computes the complete fork delta from the common upstream base and ports it onto the new release. This includes NAT-PMP and app port forwarding, split tunneling, server list/search/health, updater behavior, installer tooling, and any other maintained fork changes.
-4. The workflow stamps the fork-aware version, runs the fork regression suite, builds the client and service, creates the manifest, and produces `ProtonVPN-Custom-Patch-5.1.6.exe`.
-5. Resolve any genuine conflicts where both Proton and the fork changed the same code, then test the installer against an official `v5.1.10` installation before publishing it.
+4. The workflow stamps the fork-aware version, runs the fork regression suite, builds the client and service, creates the manifest, and produces `ProtonVPN-Custom-Patch-5.1.11.exe`.
+5. Resolve any genuine conflicts where both Proton and the fork changed the same code, then test the installer against an official installation of that **new exact version** before publishing it.
 
 Changing only the assembly version is not a substitute for syncing Proton's actual new source. Each release installer must be built from that release's real codebase.
