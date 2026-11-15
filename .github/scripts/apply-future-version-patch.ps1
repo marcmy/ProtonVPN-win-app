@@ -853,7 +853,8 @@ if ($usesExternalBase) {
 $protectedTargets = @(
     'main',
     'master',
-    'marc/proton'
+    'marc/proton',
+    'marc/proton-main'
 )
 
 if ($protectedTargets -contains $targetBranch) {

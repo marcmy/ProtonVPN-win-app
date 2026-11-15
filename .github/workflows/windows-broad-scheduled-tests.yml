@@ -15,7 +15,7 @@ env:
   DOTNET_NOLOGO: true
 
 concurrency:
-  group: windows-broad-tests-marc-proton
+  group: windows-broad-tests-marc-proton-main
   cancel-in-progress: true
 
 jobs:
@@ -41,13 +41,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: marc/proton
+          ref: marc/proton-main
           persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '10.0.x'
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
@@ -56,9 +56,11 @@ jobs:
         env:
           TEST_GROUP: ${{ matrix.test_group }}
         run: |
-          .\.github\scripts\test-broad-supported-suite.ps1 `
-            -TestGroup $env:TEST_GROUP `
-            -ArtifactsDirectory artifacts/broad-tests
+          .\.github\scripts\test-migration-vstest.ps1 `
+            -Group $env:TEST_GROUP `
+            -Configuration Release `
+            -Platform x64 `
+            -ArtifactsDirectory "artifacts/broad-tests/$env:TEST_GROUP"
 
       - name: Upload broad test logs and TRX
         if: always()
@@ -82,13 +84,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: marc/proton
+          ref: marc/proton-main
           persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '10.0.x'
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3

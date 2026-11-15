@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FORK_BRANCH: marc/proton
+  FORK_BRANCH: marc/proton-main
 
 jobs:
   check:

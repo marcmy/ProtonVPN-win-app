@@ -78,7 +78,7 @@ class SelectSourcePatchBranchTests(unittest.TestCase):
                 candidate_versions=[],
                 compatible_candidate_versions=[],
             ),
-            "marc/proton",
+            "marc/proton-main",
         )
 
     def test_uses_reviewed_candidate_when_current_release_tag_is_its_base(self):
@@ -112,7 +112,7 @@ class SelectSourcePatchBranchTests(unittest.TestCase):
         )
 
     def test_fails_closed_when_newest_candidate_has_no_common_release_ancestor(self):
-        with self.assertRaisesRegex(ValueError, "refusing to fall back to marc/proton"):
+        with self.assertRaisesRegex(ValueError, "refusing to fall back to marc/proton-main"):
             select_source_patch_branch(
                 "5.1.9",
                 candidate_versions=["5.1.8", "5.1.9"],
@@ -126,7 +126,7 @@ class SelectSourcePatchBranchTests(unittest.TestCase):
                 candidate_versions=["5.1.9"],
                 compatible_candidate_versions=[],
             ),
-            "marc/proton",
+            "marc/proton-main",
         )
 
     def test_rejects_non_semver_target_version(self):

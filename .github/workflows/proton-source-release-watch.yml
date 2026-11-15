@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - marc/proton
+      - marc/proton-main
     paths:
       - .github/workflows/proton-source-release-watch.yml
       - .github/workflows/future-version-patch.yml
@@ -86,7 +86,7 @@ jobs:
           version_key, tag = max(versions)
           version = ".".join(str(part) for part in version_key)
           target_branch = f"future/proton-v{version}"
-          source_patch_branch = "marc/proton"
+          source_patch_branch = "marc/proton-main"
           should_dispatch = True
 
           with tempfile.TemporaryDirectory(prefix="proton-source-watch-") as repository:
@@ -94,7 +94,7 @@ jobs:
               subprocess.check_call(
                   [
                       "git", "-C", repository, "fetch", "--quiet", "--filter=blob:none", "--no-tags",
-                      fork_url, "+refs/heads/marc/proton:refs/remotes/fork/marc/proton",
+                      fork_url, "+refs/heads/marc/proton-main:refs/remotes/fork/marc/proton-main",
                   ]
               )
               subprocess.check_call(
@@ -106,15 +106,15 @@ jobs:
               ancestry = subprocess.run(
                   [
                       "git", "-C", repository, "merge-base", "--is-ancestor",
-                      f"refs/tags/{tag}", "refs/remotes/fork/marc/proton",
+                      f"refs/tags/{tag}", "refs/remotes/fork/marc/proton-main",
                   ],
                   check=False,
               )
               if ancestry.returncode == 0:
                   should_dispatch = False
-                  print(f"Public source tag is already in marc/proton: {tag}")
+                  print(f"Public source tag is already in marc/proton-main: {tag}")
               elif ancestry.returncode != 1:
-                  raise SystemExit("Unable to compare the public source tag with marc/proton")
+                  raise SystemExit("Unable to compare the public source tag with marc/proton-main")
 
               if should_dispatch:
                   branch_check = subprocess.run(
@@ -247,7 +247,7 @@ jobs:
           set -euo pipefail
           gh workflow run future-version-patch.yml \
             --repo "$GH_REPO" \
-            --ref marc/proton \
+            --ref marc/proton-main \
             -f base_branch="official/$TAG" \
             -f base_repository_url="https://github.com/ProtonVPN/win-app.git" \
             -f base_ref="refs/tags/$TAG" \

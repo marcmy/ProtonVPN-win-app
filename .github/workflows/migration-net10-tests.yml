@@ -1,12 +1,14 @@
-name: Proton VPN 5.1.10 migration tests
+name: Proton VPN .NET 10 VSTest
 
 on:
   push:
     branches:
       - migration/staging
+      - marc/proton-main
   pull_request:
     branches:
-      - migration/v5-master
+      - migration/staging
+      - marc/proton-main
   workflow_dispatch:
 
 permissions:
