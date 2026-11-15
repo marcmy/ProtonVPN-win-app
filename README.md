@@ -8,7 +8,7 @@
 ## About this fork
 
 The maintained fork targets **5.1.10-marc-custom**, based on Proton's
-[official v5.1.10 source](https://github.com/ProtonVPN/win-app/tree/v5.1.10).
+[official 5.1.10 source baseline](https://github.com/ProtonVPN/win-app/tree/52b9967ae9b196117adce7a52774dc148672b72c).
 The earlier 5.1.9 reconstruction and its
 [port ledger](docs/FUTURE_PORT_V5.1.9_CONFLICT_RESOLUTIONS.md) remain available
 for historical reference. Version-specific releases must be patched only against
@@ -31,8 +31,9 @@ Use the [Windows fast patch build workflow](https://github.com/marcmy/ProtonVPN-
 to build a patch for an already installed matching official version. The patch
 manifest records every payload path, size, and SHA-256 digest; the installer
 validates the complete payload before it stops services or changes the installed
-runtime. See [custom patch installer](docs/custom-patch-installer.md) and
-[fork maintenance](docs/FORK_MAINTENANCE.md) for the operating and release rules.
+runtime. See [custom patch installer](docs/custom-patch-installer.md),
+[fork maintenance](docs/FORK_MAINTENANCE.md), and
+[security automation](.github/SECURITY-AUTOMATION.md) for release and audit rules.
 
 Official Proton updates can replace fork-patched files. Do not apply a patch to a
 different release folder; wait for a fork build based on that exact upstream

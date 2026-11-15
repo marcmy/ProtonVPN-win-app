@@ -38,8 +38,9 @@ authority.
 
 ### Patch and release tooling
 
-- Patch payloads contain only required first-party `ProtonVPN*` assemblies and
-  client resources, never a replacement official runtime.
+- Complete FastPatch payloads contain first-party `ProtonVPN*` assemblies,
+  client resources, the launcher and the verified changed third-party dependency
+  closure; they preserve signed drivers and official release-injected variables.
 - Reject conflicting files and unsafe output paths before deleting or staging.
 - Require a versioned manifest with an exact file set, sizes, and SHA-256 hashes.
 - Validate the payload before elevation, service shutdown, backup, or overlay.
@@ -49,32 +50,31 @@ authority.
 ## Dependency policy
 
 Dependabot may open patch and minor updates. Major upgrades require a manual
-compatibility review. The v5.1.8 source pins strongly named `log4net` 3.2.0,
-so this fork must not build a patch against an incompatible log4net identity
-merely because a newer package exists.
+compatibility review. The official 5.1.10 baseline still pins log4net 3.2.0;
+the separate PR #166 tests 3.6.0 against the complete-runtime patch system.
+Changes to strongly named runtime assemblies require installed-app binding tests.
 
 Validate dependency changes with the fast-patch workflow and against an official
 installation of the target version. A successful compile alone is not sufficient
 for an overlay patch.
 
-Use this repository's scoped NuGet dependency-submission workflow for the GitHub
-dependency graph. GitHub's separate Automatic Dependency Submission attempts to
-restore unsupported legacy projects (including an upstream unversioned
-`Grpc.Core` reference) and fails; it can be disabled in repository settings
-without disabling the scoped workflow or Dependabot.
+The scoped NuGet workflow restores supported Windows projects, generates lockfiles,
+validates direct/transitive dependencies and submits a populated GitHub snapshot
+in a separate write-only job. The Syft SBOM now scans these restored lockfiles.
+Unsupported off-solution legacy projects are outside this coverage.
 
 ## Upstream release procedure
 
-`marc/proton` is the single current source branch. Its `AssemblyVersion` names
+`marc/proton-main` is the maintained source branch; historical `marc/proton` (5.1.9) is separately protected. Its `AssemblyVersion` names
 the official release it is based on, and its informational version is
 `<release>-marc-custom`. The Windows fast patch build reads that source version
 and packages only the current release; it does not accept a version override.
 
 The binary release watch compares the newest Proton release with the version
-on `marc/proton`. If its source is not public yet, retain the binary archaeology
+on `marc/proton-main`. If its source is not public yet, retain the binary archaeology
 report and develop a reviewed candidate on `future/proton/v<version>` from the
 current official-source base. That candidate is not a second current release.
-A fully reviewed binary-based port can be promoted to `marc/proton` before the
+A fully reviewed binary-based port can be promoted to `marc/proton-main` before the
 source tag exists. Record its official installer hash, last public source base,
 reconstruction limits, and feature-by-feature decisions in a versioned port ledger.
 The current FastPatch then targets that exact installed official release; it does
@@ -84,7 +84,7 @@ input. Promotion does not mean the unpublished source has been merged.
 
 When Proton publishes the source tag, the source watcher checks that the
 candidate and tag share an official ancestor, then runs the future-port build
-against the new source (or uses `marc/proton` if no candidate remains). Review
+against the new source (or uses `marc/proton-main` if no candidate remains). Review
 semantic overlaps with the binary-based port instead of dropping its fork changes.
 Historical pre-5.1.8 backport cleanup applies only to
 old fork deltas; a source branch already based on official v5.1.8 or newer
@@ -115,3 +115,11 @@ then takes over automatically.
 Official application updates can overwrite the overlay. Keep automatic security
 updates enabled and publish a matching fork patch for each supported upstream
 release instead of applying old binaries to a new runtime.
+
+## Post-migration verification
+
+The default release source is `marc/proton-main` (5.1.10 custom). Use Windows
+.NET 10 VSTest, the fast-patch runtime closure and installer checks, populated
+NuGet submission, independent Syft SBOM, CodeQL and Trivy to review changes.
+Binary dependency upgrades additionally require startup/service/logging
+smoke tests against an **official installation of the exact target release**.

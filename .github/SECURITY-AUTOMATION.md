@@ -19,11 +19,11 @@ Syft remains the independent SBOM generator. Grype is not run in parallel solely
 
 ### Coverage boundary
 
-The Trivy workflows scan the checked-out repository and its dependency manifests. This repository does not currently commit NuGet `packages.lock.json` or restore-generated `project.assets.json` files, so the Medium+ lane is not described as an exhaustive audit of every resolved transitive NuGet package.
+Trivy scans source manifests independently of the restored graph. The NuGet submission and Syft SBOM workflows restore supported Windows client, service and launcher projects with .NET 10, generate temporary `packages.lock.json` files, and validate nonempty direct/transitive graphs. Off-solution legacy projects remain outside this claim.
 
-The shipping client/service FastPatch workflow performs real .NET 8 restores and therefore runs NuGet Audit as part of restore, but .NET 8 defaults `NuGetAuditMode` to `direct`. Successful restore/build output with no `NU1901`-`NU1904` warnings is useful direct-dependency evidence, not proof of complete transitive coverage.
+The scoped Windows dependency-graph restoration explicitly uses `NuGetAuditMode=all`. It refuses snapshots with fewer than 30 resolved NuGet packages, missing log4net, or missing project lockfiles. The write-capable submission job is separate from read-only PR validation.
 
-If stronger resolved-transitive NuGet reporting is added later, prefer an explicit `NuGetAuditMode=all` or resolved package-list step and integrate it with the same exception lifecycle rather than creating a second uncoordinated alert stream.
+Treat a successful job with an empty dependency graph as a failure. GitHub Dependency Submission and Syft lockfile evidence complement, rather than replace, the existing manifest-oriented Trivy scans.
 
 ## Vulnerability exception rules
 
@@ -38,7 +38,7 @@ The Medium+ workflow validates the canonical exception metadata format before sc
 
 ## CVE-2026-40021 / log4net 3.2.0
 
-Current source pins `log4net` 3.2.0 because Proton VPN 5.1.5 installs the strongly named `log4net` 3.2.0.0 runtime assembly used by FastPatch targets.
+Official Proton VPN 5.1.10 source and the maintained fork still pin `log4net` 3.2.0. The complete FastPatch can stage changed third-party dependencies but cannot assume compatibility with the existing official `.deps.json` and strongly named assembly bindings.
 
 Apache describes CVE-2026-40021 as a Medium-severity log-event suppression issue in `XmlLayout` and `XmlLayoutSchemaLog4J` before log4net 3.3.0. Forbidden XML 1.0 characters in attacker-influenced MDC property keys/values or the identity field can cause XML serialization to fail and silently drop the affected log event.
 
@@ -46,7 +46,7 @@ The current ProtonVPN logging implementation is programmatic: `Log4NetLoggerInit
 
 ### Review date
 
-Review this exception no later than **2026-10-31**.
+Review this exception no later than **2026-12-31**, matching `.trivyignore.yaml`. The isolated log4net 3.6.0 trial is PR #166. Never merge solely because compile/test CI passes; validate runtime binding on an actual 5.1.10 install.
 
 ### Removal conditions
 
@@ -66,3 +66,17 @@ Before removal:
 7. remove or revise the log4net Dependabot compatibility ignore.
 
 Dependabot intentionally ignores only the current **3.3.x** line using the NuGet `3.3.*` version pattern. A future 3.4+ release is allowed to surface as a new compatibility-review signal rather than being hidden indefinitely.
+
+## Advanced CodeQL and Trivy versions
+
+GitHub Default Setup previously ran C# buildless extraction on Linux and failed to
+resolve Windows/WinRT types. The candidate `.github/workflows/codeql-advanced.yml`
+uses Windows .NET 10 manual builds for C# and Python 3.13 for Python. Its PR scans
+are validation-only and **do not upload** findings while GitHub Default Setup
+remains enabled. To switch, disable Default Setup in Settings → Advanced Security,
+then set repository variable `ENABLE_ADVANCED_CODEQL=true`. Update required
+CodeQL status checks only after new uploads and checks are confirmed.
+
+The Trivy action code stays SHA-pinned. Both vulnerability workflows explicitly
+request the `latest` scanner binary on each run. Treat a newly released
+scanner's failures as real review events, not a reason to silence scanning.
