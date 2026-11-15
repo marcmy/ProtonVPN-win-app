@@ -16,9 +16,7 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="BouncyCastle.Cryptography" />
-        <PackageReference Include="System.Formats.Asn1" />
         <PackageReference Include="System.Security.Cryptography.ProtectedData" />
-        <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\Logging\ProtonVPN.Logging.Contracts\ProtonVPN.Logging.Contracts.csproj" />
