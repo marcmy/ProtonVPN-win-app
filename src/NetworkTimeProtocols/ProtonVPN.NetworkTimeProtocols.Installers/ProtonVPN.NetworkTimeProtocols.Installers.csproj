@@ -15,8 +15,6 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Autofac" />
-        <PackageReference Include="System.Formats.Asn1" />
-        <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\ProtonVPN.NetworkTimeProtocols.Contracts\ProtonVPN.NetworkTimeProtocols.Contracts.csproj" />

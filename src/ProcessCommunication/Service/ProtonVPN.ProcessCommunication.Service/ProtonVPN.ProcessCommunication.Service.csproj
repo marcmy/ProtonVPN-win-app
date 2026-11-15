@@ -15,8 +15,6 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="protobuf-net.Grpc.AspNetCore" />
-        <PackageReference Include="System.Formats.Asn1" />
-        <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\..\..\Crypto\ProtonVPN.Crypto\ProtonVPN.Crypto.csproj" />

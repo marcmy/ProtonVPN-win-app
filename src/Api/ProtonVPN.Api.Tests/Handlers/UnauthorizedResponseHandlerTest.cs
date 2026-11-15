@@ -304,6 +304,13 @@ public class UnauthorizedResponseHandlerTest
 
         HttpResponseMessage response = new(HttpStatusCode.OK);
 
+        // Configure the mock before requests run: changing its matcher collection
+        // while concurrent requests enumerate it can throw InvalidOperationException.
+        _innerHandler.When(HttpMethod.Get, VPN_INFO_API_URL)
+            .Respond(request => request.Headers.Authorization?.ToString() == AUTH_HEADER_VALUE
+                ? response
+                : new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
         // Act
         Task task1 = Task.CompletedTask;
         Task task2 = Task.CompletedTask;
@@ -320,10 +327,6 @@ public class UnauthorizedResponseHandlerTest
             BreakpointHit request2Hit = await requestBreakpoint.WaitForHit().WaitAsync(TestTimeout);
 
             // Continue first and second requests and get Unauthorized
-            _innerHandler.When(HttpMethod.Get, VPN_INFO_API_URL)
-                .Respond(HttpStatusCode.Unauthorized);
-            _innerHandler.When(HttpMethod.Get, VPN_INFO_API_URL)
-                .Respond(HttpStatusCode.Unauthorized);
             request1Hit.Continue();
             request2Hit.Continue();
 
@@ -331,9 +334,6 @@ public class UnauthorizedResponseHandlerTest
             await tokenClientBreakpoint.WaitForHitAndContinue().WaitAsync(TestTimeout);
 
             // First and second requests retried with new access token
-            _innerHandler.When(HttpMethod.Get, VPN_INFO_API_URL)
-                .WithHeaders(AUTH_HEADER_KEY, AUTH_HEADER_VALUE)
-                .Respond(req => response);
             await requestBreakpoint.WaitForHitAndContinue().WaitAsync(TestTimeout);
             await requestBreakpoint.WaitForHitAndContinue().WaitAsync(TestTimeout);
         }
