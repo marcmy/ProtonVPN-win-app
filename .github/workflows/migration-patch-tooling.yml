@@ -1,0 +1,51 @@
+name: Proton VPN migration patch tooling
+
+on:
+  push:
+    branches:
+      - migration/staging
+    paths:
+      - .github/workflows/migration-patch-tooling.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  patch-tests:
+    name: Patch packaging and secure staging tests
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout migration source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Verify elevated test environment
+        run: |
+          $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+          if (-not $principal.IsInRole(
+              [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+            throw 'Administrator token required for secure staging tests.'
+          }
+
+      - name: Test patch tooling
+        run: ./.github/scripts/test-patch-tooling.ps1
+
+      - name: Test complete patch and secure staging
+        run: ./.github/scripts/test-complete-fast-patch.ps1
