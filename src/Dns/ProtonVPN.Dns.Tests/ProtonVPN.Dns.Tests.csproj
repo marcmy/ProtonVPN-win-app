@@ -32,7 +32,5 @@
         <PackageReference Include="MSTest.TestFramework" />
         <PackageReference Include="NSubstitute" />
         <PackageReference Include="RichardSzalay.MockHttp" />
-        <PackageReference Include="System.Formats.Asn1" />
-        <PackageReference Include="System.Text.Json" />
     </ItemGroup>
 </Project>

@@ -907,8 +907,6 @@
         <PackageReference Include="Microsoft.Graphics.Win2D" />
         <PackageReference Include="Microsoft.WindowsAppSDK" />
         <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
-        <PackageReference Include="System.Formats.Asn1" />
-        <PackageReference Include="System.Text.Json" />
 		<PackageReference Include="Mapsui.WinUI" />
 		<PackageReference Include="Vanara.PInvoke.SHCore" />
 		<PackageReference Include="Vanara.PInvoke.Shell32" />

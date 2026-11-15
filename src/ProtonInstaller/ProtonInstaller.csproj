@@ -9,8 +9,6 @@
         <InvariantGlobalization>true</InvariantGlobalization>
     </PropertyGroup>
     <ItemGroup>
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <Compile Include="..\Common\ProtonVPN.Common.Core\Helpers\OSVersion.cs" Link="Helpers\OSVersion.cs" />

@@ -22,9 +22,7 @@
         <PackageReference Include="MSTest.TestFramework" />
         <PackageReference Include="NSubstitute" />
         <PackageReference Include="System.ComponentModel.Composition" />
-        <PackageReference Include="System.Formats.Asn1" />
         <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
-        <PackageReference Include="System.Text.Json" />
         <PackageReference Include="System.Threading.Tasks.Extensions" />
     </ItemGroup>
 </Project>
