@@ -24,10 +24,10 @@ namespace ProtonVPN.Client.Core.Models;
 public partial class Selectable<T> : ObservableObject
 {
     [ObservableProperty]
-    public partial T Value { get; set; }
+    private T _value;
 
     [ObservableProperty]
-    public partial bool IsSelected { get; set; }
+    private bool _isSelected;
 
     public Selectable(T value)
         : this(value, true)
