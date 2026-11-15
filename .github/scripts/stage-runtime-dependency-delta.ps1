@@ -431,6 +431,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $metadataFile -Paren
 
 $stagedFiles = @{}
 $runtimePackages = @{}
+$dependencyManifestOverlays = [System.Collections.Generic.List[object]]::new()
 
 function Stage-DependencyGraph {
     param(
@@ -447,6 +448,7 @@ function Stage-DependencyGraph {
     $dependencies = Get-DependencyDocument -Path $DependenciesPath
     $closure = Get-RuntimePackageClosure -Dependencies $dependencies -ChangedPackageIds $changedPackageIds
 
+    $graphAssets = [ordered]@{ runtime = [ordered]@{}; native = [ordered]@{}; resources = [ordered]@{} }
     foreach ($packageKey in $closure.PackageKeys) {
         $entry = $closure.Entries[$packageKey]
         $runtimePackages[$packageKey] = [ordered]@{
@@ -476,6 +478,8 @@ function Stage-DependencyGraph {
                 if ($leaf -like '*Tests*.dll' -or $leaf -like '*Test*.dll') {
                     throw "Changed runtime dependency closure unexpectedly contains test assembly '$leaf' from package '$packageKey'."
                 }
+
+                $graphAssets[$kind][$destination.Replace('\\', '/')] = $asset.Value
 
                 $sourcePath = Resolve-BuildAsset `
                     -OutputDirectory $OutputDirectory `
@@ -543,6 +547,8 @@ function Stage-DependencyGraph {
                     throw "Changed runtime dependency closure attempted to stage forbidden runtimeTarget asset '$leaf' from '$packageKey'."
                 }
 
+                $graphAssets[$kind][$destination.Replace('\\', '/')] = $asset.Value
+
                 $sourcePath = Resolve-BuildAsset `
                     -OutputDirectory $OutputDirectory `
                     -DestinationPath $destination `
@@ -582,6 +588,11 @@ function Stage-DependencyGraph {
             }
         }
     }
+    $dependencyManifestOverlays.Add([ordered]@{
+        graph = $GraphName
+        runtimeTarget = $closure.RuntimeTargetName
+        assets = $graphAssets
+    })
 }
 
 if ($changedPackageIds.Count -gt 0) {
@@ -610,6 +621,7 @@ $metadata = [ordered]@{
     upstreamBaseCommit = $UpstreamBaseCommit
     changedDirectPackages = $changedDirectPackages
     runtimePackages = @($runtimePackages.Values | Sort-Object id, version)
+    dependencyManifestOverlays = @($dependencyManifestOverlays.ToArray())
     files = @($stagedFiles.Values | Sort-Object path)
 }
 

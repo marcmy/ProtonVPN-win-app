@@ -332,8 +332,11 @@ $completeManifest['changedDirectPackages'] = @($runtimeMetadata.changedDirectPac
 $completeManifest['runtimeDependencyPackageCount'] = @($runtimeMetadata.runtimePackages).Count
 $completeManifest['runtimeDependencyFileCount'] = @($runtimeMetadata.files).Count
 $completeManifest['runtimeDependencyPackages'] = @($runtimeMetadata.runtimePackages)
+if ($null -ne $runtimeMetadata.PSObject.Properties['dependencyManifestOverlays']) {
+    $completeManifest['dependencyManifestOverlays'] = @($runtimeMetadata.dependencyManifestOverlays)
+}
 $completeManifest['files'] = $manifestFiles
-$completeManifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+$completeManifest | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $manifestPath -Encoding utf8
 
 Write-Host "Complete FastPatch schema v2 manifest contains $($manifestFiles.Count) payload files."
 Write-Host "Launcher included: $launcherIncluded"

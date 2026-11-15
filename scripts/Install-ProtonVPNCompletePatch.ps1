@@ -1266,6 +1266,484 @@ function Write-AdministratorOnlyTextFile {
     }
 }
 
+function Merge-RuntimeDependencyManifest {
+    param(
+        [Parameter(Mandatory = $true)] [string] $BaselineJson,
+        [Parameter(Mandatory = $true)] $Overlay
+    )
+
+    $document = $BaselineJson | ConvertFrom-Json
+    $targetName = [string] $document.runtimeTarget.name
+    if ($targetName.Split('/')[0] -ne ([string] $Overlay.runtimeTarget).Split('/')[0]) {
+        throw "Runtime dependency overlay framework does not match installed manifest: $targetName"
+    }
+    $targetProperty = $document.targets.PSObject.Properties[$targetName]
+    if ($null -eq $targetProperty) {
+        throw "Installed dependency manifest has no active runtime target: $targetName"
+    }
+    $target = $targetProperty.Value
+    $replacementAssets = @{}
+    $entry = [ordered]@{}
+    foreach ($kind in @('runtime', 'native', 'resources')) {
+        $assets = [ordered]@{}
+        foreach ($asset in $Overlay.assets.$kind.PSObject.Properties) {
+            $path = $asset.Name.Replace('\', '/')
+            $segments = $path.Split('/')
+            if ([IO.Path]::IsPathRooted($path) -or $path.Contains(':') -or
+                $segments -contains '..' -or $segments -contains '' -or
+                ($kind -ne 'resources' -and $segments.Length -ne 1)) {
+                throw "Unsafe runtime dependency overlay asset: $path"
+            }
+            if ($path -match '^(hostfxr|hostpolicy|coreclr|ProtonVPN.*)\.(dll|exe)
+    param(
+        [Parameter(Mandatory = $true)] [string] $PayloadRoot,
+        [Parameter(Mandatory = $true)] $Manifest,
+        [Parameter(Mandatory = $true)] [string] $Destination,
+        [switch] $TrustedDestination
+    )
+
+    Remove-Item -LiteralPath $Destination -Recurse -Force -ErrorAction SilentlyContinue
+    if ($TrustedDestination) {
+        New-AdministratorOnlyDirectory -Path $Destination
+    } else {
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    }
+
+    $versionFiles = @($Manifest.files | Where-Object { ([string] $_.scope) -eq 'version' })
+    if ($versionFiles.Count -eq 0) {
+        throw 'Complete patch does not contain any version-folder payload files.'
+    }
+
+    foreach ($file in $versionFiles) {
+        $relativePath = ([string] $file.path).Replace('/', '\')
+        $sourcePath = Join-Path $PayloadRoot $relativePath
+        $targetPath = Join-Path $Destination $relativePath
+        if ($TrustedDestination) {
+            $relativeDirectory = Split-Path -Path $relativePath -Parent
+            Ensure-AdministratorOnlySubdirectory -Root $Destination -RelativePath $relativeDirectory
+            Copy-AdministratorOnlyFile `
+                -SourcePath $sourcePath `
+                -DestinationPath $targetPath `
+                -ExpectedHash ([string] $file.sha256)
+        } else {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Path $targetPath -Parent) | Out-Null
+            Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
+        }
+    }
+
+    $generatedManifestFiles = @()
+    if (-not $ValidateOnly -and $null -ne $Manifest.PSObject.Properties['dependencyManifestOverlays']) {
+        $installedDirectory = Resolve-TargetDirectory
+        foreach ($overlay in @($Manifest.dependencyManifestOverlays)) {
+            $depsName = switch ([string] $overlay.graph) {
+                'client' { 'ProtonVPN.Client.deps.json' }
+                'service' { 'ProtonVPNService.deps.json' }
+                default { throw "Unknown runtime dependency graph: $($overlay.graph)" }
+            }
+            $installedPath = Join-Path $installedDirectory $depsName
+            if (-not (Test-Path -LiteralPath $installedPath -PathType Leaf)) {
+                throw "Installed runtime dependency manifest is missing: $installedPath"
+            }
+            foreach ($kind in @('runtime', 'native', 'resources')) {
+                foreach ($asset in $overlay.assets.$kind.PSObject.Properties) {
+                    $declared = @($versionFiles | Where-Object {
+                        ([string] $_.path).Replace('\', '/') -eq $asset.Name.Replace('\', '/')
+                    })
+                    if ($declared.Count -ne 1) {
+                        throw "Runtime dependency overlay asset is not a validated version payload file: $($asset.Name)"
+                    }
+                }
+            }
+            $mergedJson = Merge-RuntimeDependencyManifest -BaselineJson (Get-Content -LiteralPath $installedPath -Raw) -Overlay $overlay
+            $generatedPath = Join-Path $Destination $depsName
+            if ($TrustedDestination) {
+                Write-AdministratorOnlyTextFile -Path $generatedPath -Content $mergedJson
+            } else {
+                [IO.File]::WriteAllText($generatedPath, $mergedJson, [Text.UTF8Encoding]::new($false))
+            }
+            $generatedManifestFiles += [ordered]@{
+                path = $depsName
+                size = (Get-Item -LiteralPath $generatedPath).Length
+                sha256 = Get-Sha256HexFromFile -Path $generatedPath
+            }
+        }
+    }
+
+    $versionManifestFiles = @(
+        foreach ($file in $versionFiles) {
+            [ordered]@{
+                path = [string] $file.path
+                size = [long] $file.size
+                sha256 = [string] $file.sha256
+            }
+        }
+    )
+    $sourceRefValue = if ($null -ne $Manifest.PSObject.Properties['sourceRef']) { [string] $Manifest.sourceRef } else { '' }
+    $workflowRunIdValue = if ($null -ne $Manifest.PSObject.Properties['workflowRunId']) { [string] $Manifest.workflowRunId } else { '' }
+    $versionManifest = [ordered]@{
+        schemaVersion = 1
+        targetVersion = [string] $Manifest.targetVersion
+        buildMode = [string] $Manifest.buildMode
+        sourceCommit = [string] $Manifest.sourceCommit
+        sourceRef = $sourceRefValue
+        workflowRunId = $workflowRunIdValue
+        builtAtUtc = [DateTime]::UtcNow.ToString('o')
+        files = @($versionManifestFiles) + @($generatedManifestFiles)
+    }
+    $versionManifestJson = $versionManifest | ConvertTo-Json -Depth 6
+    $versionManifestPath = Join-Path $Destination 'patch-manifest.json'
+    if ($TrustedDestination) {
+        Write-AdministratorOnlyTextFile -Path $versionManifestPath -Content $versionManifestJson
+    } else {
+        $versionManifestJson | Set-Content -LiteralPath $versionManifestPath -Encoding utf8
+    }
+}
+
+function Get-BackupDirectories {
+    param(
+        [Parameter(Mandatory = $true)] [string] $Root,
+        [Parameter(Mandatory = $true)] [string] $TargetFolderName
+    )
+
+    if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+        return @()
+    }
+    $pattern = '^' + [Regex]::Escape($TargetFolderName) + '-backup-\d{8}-\d{6}$'
+    return @(
+        Get-ChildItem -LiteralPath $Root -Directory |
+            Where-Object { $_.Name -match $pattern } |
+            Sort-Object Name -Descending
+    )
+}
+
+function Stop-RootLauncherProcesses {
+    param([Parameter(Mandatory = $true)] [string] $LauncherPath)
+
+    $normalizedLauncher = [System.IO.Path]::GetFullPath($LauncherPath)
+    foreach ($process in @(Get-Process -Name 'ProtonVPN.Launcher' -ErrorAction SilentlyContinue)) {
+        try {
+            if (-not [string]::IsNullOrWhiteSpace($process.Path) -and
+                [System.IO.Path]::GetFullPath($process.Path).Equals($normalizedLauncher, [StringComparison]::OrdinalIgnoreCase)) {
+                Stop-Process -Id $process.Id -Force -ErrorAction Stop
+                $process.WaitForExit(5000)
+            }
+        } catch {
+            throw "Could not stop ProtonVPN.Launcher before patching '$normalizedLauncher': $($_.Exception.Message)"
+        }
+    }
+}
+
+function Test-ClientRunningForTarget {
+    param([Parameter(Mandatory = $true)] [string] $TargetDirectory)
+
+    $normalizedTarget = [System.IO.Path]::GetFullPath($TargetDirectory).TrimEnd('\') + '\'
+    foreach ($process in @(Get-Process -Name 'ProtonVPN.Client*' -ErrorAction SilentlyContinue)) {
+        try {
+            $processPath = $process.Path
+        } catch {
+            continue
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($processPath) -and
+            [System.IO.Path]::GetFullPath($processPath).StartsWith($normalizedTarget, [StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+function Invoke-BaseInstaller {
+    param(
+        [Parameter(Mandatory = $true)] [string] $BaseInstallerPath,
+        [Parameter(Mandatory = $true)] [string] $VersionPayloadPath,
+        [Parameter(Mandatory = $true)] [string] $ResolvedTargetVersion
+    )
+
+    $arguments = @(
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', (ConvertTo-QuotedProcessArgument -Value $BaseInstallerPath),
+        '-PatchPath', (ConvertTo-QuotedProcessArgument -Value $VersionPayloadPath),
+        '-InstallRoot', (ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($InstallRoot))),
+        '-TargetVersion', (ConvertTo-QuotedProcessArgument -Value $ResolvedTargetVersion),
+        '-BackupRetentionCount', [string] $BackupRetentionCount
+    )
+    if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) {
+        $arguments += '-BackupRoot'
+        $arguments += ConvertTo-QuotedProcessArgument -Value ([System.IO.Path]::GetFullPath($BackupRoot))
+    }
+    if ($NoRestart) { $arguments += '-NoRestart' }
+    if ($RestartClient) { $arguments += '-RestartClient' }
+    if ($ValidateOnly) { $arguments += '-ValidateOnly' }
+    if (-not [string]::IsNullOrWhiteSpace($TrustedStagePath)) {
+        $arguments += '-TrustedStagePath'
+        $arguments += ConvertTo-QuotedProcessArgument -Value ([IO.Path]::GetFullPath($TrustedStagePath))
+    }
+    if ($WhatIfPreference) { $arguments += '-WhatIf' }
+
+    return Invoke-ProcessAndWait `
+        -FilePath (Get-WindowsPowerShellPath) `
+        -ArgumentText ($arguments -join ' ')
+}
+
+$workingDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("ProtonVPNCompletePatch-{0}" -f [Guid]::NewGuid().ToString('N'))
+$pendingRootBackupDirectory = $null
+$rootLauncherPatched = $false
+$rootLauncherPersisted = $false
+$clientWasRunningBeforeInstall = $false
+$exitCode = 1
+
+try {
+    New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
+    $payloadRoot = Resolve-PatchSource -WorkingDirectory $workingDirectory
+    $manifest = Test-CompletePatchPayload -PayloadRoot $payloadRoot -ExpectedTargetVersion $TargetVersion
+    $resolvedTargetVersion = ([string] $manifest.targetVersion).Trim().TrimStart([char[]] @('v', 'V'))
+
+    if (-not $ValidateOnly -and [string]::IsNullOrWhiteSpace($TrustedStagePath)) {
+        $installerSnapshot = Join-Path $workingDirectory 'Install-ProtonVPNCompletePatch.snapshot.ps1'
+        $manifestSnapshot = Join-Path $workingDirectory 'patch-manifest.snapshot.json'
+        $installerHash = Write-TrustedSnapshot `
+            -Path $installerSnapshot `
+            -Content $script:FastPatchInvocationScriptText
+        $manifestHash = Write-TrustedSnapshot `
+            -Path $manifestSnapshot `
+            -Content $script:ValidatedManifestText
+
+        $forwardedArguments = @(
+            '-InstallRoot',
+            (ConvertTo-QuotedProcessArgument -Value ([IO.Path]::GetFullPath($InstallRoot))),
+            '-BackupRetentionCount',
+            [string] $BackupRetentionCount
+        )
+        if (-not [string]::IsNullOrWhiteSpace($TargetVersion)) {
+            $forwardedArguments += '-TargetVersion'
+            $forwardedArguments += ConvertTo-QuotedProcessArgument -Value $TargetVersion
+        }
+        if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) {
+            $forwardedArguments += '-BackupRoot'
+            $forwardedArguments += ConvertTo-QuotedProcessArgument -Value ([IO.Path]::GetFullPath($BackupRoot))
+        }
+        if ($NoRestart) { $forwardedArguments += '-NoRestart' }
+        if ($RestartClient) { $forwardedArguments += '-RestartClient' }
+        if ($PauseBeforeExit) { $forwardedArguments += '-PauseBeforeExit' }
+        if ($WhatIfPreference) { $forwardedArguments += '-WhatIf' }
+
+        Write-Host 'Complete FastPatch payload validation succeeded; staging immutable bytes for administrator use.'
+        $stageExitCode = Invoke-TrustedStage `
+            -PayloadRoot $payloadRoot `
+            -InstallerSnapshotPath $installerSnapshot `
+            -InstallerHash $installerHash `
+            -ManifestSnapshotPath $manifestSnapshot `
+            -ManifestHash $manifestHash `
+            -InstallerFileName 'Install-ProtonVPNCompletePatch.ps1' `
+            -ForwardedArgumentText ($forwardedArguments -join ' ')
+        exit $stageExitCode
+    }
+
+    if (-not $ValidateOnly) {
+        Assert-TrustedStage -StagePath $TrustedStagePath -PayloadPath $PatchPath
+    }
+
+    $versionPayload = if ($ValidateOnly) {
+        Join-Path $workingDirectory 'VersionPayload'
+    } else {
+        Join-Path $TrustedStagePath 'VersionPayload'
+    }
+    New-VersionPayload `
+        -PayloadRoot $payloadRoot `
+        -Manifest $manifest `
+        -Destination $versionPayload `
+        -TrustedDestination:(-not $ValidateOnly)
+    $baseInstallerPath = Join-Path $payloadRoot 'Tools\Install-ProtonVPNPatch.base.ps1'
+
+    if ($ValidateOnly) {
+        $baseExitCode = Invoke-BaseInstaller `
+            -BaseInstallerPath $baseInstallerPath `
+            -VersionPayloadPath $versionPayload `
+            -ResolvedTargetVersion $resolvedTargetVersion
+        if ($baseExitCode -ne 0) {
+            throw "Base version-folder payload validation failed with exit code $baseExitCode."
+        }
+        Write-Host "Complete FastPatch payload validation succeeded for Proton VPN $resolvedTargetVersion." -ForegroundColor Green
+        $exitCode = 0
+    } else {
+        $targetDirectory = Resolve-TargetDirectory
+        $clientWasRunningBeforeInstall = Test-ClientRunningForTarget -TargetDirectory $targetDirectory
+        $installedVersion = (Split-Path -Leaf $targetDirectory).TrimStart([char[]] @('v', 'V'))
+        if (-not $installedVersion.Equals($resolvedTargetVersion, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Patch targets Proton VPN $resolvedTargetVersion, but the selected installation is $installedVersion."
+        }
+
+        $resolvedInstallRoot = [System.IO.Path]::GetFullPath($InstallRoot)
+        $resolvedBackupRoot = if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
+            Split-Path -Path $targetDirectory -Parent
+        } else {
+            [System.IO.Path]::GetFullPath($BackupRoot)
+        }
+        New-Item -ItemType Directory -Path $resolvedBackupRoot -Force | Out-Null
+
+        $targetFolderName = Split-Path -Leaf $targetDirectory
+        $backupsBefore = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($backup in Get-BackupDirectories -Root $resolvedBackupRoot -TargetFolderName $targetFolderName) {
+            $null = $backupsBefore.Add([System.IO.Path]::GetFullPath($backup.FullName))
+        }
+
+        if ([bool] $manifest.launcherIncluded) {
+            $launcherSource = Join-Path $payloadRoot 'ProtonVPN.Launcher.exe'
+            $launcherTarget = Join-Path $resolvedInstallRoot 'ProtonVPN.Launcher.exe'
+            if (-not (Test-Path -LiteralPath $launcherTarget -PathType Leaf)) {
+                throw "Installed ProtonVPN.Launcher.exe was not found at the install root: $launcherTarget"
+            }
+
+            if ($WhatIfPreference) {
+                Write-Host "What if: replace root launcher '$launcherTarget'."
+            } elseif ($PSCmdlet.ShouldProcess($launcherTarget, 'Replace root ProtonVPN launcher')) {
+                # Root-launcher rollback input must never live in mutable BackupRoot storage.
+                Ensure-AdministratorOnlySubdirectory -Root $TrustedStagePath -RelativePath 'Rollback'
+                $rollbackRoot = Join-Path $TrustedStagePath 'Rollback'
+                $pendingRootBackupDirectory = Join-Path `
+                    $rollbackRoot `
+                    ('InstallRoot-' + [Guid]::NewGuid().ToString('N'))
+                New-AdministratorOnlyDirectory -Path $pendingRootBackupDirectory
+                $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
+                $launcherBackupHash = Get-Sha256HexFromFile -Path $launcherTarget
+                Copy-AdministratorOnlyFile `
+                    -SourcePath $launcherTarget `
+                    -DestinationPath $pendingLauncherBackup `
+                    -ExpectedHash $launcherBackupHash
+                $rootLauncherPatched = $true
+
+                Stop-RootLauncherProcesses -LauncherPath $launcherTarget
+                Copy-Item -LiteralPath $launcherSource -Destination $launcherTarget -Force
+                $expectedLauncherHash = [string] (@($manifest.files | Where-Object { ([string] $_.scope) -eq 'installRoot' })[0].sha256)
+                $installedLauncherHash = Get-Sha256HexFromFile -Path $launcherTarget
+                if (-not $installedLauncherHash.Equals($expectedLauncherHash, [StringComparison]::OrdinalIgnoreCase)) {
+                    throw 'Installed ProtonVPN.Launcher.exe hash verification failed after copy.'
+                }
+            } else {
+                throw 'Root ProtonVPN launcher update was not approved; complete FastPatch installation cancelled.'
+            }
+        }
+
+        $baseExitCode = Invoke-BaseInstaller `
+            -BaseInstallerPath $baseInstallerPath `
+            -VersionPayloadPath $versionPayload `
+            -ResolvedTargetVersion $resolvedTargetVersion
+        if ($baseExitCode -ne 0) {
+            throw "Version-folder FastPatch installation failed with exit code $baseExitCode."
+        }
+
+        if ($rootLauncherPatched -and $pendingRootBackupDirectory) {
+            $newBackups = @(
+                Get-BackupDirectories -Root $resolvedBackupRoot -TargetFolderName $targetFolderName |
+                    Where-Object { -not $backupsBefore.Contains([System.IO.Path]::GetFullPath($_.FullName)) }
+            )
+            if ($newBackups.Count -ge 1) {
+                $selectedBackup = $newBackups | Sort-Object Name -Descending | Select-Object -First 1
+                if ($newBackups.Count -gt 1) {
+                    Write-Warning "Multiple new version backups were found; associating the root launcher backup with '$($selectedBackup.FullName)'."
+                }
+                $installRootBackupDir = Join-Path $selectedBackup.FullName 'InstallRoot'
+                New-Item -ItemType Directory -Path $installRootBackupDir -Force | Out-Null
+                Copy-Item `
+                    -LiteralPath (Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe') `
+                    -Destination (Join-Path $installRootBackupDir 'ProtonVPN.Launcher.exe') `
+                    -Force
+                Remove-Item -LiteralPath $pendingRootBackupDirectory -Recurse -Force
+                $pendingRootBackupDirectory = $null
+                $rootLauncherPersisted = $true
+                Write-Host "Root launcher backup retained with version backup: $installRootBackupDir"
+            } else {
+                Write-Warning "Version patch succeeded, but its new backup directory could not be identified. Root launcher backup remains at '$pendingRootBackupDirectory'."
+            }
+        }
+
+        if (-not $NoRestart -and $RestartClient -and $clientWasRunningBeforeInstall -and
+            -not (Test-ClientRunningForTarget -TargetDirectory $targetDirectory)) {
+            $clientExecutable = Join-Path $targetDirectory 'ProtonVPN.Client.exe'
+            if (Test-Path -LiteralPath $clientExecutable -PathType Leaf) {
+                try {
+                    Write-Host 'Base installer did not leave the previously running Proton VPN Client active; restarting it now.' -ForegroundColor Yellow
+                    Start-Process -FilePath $clientExecutable | Out-Null
+                } catch {
+                    Write-Warning "Could not restart Proton VPN Client after complete patch installation: $($_.Exception.Message)"
+                }
+            }
+        }
+
+        Write-Host 'Complete Proton VPN FastPatch installed successfully.' -ForegroundColor Green
+        $exitCode = 0
+    }
+} catch {
+    Write-Error -Message $_.Exception.Message -ErrorAction Continue
+
+    if ($rootLauncherPatched -and -not $rootLauncherPersisted -and $pendingRootBackupDirectory) {
+        $pendingLauncherBackup = Join-Path $pendingRootBackupDirectory 'ProtonVPN.Launcher.exe'
+        $launcherTarget = Join-Path ([System.IO.Path]::GetFullPath($InstallRoot)) 'ProtonVPN.Launcher.exe'
+        if (Test-Path -LiteralPath $pendingLauncherBackup -PathType Leaf) {
+            try {
+                Stop-RootLauncherProcesses -LauncherPath $launcherTarget
+                Copy-Item -LiteralPath $pendingLauncherBackup -Destination $launcherTarget -Force
+                Write-Host 'Root ProtonVPN launcher restored after failed installation.' -ForegroundColor Yellow
+                Remove-Item -LiteralPath $pendingRootBackupDirectory -Recurse -Force -ErrorAction SilentlyContinue
+                $pendingRootBackupDirectory = $null
+            } catch {
+                Write-Error -Message "Could not restore the root ProtonVPN launcher. Backup remains at '$pendingRootBackupDirectory'. $($_.Exception.Message)" -ErrorAction Continue
+            }
+        }
+    }
+    $exitCode = 1
+} finally {
+    if (Test-Path -LiteralPath $workingDirectory -PathType Container) {
+        Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($PauseBeforeExit) {
+        try { Read-Host 'Press Enter to close' | Out-Null } catch {}
+    }
+}
+
+exit $exitCode
+) {
+                throw "Forbidden runtime dependency overlay asset: $path"
+            }
+            $replacementAssets["$kind/$path"] = $true
+            $assets[$path] = $asset.Value
+        }
+        if ($assets.Count -gt 0) { $entry[$kind] = [pscustomobject] $assets }
+    }
+
+    # A deps file controls probing even for DLLs physically next to the executable.
+    # Replace asset declarations, preserving the installed framework and all unrelated
+    # libraries. A project entry uses app-local probing instead of NuGet-cache probing.
+    foreach ($library in @($target.PSObject.Properties)) {
+        foreach ($kind in @('runtime', 'native', 'resources', 'runtimeTargets')) {
+            $group = $library.Value.PSObject.Properties[$kind]
+            if ($null -eq $group) { continue }
+            foreach ($asset in @($group.Value.PSObject.Properties)) {
+                $assetKind = $kind
+                if ($kind -eq 'runtimeTargets') { $assetKind = [string] $asset.Value.assetType }
+                $path = $asset.Name.Replace('\', '/')
+                $leaf = $path.Split('/')[-1]
+                $destination = if ($assetKind -eq 'resources') {
+                    $parts = $path.Split('/')
+                    ($parts | Select-Object -Last 2) -join '/'
+                } else { $leaf }
+                if ($replacementAssets.ContainsKey("$assetKind/$destination")) {
+                    $group.Value.PSObject.Properties.Remove($asset.Name)
+                }
+            }
+        }
+    }
+    $overlayKey = 'ProtonVPN.FastPatch.Runtime/1.0.0'
+    $target | Add-Member -NotePropertyName $overlayKey -NotePropertyValue ([pscustomobject] $entry) -Force
+    $document.libraries | Add-Member -NotePropertyName $overlayKey -NotePropertyValue ([pscustomobject]@{
+        type = 'project'; serviceable = $false; sha512 = ''
+    }) -Force
+    return $document | ConvertTo-Json -Depth 100
+}
+
 function New-VersionPayload {
     param(
         [Parameter(Mandatory = $true)] [string] $PayloadRoot,

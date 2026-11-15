@@ -127,6 +127,9 @@ function Test-RuntimeDependencyClosure {
     Assert-Condition (@($metadata.changedDirectPackages).Count -eq 3) 'Changed direct package roots were not recorded.'
     Assert-Condition (@($metadata.runtimePackages).Count -eq 4) 'Transitive runtime package closure is incomplete.'
     Assert-Condition (@($metadata.files).Count -eq 3) 'Runtime dependency staged file count is incorrect.'
+    $overlay = @($metadata.dependencyManifestOverlays)[0]
+    Assert-Condition ([string] $overlay.graph -eq 'client') 'Client runtime probing metadata is missing.'
+    Assert-Condition ($null -ne $overlay.assets.runtime.PSObject.Properties['Grpc.Core.Api.dll']) 'Transitive assembly is absent from runtime probing metadata.'
 
     $runtimePackageNames = @($metadata.runtimePackages | ForEach-Object { [string] $_.id })
     Assert-Condition ($runtimePackageNames -contains 'Grpc.Core.Api') 'Grpc transitive dependency was not followed.'
@@ -198,6 +201,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
     Assert-Condition ([bool] $manifest.launcherIncluded) 'Manifest does not record the application launcher.'
     Assert-Condition ([string] $manifest.upstreamBaseCommit -eq ('a' * 40)) 'Upstream baseline provenance was lost.'
     Assert-Condition ([int] $manifest.runtimeDependencyFileCount -eq 3) 'Runtime dependency file count is incorrect.'
+    Assert-Condition (@($manifest.dependencyManifestOverlays).Count -eq 1) 'Complete manifest dropped runtime probing metadata.'
 
     $entries = @{}
     foreach ($file in @($manifest.files)) { $entries[[string] $file.path] = $file }
@@ -266,6 +270,84 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Path $OutputPath -Parent)
     Assert-Condition $tamperRejected 'Tampered runtime dependency was accepted.'
 }
 
+function Test-DependencyManifestRuntimeProbing {
+    # Exercise the real .NET host, rather than only asserting JSON shapes.
+    $tokens = $null
+    $errors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseFile($completeInstallerScript, [ref] $tokens, [ref] $errors)
+    Assert-Condition ($errors.Count -eq 0) 'Complete installer has PowerShell syntax errors.'
+    $mergeFunction = $ast.Find({
+        param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -eq 'Merge-RuntimeDependencyManifest'
+    }, $true)
+    Assert-Condition ($null -ne $mergeFunction) 'Runtime manifest merge function is missing.'
+    Invoke-Expression $mergeFunction.Extent.Text
+
+    $fixture = Join-Path $testRoot 'runtime-probing'
+    $probe = Join-Path $fixture 'probe'
+    $dependency = Join-Path $fixture 'dependency'
+    $output = Join-Path $fixture 'output'
+    $dependencyOutput = Join-Path $fixture 'dependency-output'
+    Write-TestText (Join-Path $probe 'Probe.csproj') '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>'
+    Write-TestText (Join-Path $probe 'Program.cs') @'
+try
+{
+    System.Reflection.Assembly.Load("FastPatch.NewDependency");
+    return 0;
+}
+catch (System.IO.FileNotFoundException)
+{
+    return 42;
+}
+'@
+    Write-TestText (Join-Path $dependency 'Dependency.csproj') '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><AssemblyName>FastPatch.NewDependency</AssemblyName></PropertyGroup></Project>'
+    Write-TestText (Join-Path $dependency 'Dependency.cs') 'public sealed class NewDependency { }'
+    & dotnet build (Join-Path $probe 'Probe.csproj') -o $output --nologo
+    Assert-Condition ($LASTEXITCODE -eq 0) 'Could not build runtime probing fixture.'
+    & dotnet build (Join-Path $dependency 'Dependency.csproj') -o $dependencyOutput --nologo
+    Assert-Condition ($LASTEXITCODE -eq 0) 'Could not build new runtime dependency.'
+    Copy-Item (Join-Path $dependencyOutput 'FastPatch.NewDependency.dll') $output
+
+    & dotnet (Join-Path $output 'Probe.dll')
+    Assert-Condition ($LASTEXITCODE -eq 42) 'Fixture did not reproduce a DLL present on disk but absent from the dependency manifest.'
+
+    $depsPath = Join-Path $output 'Probe.deps.json'
+    $baselineJson = Get-Content -LiteralPath $depsPath -Raw
+    $baseline = $baselineJson | ConvertFrom-Json
+    $overlay = [pscustomobject]@{
+        runtimeTarget = [string] $baseline.runtimeTarget.name
+        assets = [pscustomobject]@{
+            runtime = [pscustomobject]@{ 'FastPatch.NewDependency.dll' = [pscustomobject]@{ assemblyVersion = '1.0.0.0'; fileVersion = '1.0.0.0' } }
+            native = [pscustomobject]@{}
+            resources = [pscustomobject]@{}
+        }
+    }
+    $mergedJson = Merge-RuntimeDependencyManifest -BaselineJson $baselineJson -Overlay $overlay
+    Write-TestText $depsPath $mergedJson
+    & dotnet (Join-Path $output 'Probe.dll')
+    Assert-Condition ($LASTEXITCODE -eq 0) 'Dependency manifest merge did not restore actual .NET assembly loading.'
+
+    # Reapplying is idempotent, and the installed framework and app entry survive.
+    $again = Merge-RuntimeDependencyManifest -BaselineJson $mergedJson -Overlay $overlay | ConvertFrom-Json
+    Assert-Condition ([string] $again.runtimeTarget.name -eq [string] $baseline.runtimeTarget.name) 'Installed runtime target changed.'
+    Assert-Condition ($null -ne $again.libraries.PSObject.Properties['Probe/1.0.0']) 'Installed application library was removed.'
+    Assert-Condition (@($again.targets.($again.runtimeTarget.name).PSObject.Properties | Where-Object Name -eq 'ProtonVPN.FastPatch.Runtime/1.0.0').Count -eq 1) 'Repeated merge duplicated the overlay.'
+
+    $unsafe = [pscustomobject]@{
+        runtimeTarget = $overlay.runtimeTarget
+        assets = [pscustomobject]@{
+            runtime = [pscustomobject]@{ '../escape.dll' = [pscustomobject]@{} }
+            native = [pscustomobject]@{}
+            resources = [pscustomobject]@{}
+        }
+    }
+    $rejected = $false
+    try { $null = Merge-RuntimeDependencyManifest -BaselineJson $baselineJson -Overlay $unsafe }
+    catch { if ($_.Exception.Message -like '*Unsafe runtime dependency overlay*') { $rejected = $true } else { throw } }
+    Assert-Condition $rejected 'Unsafe runtime dependency overlay was accepted.'
+}
+
 function Test-InstallerLifecycleContracts {
     $content = Get-Content -LiteralPath $completeInstallerScript -Raw
 
@@ -292,6 +374,7 @@ function Test-InstallerLifecycleContracts {
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 try {
     Test-InstallerLifecycleContracts
+    Test-DependencyManifestRuntimeProbing
     & (Join-Path $PSScriptRoot 'test-fast-patch-secure-staging.ps1')
     if ($LASTEXITCODE -ne 0) {
         throw "FastPatch secure staging tests failed with exit code $LASTEXITCODE."
