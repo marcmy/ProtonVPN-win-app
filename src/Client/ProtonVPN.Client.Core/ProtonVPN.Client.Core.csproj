@@ -21,6 +21,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="H.NotifyIcon.WinUI" />
     <PackageReference Include="System.Formats.Asn1" />
+    <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="System.Text.Json" />
   </ItemGroup>
   <ItemGroup>
