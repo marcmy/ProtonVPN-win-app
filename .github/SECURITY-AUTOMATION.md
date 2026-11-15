@@ -5,7 +5,7 @@
 The repository has two complementary Trivy paths.
 
 - **Blocking supply-chain audit** (`supply-chain-audit.yml`): runs on pull requests, pushes to the maintained branches, manual dispatch, and weekly schedule. It scans `HIGH,CRITICAL`, respects `.trivyignore.yaml`, uploads SARIF, and fails on new unignored findings.
-- **Medium+ report** (`medium-vulnerability-report.yml`): runs daily, on relevant dependency/security changes to `marc/proton`, on matching pull requests, and by manual dispatch. It scans `MEDIUM,HIGH,CRITICAL` without failing pull requests for Medium findings.
+- **Medium+ report** (`medium-vulnerability-report.yml`): runs daily, on relevant dependency/security changes to `marc/proton-main`, on matching pull requests, and by manual dispatch. It scans `MEDIUM,HIGH,CRITICAL` without failing pull requests for Medium findings.
 
 The Medium+ lane emits three durable views:
 

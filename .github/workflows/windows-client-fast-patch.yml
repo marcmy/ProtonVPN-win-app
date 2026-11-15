@@ -19,7 +19,7 @@ on:
         default: false
   pull_request:
     branches:
-      - marc/proton
+      - marc/proton-main
     types:
       - opened
       - synchronize
@@ -61,7 +61,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '10.0.x'
 
       - name: Restore focused NuGet cache
         id: nuget-cache
@@ -140,23 +140,27 @@ jobs:
           .\.github\scripts\test-patch-tooling.ps1
           .\.github\scripts\test-complete-fast-patch.ps1
 
-      - name: Run fork regression tests
+      - name: Run verified VSTest before packaging
         if: github.event_name == 'workflow_dispatch'
         env:
           REQUESTED_BUILD_MODE: ${{ inputs.build_mode }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $scope = switch ($env:REQUESTED_BUILD_MODE) {
+          $group = switch ($env:REQUESTED_BUILD_MODE) {
             'client' { 'Client' }
             'service' { 'Service' }
             default { 'All' }
           }
+          .\.github\scripts\test-migration-vstest.ps1 `
+            -Group $group `
+            -Configuration Release `
+            -Platform x64 `
+            -ArtifactsDirectory artifacts/logs/verified-vstest
 
-          $repeatServerHealth = $scope -in @('Client', 'All')
-          .\.github\scripts\test-fork-regressions.ps1 `
-            -Scope $scope `
-            -LogsDirectory artifacts/logs `
-            -RepeatServerHealth:$repeatServerHealth
+      - name: Clear test build output before release compilation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          Remove-Item -LiteralPath src/bin -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Restore client project
         if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
@@ -166,7 +170,7 @@ jobs:
             $PSNativeCommandUseErrorActionPreference = $false
           }
 
-          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64 -p:RestoreUseStaticGraphEvaluation=true -bl:artifacts/logs/client-restore.binlog *>&1 |
+          dotnet restore src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --runtime win-x64 -p:Platform=x64 --disable-parallel --no-cache -m:1 -bl:artifacts/logs/client-restore.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/client-restore.log
 
           if ($LASTEXITCODE -ne 0) {
@@ -177,7 +181,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' || inputs.build_mode == 'client' || inputs.build_mode == 'both' }}
         run: |
           $ErrorActionPreference = 'Stop'
-          dotnet restore src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj --runtime win-x64 -p:RestoreUseStaticGraphEvaluation=true -bl:artifacts/logs/launcher-restore.binlog *>&1 |
+          dotnet restore src/ProtonVPN.Launcher/ProtonVPN.Launcher.csproj --runtime win-x64 -p:Platform=x64 --disable-parallel --no-cache -m:1 -bl:artifacts/logs/launcher-restore.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/launcher-restore.log
           if ($LASTEXITCODE -ne 0) {
             throw "Application launcher restore failed with exit code $LASTEXITCODE"
@@ -191,7 +195,7 @@ jobs:
             $PSNativeCommandUseErrorActionPreference = $false
           }
 
-          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64 -p:RestoreUseStaticGraphEvaluation=true -bl:artifacts/logs/service-restore.binlog *>&1 |
+          dotnet restore src/ProtonVPN.Service/ProtonVPN.Service.csproj --runtime win-x64 -p:Platform=x64 --disable-parallel --no-cache -m:1 -bl:artifacts/logs/service-restore.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/service-restore.log
 
           if ($LASTEXITCODE -ne 0) {
@@ -206,7 +210,7 @@ jobs:
             $PSNativeCommandUseErrorActionPreference = $false
           }
 
-          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/client-build.binlog *>&1 |
+          dotnet build src/Client/ProtonVPN.Client/ProtonVPN.Client.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -p:BuildInParallel=false -m:1 -v:minimal -bl:artifacts/logs/client-build.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/client-build.log
 
           if ($LASTEXITCODE -ne 0) {
@@ -226,6 +230,7 @@ jobs:
             -p:SelfContained=true `
             -p:PublishSingleFile=true `
             -p:PublishTrimmed=true `
+            -p:BuildInParallel=false -m:1 `
             -v:minimal `
             -bl:artifacts/logs/launcher-publish.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/launcher-publish.log
@@ -249,7 +254,7 @@ jobs:
             $PSNativeCommandUseErrorActionPreference = $false
           }
 
-          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -v:minimal -bl:artifacts/logs/service-build.binlog *>&1 |
+          dotnet build src/ProtonVPN.Service/ProtonVPN.Service.csproj --configuration Release --runtime win-x64 --no-restore -p:Platform=x64 -p:BuildInParallel=false -m:1 -v:minimal -bl:artifacts/logs/service-build.binlog *>&1 |
             Tee-Object -FilePath artifacts/logs/service-build.log
 
           if ($LASTEXITCODE -ne 0) {

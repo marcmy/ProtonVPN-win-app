@@ -45,14 +45,14 @@ def select_source_patch_branch(
     target_key = parse_version(version)
     candidates = {candidate for candidate in candidate_versions if parse_version(candidate) <= target_key}
     if not candidates:
-        return "marc/proton"
+        return "marc/proton-main"
 
     latest_candidate = max(candidates, key=parse_version)
     compatible = set(compatible_candidate_versions)
     if latest_candidate not in compatible:
         raise ValueError(
             f"Candidate branch 'future/proton/v{latest_candidate}' has no verified official-tag "
-            f"ancestor in common with v{version}; refusing to fall back to marc/proton."
+            f"ancestor in common with v{version}; refusing to fall back to marc/proton-main."
         )
 
     return f"future/proton/v{latest_candidate}"

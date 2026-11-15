@@ -18,7 +18,7 @@ on:
       source_patch_branch:
         description: Branch containing the complete maintained fork
         required: true
-        default: marc/proton
+        default: marc/proton-main
       target_branch:
         description: New branch to create for the patched version
         required: true
@@ -69,7 +69,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '10.0.x'
 
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -434,7 +434,7 @@ jobs:
 
           git check-ref-format --branch "$TARGET_BRANCH" >/dev/null
           case "$TARGET_BRANCH" in
-            main|master|marc/proton)
+            main|master|marc/proton-main)
               echo "Refusing to push protected target branch '$TARGET_BRANCH'." >&2
               exit 1
               ;;

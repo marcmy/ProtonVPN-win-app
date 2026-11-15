@@ -1,11 +1,19 @@
-name: Proton VPN migration patch tooling
+name: Proton VPN patch tooling and staging
 
 on:
   push:
     branches:
       - migration/staging
+      - marc/proton-main
     paths:
       - .github/workflows/migration-patch-tooling.yml
+      - '.github/scripts/**'
+      - 'scripts/Install-ProtonVPN*.ps1'
+      - scripts/New-ProtonVPNPatchSfx.ps1
+  pull_request:
+    branches:
+      - migration/staging
+      - marc/proton-main
   workflow_dispatch:
 
 permissions:

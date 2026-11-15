@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  FORK_BRANCH: marc/proton
+  FORK_BRANCH: marc/proton-main
   UPSTREAM_REPO: ProtonVPN/win-app
   UPSTREAM_BRANCH: master
   # Paths that always keep the fork's version, so upstream CI changes never land here
@@ -45,6 +45,22 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream "https://github.com/$UPSTREAM_REPO.git"
           git fetch --prune --no-tags upstream "$UPSTREAM_BRANCH"
+
+          # Do not silently turn a tested, version-specific custom build into a new release.
+          release_version() {
+              sed -nE 's/.*AssemblyVersion\\("([0-9]+\\.[0-9]+\\.[0-9]+)(\\.[0-9]+)?"\\).*/\\1/p'
+          }
+          fork_version="$(git show HEAD:src/GlobalAssemblyInfo.cs | release_version)"
+          upstream_version="$(git show "upstream/$UPSTREAM_BRANCH:src/GlobalAssemblyInfo.cs" | release_version)"
+          if [[ -z "$fork_version" || -z "$upstream_version" ]]; then
+              echo "::error::Could not resolve both assembly versions; refusing automatic sync."
+              exit 1
+          fi
+          if [[ "$fork_version" != "$upstream_version" ]]; then
+              echo "::warning::Upstream is $upstream_version but maintained fork is $fork_version; skipping automatic cross-release merge."
+              echo "Cross-release upstream update requires a reviewed future-version port." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+          fi
 
           base="$(git rev-parse HEAD)"
           echo "base_sha=$base" >> "$GITHUB_OUTPUT"

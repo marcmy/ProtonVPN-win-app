@@ -7,12 +7,12 @@
 
 ## About this fork
 
-This branch targets **5.1.9-marc-custom**, matching Proton's Windows 5.1.9
-EarlyAccess release. Public source is still at
-[v5.1.8](https://github.com/ProtonVPN/win-app/tree/v5.1.8); the 5.1.9 changes
-were reconstructed from verified official binaries. See the
-[5.1.9 port ledger](docs/FUTURE_PORT_V5.1.9_CONFLICT_RESOLUTIONS.md) for provenance,
-fork-aware resolutions, and validation limits.
+The maintained fork targets **5.1.10-marc-custom**, based on Proton's
+[official v5.1.10 source](https://github.com/ProtonVPN/win-app/tree/v5.1.10).
+The earlier 5.1.9 reconstruction and its
+[port ledger](docs/FUTURE_PORT_V5.1.9_CONFLICT_RESOLUTIONS.md) remain available
+for historical reference. Version-specific releases must be patched only against
+the matching official Windows installation.
 It preserves the complete fork delta, including:
 
 - NAT-PMP port forwarding and app-specific port-forwarding routes
@@ -38,9 +38,9 @@ Official Proton updates can replace fork-patched files. Do not apply a patch to 
 different release folder; wait for a fork build based on that exact upstream
 version. Disabling Proton's automatic security updates is not recommended.
 
-The 5.1.9 patch requires the official **5.1.9** client to be installed first.
-Its signed drivers, OpenVPN 2.6.23, and release-injected configuration are retained;
-this port does not deploy an experimental driver or establish that the separate
+The 5.1.10 patch requires the official **5.1.10** client to be installed first.
+The official release's signed drivers and release-injected configuration are retained;
+this patch does not deploy an experimental driver or establish that the separate
 dual-stack routing/Apex issue is fixed.
 
 Copyright (c) 2023 Proton AG
