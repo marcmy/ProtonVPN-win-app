@@ -1,0 +1,64 @@
+name: Proton VPN 5.1.10 migration tests
+
+on:
+  push:
+    branches:
+      - migration/staging
+  pull_request:
+    branches:
+      - migration/v5-master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-net10-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: VSTest (${{ matrix.group }})
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [Client, Libraries, Service, Integration]
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Run tests with verified discovery
+        env:
+          TEST_GROUP: ${{ matrix.group }}
+        run: |
+          ./.github/scripts/test-migration-vstest.ps1 `
+            -Group $env:TEST_GROUP `
+            -Configuration Release `
+            -Platform x64 `
+            -ArtifactsDirectory "artifacts/migration-tests/$env:TEST_GROUP"
+
+      - name: Upload results and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: migration-net10-${{ matrix.group }}-${{ github.run_id }}
+          path: artifacts/migration-tests/${{ matrix.group }}
+          if-no-files-found: warn
+          retention-days: 14
