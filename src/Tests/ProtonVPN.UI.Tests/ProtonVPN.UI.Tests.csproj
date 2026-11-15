@@ -29,9 +29,7 @@
         <PackageReference Include="MSTest.TestAdapter" />
         <PackageReference Include="MSTest.TestFramework" />
         <PackageReference Include="BouncyCastle.Cryptography" />
-        <PackageReference Include="System.Formats.Asn1" />
         <PackageReference Include="System.ServiceProcess.ServiceController" />
-        <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />

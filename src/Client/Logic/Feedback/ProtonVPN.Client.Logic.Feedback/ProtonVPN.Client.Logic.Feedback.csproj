@@ -16,8 +16,6 @@
         <EmbeddedResource Include="ReportIssueDefaultForm.json" LogicalName="ReportIssueDefaultForm.json" />
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\..\..\OperatingSystems\Registries\ProtonVPN.OperatingSystems.Registries.Contracts\ProtonVPN.OperatingSystems.Registries.Contracts.csproj" />
