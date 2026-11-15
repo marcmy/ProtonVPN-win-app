@@ -2,8 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>$(NetVersion)-windows10.0.22621.0</TargetFramework>
-    <!-- CommunityToolkit.Mvvm 8.4 partial observable properties require preview language features. -->
-    <LangVersion>preview</LangVersion>
     <PreserveCompilationContext>true</PreserveCompilationContext>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>ProtonVPN.Client.Core</RootNamespace>
