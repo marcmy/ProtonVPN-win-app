@@ -28,12 +28,12 @@ permissions:
   contents: read
 
 jobs:
-  submit-nuget:
-    name: Verify and submit resolved NuGet graph
+  verify-nuget:
+    name: Verify resolved NuGet graph
     runs-on: windows-latest
     timeout-minutes: 55
     permissions:
-      contents: ${{ github.event_name == 'pull_request' && 'read' || 'write' }}
+      contents: read
     defaults:
       run:
         shell: pwsh
@@ -56,11 +56,6 @@ jobs:
         run: ./.github/scripts/restore-nuget-lockfiles.ps1
       - name: Validate NuGet graph is nonempty
         run: python .github/scripts/submit-nuget-snapshot.py
-      - name: Submit resolved dependencies to GitHub
-        if: github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python .github/scripts/submit-nuget-snapshot.py --submit
       - name: Upload resolved NuGet graph
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -71,3 +66,33 @@ jobs:
             src/**/packages.lock.json
           if-no-files-found: error
           retention-days: 14
+
+  submit-nuget:
+    name: Publish validated nonempty NuGet graph
+    needs: verify-nuget
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Fetch verified snapshot
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: resolved-nuget-graph-${{ github.run_id }}
+          path: .
+      - name: Refuse empty snapshot before GitHub API submission
+        shell: bash
+        run: |
+          test "$(jq '.manifests | length' artifacts/nuget-snapshot.json)" -ge 3
+          test "$(jq '[.manifests[].resolved | keys[]] | unique | length' artifacts/nuget-snapshot.json)" -ge 30
+          jq -e '[.manifests[].resolved | keys[]] | any(startswith("pkg:nuget/log4net@"))' artifacts/nuget-snapshot.json
+      - name: Submit populated snapshot to dependency graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --method POST \
+            "repos/${{ github.repository }}/dependency-graph/snapshots" \
+            --input artifacts/nuget-snapshot.json \
+            --jq '{id, result, message}'
