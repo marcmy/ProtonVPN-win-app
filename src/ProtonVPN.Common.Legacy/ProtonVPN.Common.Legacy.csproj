@@ -25,9 +25,7 @@
         <PackageReference Include="DeviceId.Windows.Wmi" />
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Polly" />
-        <PackageReference Include="System.Formats.Asn1" />
         <PackageReference Include="System.ServiceProcess.ServiceController" />
-        <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
