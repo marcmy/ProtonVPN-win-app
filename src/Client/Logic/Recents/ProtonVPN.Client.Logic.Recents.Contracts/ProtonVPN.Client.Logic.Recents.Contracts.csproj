@@ -15,11 +15,11 @@
         <Folder Include="Properties\" />
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Security.Cryptography.Xml" />
-      <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\Connection\ProtonVPN.Client.Logic.Connection.Contracts\ProtonVPN.Client.Logic.Connection.Contracts.csproj" />
     </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+  </ItemGroup>
 </Project>

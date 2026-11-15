@@ -12,9 +12,6 @@
         <Compile Include="..\..\..\GlobalAssemblyInfo.cs" Link="Properties\GlobalAssemblyInfo.cs" />
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Security.Cryptography.Xml" />
-      <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\..\Api\ProtonVPN.Api.Contracts\ProtonVPN.Api.Contracts.csproj" />
@@ -33,4 +30,7 @@
         <ProjectReference Include="..\..\Logic\Servers\ProtonVPN.Client.Logic.Servers\ProtonVPN.Client.Logic.Servers.csproj" />
         <ProjectReference Include="..\ProtonVPN.Client.Settings.Contracts\ProtonVPN.Client.Settings.Contracts.csproj" />
     </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+  </ItemGroup>
 </Project>

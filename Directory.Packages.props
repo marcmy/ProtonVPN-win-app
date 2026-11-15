@@ -26,8 +26,9 @@
     <PackageVersion Include="DotNetSeleniumExtras.WaitHelpers" Version="3.11.0" />
     <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
+    <PackageVersion Include="Grpc.Core.Api" Version="2.85.0" />
     <PackageVersion Include="Grpc.Net.Client" Version="2.85.0" />
-    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.0.124" />
+    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.4.1" />
     <PackageVersion Include="log4net" Version="3.2.0" />
     <PackageVersion Include="JunitXml.TestLogger" Version="8.1.0" />
     <PackageVersion Include="Mapsui.WinUI" Version="4.1.9" />
@@ -58,11 +59,11 @@
     <PackageVersion Include="NUnit3TestAdapter" Version="6.1.0" />
     <PackageVersion Include="Otp.NET" Version="1.4.1" />
     <PackageVersion Include="PInvoke.Kernel32" Version="0.7.124" />
-    <PackageVersion Include="Polly" Version="8.6.5" />
+    <PackageVersion Include="Polly" Version="8.9.1" />
     <PackageVersion Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
     <PackageVersion Include="protobuf-net" Version="3.2.56" />
     <PackageVersion Include="protobuf-net.BuildTools" Version="3.1.25" />
-    <PackageVersion Include="protobuf-net.Grpc" Version="1.2.2" />
+    <PackageVersion Include="protobuf-net.Grpc" Version="1.3.14" />
     <PackageVersion Include="protobuf-net.Grpc.AspNetCore" Version="1.2.2" />
     <PackageVersion Include="protobuf-net.Grpc.Native" Version="1.2.2" />
     <PackageVersion Include="ReswPlusLib" Version="2.0.0" />

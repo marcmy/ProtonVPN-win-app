@@ -15,9 +15,6 @@
         <Folder Include="Properties\" />
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Security.Cryptography.Xml" />
-      <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\..\..\EntityMapping\ProtonVPN.EntityMapping.Contracts\ProtonVPN.EntityMapping.Contracts.csproj" />
@@ -30,4 +27,7 @@
         <ProjectReference Include="..\..\Profiles\ProtonVPN.Client.Logic.Profiles.Contracts\ProtonVPN.Client.Logic.Profiles.Contracts.csproj" />
         <ProjectReference Include="..\ProtonVPN.Client.Logic.Recents.Contracts\ProtonVPN.Client.Logic.Recents.Contracts.csproj" />
     </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+  </ItemGroup>
 </Project>

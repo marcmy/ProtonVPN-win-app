@@ -13,9 +13,6 @@
     </ItemGroup>
     <ItemGroup>
       <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
-      <PackageReference Include="System.Drawing.Common" />
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\..\Localization\ProtonVPN.Client.Localization.Contracts\ProtonVPN.Client.Localization.Contracts.csproj" />
@@ -25,4 +22,7 @@
       <ProjectReference Include="..\..\UnsecureWifiDetection\ProtonVPN.Client.UnsecureWifiDetection.Contracts\ProtonVPN.Client.UnsecureWifiDetection.Contracts.csproj" />
       <ProjectReference Include="..\ProtonVPN.Client.Notifications.Contracts\ProtonVPN.Client.Notifications.Contracts.csproj" />
     </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" />
+  </ItemGroup>
 </Project>

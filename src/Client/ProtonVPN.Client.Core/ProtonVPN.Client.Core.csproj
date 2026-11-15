@@ -20,9 +20,6 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="H.NotifyIcon.WinUI" />
-    <PackageReference Include="System.Formats.Asn1" />
-    <PackageReference Include="System.Security.Cryptography.Xml" />
-    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Api\ProtonVPN.Api.Contracts\ProtonVPN.Api.Contracts.csproj" />
@@ -38,4 +35,7 @@
     <ProjectReference Include="..\Settings\ProtonVPN.Client.Settings.Contracts\ProtonVPN.Client.Settings.Contracts.csproj" />
   </ItemGroup>
   
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+  </ItemGroup>
 </Project>
