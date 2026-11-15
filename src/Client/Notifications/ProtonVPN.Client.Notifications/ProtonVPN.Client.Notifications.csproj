@@ -22,4 +22,7 @@
       <ProjectReference Include="..\..\UnsecureWifiDetection\ProtonVPN.Client.UnsecureWifiDetection.Contracts\ProtonVPN.Client.UnsecureWifiDetection.Contracts.csproj" />
       <ProjectReference Include="..\ProtonVPN.Client.Notifications.Contracts\ProtonVPN.Client.Notifications.Contracts.csproj" />
     </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" />
+  </ItemGroup>
 </Project>

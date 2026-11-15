@@ -17,4 +17,7 @@
 	  <ProjectReference Include="..\..\..\..\Common\ProtonVPN.Common.Core\ProtonVPN.Common.Core.csproj" />
 	  <ProjectReference Include="..\..\Connection\ProtonVPN.Client.Logic.Connection.Contracts\ProtonVPN.Client.Logic.Connection.Contracts.csproj" />
 	</ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+  </ItemGroup>
 </Project>
