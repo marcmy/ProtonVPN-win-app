@@ -49,9 +49,14 @@ jobs:
             mode: none
 
     env:
-      # Pin the extractor's interpreter as well as setup-python; skip legacy version probing.
+      # Select Python 3 explicitly for setup, extraction and analysis.
       LGTM_PYTHON_SETUP_VERSION: '3'
       CODEQL_EXTRACTOR_PYTHON_OPTION_PYTHON_EXECUTABLE_NAME: python3
+      CODEQL_EXTRACTOR_PYTHON_ANALYSIS_VERSION: '3.13'
+      # The supported site-mode fallback skips the legacy gzip/interpreter probe.
+      # Keep user-site packages out of the controlled setup-python interpreter.
+      CODEQL_EXTRACTOR_PYTHON_ENABLE_SITE: '1'
+      PYTHONNOUSERSITE: '1'
 
     steps:
       - name: Checkout repository
@@ -63,6 +68,17 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.13'
+      - name: Verify Python extraction environment
+        if: matrix.language == 'python'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import gzip
+          import sys
+          assert sys.version_info[:2] == (3, 13), sys.version
+          assert sys.flags.no_user_site == 1, "User-site packages must stay disabled"
+          print(f"CodeQL interpreter: {sys.executable}; Python {sys.version.split()[0]}; gzip available")
+          PY
       - name: Set up .NET 10 for Windows C# analysis
         if: matrix.language == 'csharp'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
