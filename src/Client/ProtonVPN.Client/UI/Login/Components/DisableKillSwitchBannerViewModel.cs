@@ -47,7 +47,7 @@ public partial class DisableKillSwitchBannerViewModel : ViewModelBase,
     private readonly IUserAuthenticator _userAuthenticator;
 
     [ObservableProperty]
-    private bool _isKillSwitchNotificationVisible;
+    public partial bool IsKillSwitchNotificationVisible { get; set; }
 
     public DisableKillSwitchBannerViewModel(
         ISettings settings,

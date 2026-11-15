@@ -48,10 +48,10 @@ public abstract partial class HostLocationItemBase<TLocation> : LocationItemBase
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ShowSmartRoutingOverlayCommand))]
-    private bool _hasVirtualServers;
+    public partial bool HasVirtualServers { get; set; }
 
     [ObservableProperty]
-    private string? _smartRoutingDescription;
+    public partial string? SmartRoutingDescription { get; set; }
 
     public CollectionViewSource SubGroupsCvs { get; }
 

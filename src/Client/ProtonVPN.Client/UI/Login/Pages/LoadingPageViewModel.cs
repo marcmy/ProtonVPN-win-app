@@ -53,7 +53,7 @@ public partial class LoadingPageViewModel : LoginPageViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSigningIn))]
-    private bool _isSignInTakingLongerThanExpected;
+    public partial bool IsSignInTakingLongerThanExpected { get; set; }
 
     public LoadingPageViewModel(
         IUIThreadDispatcher uiThreadDispatcher,

@@ -45,10 +45,10 @@ public partial class PortForwardingPageViewModel : SettingsPageViewModelBase,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PortForwardingFeatureIconSource))]
     [NotifyPropertyChangedFor(nameof(IsExpanded))]
-    private bool _isPortForwardingEnabled;
+    public partial bool IsPortForwardingEnabled { get; set; }
 
     [ObservableProperty]
-    private bool _isPortForwardingNotificationEnabled;
+    public partial bool IsPortForwardingNotificationEnabled { get; set; }
 
     public override string Title => Localizer.Get("Settings_Connection_PortForwarding");
 

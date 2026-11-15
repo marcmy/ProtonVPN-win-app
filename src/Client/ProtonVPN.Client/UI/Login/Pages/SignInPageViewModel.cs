@@ -60,7 +60,7 @@ public partial class SignInPageViewModel : LoginPageViewModelBase
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SignInCommand))]
     [NotifyPropertyChangedFor(nameof(IsSignInFormEnabled))]
-    private bool _isSigningIn;
+    public partial bool IsSigningIn { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SignInCommand))]
@@ -69,25 +69,25 @@ public partial class SignInPageViewModel : LoginPageViewModelBase
     [NotifyPropertyChangedFor(nameof(IsSrpFormType))]
     [NotifyPropertyChangedFor(nameof(IsSsoFormType))]
     [NotifyPropertyChangedFor(nameof(IsSwitchFormButtonVisible))]
-    private SignInFormType _signInFormType;
+    public partial SignInFormType SignInFormType { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SignInCommand))]
-    private string _username = string.Empty;
+    public partial string Username { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SignInCommand))]
-    private SecureString _password = new();
+    public partial SecureString Password { get; set; } = new();
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateAccountCommand))]
-    private bool _isToShowCreateAccountSpinner;
+    public partial bool IsToShowCreateAccountSpinner { get; set; }
 
     [ObservableProperty]
-    private bool _isToShowUsernameError;
+    public partial bool IsToShowUsernameError { get; set; }
 
     [ObservableProperty]
-    private bool _isToShowPasswordError;
+    public partial bool IsToShowPasswordError { get; set; }
 
     private AuthError _authError;
 

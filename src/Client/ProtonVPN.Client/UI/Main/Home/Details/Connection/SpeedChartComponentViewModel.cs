@@ -43,25 +43,25 @@ public partial class SpeedChartComponentViewModel : ActivatableViewModelBase,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedDownloadSpeed))]
-    private long _downloadSpeed;
+    public partial long DownloadSpeed { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedUploadSpeed))]
-    private long _uploadSpeed;
+    public partial long UploadSpeed { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedDownloadVolume))]
     [NotifyPropertyChangedFor(nameof(FormattedTotalVolume))]
-    private long _downloadVolume;
+    public partial long DownloadVolume { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedUploadVolume))]
     [NotifyPropertyChangedFor(nameof(FormattedTotalVolume))]
-    private long _uploadVolume;
+    public partial long UploadVolume { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SpeedUnit))]
-    private ByteMetrics _metric;
+    public partial ByteMetrics Metric { get; set; }
 
     public string FormattedDownloadSpeed => Localizer.GetFormattedSpeed(DownloadSpeed);
 
@@ -76,19 +76,19 @@ public partial class SpeedChartComponentViewModel : ActivatableViewModelBase,
     public string SpeedUnit => Localizer.GetFormat("Format_SpeedUnit", Localizer.GetSpeedUnit(Metric));
 
     [ObservableProperty]
-    private IReadOnlyList<double> _downloadSpeedHistory = [];
+    public partial IReadOnlyList<double> DownloadSpeedHistory { get; set; } = [];
 
     [ObservableProperty]
-    private IReadOnlyList<double> _uploadSpeedHistory = [];
+    public partial IReadOnlyList<double> UploadSpeedHistory { get; set; } = [];
 
     [ObservableProperty]
-    private double _lowerBound;
+    public partial double LowerBound { get; set; }
 
     [ObservableProperty]
-    private double _midpoint;
+    public partial double Midpoint { get; set; }
 
     [ObservableProperty]
-    private double _upperBound;
+    public partial double UpperBound { get; set; }
 
     public SpeedChartComponentViewModel(
         INetworkTrafficManager networkTrafficManager, 

@@ -32,7 +32,7 @@ public partial class SettingsWidgetViewModel : SideWidgetViewModelBase, ISideFoo
     private readonly ITeachingTipService _teachingTipService;
 
     [ObservableProperty]
-    private bool _isExcludedLocationsTeachingTipOpen;
+    public partial bool IsExcludedLocationsTeachingTipOpen { get; set; }
 
     public override int SortIndex { get; } = 1;
 

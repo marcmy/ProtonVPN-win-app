@@ -147,7 +147,7 @@ public class ConnectionStatisticalEventsManager : IConnectionStatisticalEventsMa
                 when vpnStatus is VpnStatusIpcEntity.Disconnected => OutcomeDimension.Success,
             AttemptType.Connection
                 when vpnStatus is VpnStatusIpcEntity.Disconnected &&
-                     vpnError is not VpnErrorTypeIpcEntity.None or VpnErrorTypeIpcEntity.NoneKeepEnabledKillSwitch => OutcomeDimension.Failure,
+                     vpnError is not VpnErrorTypeIpcEntity.None => OutcomeDimension.Failure,
             AttemptType.Disconnection
                 when vpnStatus is VpnStatusIpcEntity.Connected => OutcomeDimension.Failure,
             _ => null

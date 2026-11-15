@@ -52,12 +52,12 @@ public partial class NetShieldWidgetViewModel : FeatureWidgetViewModelBase,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalAdsAndTrackersBlocked))]
     [NotifyPropertyChangedFor(nameof(FormattedTotalAdsAndTrackersBlocked))]
-    private long _numberOfTrackersStopped;
+    public partial long NumberOfTrackersStopped { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalAdsAndTrackersBlocked))]
     [NotifyPropertyChangedFor(nameof(FormattedTotalAdsAndTrackersBlocked))]
-    private long _numberOfAdsBlocked;
+    public partial long NumberOfAdsBlocked { get; set; }
 
     public int TotalAdsAndTrackersBlocked => Convert.ToInt32(NumberOfTrackersStopped + NumberOfAdsBlocked);
 

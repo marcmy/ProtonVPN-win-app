@@ -40,11 +40,11 @@ public partial class SpeedFlyoutViewModel : ActivatableViewModelBase,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedDownloadSpeed))]
-    private long? _downloadSpeed;
+    public partial long? DownloadSpeed { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedUploadSpeed))]
-    private long? _uploadSpeed;
+    public partial long? UploadSpeed { get; set; }
 
     public string FormattedDownloadSpeed => Localizer.GetFormattedSpeed(DownloadSpeed);
 

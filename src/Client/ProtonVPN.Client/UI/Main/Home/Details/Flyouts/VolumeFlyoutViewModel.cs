@@ -35,11 +35,11 @@ public partial class VolumeFlyoutViewModel : ActivatableViewModelBase,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedDownloadVolume))]
-    private long? _downloadVolume;
+    public partial long? DownloadVolume { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedUploadVolume))]
-    private long? _uploadVolume;
+    public partial long? UploadVolume { get; set; }
 
     public string FormattedDownloadVolume => Localizer.GetFormattedSize(DownloadVolume);
 

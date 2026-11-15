@@ -56,19 +56,19 @@ public partial class LoginPageViewModel : PageViewModelBase<IMainWindowViewNavig
     private readonly IApplicationIconSelector _applicationIconSelector;
 
     [ObservableProperty]
-    private string _message;
+    public partial string Message { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isMessageVisible;
+    public partial bool IsMessageVisible { get; set; }
 
     [ObservableProperty]
-    private Severity _messageSeverity = Severity.Error;
+    public partial Severity MessageSeverity { get; set; } = Severity.Error;
 
     [ObservableProperty]
-    private bool _isHelpVisible;
+    public partial bool IsHelpVisible { get; set; }
 
     [ObservableProperty]
-    private string _actionButtonTitle = string.Empty;
+    public partial string ActionButtonTitle { get; set; } = string.Empty;
 
     public bool IsDebugModeEnabled => _settings.IsDebugModeEnabled;
 
@@ -95,7 +95,6 @@ public partial class LoginPageViewModel : PageViewModelBase<IMainWindowViewNavig
         _debugToolsWindowActivator = debugToolsWindowActivator;
         _applicationIconSelector = applicationIconSelector;
 
-        _message = string.Empty;
     }
 
     public void Receive(LoginStateChangedMessage message)

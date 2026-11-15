@@ -36,7 +36,7 @@ public partial class IspFlyoutViewModel : ActivatableViewModelBase,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDeviceExposed))]
-    private string _isp = EmptyValueExtensions.DEFAULT;
+    public partial string Isp { get; set; } = EmptyValueExtensions.DEFAULT;
 
     public string IspLearnMoreUri => _urlsBrowser.IspLearnMore;
     public bool IsDeviceExposed => !string.IsNullOrWhiteSpace(_settings.DeviceLocation?.Isp);

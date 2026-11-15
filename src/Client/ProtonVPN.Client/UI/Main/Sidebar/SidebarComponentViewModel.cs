@@ -48,10 +48,10 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
     private readonly ISearchInputReceiver _searchInputReceiver;
 
     [ObservableProperty]
-    private string _searchText = string.Empty;
+    public partial string SearchText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isSearchVisible = true;
+    public partial bool IsSearchVisible { get; set; } = true;
 
     public ObservableCollection<IConnectionPage> ConnectionPages { get; }
 

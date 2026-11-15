@@ -39,13 +39,13 @@ public partial class AppSelectorOverlayViewModel : OverlayViewModelBase<IMainWin
     private List<SelectableTunnelingApp> _originalApps = [];
 
     [ObservableProperty]
-    private string _title = string.Empty;
+    public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _description = string.Empty;
+    public partial string Description { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _customAppPath = string.Empty;
+    public partial string CustomAppPath { get; set; } = string.Empty;
 
     public string RemoveTooltip => Localizer.Get("Common_Actions_Remove");
 

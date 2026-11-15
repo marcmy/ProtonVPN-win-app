@@ -69,11 +69,6 @@ public sealed class Base64UrlConverter : JsonConverter<byte[]>
     /// <returns>The byte array represented by the encoded string</returns>
     public static byte[] FromBase64UrlString(ReadOnlySpan<byte> input)
     {
-        if (input == null)
-        {
-            throw new ArgumentNullException(nameof(input));
-        }
-
         // START temporary workaround for MSFT bug (https://github.com/MichaelGrafnetter/webauthn-interop/issues/21)
         // Checking to see if the last character is a digit and if we removed it, would there be anything left
         if (input.Length > 1 && char.IsDigit((char)input[input.Length - 1]))

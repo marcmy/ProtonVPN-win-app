@@ -45,19 +45,19 @@ public abstract partial class ConnectionItemBase : ModelBase, IConnectionItem
     [NotifyCanExecuteChangedFor(nameof(ToggleConnectionCommand))]
     [NotifyPropertyChangedFor(nameof(IsAvailable))]
     [NotifyPropertyChangedFor(nameof(ToolTip))]
-    private bool _isUnderMaintenance;
+    public partial bool IsUnderMaintenance { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleConnectionCommand))]
     [NotifyPropertyChangedFor(nameof(PrimaryActionLabel))]
     [NotifyPropertyChangedFor(nameof(PrimaryCommandAutomationId))]
-    private bool _isActiveConnection;
+    public partial bool IsActiveConnection { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleConnectionCommand))]
     [NotifyPropertyChangedFor(nameof(IsAvailable))]
     [NotifyPropertyChangedFor(nameof(ToolTip))]
-    private bool _isRestricted;
+    public partial bool IsRestricted { get; set; }
 
     public bool IsAvailable => !IsRestricted && !IsUnderMaintenance;
 

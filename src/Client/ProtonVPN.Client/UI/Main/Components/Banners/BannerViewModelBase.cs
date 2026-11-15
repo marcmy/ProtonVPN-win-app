@@ -57,7 +57,7 @@ public abstract partial class BannerViewModelBase : ViewModelBase,
     [NotifyPropertyChangedFor(nameof(ActionButtonText))]
     [NotifyPropertyChangedFor(nameof(IsActionButtonVisible))]
     [NotifyPropertyChangedFor(nameof(IsDismissButtonVisible))]
-    private Announcement? _activeAnnouncement;
+    public partial Announcement? ActiveAnnouncement { get; set; }
 
     public bool IsDismissButtonVisible => ActiveAnnouncement?.IsDismissible ?? false;
 

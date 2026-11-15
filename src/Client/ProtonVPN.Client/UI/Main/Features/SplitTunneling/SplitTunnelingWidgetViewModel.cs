@@ -62,11 +62,11 @@ public partial class SplitTunnelingWidgetViewModel : FeatureWidgetViewModelBase
     private bool _wasIpv6WarningDisplayed;
 
     [ObservableProperty]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIpv6AddressesWhileIpv6Disabled))]
-    private bool _isIpv6Enabled;
+    public partial bool IsIpv6Enabled { get; set; }
 
     public override string Header => Localizer.Get("Settings_Connection_SplitTunneling");
 

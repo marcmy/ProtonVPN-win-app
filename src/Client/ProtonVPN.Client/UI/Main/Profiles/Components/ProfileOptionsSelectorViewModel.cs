@@ -51,22 +51,22 @@ public partial class ProfileOptionsSelectorViewModel : ViewModelBase, IProfileOp
     private IProfileOptions _originalProfileOptions = ProfileOptions.Default;
 
     [ObservableProperty]
-    private bool _isEnabled;
+    public partial bool IsEnabled { get; set; }
 
     [ObservableProperty]
-    private ConnectAndGoModeItem? _selectedConnectAndGoMode;
+    public partial ConnectAndGoModeItem? SelectedConnectAndGoMode { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnectAndGoUrlValid))]
     [NotifyPropertyChangedFor(nameof(ConnectAndGoUrlErrorMessage))]
-    private string _connectAndGoUrl = string.Empty;
+    public partial string ConnectAndGoUrl { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _usePrivateBrowsingMode;
+    public partial bool UsePrivateBrowsingMode { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ConnectAndGoAppName))]
-    private ExternalApp? _connectAndGoApp;
+    public partial ExternalApp? ConnectAndGoApp { get; set; }
 
     public bool IsConnectAndGoUrlValid => string.IsNullOrEmpty(ConnectAndGoUrl) || ConnectAndGoUrl.IsValidUrl();
 

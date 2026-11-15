@@ -63,17 +63,17 @@ public partial class ConnectionFeedbackComponentViewModel : ActivatableViewModel
     [NotifyCanExecuteChangedFor(nameof(ReportPoorConnectionCommand))]
     [NotifyCanExecuteChangedFor(nameof(ReportGoodConnectionCommand))]
     [NotifyPropertyChangedFor(nameof(IsConnectionFeedbackVisible))]
-    private bool _isFeedbackSent;
+    public partial bool IsFeedbackSent { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ReportPoorConnectionCommand))]
     [NotifyCanExecuteChangedFor(nameof(ReportGoodConnectionCommand))]
-    private bool _isSendingFeedback;
+    public partial bool IsSendingFeedback { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ReportPoorConnectionCommand))]
     [NotifyCanExecuteChangedFor(nameof(ReportGoodConnectionCommand))]
-    private bool _isDismissingFeedback;
+    public partial bool IsDismissingFeedback { get; set; }
 
     public bool IsConnectionFeedbackVisible => !IsFeedbackSent
                                             && IsElligible

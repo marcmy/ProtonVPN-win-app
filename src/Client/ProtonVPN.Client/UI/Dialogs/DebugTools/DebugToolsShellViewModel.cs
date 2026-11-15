@@ -72,25 +72,25 @@ public partial class DebugToolsShellViewModel : ShellViewModelBase<IDebugToolsWi
     private readonly IGuestHoleManager _guestHoleManager;
 
     [ObservableProperty]
-    private Overlay _selectedOverlay;
+    public partial Overlay SelectedOverlay { get; set; }
 
     [ObservableProperty]
-    private Overlay _selectedDialog;
+    public partial Overlay SelectedDialog { get; set; }
 
     [ObservableProperty]
-    private VpnErrorTypeIpcEntity _selectedError = VpnErrorTypeIpcEntity.None;
+    public partial VpnErrorTypeIpcEntity SelectedError { get; set; } = VpnErrorTypeIpcEntity.None;
 
     [ObservableProperty]
-    private VpnPlan _selectedVpnPlan;
+    public partial VpnPlan SelectedVpnPlan { get; set; }
 
     [ObservableProperty]
-    private int _xPosition;
+    public partial int XPosition { get; set; }
     [ObservableProperty]
-    private int _yPosition;
+    public partial int YPosition { get; set; }
     [ObservableProperty]
-    private int _windowWidth;
+    public partial int WindowWidth { get; set; }
     [ObservableProperty]
-    private int _windowHeight;
+    public partial int WindowHeight { get; set; }
 
     public List<Overlay> OverlaysList { get; }
     public List<Overlay> DialogsList { get; }

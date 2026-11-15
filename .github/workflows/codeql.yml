@@ -49,7 +49,9 @@ jobs:
             mode: none
 
     env:
-      CODEQL_EXTRACTOR_PYTHON_ANALYSIS_VERSION: '3.13'
+      # Pin the extractor's interpreter as well as setup-python; skip legacy version probing.
+      LGTM_PYTHON_SETUP_VERSION: '3'
+      CODEQL_EXTRACTOR_PYTHON_OPTION_PYTHON_EXECUTABLE_NAME: python3
 
     steps:
       - name: Checkout repository

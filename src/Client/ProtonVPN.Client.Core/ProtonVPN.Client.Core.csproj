@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Toolkit 8.4 partial-property generation requires the explicit preview language mode. -->
+    <LangVersion>preview</LangVersion>
     <TargetFramework>$(NetVersion)-windows10.0.22621.0</TargetFramework>
     <PreserveCompilationContext>true</PreserveCompilationContext>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>

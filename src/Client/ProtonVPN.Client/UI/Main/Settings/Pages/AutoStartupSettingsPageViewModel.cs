@@ -33,17 +33,17 @@ namespace ProtonVPN.Client.UI.Main.Settings.Pages;
 public partial class AutoStartupSettingsPageViewModel : SettingsPageViewModelBase
 {
     [ObservableProperty] 
-    private bool _isAutoLaunchEnabled;
+    public partial bool IsAutoLaunchEnabled { get; set; }
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.AutoLaunchMode))]
     [NotifyPropertyChangedFor(nameof(IsAutoLaunchOpenOnDesktop))]
     [NotifyPropertyChangedFor(nameof(IsAutoLaunchMinimizeToSystemTray))]
     [NotifyPropertyChangedFor(nameof(IsAutoLaunchMinimizeToTaskbar))]
-    private AutoLaunchMode _currentAutoLaunchMode;
+    public partial AutoLaunchMode CurrentAutoLaunchMode { get; set; }
 
     [ObservableProperty]
-    private bool _isAutoConnectEnabled;
+    public partial bool IsAutoConnectEnabled { get; set; }
 
     public bool IsAutoLaunchOpenOnDesktop
     {

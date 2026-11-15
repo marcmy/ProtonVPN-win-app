@@ -42,7 +42,7 @@ public partial class OutdatedClientOverlayViewModel : OverlayViewModelBase<IMain
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCheckingForUpdate))]
     [NotifyPropertyChangedFor(nameof(CanUpdate))]
-    private AppUpdateStateContract? _lastUpdateState;
+    public partial AppUpdateStateContract? LastUpdateState { get; set; }
 
     public bool IsCheckingForUpdate =>
         (LastUpdateState != null &&

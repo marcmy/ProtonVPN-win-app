@@ -62,49 +62,49 @@ public partial class ConnectionStatusHeaderViewModel : ActivatableViewModelBase,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProtectionDescription))]
-    private TimeSpan _sessionLength = TimeSpan.Zero;
+    public partial TimeSpan SessionLength { get; set; } = TimeSpan.Zero;
 
     [ObservableProperty]
-    private string _currentServerName = string.Empty;
+    public partial string CurrentServerName { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private ServerHealthSnapshot? _currentServerHealthSnapshot;
+    public partial ServerHealthSnapshot? CurrentServerHealthSnapshot { get; set; }
 
     [ObservableProperty]
-    private string _healthGrade = "Checking…";
+    public partial string HealthGrade { get; set; } = "Checking…";
 
     [ObservableProperty]
-    private string _healthLatency = "—";
+    public partial string HealthLatency { get; set; } = "—";
 
     [ObservableProperty]
-    private string _healthPacketLoss = "—";
+    public partial string HealthPacketLoss { get; set; } = "—";
 
     [ObservableProperty]
-    private string _healthLoad = "—";
+    public partial string HealthLoad { get; set; } = "—";
 
     [ObservableProperty]
-    private string _healthRoute = "Physical adapter (direct)";
+    public partial string HealthRoute { get; set; } = "Physical adapter (direct)";
 
     [ObservableProperty]
-    private string _healthLastChecked = "Waiting for first check";
+    public partial string HealthLastChecked { get; set; } = "Waiting for first check";
 
     [ObservableProperty]
-    private bool _isHealthChecking = true;
+    public partial bool IsHealthChecking { get; set; } = true;
 
     [ObservableProperty]
-    private bool _isHealthUnavailable;
+    public partial bool IsHealthUnavailable { get; set; }
 
     [ObservableProperty]
-    private bool _isHealthPoor;
+    public partial bool IsHealthPoor { get; set; }
 
     [ObservableProperty]
-    private bool _isHealthFair;
+    public partial bool IsHealthFair { get; set; }
 
     [ObservableProperty]
-    private bool _isHealthGood;
+    public partial bool IsHealthGood { get; set; }
 
     [ObservableProperty]
-    private bool _isHealthExcellent;
+    public partial bool IsHealthExcellent { get; set; }
 
     public bool IsConnected => _connectionManager.IsConnected;
 

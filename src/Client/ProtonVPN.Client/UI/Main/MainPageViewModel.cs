@@ -56,18 +56,18 @@ public partial class MainPageViewModel : PageViewModelBase<IMainWindowViewNaviga
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveSidebarWidth))]
-    private bool _isSidebarExpanded;
+    public partial bool IsSidebarExpanded { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveSidebarWidth))]
-    private double _sidebarWidth;
+    public partial double SidebarWidth { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveSidebarWidth))]
-    private SplitViewDisplayMode _sidebarDisplayMode = SplitViewDisplayMode.CompactInline;
+    public partial SplitViewDisplayMode SidebarDisplayMode { get; set; } = SplitViewDisplayMode.CompactInline;
 
     [ObservableProperty]
-    private double _widgetBarWidth;
+    public partial double WidgetBarWidth { get; set; }
 
     public double EffectiveSidebarWidth => SidebarDisplayMode switch
     {

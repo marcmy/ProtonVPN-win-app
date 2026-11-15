@@ -32,7 +32,7 @@ public abstract partial class ExcludableLocationItemBase<TLocation> : ModelBase,
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLocationExcluded))]
-    private bool _isExcluded;
+    public partial bool IsExcluded { get; set; }
 
     public virtual bool IsLocationExcluded => IsExcluded;
 

@@ -41,18 +41,18 @@ public partial class ConnectionDetailsPageViewModel : PageViewModelBase<IDetails
     private readonly INetworkTrafficManager _networkTrafficManager;
 
     [ObservableProperty]
-    private string? _serverIpAddress;
+    public partial string? ServerIpAddress { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedVolume))]
-    private long? _volume;
+    public partial long? Volume { get; set; }
 
     [ObservableProperty]
-    private double _serverLoad;
+    public partial double ServerLoad { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormattedProtocol))]
-    private VpnProtocol? _protocol;
+    public partial VpnProtocol? Protocol { get; set; }
 
     public string FormattedVolume => Localizer.GetFormattedSize(Volume);
 

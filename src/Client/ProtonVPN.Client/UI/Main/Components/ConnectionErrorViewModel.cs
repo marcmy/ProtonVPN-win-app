@@ -50,7 +50,7 @@ public partial class ConnectionErrorViewModel : ViewModelBase,
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(TriggerActionButtonCommand))]
     [NotifyCanExecuteChangedFor(nameof(CloseErrorCommand))]
-    private bool _isConnectionErrorVisible;
+    public partial bool IsConnectionErrorVisible { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ActionButtonTitle))]
@@ -59,7 +59,7 @@ public partial class ConnectionErrorViewModel : ViewModelBase,
     [NotifyPropertyChangedFor(nameof(ConnectionErrorMessage))]
     [NotifyPropertyChangedFor(nameof(IsConnectionErrorVisible))]
     [NotifyCanExecuteChangedFor(nameof(TriggerActionButtonCommand))]
-    private IConnectionError? _connectionError;
+    public partial IConnectionError? ConnectionError { get; set; }
 
     private ConnectionStatus _lastStatus = ConnectionStatus.Disconnected;
 

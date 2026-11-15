@@ -78,12 +78,12 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIpv6AddressesWhileIpv6Disabled))]
-    private bool _isIpv6Enabled;
+    public partial bool IsIpv6Enabled { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SplitTunnelingFeatureIconSource))]
     [NotifyPropertyChangedFor(nameof(HasIpv6AddressesWhileIpv6Disabled))]
-    private bool _isSplitTunnelingEnabled;
+    public partial bool IsSplitTunnelingEnabled { get; set; }
 
     [ObservableProperty]
     [property: SettingName(nameof(ISettings.SplitTunnelingMode))]
@@ -101,25 +101,25 @@ public partial class SplitTunnelingPageViewModel : SettingsPageViewModelBase
     [NotifyPropertyChangedFor(nameof(Folders))]
     [NotifyPropertyChangedFor(nameof(FoldersHeader))]
     [NotifyPropertyChangedFor(nameof(HasIpv6AddressesWhileIpv6Disabled))]
-    private SplitTunnelingMode _currentSplitTunnelingMode;
+    public partial SplitTunnelingMode CurrentSplitTunnelingMode { get; set; }
 
     [ObservableProperty]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private string _customFolderPath = string.Empty;
+    public partial string CustomFolderPath { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _folderError = string.Empty;
+    public partial string FolderError { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _folderScanProgress = string.Empty;
+    public partial string FolderScanProgress { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _folderServiceProgress = string.Empty;
+    public partial string FolderServiceProgress { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isFolderScanRunning;
+    public partial bool IsFolderScanRunning { get; set; }
 
     [property: SettingName(nameof(ISettings.SplitTunnelingStandardFoldersList))]
     public SmartNotifyObservableCollection<SelectableTunnelingFolder> ExcludedFolders { get; } = [];

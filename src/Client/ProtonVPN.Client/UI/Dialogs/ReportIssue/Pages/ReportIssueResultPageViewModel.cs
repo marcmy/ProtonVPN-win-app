@@ -35,7 +35,7 @@ public partial class ReportIssueResultPageViewModel : ReportIssuePageViewModelBa
     [NotifyPropertyChangedFor(nameof(Description))]
     [NotifyCanExecuteChangedFor(nameof(CloseCommand))]
     [NotifyCanExecuteChangedFor(nameof(RetryCommand))]
-    private bool _isReportSent;
+    public partial bool IsReportSent { get; set; }
 
     public string Header => IsReportSent
         ? Localizer.Get("Dialogs_ReportIssue_Result_Success")

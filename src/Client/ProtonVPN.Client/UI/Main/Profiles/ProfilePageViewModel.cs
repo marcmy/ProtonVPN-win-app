@@ -55,7 +55,7 @@ public partial class ProfilePageViewModel : PageViewModelBase<IMainViewNavigator
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsProfileNameValid))]
     [NotifyCanExecuteChangedFor(nameof(SaveProfileCommand))]
-    private string _profileName = string.Empty;
+    public partial string ProfileName { get; set; } = string.Empty;
 
     public bool IsProfileNameValid => !string.IsNullOrWhiteSpace(ProfileName);
 

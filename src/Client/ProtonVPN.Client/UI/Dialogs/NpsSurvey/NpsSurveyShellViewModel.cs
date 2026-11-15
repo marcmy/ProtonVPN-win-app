@@ -48,13 +48,13 @@ public partial class NpsSurveyShellViewModel : ShellViewModelBase<INpsSurveyWind
     [NotifyPropertyChangedFor(nameof(SubmissionTitle))]
     [NotifyPropertyChangedFor(nameof(SubmissionSubtitle))]
     [NotifyPropertyChangedFor(nameof(HasSubmissionResult))]
-    private bool _isSubmitted;
+    public partial bool IsSubmitted { get; set; }
 
     [ObservableProperty]
-    private string _comment = string.Empty;
+    public partial string Comment { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isSending;
+    public partial bool IsSending { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SubmissionStatusIllustration))]
@@ -62,16 +62,16 @@ public partial class NpsSurveyShellViewModel : ShellViewModelBase<INpsSurveyWind
     [NotifyPropertyChangedFor(nameof(SubmissionTitle))]
     [NotifyPropertyChangedFor(nameof(SubmissionSubtitle))]
     [NotifyPropertyChangedFor(nameof(HasSubmissionResult))]
-    private bool _hasRequestFailed;
+    public partial bool HasRequestFailed { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSubmissionResult))]
-    private bool _isRequestSuccessful;
+    public partial bool IsRequestSuccessful { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsScoreSelected))]
     [NotifyCanExecuteChangedFor(nameof(SubmitSurveyCommand))]
-    private int _score = NpsSurveyConstants.DEFAULT_SCORE;
+    public partial int Score { get; set; } = NpsSurveyConstants.DEFAULT_SCORE;
 
     public bool IsScoreSelected => Score != NpsSurveyConstants.DEFAULT_SCORE;
 

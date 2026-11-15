@@ -33,7 +33,7 @@ public partial class ConnectionsPageViewModel : PageViewModelBase<ISidebarViewNa
     private readonly IPageViewMapper _pageViewMapper;
 
     [ObservableProperty]
-    private IConnectionPage? _selectedConnectionPage;
+    public partial IConnectionPage? SelectedConnectionPage { get; set; }
 
     public ObservableCollection<IConnectionPage> ConnectionPages { get; }
 

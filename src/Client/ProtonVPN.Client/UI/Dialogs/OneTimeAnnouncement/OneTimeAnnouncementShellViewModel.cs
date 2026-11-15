@@ -48,10 +48,10 @@ public partial class OneTimeAnnouncementShellViewModel : ShellViewModelBase<IOne
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ButtonText))]
     [NotifyPropertyChangedFor(nameof(ImageSource))]
-    private Announcement? _activeAnnouncement;
+    public partial Announcement? ActiveAnnouncement { get; set; }
 
     [ObservableProperty]
-    private bool _fillTitleBarArea = true;
+    public partial bool FillTitleBarArea { get; set; } = true;
 
     public string? ButtonText => ActiveAnnouncement?.Panel?.Button?.Text ?? string.Empty;
     public ImageSource? ImageSource => ActiveAnnouncement?.Panel?.FullScreenImage

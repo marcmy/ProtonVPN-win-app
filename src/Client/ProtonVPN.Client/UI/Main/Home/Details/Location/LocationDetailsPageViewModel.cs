@@ -42,7 +42,7 @@ public partial class LocationDetailsPageViewModel : PageViewModelBase<IDetailsVi
     [NotifyPropertyChangedFor(nameof(Country))]
     [NotifyPropertyChangedFor(nameof(IpAddress))]
     [NotifyPropertyChangedFor(nameof(Isp))]
-    private DeviceLocation _deviceLocation = DeviceLocation.Unknown;
+    public partial DeviceLocation DeviceLocation { get; set; } = DeviceLocation.Unknown;
 
     public string Country => EmptyValueExtensions.TransformValueOrDefault(DeviceLocation.CountryCode, cc => Localizer.GetCountryName(cc));
     public string IpAddress => EmptyValueExtensions.GetValueOrDefault(DeviceLocation.IpAddress);

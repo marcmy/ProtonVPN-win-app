@@ -70,13 +70,28 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     public string PingProgressText => ServerHealthHistorySession.Refresh.ProgressText;
 
     [ObservableProperty]
-    private bool _hasSearchInput;
+    public partial bool HasSearchInput { get; set; }
 
     [ObservableProperty]
-    private bool _isBrowsingAllServers;
+    public partial bool IsBrowsingAllServers { get; set; }
 
-    [ObservableProperty]
+
     private ICountriesComponent _selectedCountriesComponent;
+
+    public ICountriesComponent SelectedCountriesComponent
+    {
+        get => _selectedCountriesComponent;
+        set
+        {
+            if (!EqualityComparer<ICountriesComponent>.Default.Equals(_selectedCountriesComponent, value))
+            {
+                OnPropertyChanging(nameof(SelectedCountriesComponent));
+                _selectedCountriesComponent = value;
+                OnSelectedCountriesComponentChanged(value);
+                OnPropertyChanged(nameof(SelectedCountriesComponent));
+            }
+        }
+    }
 
     public bool IsPingFilterActive => PingFilter.IsActive;
 
@@ -127,7 +142,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         _ = ReloadResultsAsync();
     }
 
-    partial void OnSelectedCountriesComponentChanged(ICountriesComponent value)
+    private void OnSelectedCountriesComponentChanged(ICountriesComponent value)
     {
         StopPingDiscovery();
         _ = ReloadResultsAsync();
