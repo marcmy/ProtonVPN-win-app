@@ -27,6 +27,7 @@
         <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Polly" />
         <PackageReference Include="Polly.Contrib.WaitAndRetry" />
+        <PackageReference Include="protobuf-net" VersionOverride="3.4.40" />
         <PackageReference Include="System.Formats.Asn1" />
         <PackageReference Include="System.Net.Http" />
         <PackageReference Include="System.Text.Json" />

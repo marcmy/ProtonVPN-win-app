@@ -14,6 +14,7 @@
         </Compile>
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="protobuf-net" VersionOverride="3.4.40" />
         <PackageReference Include="protobuf-net.Grpc" />
         <PackageReference Include="System.Formats.Asn1" />
         <PackageReference Include="System.Private.ServiceModel" />
