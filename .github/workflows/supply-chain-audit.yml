@@ -124,9 +124,29 @@ jobs:
           path: .
           config: .syft.yaml
           format: spdx-json
+          output-file: sbom.spdx.json
           artifact-name: sbom.spdx.json
 
           # Pull requests get a real SBOM check without a write-capable token.
           dependency-snapshot: false
           upload-artifact: true
           upload-release-assets: false
+      - name: Verify independent SBOM contains resolved NuGet packages
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('sbom.spdx.json')
+          if not p.is_file():
+              raise SystemExit('::error::Syft did not export an inspectable SPDX document')
+          d = json.loads(p.read_text(encoding='utf-8'))
+          packages = d.get('packages', [])
+          names = {x.get('name', '').lower() for x in packages}
+          if len(packages) < 90 or 'log4net' not in names:
+              raise SystemExit(
+                  f'::error::Incomplete SBOM: {len(packages)} package records; '
+                  f'log4net present: {"log4net" in names}'
+              )
+          print(f'Validated {len(packages)} SPDX package records including log4net.')
+          PY
