@@ -434,7 +434,7 @@ jobs:
 
           git check-ref-format --branch "$TARGET_BRANCH" >/dev/null
           case "$TARGET_BRANCH" in
-            main|master|marc/proton-main)
+            main|master|marc/proton|marc/proton-main)
               echo "Refusing to push protected target branch '$TARGET_BRANCH'." >&2
               exit 1
               ;;
