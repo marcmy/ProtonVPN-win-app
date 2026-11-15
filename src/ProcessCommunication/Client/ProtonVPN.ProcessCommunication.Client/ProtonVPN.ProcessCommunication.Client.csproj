@@ -16,8 +16,6 @@
     <ItemGroup>
       <PackageReference Include="Grpc.Net.Client" />
       <PackageReference Include="protobuf-net.Grpc" />
-      <PackageReference Include="System.Formats.Asn1" />
-      <PackageReference Include="System.Text.Json" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\..\..\Client\Common\ProtonVPN.Client.Common\ProtonVPN.Client.Common.csproj" />
