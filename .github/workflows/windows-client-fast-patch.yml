@@ -58,6 +58,9 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - name: Test upstream dependency baseline resolution
+        run: python -m unittest discover -s .github/scripts -p test_resolve_upstream_baseline.py -v
+
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -265,38 +268,17 @@ jobs:
         id: upstream-baseline
         env:
           FORK_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          GITHUB_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $headers = @{
-            Accept = 'application/vnd.github+json'
-            Authorization = "Bearer $env:GITHUB_TOKEN"
-            'X-GitHub-Api-Version' = '2022-11-28'
-            'User-Agent' = 'ProtonVPN-FastPatch'
+          python .github/scripts/resolve_upstream_baseline.py `
+            --fork-url "https://github.com/$env:REPOSITORY.git" `
+            --fork-commit "$env:FORK_COMMIT" `
+            --upstream-url "https://github.com/ProtonVPN/win-app.git" `
+            --baseline-path "artifacts/upstream-baseline/Directory.Packages.props" `
+            --github-output "$env:GITHUB_OUTPUT"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to resolve the upstream dependency baseline from Git ancestry.'
           }
-
-          $base = [Uri]::EscapeDataString('ProtonVPN:master')
-          $compareUrl = "https://api.github.com/repos/$env:REPOSITORY/compare/$base...$env:FORK_COMMIT"
-          $comparison = Invoke-RestMethod -Uri $compareUrl -Headers $headers
-          $mergeBase = [string] $comparison.merge_base_commit.sha
-          if ($mergeBase -notmatch '^[0-9a-f]{40}$') {
-            throw "GitHub compare did not return a valid upstream merge base for $env:FORK_COMMIT."
-          }
-
-          $contentsUrl = "https://api.github.com/repos/ProtonVPN/win-app/contents/Directory.Packages.props?ref=$mergeBase"
-          $file = Invoke-RestMethod -Uri $contentsUrl -Headers $headers
-          $encoded = ([string] $file.content) -replace '\s', ''
-          if ([string]::IsNullOrWhiteSpace($encoded)) {
-            throw "Upstream Directory.Packages.props was empty at $mergeBase."
-          }
-          $text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
-          $baselinePath = 'artifacts/upstream-baseline/Directory.Packages.props'
-          [IO.File]::WriteAllText($baselinePath, $text, [Text.UTF8Encoding]::new($false))
-          [xml] (Get-Content -LiteralPath $baselinePath -Raw) | Out-Null
-
-          Write-Host "FastPatch dependency baseline: ProtonVPN/win-app@$mergeBase"
-          "upstream_base_commit=$mergeBase" >> $env:GITHUB_OUTPUT
 
       - name: Stage changed runtime dependency closure
         env:
