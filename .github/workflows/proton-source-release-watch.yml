@@ -245,6 +245,21 @@ jobs:
           SOURCE_PATCH_BRANCH: ${{ steps.detect.outputs.source_patch_branch }}
         run: |
           set -euo pipefail
+          workflow_state="$(gh api "repos/$GH_REPO/actions/workflows/future-version-patch.yml" --jq '.state')"
+          case "$workflow_state" in
+            active)
+              ;;
+            disabled_manually)
+              echo "::notice::Future-version porting is manually disabled; leaving $TAG pending."
+              echo "Public source $TAG is pending. Future-version porting is manually disabled; no port was dispatched." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+            *)
+              echo "::error::Future-version workflow is unavailable (state: $workflow_state)."
+              exit 1
+              ;;
+          esac
+
           gh workflow run future-version-patch.yml \
             --repo "$GH_REPO" \
             --ref marc/proton-main \
