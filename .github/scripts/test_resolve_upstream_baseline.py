@@ -25,6 +25,7 @@ class ResolveBaselineTests(unittest.TestCase):
         path = self.root / name
         path.mkdir()
         self.git(path, "init", "--quiet", "--initial-branch=master")
+        (path / ".gitattributes").write_text("*.props -text\n")
         (path / "Directory.Packages.props").write_bytes(
             f'<Project><ItemGroup><PackageVersion Include="Example" Version="{version}" /></ItemGroup></Project>\r\n'.encode())
         self.git(path, "add", ".")
