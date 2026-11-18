@@ -23,3 +23,16 @@ updates:
     rebase-strategy: disabled
     cooldown:
       default-days: 7
+    ignore:
+      - dependency-name: "Microsoft.Windows.Compatibility"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.Collections.Immutable"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.ComponentModel.Composition"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.Diagnostics.DiagnosticSource"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.Diagnostics.EventLog"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.Security.Cryptography.Pkcs"
+        update-types: ["version-update:semver-major"]
