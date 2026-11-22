@@ -170,6 +170,7 @@ public sealed class ServerHealthRefreshScheduler : IDisposable
     public async Task TickAsync()
     {
         Task? refresh = null;
+        Discovery? scope;
         CancellationToken token;
         lock (_sync)
         {
@@ -177,28 +178,24 @@ public sealed class ServerHealthRefreshScheduler : IDisposable
             // Loaded/unloaded callbacks can trail navigation. A closed scope must
             // not keep refining its rows, and old-tab rows cannot leak into a new tab.
             if (_activeDiscovery is { IsDisposed: true }) { return; }
-            Discovery? scope = _activeDiscovery is { IsDisposed: false } ? _activeDiscovery : null;
-            if (scope is not null)
+            scope = _activeDiscovery;
+            if (scope is not null && !scope.Completion.IsCompleted)
             {
-                if (!scope.Completion.IsCompleted) { return; }
-                if (scope.Sources.Any(source => _store.NeedsRefresh(source, RefreshInterval)))
-                { refresh = scope.Completion = Task.Run(() => RunDiscoveryAsync(scope)); }
+                return;
             }
             token = scope?.Token ?? _lifetime.Token;
         }
-        if (refresh is not null) { await refresh; return; }
         if (!await _pass.WaitAsync(0, token)) { return; }
         try
         {
             Candidate[] visible;
             lock (_sync)
             {
-                if (_disposed || token.IsCancellationRequested)
+                if (_disposed || token.IsCancellationRequested || !ReferenceEquals(scope, _activeDiscovery))
                 {
                     return;
                 }
                 _priorityRequestPending = false;
-                Discovery? scope = _activeDiscovery;
                 visible = _candidates.Values.Where(candidate => candidate.InterestedViews > 0
                         && (scope is null || scope.Contains(candidate.Source)))
                     .OrderByDescending(candidate => candidate.PriorityInterests)
@@ -230,6 +227,17 @@ public sealed class ServerHealthRefreshScheduler : IDisposable
                     }
                 }
             });
+
+            // A long catalogue can already be due again when its previous pass finishes.
+            // Let visible endpoints collect fixed checks before starting another quick pass.
+            lock (_sync)
+            {
+                if (scope is not null && ReferenceEquals(scope, _activeDiscovery) && !token.IsCancellationRequested
+                    && scope.Sources.Any(source => _store.NeedsRefresh(source, RefreshInterval)))
+                {
+                    refresh = scope.Completion = Task.Run(() => RunDiscoveryAsync(scope));
+                }
+            }
         }
         finally
         {
@@ -241,6 +249,7 @@ public sealed class ServerHealthRefreshScheduler : IDisposable
             }
             if (needsSelectedCheck) { RunTick(); }
         }
+        if (refresh is not null) { await refresh; }
     }
 
     public void Dispose()

@@ -44,8 +44,9 @@ public sealed partial class ServerBrowserPageView : IContextAware
     private bool _pointerDown;
     private bool _returningToSearch;
     private bool _viewportUpdateQueued;
-    private ListAnchor? _savedAnchor;
-    private int _restoreSequence;
+    private bool _syncingFilters;
+    private double _listOffsetBeforeDetails;
+    private int _scrollRequest;
 
     public ServerBrowserPageViewModel ViewModel { get; }
 
@@ -68,22 +69,21 @@ public sealed partial class ServerBrowserPageView : IContextAware
 
     private void OnLoaded(object sender, RoutedEventArgs args)
     {
-        ViewModel.ResultsChanging += OnResultsChanging;
         ViewModel.ResultsChanged += OnResultsChanged;
+        ViewModel.FiltersChanged += OnFiltersChanged;
         ViewModel.DiscoveryRequested += OnDiscoveryRequested;
         ViewModel.LiveProjectionRequested += OnLiveProjectionRequested;
         ViewModel.StatusAnnouncementRequested += OnStatusAnnouncementRequested;
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         BindScrollViewer();
         ViewModel.Activate();
+        SyncFilterControls(refreshOptions: true);
         _expiryTimer.Start();
         UpdateLayoutForSelection();
-        bool restoreFocus = _savedAnchor?.FocusedId is string id && ViewModel.FindShownRow(id) is not null;
-        RestoreAnchor(_savedAnchor, restoreFocus, allowOriginalFocus: true);
         QueueViewportUpdate();
         DispatcherQueue.TryEnqueue(() =>
         {
-            if (IsLoaded && (!restoreFocus || ListPane.Visibility == Visibility.Collapsed))
+            if (IsLoaded)
             {
                 (ListPane.Visibility == Visibility.Visible ? (Control)ServerSearch : BackButton).Focus(FocusState.Programmatic);
             }
@@ -92,8 +92,7 @@ public sealed partial class ServerBrowserPageView : IContextAware
 
     private void OnUnloaded(object sender, RoutedEventArgs args)
     {
-        _savedAnchor = CaptureAnchor() ?? _savedAnchor;
-        _restoreSequence++;
+        _scrollRequest++;
         if (_listScroll is not null)
         {
             _listScroll.ViewChanged -= OnListViewChanged;
@@ -108,8 +107,8 @@ public sealed partial class ServerBrowserPageView : IContextAware
         ViewModel.StatusAnnouncementRequested -= OnStatusAnnouncementRequested;
         ViewModel.LiveProjectionRequested -= OnLiveProjectionRequested;
         ViewModel.DiscoveryRequested -= OnDiscoveryRequested;
+        ViewModel.FiltersChanged -= OnFiltersChanged;
         ViewModel.ResultsChanged -= OnResultsChanged;
-        ViewModel.ResultsChanging -= OnResultsChanging;
         ViewModel.Deactivate();
     }
 
@@ -174,6 +173,7 @@ public sealed partial class ServerBrowserPageView : IContextAware
     private void OnListPointerPressed(object sender, PointerRoutedEventArgs args)
     {
         _pointerDown = true;
+        _scrollRequest++;
         RecordInteraction();
     }
 
@@ -183,10 +183,63 @@ public sealed partial class ServerBrowserPageView : IContextAware
         RecordInteraction();
     }
 
-    private void OnListPointerWheelChanged(object sender, PointerRoutedEventArgs args) => RecordInteraction();
+    private void OnListPointerWheelChanged(object sender, PointerRoutedEventArgs args)
+    {
+        _scrollRequest++;
+        RecordInteraction();
+    }
+
+    private void OnListLostFocus(object sender, RoutedEventArgs args) => RecordInteraction();
+
+    private void OnFilterDropDownClosed(object sender, object args) => RecordInteraction();
+
+    private void OnFilterSelectionChanged(object sender, SelectionChangedEventArgs args)
+    {
+        if (_syncingFilters || !IsLoaded || !ViewModel.IsActive)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(sender, FeatureTabs) && FeatureTabs.SelectedIndex >= 0)
+        {
+            ViewModel.FeatureIndex = FeatureTabs.SelectedIndex;
+        }
+        else if (ReferenceEquals(sender, SortFilter) && SortFilter.SelectedIndex >= 0)
+        {
+            ViewModel.SortIndex = SortFilter.SelectedIndex;
+        }
+        else if (ReferenceEquals(sender, PingFilter) && PingFilter.SelectedIndex >= 0)
+        {
+            ViewModel.PingLimitIndex = PingFilter.SelectedIndex;
+        }
+    }
+
+    private void SyncFilterControls(bool refreshOptions = false)
+    {
+        _syncingFilters = true;
+        try
+        {
+            if (refreshOptions)
+            {
+                SortFilter.ItemsSource = ViewModel.SortOptions;
+                PingFilter.ItemsSource = ViewModel.PingOptions;
+            }
+            FeatureTabs.SelectedIndex = ViewModel.FeatureIndex;
+            SortFilter.SelectedIndex = ViewModel.SortIndex;
+            PingFilter.SelectedIndex = ViewModel.PingLimitIndex;
+        }
+        finally
+        {
+            _syncingFilters = false;
+        }
+    }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
+        if (args.PropertyName is nameof(ViewModel.SortOptions) or nameof(ViewModel.PingOptions))
+        {
+            SyncFilterControls(refreshOptions: true);
+        }
         if (args.PropertyName != nameof(ViewModel.IsDetailsOpen))
         {
             return;
@@ -195,7 +248,7 @@ public sealed partial class ServerBrowserPageView : IContextAware
         bool wasListVisible = ListPane.Visibility == Visibility.Visible;
         if (wasListVisible)
         {
-            _savedAnchor = CaptureAnchor() ?? _savedAnchor;
+            _listOffsetBeforeDetails = _listScroll?.VerticalOffset ?? 0;
         }
         UpdateLayoutForSelection();
         if (ListPane.Visibility == Visibility.Collapsed)
@@ -204,8 +257,8 @@ public sealed partial class ServerBrowserPageView : IContextAware
         }
         else if (!wasListVisible)
         {
-            RestoreAnchor(_savedAnchor, restoreFocus: !_returningToSearch, fallbackId: ViewModel.SelectedRow?.Id,
-                allowOriginalFocus: true);
+            QueueScrollToOffset(_listOffsetBeforeDetails, focusList: !_returningToSearch);
+            RecordInteraction();
         }
         QueueViewportUpdate();
     }
@@ -215,12 +268,12 @@ public sealed partial class ServerBrowserPageView : IContextAware
         bool wasListVisible = ListPane.Visibility == Visibility.Visible;
         if (wasListVisible)
         {
-            _savedAnchor = CaptureAnchor() ?? _savedAnchor;
+            _listOffsetBeforeDetails = _listScroll?.VerticalOffset ?? 0;
         }
         UpdateLayoutForSelection();
         if (!wasListVisible && ListPane.Visibility == Visibility.Visible)
         {
-            RestoreAnchor(_savedAnchor, restoreFocus: false);
+            QueueScrollToOffset(_listOffsetBeforeDetails);
         }
         else if (ListPane.Visibility == Visibility.Collapsed && FindFocusedRow() is not null)
         {
@@ -317,10 +370,6 @@ public sealed partial class ServerBrowserPageView : IContextAware
         _isScrolling = args.IsIntermediate;
         RecordInteraction();
         QueueViewportUpdate();
-        if (!_isScrolling)
-        {
-            _savedAnchor = CaptureAnchor() ?? _savedAnchor;
-        }
     }
 
     private void QueueViewportUpdate()
@@ -380,112 +429,35 @@ public sealed partial class ServerBrowserPageView : IContextAware
         return null;
     }
 
-    private ListAnchor? CaptureAnchor()
-    {
-        if (ListPane.Visibility != Visibility.Visible)
-        {
-            return null;
-        }
+    private void OnResultsChanged(object? sender, EventArgs args) => QueueViewportUpdate();
 
-        var (row, top) = GetVisibleRows().OrderBy(item => item.Top).FirstOrDefault();
-        return row is null ? null : new ListAnchor(row.Id, top, FindFocusedRow()?.Id);
+    private void OnFiltersChanged(object? sender, EventArgs args)
+    {
+        SyncFilterControls();
+        _listOffsetBeforeDetails = 0;
+        QueueScrollToOffset(0);
     }
 
-    private void OnResultsChanging(object? sender, EventArgs args)
+    private void QueueScrollToOffset(double offset, bool focusList = false)
     {
-        _savedAnchor = CaptureAnchor() ?? _savedAnchor;
-    }
-
-    private void OnResultsChanged(object? sender, EventArgs args)
-    {
-        RestoreAnchor(_savedAnchor, restoreFocus: _savedAnchor?.FocusedId is not null);
-        QueueViewportUpdate();
-    }
-
-    private void RestoreAnchor(ListAnchor? anchor, bool restoreFocus, string? fallbackId = null, bool allowOriginalFocus = false)
-    {
-        int sequence = ++_restoreSequence;
-        object? originalFocus = allowOriginalFocus && XamlRoot is XamlRoot root ? FocusManager.GetFocusedElement(root) : null;
+        int request = ++_scrollRequest;
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
-            if (!CanRestoreAnchor(sequence))
+            if (!IsLoaded || request != _scrollRequest || ListPane.Visibility != Visibility.Visible)
             {
                 return;
             }
 
-            string? focusId = restoreFocus ? anchor?.FocusedId ?? fallbackId : null;
-            ServerBrowserRow? focusRow = focusId is null ? null : ViewModel.FindShownRow(focusId);
-            ServerBrowserRow? topRow = anchor is null ? null : ViewModel.FindShownRow(anchor.Id);
-            topRow ??= focusRow;
-            if (topRow is not null)
+            BindScrollViewer();
+            if (_listScroll is ScrollViewer scroller)
             {
-                ServerList.ScrollIntoView(topRow, ScrollIntoViewAlignment.Leading);
+                scroller.ChangeView(null, Math.Min(offset, scroller.ScrollableHeight), null, disableAnimation: true);
             }
-            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            if (focusList && BackButton.FocusState != FocusState.Unfocused)
             {
-                if (!CanRestoreAnchor(sequence))
-                {
-                    return;
-                }
-
-                if (topRow is not null && anchor?.Id == topRow.Id && _listScroll is ScrollViewer scroller
-                    && ServerList.ContainerFromItem(topRow) is ListViewItem item)
-                {
-                    double top = item.TransformToVisual(scroller).TransformPoint(new Point(0, 0)).Y;
-                    double offset = Math.Clamp(scroller.VerticalOffset + top - anchor.Top, 0, scroller.ScrollableHeight);
-                    scroller.ChangeView(null, offset, null, disableAnimation: true);
-                }
-
-                if (!restoreFocus || !CanRestoreKeyboardFocus(originalFocus))
-                {
-                    return;
-                }
-
-                if (focusRow is not null && ServerList.ContainerFromItem(focusRow) is ListViewItem focused)
-                {
-                    focused.Focus(FocusState.Keyboard);
-                }
-                else if (focusRow is not null)
-                {
-                    // A live reorder can move the focused row beyond the realized viewport.
-                    ServerList.ScrollIntoView(focusRow);
-                    DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
-                    {
-                        if (CanRestoreAnchor(sequence) && CanRestoreKeyboardFocus(originalFocus))
-                        {
-                            (ServerList.ContainerFromItem(focusRow) as Control ?? ServerList).Focus(FocusState.Keyboard);
-                        }
-                    });
-                }
-                else
-                {
-                    ServerList.Focus(FocusState.Keyboard);
-                }
-            });
+                ServerSearch.Focus(FocusState.Programmatic);
+            }
         });
-    }
-
-    private bool CanRestoreAnchor(int sequence) =>
-        IsLoaded && sequence == _restoreSequence && ListPane.Visibility == Visibility.Visible;
-
-    private bool CanRestoreKeyboardFocus(object? originalFocus)
-    {
-        object? currentFocus = XamlRoot is XamlRoot root ? FocusManager.GetFocusedElement(root) : null;
-        if (currentFocus is null || ReferenceEquals(currentFocus, originalFocus))
-        {
-            return true;
-        }
-
-        for (DependencyObject? element = currentFocus as DependencyObject;
-             element is not null;
-             element = VisualTreeHelper.GetParent(element))
-        {
-            if (element == ServerList)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void OnLiveProjectionRequested(object? sender, EventArgs args)
@@ -505,7 +477,10 @@ public sealed partial class ServerBrowserPageView : IContextAware
     private void OnSortTimerTick(object? sender, object args)
     {
         _sortTimer.Stop();
-        if (!_isScrolling && !_pointerDown)
+        // Apply background reordering only at the top, away from active list navigation.
+        if (!_isScrolling && !_pointerDown && ListPane.Visibility == Visibility.Visible
+            && (_listScroll?.VerticalOffset ?? 0) < 1 && FindFocusedRow() is null
+            && !SortFilter.IsDropDownOpen && !PingFilter.IsDropDownOpen)
         {
             ViewModel.ApplyPendingProjection();
         }
@@ -516,6 +491,4 @@ public sealed partial class ServerBrowserPageView : IContextAware
         FrameworkElementAutomationPeer.CreatePeerForElement(ResultsStatus)?.RaiseNotificationEvent(
             AutomationNotificationKind.Other, AutomationNotificationProcessing.MostRecent, text, "ServerBrowserResults");
     }
-
-    private sealed record ListAnchor(string Id, double Top, string? FocusedId);
 }

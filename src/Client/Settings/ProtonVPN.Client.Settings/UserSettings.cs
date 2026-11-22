@@ -484,6 +484,24 @@ public class UserSettings : GlobalSettings, IUserSettings
         set => _userCache.SetListValueType<ExcludedLocation>(value, SettingEncryption.Unencrypted);
     }
 
+    public int ServerBrowserFeatureIndex
+    {
+        get => _userCache.GetValueType<int>(SettingEncryption.Unencrypted) ?? 0;
+        set => _userCache.SetValueType<int>(value, SettingEncryption.Unencrypted);
+    }
+
+    public int ServerBrowserSortIndex
+    {
+        get => _userCache.GetValueType<int>(SettingEncryption.Unencrypted) ?? 0;
+        set => _userCache.SetValueType<int>(value, SettingEncryption.Unencrypted);
+    }
+
+    public int ServerBrowserPingLimitIndex
+    {
+        get => _userCache.GetValueType<int>(SettingEncryption.Unencrypted) ?? 0;
+        set => _userCache.SetValueType<int>(value, SettingEncryption.Unencrypted);
+    }
+
     public bool WasExcludedLocationsSmartDiscoveryPromptDisplayed
     {
         get => SkipOnboarding || (_userCache.GetValueType<bool>(SettingEncryption.Unencrypted) ?? false);

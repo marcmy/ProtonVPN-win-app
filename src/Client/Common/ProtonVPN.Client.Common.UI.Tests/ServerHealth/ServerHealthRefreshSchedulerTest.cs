@@ -254,6 +254,22 @@ public class ServerHealthRefreshSchedulerTest
     }
 
     [TestMethod]
+    public async Task DueCatalogueRefresh_DoesNotStarveVisibleFixedChecks()
+    {
+        QueueServerHealthSource visible = Source(1);
+        QueueServerHealthSource offscreen = Source(2);
+        using ServerHealthRefreshScheduler.Discovery discovery = _scheduler.StartDiscovery([visible, offscreen]);
+        await discovery.Completion;
+        using IDisposable interest = _scheduler.Track(visible);
+
+        _clock.Advance(ServerHealthRefreshScheduler.RefreshInterval);
+        await _scheduler.TickAsync();
+
+        CollectionAssert.AreEqual(new[] { true, false }, visible.QuickRequests.ToArray());
+        CollectionAssert.AreEqual(new[] { true, true }, offscreen.QuickRequests.ToArray());
+    }
+
+    [TestMethod]
     public async Task VisibleRows_RefineNormallyAfterOneMinuteAndStopWhenUnloaded()
     {
         QueueServerHealthSource source = Source(1);

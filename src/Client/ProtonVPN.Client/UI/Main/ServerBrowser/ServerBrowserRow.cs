@@ -39,6 +39,7 @@ public sealed partial class ServerBrowserRow : ObservableObject
     internal double? CurrentPing { get; private set; }
     internal double? CurrentLoss { get; private set; }
     internal int LossSampleCount { get; private set; }
+    internal bool HasCurrentProbeFailure { get; private set; }
     internal DateTimeOffset? FreshUntil { get; private set; }
 
     public string Id => Server.Id;
@@ -49,6 +50,12 @@ public sealed partial class ServerBrowserRow : ObservableObject
     public string Location { get; }
     public string EntryCountry { get; }
     public bool IsSecureCore { get; }
+    public bool SupportsSmartRouting => Server.IsVirtual;
+    public bool SupportsP2P => Server.Features.IsSupported(ServerFeatures.P2P);
+    public bool SupportsTor => Server.Features.IsSupported(ServerFeatures.Tor);
+    public string SmartRoutingLabel => _localizer.GetFormat("Countries_SmartRouting_RoutedThrough", _localizer.GetCountryName(Server.HostCountry));
+    public string P2PLabel => _localizer.Get("Countries_P2P");
+    public string TorLabel => _localizer.Get("Countries_Tor");
     public bool IsUnderMaintenance => Server.IsUnderMaintenance();
     public string LoadText => (Server.Load / 100d).ToString("P0", CultureInfo.CurrentCulture);
     public string AutomationName => _localizer.GetFormat("ServerBrowser_RowAutomationName",
@@ -71,7 +78,7 @@ public sealed partial class ServerBrowserRow : ObservableObject
     public partial string IdentityState { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial bool IsSelected { get; set; }
+    public partial ServerHealthSnapshot? HealthSnapshot { get; set; }
 
     internal ServerBrowserRow(Server server, ILocalizationProvider localizer)
     {
@@ -108,9 +115,12 @@ public sealed partial class ServerBrowserRow : ObservableObject
         double? previousPing = CurrentPing;
         double? previousLoss = CurrentLoss;
         int previousCount = LossSampleCount;
+        bool previousFailure = HasCurrentProbeFailure;
 
+        HealthSnapshot = IsUnderMaintenance ? null : snapshot;
         ServerHealthPresentation? presentation = snapshot is null ? null : ServerHealthPresentation.FromSnapshot(snapshot);
         bool isCurrent = !IsUnderMaintenance && snapshot is { IsCached: false, IsStale: false };
+        HasCurrentProbeFailure = isCurrent && snapshot!.LatestMeasurement?.IsCompleteFailure == true;
         CurrentPing = isCurrent ? snapshot!.CurrentLatencyMilliseconds : null;
         FreshUntil = isCurrent ? snapshot!.FreshUntil : null;
         ServerHealthAggregate? aggregate = snapshot?.Aggregate;
@@ -119,12 +129,11 @@ public sealed partial class ServerBrowserRow : ObservableObject
         PingText = presentation?.LatencyText ?? "—";
         LossText = CurrentLoss is double loss
             ? (loss / 100).ToString("P0", CultureInfo.CurrentCulture)
-            : CurrentPing.HasValue
-                ? _localizer.Get("ServerBrowser_Sampling")
-                : "—";
+            : "—";
         MeasurementStatus = GetMeasurementStatus(snapshot, aggregate);
 
-        return previousPing != CurrentPing || previousLoss != CurrentLoss || previousCount != LossSampleCount;
+        return previousPing != CurrentPing || previousLoss != CurrentLoss || previousCount != LossSampleCount
+            || previousFailure != HasCurrentProbeFailure;
     }
 
     private string GetMeasurementStatus(ServerHealthSnapshot? snapshot, ServerHealthAggregate? aggregate)
@@ -144,10 +153,9 @@ public sealed partial class ServerBrowserRow : ObservableObject
             { LatestMeasurement.IsCompleteFailure: true } => "ServerBrowser_Unavailable",
             { LatestMeasurement: { IsDiscovery: false, Observations: not null, IsQualifiedFixedCheck: false } } =>
                 "ServerBrowser_CheckIncomplete",
-            { IsChecking: true, LatestMeasurement: null } => "ServerBrowser_Checking",
+            { IsChecking: true } when CurrentLoss is null => "ServerBrowser_Checking",
             { LatestMeasurement: null } => "ServerBrowser_NotMeasured",
             _ when aggregate?.IsLatencyEstimate == true => "ServerBrowser_Estimate",
-            _ when CurrentLoss is null => "ServerBrowser_Sampling",
             _ => null,
         };
 

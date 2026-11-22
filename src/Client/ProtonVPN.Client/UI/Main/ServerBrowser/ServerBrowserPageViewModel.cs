@@ -142,8 +142,8 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
     public partial ServerHealthSnapshot? SelectedSnapshot { get; set; }
 
     public event EventHandler? DiscoveryRequested;
-    public event EventHandler? ResultsChanging;
     public event EventHandler? ResultsChanged;
+    public event EventHandler? FiltersChanged;
     public event EventHandler? LiveProjectionRequested;
     public event EventHandler<string>? StatusAnnouncementRequested;
 
@@ -163,12 +163,16 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
         _locationFactory = locationFactory;
         _upsellActivator = upsellActivator;
         _settings = settings;
-        PingLimitIndex = Math.Max(0, Array.IndexOf(MaxPingOptions, ServerPingFilterSession.Current.MaxLatencyMilliseconds));
     }
 
     protected override void OnActivated()
     {
         base.OnActivated();
+        _resettingFilters = true;
+        FeatureIndex = ValidIndex(_settings.ServerBrowserFeatureIndex, (int)CountriesConnectionType.Tor + 1);
+        SortIndex = ValidIndex(_settings.ServerBrowserSortIndex, (int)ServerSort.Location + 1);
+        PingLimitIndex = ValidIndex(_settings.ServerBrowserPingLimitIndex, MaxPingOptions.Length);
+        _resettingFilters = false;
         _uiRefresh = new(action => ExecuteOnUIThread(action), RefreshMeasurements);
         History.SnapshotChanged += OnSnapshotChanged;
         Refresh.ProgressChanged += OnProgressChanged;
@@ -209,15 +213,34 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
 
     partial void OnFeatureIndexChanged(int value)
     {
-        if (IsActive && value >= 0)
+        if (IsActive && !_resettingFilters)
         {
+            _settings.ServerBrowserFeatureIndex = value;
             UpdateScope();
+            FiltersChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
+    private static int ValidIndex(int value, int count) => value >= 0 && value < count ? value : 0;
+
     partial void OnQueryChanged(string value) => ApplyFilterChange();
-    partial void OnSortIndexChanged(int value) => ApplyFilterChange();
-    partial void OnPingLimitIndexChanged(int value) => ApplyFilterChange();
+    partial void OnSortIndexChanged(int value)
+    {
+        if (IsActive && !_resettingFilters)
+        {
+            _settings.ServerBrowserSortIndex = value;
+            ApplyFilterChange();
+        }
+    }
+
+    partial void OnPingLimitIndexChanged(int value)
+    {
+        if (IsActive && !_resettingFilters)
+        {
+            _settings.ServerBrowserPingLimitIndex = value;
+            ApplyFilterChange();
+        }
+    }
 
     [RelayCommand]
     private void ResetFilters()
@@ -227,6 +250,8 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
         PingLimitIndex = 0;
         SortIndex = 0;
         _resettingFilters = false;
+        _settings.ServerBrowserPingLimitIndex = PingLimitIndex;
+        _settings.ServerBrowserSortIndex = SortIndex;
         ApplyFilterChange();
     }
 
@@ -254,15 +279,7 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
 
     private void SetSelectedRow(ServerBrowserRow? row, bool openDetails)
     {
-        if (SelectedRow is ServerBrowserRow previous)
-        {
-            previous.IsSelected = false;
-        }
         SelectedRow = row;
-        if (row is not null)
-        {
-            row.IsSelected = true;
-        }
         IsDetailsOpen = openDetails && row is not null;
         RefreshSelectedInterest();
         UpdateSelectedPresentation();
@@ -312,6 +329,7 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
         if (IsActive && !_resettingFilters)
         {
             ApplyProjection(announce: true);
+            FiltersChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -556,11 +574,6 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
         }
     }
 
-    public ServerBrowserRow? FindShownRow(string id)
-    {
-        return _rows.TryGetValue(id, out ServerBrowserRow? row) && _shownRows.Contains(row) ? row : null;
-    }
-
     private void ApplyProjection(bool announce)
     {
         _projectionPending = false;
@@ -580,7 +593,7 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
             {
                 candidates.Add(row);
             }
-            else if (row.CurrentPing is null)
+            else if (row.CurrentPing is null && CanProbe(row) && !row.HasCurrentProbeFailure)
             {
                 pending.Add(row);
             }
@@ -589,7 +602,6 @@ public sealed partial class ServerBrowserPageViewModel : PageViewModelBase<IMain
 
         if (candidates.Count != _shownMatches || !sorted.SequenceEqual(_shownRows) || Results.Source is null)
         {
-            ResultsChanging?.Invoke(this, EventArgs.Empty);
             _shownRows = sorted;
             _shownMatches = candidates.Count;
             List<ServerBrowserGroup> groups = [new(sorted[.._shownMatches])];

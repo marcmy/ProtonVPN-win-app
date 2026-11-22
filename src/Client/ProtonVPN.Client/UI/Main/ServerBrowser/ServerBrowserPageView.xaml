@@ -24,9 +24,11 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
       xmlns:browser="using:ProtonVPN.Client.UI.Main.ServerBrowser"
       xmlns:common="using:ProtonVPN.Client.Common.UI.Controls"
       xmlns:custom="using:ProtonVPN.Client.Common.UI.Controls.Custom"
+      xmlns:pathicons="using:ProtonVPN.Client.Common.UI.Assets.Icons.PathIcons"
       x:DefaultBindMode="OneWay"
       AutomationProperties.AutomationId="ServerBrowserPage"
       AutomationProperties.Name="{x:Bind ViewModel.Title}"
+      KeyboardAcceleratorPlacementMode="Hidden"
       NavigationCacheMode="Required">
 
     <Page.KeyboardAccelerators>
@@ -75,7 +77,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Pivot SelectedIndex="{x:Bind ViewModel.FeatureIndex, Mode=TwoWay}"
+                <Pivot x:Name="FeatureTabs" SelectionChanged="OnFilterSelectionChanged"
                        AutomationProperties.AutomationId="ServerBrowserFeatures">
                     <PivotItem Header="{x:Bind ViewModel.Localizer.Get('Countries_All')}" />
                     <PivotItem Header="{x:Bind ViewModel.Localizer.Get('Countries_SecureCore')}" />
@@ -94,17 +96,17 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <ComboBox HorizontalAlignment="Stretch"
+                        <ComboBox x:Name="SortFilter" HorizontalAlignment="Stretch"
+                                  DropDownClosed="OnFilterDropDownClosed"
                                   Header="{x:Bind ViewModel.Localizer.Get('ServerBrowser_Sort')}"
                                   AutomationProperties.AutomationId="ServerBrowserSort"
-                                  ItemsSource="{x:Bind ViewModel.SortOptions}"
-                                  SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" />
-                        <ComboBox Grid.Column="1"
+                                  SelectionChanged="OnFilterSelectionChanged" />
+                        <ComboBox x:Name="PingFilter" Grid.Column="1"
                                   HorizontalAlignment="Stretch"
+                                  DropDownClosed="OnFilterDropDownClosed"
                                   Header="{x:Bind ViewModel.Localizer.Get('ServerBrowser_MaxPing')}"
                                   AutomationProperties.AutomationId="ServerBrowserMaxPing"
-                                  ItemsSource="{x:Bind ViewModel.PingOptions}"
-                                  SelectedIndex="{x:Bind ViewModel.PingLimitIndex, Mode=TwoWay}" />
+                                  SelectionChanged="OnFilterSelectionChanged" />
                     </Grid>
                 </StackPanel>
 
@@ -116,13 +118,13 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                     <TextBlock x:Name="ResultsStatus"
                                Foreground="{ThemeResource TextWeakColorBrush}"
                                Text="{x:Bind ViewModel.ResultText}"
-                               TextWrapping="Wrap" />
+                               TextTrimming="CharacterEllipsis" />
                     <TextBlock Grid.Column="1"
                                HorizontalAlignment="Right"
                                Foreground="{ThemeResource TextWeakColorBrush}"
                                Text="{x:Bind ViewModel.ProgressText}"
                                TextAlignment="Right"
-                               TextWrapping="Wrap" />
+                               TextTrimming="CharacterEllipsis" />
                 </Grid>
 
                 <Grid Grid.Row="3">
@@ -163,6 +165,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                   ItemClick="OnServerInvoked"
                                   ItemsSource="{x:Bind ViewModel.Results.View}"
                                   KeyDown="OnListKeyDown"
+                                  LostFocus="OnListLostFocus"
                                   SelectionMode="None"
                                   ScrollViewer.HorizontalScrollMode="Disabled"
                                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -171,7 +174,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                             </ListView.ItemContainerTransitions>
                             <ListView.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <ItemsStackPanel AreStickyGroupHeadersEnabled="True" />
+                                    <ItemsStackPanel AreStickyGroupHeadersEnabled="True" ItemsUpdatingScrollMode="KeepScrollOffset" />
                                 </ItemsPanelTemplate>
                             </ListView.ItemsPanel>
                             <ListView.ItemContainerStyle>
@@ -208,11 +211,6 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                             <ColumnDefinition Width="100" />
                                             <ColumnDefinition Width="72" />
                                         </Grid.ColumnDefinitions>
-                                        <Border Grid.ColumnSpan="4"
-                                                Margin="-8,-4"
-                                                Background="{ThemeResource InteractionDefaultActiveColorBrush}"
-                                                CornerRadius="4"
-                                                Visibility="{x:Bind IsSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                         <Grid ColumnSpacing="8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -225,22 +223,43 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                             <StackPanel Grid.Column="1" Spacing="2">
                                                 <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}"
                                                            Text="{x:Bind Location, Mode=OneTime}"
-                                                           TextWrapping="Wrap" />
-                                                <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
-                                                           TextWrapping="Wrap">
-                                                    <Run Text="{x:Bind Name, Mode=OneTime}" />
-                                                    <Run Text=" " />
-                                                    <Run Text="{x:Bind IdentityState}" />
-                                                </TextBlock>
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTipService.ToolTip="{x:Bind Location, Mode=OneTime}" />
+                                                <Grid ColumnSpacing="4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
+                                                               TextTrimming="CharacterEllipsis">
+                                                        <Run Text="{x:Bind Name, Mode=OneTime}" />
+                                                        <Run Text=" " />
+                                                        <Run Text="{x:Bind IdentityState}" />
+                                                    </TextBlock>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3">
+                                                        <pathicons:Globe Size="Pixels16"
+                                                                         AutomationProperties.Name="{x:Bind SmartRoutingLabel, Mode=OneTime}"
+                                                                         ToolTipService.ToolTip="{x:Bind SmartRoutingLabel, Mode=OneTime}"
+                                                                         Visibility="{x:Bind SupportsSmartRouting, Mode=OneTime, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                        <pathicons:ArrowRightArrowLeft Size="Pixels16"
+                                                                                      AutomationProperties.Name="{x:Bind P2PLabel, Mode=OneTime}"
+                                                                                      ToolTipService.ToolTip="{x:Bind P2PLabel, Mode=OneTime}"
+                                                                                      Visibility="{x:Bind SupportsP2P, Mode=OneTime, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                        <pathicons:BrandTor Size="Pixels16"
+                                                                            AutomationProperties.Name="{x:Bind TorLabel, Mode=OneTime}"
+                                                                            ToolTipService.ToolTip="{x:Bind TorLabel, Mode=OneTime}"
+                                                                            Visibility="{x:Bind SupportsTor, Mode=OneTime, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                    </StackPanel>
+                                                </Grid>
                                             </StackPanel>
                                         </Grid>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind PingText}" TextAlignment="Right" TextWrapping="Wrap" />
+                                            <common:ServerHealthControl Snapshot="{x:Bind HealthSnapshot}" HorizontalAlignment="Right" />
                                             <TextBlock Foreground="{ThemeResource TextWeakColorBrush}"
                                                        Style="{ThemeResource CaptionTextBlockStyle}"
                                                        Text="{x:Bind MeasurementStatus}"
                                                        TextAlignment="Right"
-                                                       TextWrapping="Wrap" />
+                                                       TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Margin="4,0,0,0" VerticalAlignment="Center"
                                                    Text="{x:Bind LossText}" TextAlignment="Right" TextWrapping="Wrap" />

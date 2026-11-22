@@ -30,16 +30,25 @@ namespace ProtonVPN.Client.Common.UI.Controls;
 
 public sealed class ServerHealthControl : Grid
 {
+    public static readonly DependencyProperty SnapshotProperty = DependencyProperty.Register(
+        nameof(Snapshot), typeof(ServerHealthSnapshot), typeof(ServerHealthControl),
+        new PropertyMetadata(null, (sender, _) => ((ServerHealthControl)sender).RestoreSnapshot()));
+
     private readonly Border[] _bars;
     private readonly TextBlock _latencyText;
     private readonly ServerHealthHistoryStore _historyStore = ServerHealthHistorySession.Current;
-    private readonly ServerHealthHistoryDetailsControl _detailsControl = new();
-
+    private ServerHealthHistoryDetailsControl? _detailsControl;
     private IDisposable? _refreshInterest;
     private ServerHealthHistoryKey? _historyKey;
     private IServerHealthSource? _probeSource;
     private double _serverLoad;
     private bool _isLoaded;
+
+    public ServerHealthSnapshot? Snapshot
+    {
+        get => (ServerHealthSnapshot?)GetValue(SnapshotProperty);
+        set => SetValue(SnapshotProperty, value);
+    }
 
     public IServerHealthSource? ProbeSource
     {
@@ -69,8 +78,6 @@ public sealed class ServerHealthControl : Grid
         VerticalAlignment = VerticalAlignment.Center;
         ColumnSpacing = 2;
         Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
-        ToolTipService.SetToolTip(this, _detailsControl);
-
         _bars =
         [
             CreateBar(4),
@@ -92,6 +99,7 @@ public sealed class ServerHealthControl : Grid
             Margin = new Thickness(4, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             FontSize = 11,
+            TextTrimming = TextTrimming.CharacterEllipsis,
             Foreground = GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)),
             Text = "—",
         };
@@ -99,7 +107,7 @@ public sealed class ServerHealthControl : Grid
         SetColumn(_latencyText, _bars.Length);
         Children.Add(_latencyText);
 
-        SetCheckingState();
+        SetEmptyState();
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -117,20 +125,22 @@ public sealed class ServerHealthControl : Grid
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _isLoaded = true;
-        _historyStore.SnapshotChanged += OnSnapshotChanged;
         RestartRefreshInterest();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _isLoaded = false;
-        _historyStore.SnapshotChanged -= OnSnapshotChanged;
         StopRefreshInterest();
     }
 
     private void RestartRefreshInterest()
     {
         StopRefreshInterest();
+        if (_isLoaded && ProbeSource is not null)
+        {
+            _historyStore.SnapshotChanged += OnSnapshotChanged;
+        }
         RestoreSnapshot();
 
         if (!_isLoaded || ProbeSource is null || _historyKey is null)
@@ -143,6 +153,7 @@ public sealed class ServerHealthControl : Grid
 
     private void StopRefreshInterest()
     {
+        _historyStore.SnapshotChanged -= OnSnapshotChanged;
         _refreshInterest?.Dispose();
         _refreshInterest = null;
     }
@@ -163,6 +174,20 @@ public sealed class ServerHealthControl : Grid
 
     private void RestoreSnapshot()
     {
+        if (ProbeSource is null)
+        {
+            _historyKey = null;
+            if (Snapshot is ServerHealthSnapshot snapshot)
+            {
+                ApplySnapshot(snapshot);
+            }
+            else
+            {
+                SetEmptyState();
+            }
+            return;
+        }
+
         if (!TryGetHistoryKey(out ServerHealthHistoryKey key))
         {
             _historyKey = null;
@@ -176,8 +201,6 @@ public sealed class ServerHealthControl : Grid
 
     private void ApplySnapshot(ServerHealthSnapshot snapshot)
     {
-        _detailsControl.Snapshot = snapshot;
-        ToolTipService.SetToolTip(this, _detailsControl);
         ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
         _latencyText.Text = presentation.LatencyText;
 
@@ -196,12 +219,22 @@ public sealed class ServerHealthControl : Grid
             SetBars(presentation.ActiveBarCount, GetThemeBrush(resourceKey, fallback));
         }
 
-        AutomationProperties.SetName(
-            this,
-            $"Server health {presentation.GradeText}; " +
+        string summary = $"Server health {presentation.GradeText}; " +
             $"latency {presentation.LatencyText}; " +
             $"packet loss {presentation.PacketLossText}; " +
-            presentation.ConfidenceText);
+            presentation.ConfidenceText;
+        AutomationProperties.SetName(this, summary);
+
+        if (ProbeSource is null)
+        {
+            ToolTipService.SetToolTip(this, summary);
+        }
+        else
+        {
+            _detailsControl ??= new();
+            _detailsControl.Snapshot = snapshot;
+            ToolTipService.SetToolTip(this, _detailsControl);
+        }
     }
 
     private void OnSnapshotChanged(object? sender, ServerHealthSnapshotChangedEventArgs e)
@@ -220,13 +253,16 @@ public sealed class ServerHealthControl : Grid
         });
     }
 
-    private void SetCheckingState()
+    private void SetEmptyState()
     {
         _latencyText.Text = "—";
         SetBars(0, GetThemeBrush("TextWeakColorBrush", Color.FromArgb(255, 120, 120, 130)));
-        _detailsControl.Snapshot = null;
-        ToolTipService.SetToolTip(this, _detailsControl);
-        AutomationProperties.SetName(this, "Server health checking");
+        if (_detailsControl is not null)
+        {
+            _detailsControl.Snapshot = null;
+        }
+        ToolTipService.SetToolTip(this, null);
+        AutomationProperties.SetName(this, "Server health unavailable");
     }
 
     private void SetUnavailableState(string reason)
