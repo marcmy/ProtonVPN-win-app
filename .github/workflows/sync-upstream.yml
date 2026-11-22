@@ -24,7 +24,9 @@ jobs:
   sync:
     if: github.repository == 'marcmy/ProtonVPN-win-app'
     runs-on: ubuntu-latest
-    environment: upstream-sync
+    environment:
+      name: upstream-sync
+      deployment: false
     timeout-minutes: 20
 
     steps:

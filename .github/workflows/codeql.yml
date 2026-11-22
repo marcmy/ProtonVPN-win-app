@@ -23,7 +23,11 @@ concurrency:
 
 jobs:
   analyze:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || vars.ENABLE_ADVANCED_CODEQL == 'true'
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      vars.ENABLE_ADVANCED_CODEQL == 'true'
     name: Advanced CodeQL (${{ matrix.language }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
