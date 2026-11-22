@@ -7,62 +7,30 @@ namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
 public class ServerHealthConcurrencyTest
 {
     [TestMethod]
-    public async Task RetryDelay_DoesNotOccupyTheOnlyProbeSlot()
+    public async Task CancelledQueuedWork_NeverUsesTheProbeSlot()
     {
-        FakeServerHealthClock clock = new() { BlockDelays = true };
-        QueueServerHealthSource failingSource = new()
-        {
-            HealthServerId = "server-a",
-            HealthProbeAddress = "10.0.0.1",
-            HealthServerLoad = 0.20,
-        };
-        failingSource.Enqueue(new ServerHealthProbeMeasurement(
-            null,
-            0,
-            4,
-            clock.UtcNow,
-            false,
-            "first failure",
-            failingSource.HealthServerLoad));
-        failingSource.Enqueue(new ServerHealthProbeMeasurement(
-            40,
-            4,
-            4,
-            clock.UtcNow,
-            true,
-            null,
-            failingSource.HealthServerLoad));
-
-        QueueServerHealthSource healthySource = new()
-        {
-            HealthServerId = "server-b",
-            HealthProbeAddress = "10.0.0.2",
-            HealthServerLoad = 0.20,
-        };
-        healthySource.Enqueue(new ServerHealthProbeMeasurement(
-            30,
-            4,
-            4,
-            clock.UtcNow,
-            true,
-            null,
-            healthySource.HealthServerLoad));
-
+        FakeServerHealthClock clock = new();
+        var first = new QueueServerHealthSource { HealthServerId = "a", HealthProbeAddress = "10.0.0.1" };
+        var cancelled = new QueueServerHealthSource { HealthServerId = "b", HealthProbeAddress = "10.0.0.2" };
+        var third = new QueueServerHealthSource { HealthServerId = "c", HealthProbeAddress = "10.0.0.3" };
+        TaskCompletionSource<ServerHealthProbeMeasurement> gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        first.Enqueue(token => gate.Task.WaitAsync(token));
+        third.Enqueue(ServerHealthSamples.FixedCheck(clock.UtcNow));
         using ServerHealthHistoryStore store = new(clock, maximumConcurrentProbes: 1);
-        Task<ServerHealthSnapshot> retrying =
-            store.ProbeAsync(failingSource, CancellationToken.None);
-        Assert.IsTrue(SpinWait.SpinUntil(
-            () => clock.Delays.Count == 1,
-            TimeSpan.FromSeconds(1)));
+        using CancellationTokenSource cancellation = new();
 
-        ServerHealthSnapshot healthy = await store
-            .ProbeAsync(healthySource, CancellationToken.None)
-            .WaitAsync(TimeSpan.FromSeconds(1));
+        Task<ServerHealthSnapshot> active = store.ProbeAsync(first, CancellationToken.None);
+        Task<ServerHealthSnapshot> dropped = store.ProbeAsync(cancelled, cancellation.Token);
+        Task<ServerHealthSnapshot> waiting = store.ProbeAsync(third, CancellationToken.None);
+        Assert.AreEqual(0, third.ProbeCount);
+        cancellation.Cancel();
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => dropped);
+        gate.SetResult(ServerHealthSamples.FixedCheck(clock.UtcNow));
+        await active;
 
-        Assert.AreEqual(1, healthySource.ProbeCount);
-        Assert.AreEqual(0d, healthy.Aggregate!.PacketLossPercent, 0.001);
-
-        clock.CompleteDelay();
-        await retrying;
+        ServerHealthSnapshot completed = await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(0, cancelled.ProbeCount);
+        Assert.AreEqual(1, third.ProbeCount);
+        Assert.AreEqual(4, completed.Aggregate!.TotalSamples);
     }
 }

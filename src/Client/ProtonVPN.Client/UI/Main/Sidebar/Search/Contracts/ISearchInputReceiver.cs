@@ -21,7 +21,5 @@ namespace ProtonVPN.Client.UI.Main.Sidebar.Search.Contracts;
 
 public interface ISearchInputReceiver
 {
-    bool IsBrowsingAllServers { get; }
-
     Task SearchAsync(string input);
 }

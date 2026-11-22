@@ -7,37 +7,41 @@ namespace ProtonVPN.Client.Common.UI.ServerHealth;
 public static class ServerHealthCalculator
 {
     internal const int ScoreMeasurementCount = 6;
+    private const int MinimumChecksForPublishedLoss = 3;
+    internal static readonly TimeSpan MinimumFixedCheckSpacing = TimeSpan.FromSeconds(15);
+
+    public static IReadOnlyList<ServerHealthProbeMeasurement> GetQualifiedWindow(
+        IReadOnlyList<ServerHealthProbeMeasurement> retained) =>
+        retained.Where(measurement => measurement.IsQualifiedFixedCheck).TakeLast(ScoreMeasurementCount).ToArray();
 
     public static ServerHealthAggregate Aggregate(
-        IReadOnlyList<ServerHealthProbeMeasurement> retained)
+        IReadOnlyList<ServerHealthProbeMeasurement> retained, bool hasObservedReply = false)
     {
         if (retained.Count == 0)
         {
             throw new ArgumentException("At least one measurement is required.", nameof(retained));
         }
 
-        ServerHealthProbeMeasurement[] measurements = retained
-            .TakeLast(ScoreMeasurementCount)
+        IReadOnlyList<ServerHealthProbeMeasurement> fixedChecks = GetQualifiedWindow(retained);
+        int total = fixedChecks.Sum(measurement => measurement.TotalSamples);
+        int successful = fixedChecks.Sum(measurement => measurement.SuccessfulSamples);
+        double loss = total == 0 ? 0 : (total - successful) * 100d / total;
+        double[] roundTrips = fixedChecks.SelectMany(measurement => measurement.Observations!)
+            .Where(ServerHealthProbeMeasurement.IsValidReply)
+            .Select(sample => sample.RoundTripTimeMilliseconds!.Value)
+            .Order()
             .ToArray();
-        int total = measurements.Sum(measurement => Math.Max(0, measurement.TotalSamples));
-        int successful = measurements.Sum(measurement => Math.Clamp(
-            measurement.SuccessfulSamples,
-            0,
-            Math.Max(0, measurement.TotalSamples)));
-        double loss = total == 0 ? 100 : (total - successful) * 100d / total;
-        ServerHealthProbeMeasurement[] latencyMeasurements = measurements
-            .Where(measurement => measurement.AverageLatencyMilliseconds is not null && measurement.SuccessfulSamples > 0)
-            .ToArray();
-        int latencySamples = latencyMeasurements.Sum(measurement => Math.Clamp(
-            measurement.SuccessfulSamples,
-            0,
-            Math.Max(0, measurement.TotalSamples)));
-        double weightedLatency = latencyMeasurements.Sum(measurement =>
-            measurement.AverageLatencyMilliseconds!.Value *
-            Math.Clamp(measurement.SuccessfulSamples, 0, Math.Max(0, measurement.TotalSamples)));
-        double? latency = latencySamples == 0 ? null : weightedLatency / latencySamples;
-        double load = Math.Clamp(measurements[^1].ServerLoad, 0, 1);
-        double score = CalculateScore(latency, loss, load);
+        double? median = roundTrips.Length == 0 ? null : Median(roundTrips);
+        double? latency = roundTrips.Length >= 3 ? median : retained
+            .LastOrDefault(measurement => measurement.UsedPhysicalRoute && measurement.AverageLatencyMilliseconds is not null)
+            ?.AverageLatencyMilliseconds;
+        double? variation = roundTrips.Length >= 8 && fixedChecks.Count(check => check.SuccessfulSamples > 0) >= 2
+            ? Median(roundTrips.Select(roundTrip => Math.Abs(roundTrip - median!.Value)).Order().ToArray())
+            : null;
+        double load = Math.Clamp(retained[^1].ServerLoad, 0, 1);
+        hasObservedReply |= retained.Any(measurement => measurement.HasVerifiedEchoReply);
+        bool isLossEstablished = hasObservedReply && HasSeparatedChecks(fixedChecks);
+        double score = CalculateScore(latency, loss);
         ServerHealthGrade grade = score switch
         {
             >= 85 => ServerHealthGrade.Excellent,
@@ -46,10 +50,33 @@ public static class ServerHealthCalculator
             _ => ServerHealthGrade.Poor,
         };
 
-        return new(latency, loss, successful, total, load, score, grade, measurements.Length);
+        return new(latency, loss, successful, total, load, score, grade, fixedChecks.Count,
+            isLossEstablished, latency is not null && roundTrips.Length < 3, variation, hasObservedReply);
     }
 
-    public static double CalculateScore(double? latency, double loss, double load)
+    private static bool HasSeparatedChecks(IReadOnlyList<ServerHealthProbeMeasurement> checks)
+    {
+        int separated = 0;
+        DateTimeOffset? previous = null;
+        foreach (DateTimeOffset checkedAt in checks.Select(check => check.CheckedAt).Order())
+        {
+            if (previous is null || checkedAt - previous.Value >= MinimumFixedCheckSpacing)
+            {
+                if (++separated >= MinimumChecksForPublishedLoss)
+                {
+                    return true;
+                }
+                previous = checkedAt;
+            }
+        }
+        return false;
+    }
+
+    private static double Median(double[] ordered) => ordered.Length % 2 == 0
+        ? (ordered[ordered.Length / 2 - 1] + ordered[ordered.Length / 2]) / 2
+        : ordered[ordered.Length / 2];
+
+    private static double CalculateScore(double? latency, double loss)
     {
         double latencyScore = latency switch
         {
@@ -62,16 +89,13 @@ public static class ServerHealthCalculator
             _ => 5,
         };
         double reliabilityScore = Math.Clamp(100 - loss * 2, 0, 100);
-        double loadScore = 100 - Math.Clamp(load, 0, 1) * 100;
-        double score = latencyScore * 0.45 + reliabilityScore * 0.45 + loadScore * 0.10;
-        if (loss >= 50)
+        double score = (latencyScore + reliabilityScore) / 2;
+        return loss switch
         {
-            return Math.Min(score, 39);
-        }
-        if (loss >= 25)
-        {
-            return Math.Min(score, 64);
-        }
-        return score;
+            >= 50 => Math.Min(score, 39),
+            >= 25 => Math.Min(score, 64),
+            > 0 => Math.Min(score, 84),
+            _ => score,
+        };
     }
 }

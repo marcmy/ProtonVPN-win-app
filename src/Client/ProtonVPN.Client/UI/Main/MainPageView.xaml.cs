@@ -20,6 +20,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Services.Navigation;
 using Windows.Foundation;
@@ -31,6 +32,7 @@ public sealed partial class MainPageView : IContextAware
     private const int EXPAND_SIDEBAR_DELAY_IN_MS = 100;
 
     private readonly DispatcherTimer _timer;
+    private bool _wasServerBrowserDisplayed;
 
     public MainPageViewModel ViewModel { get; }
 
@@ -79,12 +81,30 @@ public sealed partial class MainPageView : IContextAware
     {
         Navigator.Load();
         ViewModel.Activate();
+        Navigator.Navigated += OnMainFrameNavigated;
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        Navigator.Navigated -= OnMainFrameNavigated;
         ViewModel.Deactivate();
         Navigator.Unload();
+    }
+
+    private void OnMainFrameNavigated(object sender, NavigationEventArgs e)
+    {
+        if (_wasServerBrowserDisplayed && ViewModel.IsHomePageDisplayed)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (ViewModel.IsHomePageDisplayed)
+                {
+                    SidebarComponent.FocusBrowseAction();
+                }
+            });
+        }
+
+        _wasServerBrowserDisplayed = ViewModel.IsServerBrowserDisplayed;
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)

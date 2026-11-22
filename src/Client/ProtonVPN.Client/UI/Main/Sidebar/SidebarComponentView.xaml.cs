@@ -63,6 +63,11 @@ public sealed partial class SidebarComponentView : IContextAware
         return ViewModel;
     }
 
+    public void FocusBrowseAction()
+    {
+        (IsSidebarExpanded ? BrowseButton : CompactBrowseButton).Focus(FocusState.Programmatic);
+    }
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         Navigator.Load();

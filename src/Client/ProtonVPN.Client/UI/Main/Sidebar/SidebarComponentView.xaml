@@ -53,6 +53,15 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                          Size="Pixels16" />
                 </Border>
 
+                <Button x:Name="CompactBrowseButton"
+                        HorizontalAlignment="Center"
+                        AutomationProperties.Name="{x:Bind ViewModel.Localizer.Get('ServerBrowser_Title')}"
+                        Command="{x:Bind ViewModel.BrowseAllServersCommand}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Localizer.Get('ServerBrowser_Title')}"
+                        Visibility="{x:Bind ViewModel.IsSearchVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <pathicons:Servers Size="Pixels16" />
+                </Button>
+
                 <!--  Connection page icons  -->
                 <ItemsControl HorizontalAlignment="Center"
                               ItemsSource="{x:Bind ViewModel.ConnectionPages, Mode=OneTime}">
@@ -78,6 +87,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
 
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -93,8 +103,27 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                       Visibility="{x:Bind ViewModel.IsSearchVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                                       Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
+                <Button x:Name="BrowseButton"
+                        Grid.Row="1"
+                        Margin="4,0,12,0"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="BrowseAllServers"
+                        Command="{x:Bind ViewModel.BrowseAllServersCommand}"
+                        Visibility="{x:Bind ViewModel.IsSearchVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <pathicons:Servers VerticalAlignment="Center" Size="Pixels16" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{x:Bind ViewModel.Localizer.Get('ServerBrowser_Title')}"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                </Button>
+
                 <Frame x:Name="SidebarNavigationFrame"
-                       Grid.Row="1"
+                       Grid.Row="2"
                        Margin="0,0,8,0"
                        IsNavigationStackEnabled="{x:Bind Navigator.IsNavigationStackEnabled}" />
             </Grid>

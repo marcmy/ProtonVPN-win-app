@@ -45,21 +45,21 @@ public class ServerPingFilterSessionTest
     }
 
     [TestMethod]
-    public async Task SelectingThresholds_UsesSavedLatencyWithoutStartingProbes()
+    public async Task SelectingThresholds_KeepsSavedRowsAsPendingWithoutStartingProbes()
     {
         ServerPingFilterSession filter = new(_store);
         QueueServerHealthSource source = CreateSource("saved");
         source.Enqueue(new ServerHealthProbeMeasurement(40, 4, 4, _clock.UtcNow, true, null, 0.25));
         await _store.ProbeAsync(source, CancellationToken.None);
-        // Rolling graph history expires, but the saved ping remains usable immediately.
+        // Historical RTT stays visible but cannot prove a current threshold match.
         _clock.Advance(TimeSpan.FromDays(1));
         foreach (ServerPingFilterOption option in filter.Options)
         {
             filter.SelectedOption = option;
-            Assert.AreEqual(option.MaxLatencyMilliseconds is null or >= 40, filter.Matches(source));
+            Assert.IsTrue(filter.Matches(source));
         }
         Assert.AreEqual(1, source.ProbeCount);
-        Assert.AreEqual(40d, filter.GetAverageLatencyMilliseconds(source));
+        Assert.IsNull(filter.GetAverageLatencyMilliseconds(source));
     }
 
     private static QueueServerHealthSource CreateSource(string suffix) =>
@@ -71,7 +71,7 @@ public class ServerPingFilterSessionTest
         };
 
     [TestMethod]
-    public async Task FirstReply_IsUsableImmediatelyThenWeightedByLaterSamples()
+    public async Task FirstReply_IsUsableImmediatelyThenReplacedByFixedMedian()
     {
         QueueServerHealthSource source = CreateSource("average");
         ServerPingFilterSession filter = new(_store);
@@ -81,11 +81,11 @@ public class ServerPingFilterSessionTest
         Assert.IsTrue(filter.Matches(source));
         Assert.AreEqual(20d, filter.GetAverageLatencyMilliseconds(source));
         _clock.Advance(TimeSpan.FromMinutes(1));
-        source.Enqueue(new ServerHealthProbeMeasurement(80, 4, 4, _clock.UtcNow, true, null, 0.25));
+        source.Enqueue(ServerHealthSamples.FixedCheck(_clock.UtcNow, 80));
         await _store.ProbeAsync(source, CancellationToken.None);
-        Assert.AreEqual(68d, filter.GetAverageLatencyMilliseconds(source));
+        Assert.AreEqual(80d, filter.GetAverageLatencyMilliseconds(source));
         Assert.IsFalse(filter.Matches(source));
-        filter.SelectedOption = filter.Options.Single(option => option.MaxLatencyMilliseconds == 75);
+        filter.SelectedOption = filter.Options.Single(option => option.MaxLatencyMilliseconds == 100);
         Assert.IsTrue(filter.Matches(source));
     }
 

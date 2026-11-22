@@ -46,6 +46,7 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
     private readonly IServersCache _serversCache;
     private readonly IServerFinder _serverFinder;
     private readonly ISearchInputReceiver _searchInputReceiver;
+    private readonly IMainViewNavigator _mainViewNavigator;
 
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
@@ -58,6 +59,7 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
     public SidebarComponentViewModel(
         IServersCache serversCache,
         ISidebarViewNavigator childViewNavigator,
+        IMainViewNavigator mainViewNavigator,
         ILocalizationProvider localizer,
         ISearchInputReceiver searchInputReceiver,
         IEnumerable<IConnectionPage> connectionPages,
@@ -67,6 +69,7 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
     {
         _serversCache = serversCache;
         _searchInputReceiver = searchInputReceiver;
+        _mainViewNavigator = mainViewNavigator;
         _serverFinder = serverFinder;
         ConnectionPages = new(connectionPages.OrderBy(p => p.SortIndex));
     }
@@ -125,9 +128,7 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
 
     public void OnSearchTextBoxLostFocus(object sender, RoutedEventArgs _)
     {
-        if (sender is TextBox
-            && string.IsNullOrWhiteSpace(SearchText)
-            && !_searchInputReceiver.IsBrowsingAllServers)
+        if (sender is TextBox && string.IsNullOrWhiteSpace(SearchText))
         {
             _serverFinder.ClearSearchBlock();
             ChildViewNavigator.NavigateToConnectionsViewAsync();
@@ -157,6 +158,12 @@ public partial class SidebarComponentViewModel : HostViewModelBase<ISidebarViewN
         {
             ChildViewNavigator.NavigateToConnectionsViewAsync();
         }
+    }
+
+    [RelayCommand]
+    private Task BrowseAllServersAsync()
+    {
+        return _mainViewNavigator.NavigateToServerBrowserViewAsync();
     }
 
     [RelayCommand]

@@ -20,7 +20,7 @@
 using System.ComponentModel;
 using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml.Navigation;
 using ProtonVPN.Client.Common.UI.ServerHealth;
 using ProtonVPN.Client.Core.Bases;
 using ProtonVPN.Client.Core.Enums;
@@ -40,6 +40,7 @@ using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 using ProtonVPN.Client.Logic.Servers.Contracts.Searches;
 using ProtonVPN.Client.Models.Connections;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Client.UI.Main.ServerBrowser;
 using ProtonVPN.Client.UI.Main.Sidebar.Bases;
 using ProtonVPN.Client.UI.Main.Sidebar.Connections.Bases.Contracts;
 using ProtonVPN.Client.UI.Main.Sidebar.Search.Contracts;
@@ -58,6 +59,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     private readonly ILocationItemFactory _locationItemFactory;
     private readonly IServerFinder _serverFinder;
     private readonly IExclusionChecker _exclusionChecker;
+    private readonly IMainViewNavigator _mainViewNavigator;
 
     private string _input = string.Empty;
     private long _resultsGeneration;
@@ -71,10 +73,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     [ObservableProperty]
     public partial bool HasSearchInput { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsBrowsingAllServers { get; set; }
-
 
     private ICountriesComponent _selectedCountriesComponent;
 
@@ -110,6 +108,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         IConnectionManager connectionManager,
         IServersLoader serversLoader,
         ISidebarViewNavigator parentViewNavigator,
+        IMainViewNavigator mainViewNavigator,
         IGlobalSearch globalSearch,
         ILocationItemFactory locationItemFactory,
         IConnectionGroupFactory connectionGroupFactory,
@@ -128,6 +127,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         _locationItemFactory = locationItemFactory;
         _serverFinder = serverFinder;
         _exclusionChecker = exclusionChecker;
+        _mainViewNavigator = mainViewNavigator;
 
         CountriesComponents = new(countriesComponents.OrderBy(p => p.SortIndex));
         _selectedCountriesComponent = CountriesComponents.First();
@@ -150,7 +150,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     public Task SearchAsync(string input)
     {
-        IsBrowsingAllServers = false;
         _input = input;
         return ReloadResultsAsync();
     }
@@ -165,9 +164,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         previousCancellationTokenSource?.Cancel();
         previousCancellationTokenSource?.Dispose();
 
-        return IsBrowsingAllServers
-            ? LoadAllServersAsync(generation)
-            : SearchAsync(generation, cancellationTokenSource.Token);
+        return SearchAsync(generation, cancellationTokenSource.Token);
     }
 
     private async Task SearchAsync(long generation, CancellationToken cancellationToken)
@@ -213,39 +210,6 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
-    }
-
-    [RelayCommand]
-    private Task BrowseAllServersAsync()
-    {
-        _input = string.Empty;
-        IsBrowsingAllServers = true;
-        return ReloadResultsAsync();
-    }
-
-    private Task LoadAllServersAsync(long generation)
-    {
-        ServerFeatures? serverFeatures = GetServerFeatures();
-        Func<ILocation, ConnectionItemBase?> itemFactory = GetConnectionItemCreationFunction();
-        IEnumerable<Server> servers = serverFeatures is null
-            ? ServersLoader.GetServers()
-            : ServersLoader.GetServersByFeatures(serverFeatures.Value);
-
-        List<ConnectionItemBase> result = servers
-            .Where(server => !_exclusionChecker.IsServerExcluded(server))
-            .Select(itemFactory)
-            .Where(ci => ci is not null)
-            .Cast<ConnectionItemBase>()
-            .ToList();
-
-        if (IsCurrentGeneration(generation))
-        {
-            HasSearchInput = true;
-            SetSearchResult(result);
-            _serverFinder.Cancel();
-        }
-
-        return Task.CompletedTask;
     }
 
     private async Task<List<ConnectionItemBase>> GetSearchResultsAsync(
@@ -318,7 +282,8 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void StartPingDiscovery()
     {
-        if (!IsActive || !HasSearchInput || _pingDiscovery is { IsDisposed: false }) { return; }
+        if (!IsActive || !HasSearchInput || _pingDiscovery is { IsDisposed: false }
+            || _mainViewNavigator.GetCurrentPageContext() is ServerBrowserPageViewModel) { return; }
         ServerFeatures? features = GetServerFeatures();
         IEnumerable<Server> servers = features is null ? ServersLoader.GetServers() : ServersLoader.GetServersByFeatures(features.Value);
         _pingDiscovery = ServerHealthHistorySession.Refresh.StartDiscovery(servers
@@ -378,6 +343,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     {
         base.OnActivated();
         _pingUiRefresh = new(action => ExecuteOnUIThread(action), RefreshPingPresentation);
+        _mainViewNavigator.Navigated += OnMainViewNavigated;
         ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
         ServerHealthHistorySession.Refresh.ProgressChanged += OnPingProgressChanged;
         StartPingDiscovery();
@@ -390,11 +356,25 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
     protected override void OnDeactivated()
     {
         ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        _mainViewNavigator.Navigated -= OnMainViewNavigated;
         ServerHealthHistorySession.Refresh.ProgressChanged -= OnPingProgressChanged;
         _pingUiRefresh?.Dispose();
         _pingUiRefresh = null;
         StopPingDiscovery();
         base.OnDeactivated();
+    }
+
+    private void OnMainViewNavigated(object sender, NavigationEventArgs args)
+    {
+        if (_mainViewNavigator.GetCurrentPageContext() is ServerBrowserPageViewModel)
+        {
+            StopPingDiscovery();
+        }
+        else
+        {
+            StartPingDiscovery();
+            _pingUiRefresh?.Request();
+        }
     }
 
     private void OnPingCacheChanged(object? sender, ServerHealthSnapshotChangedEventArgs args)
@@ -409,7 +389,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     private void RefreshPingPresentation()
     {
-        if (!IsActive) { return; }
+        if (!IsActive || _mainViewNavigator.GetCurrentPageContext() is ServerBrowserPageViewModel) { return; }
         OnPropertyChanged(nameof(IsMeasuringPings));
         OnPropertyChanged(nameof(PingProgressText));
         if (HasSearchInput && PingFilter.IsActive) { ApplySearchResult(); }
@@ -530,7 +510,7 @@ public partial class SearchResultsPageViewModel : ConnectionListViewModelBase<IS
 
     public void Receive(NewServerFoundMessage message)
     {
-        if (IsBrowsingAllServers || string.IsNullOrWhiteSpace(_input))
+        if (string.IsNullOrWhiteSpace(_input))
         {
             return;
         }

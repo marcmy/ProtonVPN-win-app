@@ -6,293 +6,199 @@ namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
 [TestClass]
 public class ServerHealthHistoryStoreTest
 {
-    [TestMethod]
-    public async Task FirstFailure_RetriesAfterFiveSecondsAndRecordsSuccessfulRetry()
-    {
-        FakeServerHealthClock clock = new();
-        QueueServerHealthSource source = Source();
-        source.Enqueue(Failure(clock, "first"));
-        source.Enqueue(Success(clock, 40, 4));
-        using ServerHealthHistoryStore store = new(clock);
-
-        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
-
-        CollectionAssert.AreEqual(new[] { TimeSpan.FromSeconds(5) }, clock.Delays);
-        Assert.AreEqual(2, source.ProbeCount);
-        Assert.AreEqual(1, result.Measurements.Count);
-        Assert.IsTrue(result.Measurements[0].WasRetried);
-        Assert.IsFalse(result.Measurements[0].IsConfirmedOutage);
-    }
+    private readonly FakeServerHealthClock _clock = new();
 
     [TestMethod]
-    public async Task TwoFailures_RecordOneConfirmedOutage()
+    public async Task LocalFailure_PublishesImmediatelyWithoutSyntheticLoss()
     {
-        FakeServerHealthClock clock = new();
         QueueServerHealthSource source = Source();
-        source.Enqueue(Failure(clock, "first"));
-        source.Enqueue(Failure(clock, "second"));
-        using ServerHealthHistoryStore store = new(clock);
+        source.Enqueue(new ServerHealthProbeMeasurement(null, 0, 0, _clock.UtcNow, false, "Route unavailable", 0));
+        using ServerHealthHistoryStore store = new(_clock);
 
-        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
-
-        Assert.AreEqual(1, result.Measurements.Count);
-        Assert.AreEqual(0, result.Measurements[0].SuccessfulSamples);
-        Assert.AreEqual(4, result.Measurements[0].TotalSamples);
-        Assert.IsTrue(result.Measurements[0].IsConfirmedOutage);
-        Assert.AreEqual(100d, result.Aggregate!.PacketLossPercent, 0.001);
-    }
-
-    [TestMethod]
-    public async Task PartialLoss_DoesNotRetry()
-    {
-        FakeServerHealthClock clock = new();
-        QueueServerHealthSource source = Source();
-        source.Enqueue(Success(clock, 40, 2));
-        using ServerHealthHistoryStore store = new(clock);
-
-        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
+        ServerHealthSnapshot snapshot = await store.ProbeAsync(source, CancellationToken.None);
 
         Assert.AreEqual(1, source.ProbeCount);
-        Assert.AreEqual(0, clock.Delays.Count);
-        Assert.AreEqual(50d, result.Aggregate!.PacketLossPercent, 0.001);
+        Assert.AreEqual(0, _clock.Delays.Count);
+        Assert.AreEqual(0, snapshot.Aggregate!.TotalSamples);
+        Assert.AreEqual("Check unavailable", ServerHealthPresentation.FromSnapshot(snapshot).StatusText);
+        Assert.AreEqual("—", ServerHealthPresentation.FromSnapshot(snapshot).PacketLossText);
     }
 
     [TestMethod]
-    public async Task ConcurrentSameKeyRequests_UseOneProbe()
+    public async Task AllTimeouts_ReportsNoReplyWithoutClaimingAnOutage()
     {
-        FakeServerHealthClock clock = new();
-        TaskCompletionSource<ServerHealthProbeMeasurement> completion =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
         QueueServerHealthSource source = Source();
-        source.Enqueue(_ => completion.Task);
-        using ServerHealthHistoryStore store = new(clock);
+        source.Enqueue(ServerHealthSamples.FixedCheck(_clock.UtcNow, null, replies: 0));
+        using ServerHealthHistoryStore store = new(_clock);
 
-        Task<ServerHealthSnapshot> first = store.ProbeAsync(source, CancellationToken.None);
-        Task<ServerHealthSnapshot> second = store.ProbeAsync(source, CancellationToken.None);
-        completion.SetResult(Success(clock, 40, 4));
-        await Task.WhenAll(first, second);
+        ServerHealthSnapshot snapshot = await store.ProbeAsync(source, CancellationToken.None);
+        ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
 
-        Assert.AreEqual(1, source.ProbeCount);
-        Assert.AreSame(first.Result, second.Result);
+        Assert.AreEqual(4, snapshot.Aggregate!.TotalSamples);
+        Assert.IsFalse(snapshot.Aggregate.IsLossEstablished);
+        Assert.AreEqual("No ICMP reply", presentation.StatusText);
+        Assert.AreEqual("—", presentation.PacketLossText);
+        Assert.AreEqual(0, presentation.ActiveBarCount);
     }
 
     [TestMethod]
-    public async Task RecentMeasurement_SuppressesDuplicateProbeUntilMinimumIntervalExpires()
+    public async Task SameAddressRequests_ShareOneProbeAndRetainEachLogicalKey()
     {
-        FakeServerHealthClock clock = new();
+        TaskCompletionSource<ServerHealthProbeMeasurement> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        QueueServerHealthSource first = Source();
+        QueueServerHealthSource second = Source("server-2");
+        first.Enqueue(_ => completion.Task);
+        using ServerHealthHistoryStore store = new(_clock);
+
+        Task<ServerHealthSnapshot> one = store.ProbeAsync(first, CancellationToken.None);
+        Task<ServerHealthSnapshot> two = store.ProbeAsync(second, CancellationToken.None);
+        completion.SetResult(ServerHealthSamples.FixedCheck(_clock.UtcNow));
+        ServerHealthSnapshot[] results = await Task.WhenAll(one, two);
+
+        Assert.AreEqual(1, first.ProbeCount);
+        Assert.AreEqual(0, second.ProbeCount);
+        Assert.AreNotEqual(results[0].Key, results[1].Key);
+        Assert.AreEqual(results[0].Aggregate, results[1].Aggregate);
+        Assert.AreEqual(1, store.GetSnapshot(results[1].Key).Measurements.Count);
+    }
+
+    [TestMethod]
+    public async Task SameConsumerAndMode_ReusesRecentFixedMeasurement()
+    {
         QueueServerHealthSource source = Source();
-        source.Enqueue(Success(clock, 40, 4));
-        source.Enqueue(Success(clock, 45, 4));
-        using ServerHealthHistoryStore store = new(
-            clock,
-            minimumProbeInterval: TimeSpan.FromSeconds(30));
+        source.Enqueue(_ => Task.FromResult(ServerHealthSamples.FixedCheck(_clock.UtcNow, 40)));
+        source.Enqueue(_ => Task.FromResult(ServerHealthSamples.FixedCheck(_clock.UtcNow, 45)));
+        using ServerHealthHistoryStore store = new(_clock, minimumProbeInterval: TimeSpan.FromSeconds(30));
 
         ServerHealthSnapshot first = await store.ProbeAsync(source, CancellationToken.None);
-        clock.Advance(TimeSpan.FromSeconds(29));
-        ServerHealthSnapshot cached = await store.ProbeAsync(source, CancellationToken.None);
-        clock.Advance(TimeSpan.FromSeconds(2));
-        ServerHealthSnapshot refreshed = await store.ProbeAsync(source, CancellationToken.None);
+        _clock.Advance(TimeSpan.FromSeconds(29));
+        ServerHealthSnapshot reused = await store.ProbeAsync(source, CancellationToken.None);
+        _clock.Advance(TimeSpan.FromSeconds(2));
+        ServerHealthSnapshot next = await store.ProbeAsync(source, CancellationToken.None);
 
         Assert.AreEqual(2, source.ProbeCount);
-        Assert.AreEqual(first.Measurements.Count, cached.Measurements.Count);
-        Assert.AreEqual(2, refreshed.Measurements.Count);
+        Assert.AreEqual(first.Measurements.Count, reused.Measurements.Count);
+        Assert.AreEqual(2, next.Measurements.Count);
     }
 
     [TestMethod]
-    public async Task RequestDuringRetryDelay_JoinsLogicalBatch()
+    public async Task Discovery_DoesNotSuppressImmediateFixedRefinement()
     {
-        FakeServerHealthClock clock = new() { BlockDelays = true };
         QueueServerHealthSource source = Source();
-        source.Enqueue(Failure(clock, "first"));
-        source.Enqueue(Failure(clock, "second"));
-        using ServerHealthHistoryStore store = new(clock);
+        source.Enqueue(new ServerHealthProbeMeasurement(18, 1, 1, _clock.UtcNow, true, null, 0));
+        source.Enqueue(ServerHealthSamples.FixedCheck(_clock.UtcNow, 30));
+        using ServerHealthHistoryStore store = new(_clock);
 
-        Task<ServerHealthSnapshot> first = store.ProbeAsync(source, CancellationToken.None);
-        Assert.IsTrue(SpinWait.SpinUntil(() => clock.Delays.Count == 1, TimeSpan.FromSeconds(1)));
-        Task<ServerHealthSnapshot> second = store.ProbeAsync(source, CancellationToken.None);
-        clock.CompleteDelay();
-        await Task.WhenAll(first, second);
+        ServerHealthSnapshot quick = await store.ProbeAsync(source, CancellationToken.None, quickFirstResponse: true);
+        ServerHealthSnapshot refined = await store.ProbeAsync(source, CancellationToken.None);
 
-        Assert.AreEqual(2, source.ProbeCount);
-        Assert.AreSame(first.Result, second.Result);
-        Assert.AreEqual(1, first.Result.Measurements.Count);
-        Assert.IsTrue(first.Result.Measurements[0].IsConfirmedOutage);
+        Assert.AreEqual(18d, quick.CurrentLatencyMilliseconds);
+        Assert.AreEqual(0, quick.Aggregate!.TotalSamples);
+        Assert.AreEqual(30d, refined.CurrentLatencyMilliseconds);
+        Assert.AreEqual(4, refined.Aggregate!.TotalSamples);
+        Assert.AreEqual(1, refined.Aggregate.MeasurementCount);
     }
 
     [TestMethod]
-    public async Task FirstFailure_PreservesPreviousAggregateWhileRechecking()
+    public async Task CoveredEndpointCancellation_PreservesTheRemainingSubscriber()
     {
-        FakeServerHealthClock clock = new();
+        TaskCompletionSource<ServerHealthProbeMeasurement> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         QueueServerHealthSource source = Source();
-        source.Enqueue(Success(clock, 40, 4));
-        source.Enqueue(Failure(clock, "first"));
-        source.Enqueue(Failure(clock, "second"));
-        using ServerHealthHistoryStore store = new(
-            clock,
-            minimumProbeInterval: TimeSpan.Zero);
-        ServerHealthSnapshot previous = await store.ProbeAsync(source, CancellationToken.None);
-        List<ServerHealthSnapshot> observed = [];
-        store.SnapshotChanged += (_, args) => observed.Add(args.Snapshot);
+        source.Enqueue(token => completion.Task.WaitAsync(token));
+        using ServerHealthHistoryStore store = new(_clock);
+        using CancellationTokenSource cancellation = new();
+        Task<ServerHealthSnapshot> cancelled = store.ProbeAsync(source, cancellation.Token);
+        Task<ServerHealthSnapshot> remaining = store.ProbeAsync(source, CancellationToken.None);
 
-        await store.ProbeAsync(source, CancellationToken.None);
+        cancellation.Cancel();
+        await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => cancelled);
+        completion.SetResult(ServerHealthSamples.FixedCheck(_clock.UtcNow));
 
-        ServerHealthSnapshot rechecking = observed.Single(snapshot => snapshot.IsRechecking);
-        Assert.AreEqual(previous.Aggregate, rechecking.Aggregate);
-        Assert.AreEqual(1, rechecking.Measurements.Count);
-        Assert.AreEqual("first", rechecking.PendingError);
+        Assert.AreEqual(1, (await remaining).Measurements.Count);
+        Assert.AreEqual(1, source.ProbeCount);
     }
 
     [TestMethod]
-    public async Task HistorySurvivesViewLifetimeAndExpiresAfterTenMinutes()
+    public async Task LastSubscriberCancellation_CancelsProbeAndDoesNotRecordLoss()
     {
-        FakeServerHealthClock clock = new();
+        TaskCompletionSource cancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
         QueueServerHealthSource source = Source();
-        source.Enqueue(Success(clock, 40, 4));
-        using ServerHealthHistoryStore store = new(clock);
-        ServerHealthSnapshot recorded = await store.ProbeAsync(source, CancellationToken.None);
-
-        Assert.AreEqual(1, store.GetSnapshot(recorded.Key).Measurements.Count);
-        clock.Advance(TimeSpan.FromMinutes(9));
-        Assert.AreEqual(1, store.GetSnapshot(recorded.Key).Measurements.Count);
-        clock.Advance(TimeSpan.FromMinutes(1).Add(TimeSpan.FromMilliseconds(1)));
-        Assert.AreEqual(0, store.GetSnapshot(recorded.Key).Measurements.Count);
-    }
-
-    [TestMethod]
-    public async Task ExpiredHistory_DuringRetry_RemainsAttachedToTheKey()
-    {
-        FakeServerHealthClock clock = new();
-        QueueServerHealthSource source = Source();
-        source.Enqueue(Success(clock, 40, 4));
-        using ServerHealthHistoryStore store = new(clock);
-        ServerHealthSnapshot initial = await store.ProbeAsync(source, CancellationToken.None);
-        clock.Advance(TimeSpan.FromMinutes(10).Add(TimeSpan.FromMilliseconds(1)));
-        clock.BlockDelays = true;
-        source.Enqueue(Failure(clock, "first"));
-        source.Enqueue(Success(clock, 45, 4));
-
-        Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, CancellationToken.None);
-        Assert.IsTrue(SpinWait.SpinUntil(() => clock.Delays.Count == 1, TimeSpan.FromSeconds(1)));
-        ServerHealthSnapshot duringRetry = store.GetSnapshot(initial.Key);
-        Assert.IsTrue(duringRetry.IsRechecking);
-        clock.CompleteDelay();
-        ServerHealthSnapshot result = await pending;
-
-        Assert.AreEqual(1, result.Measurements.Count);
-        Assert.AreEqual(1, store.GetSnapshot(initial.Key).Measurements.Count);
-        Assert.IsTrue(result.Measurements[0].WasRetried);
-    }
-
-    [TestMethod]
-    public async Task SevenRecordedBatches_RetainGraphHistoryButScoreNewestSix()
-    {
-        FakeServerHealthClock clock = new();
-        QueueServerHealthSource source = Source();
-        source.Enqueue(Failure(clock, "first"));
-        source.Enqueue(Failure(clock, "retry"));
-        for (int i = 0; i < 6; i++)
+        source.Enqueue(async token =>
         {
-            source.Enqueue(Success(clock, 30 + i, 4));
-        }
-        using ServerHealthHistoryStore store = new(
-            clock,
-            minimumProbeInterval: TimeSpan.Zero);
-
-        ServerHealthSnapshot result = await store.ProbeAsync(source, CancellationToken.None);
-        for (int i = 0; i < 6; i++)
-        {
-            result = await store.ProbeAsync(source, CancellationToken.None);
-        }
-
-        Assert.AreEqual(7, result.Measurements.Count);
-        Assert.AreEqual(6, result.Aggregate!.MeasurementCount);
-        Assert.AreEqual(0d, result.Aggregate.PacketLossPercent, 0.001);
-    }
-
-    [TestMethod]
-    public async Task ConsumerCancellation_DoesNotCreateLoss()
-    {
-        FakeServerHealthClock clock = new();
-        TaskCompletionSource<ServerHealthProbeMeasurement> completion =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        QueueServerHealthSource source = Source();
-        source.Enqueue(_ => completion.Task);
-        using ServerHealthHistoryStore store = new(clock);
+            using CancellationTokenRegistration registration = token.Register(() => cancelled.TrySetResult());
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return ServerHealthSamples.FixedCheck(_clock.UtcNow);
+        });
+        using ServerHealthHistoryStore store = new(_clock);
         using CancellationTokenSource cancellation = new();
         Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, cancellation.Token);
+
         cancellation.Cancel();
-
         await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => pending);
-        TaskCompletionSource<ServerHealthSnapshot> recorded =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        store.SnapshotChanged += (_, args) =>
-        {
-            if (args.Snapshot.Aggregate is not null)
-            {
-                recorded.TrySetResult(args.Snapshot);
-            }
-        };
-        completion.SetResult(Success(clock, 40, 4));
-        ServerHealthSnapshot result = await recorded.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.AreEqual(1, source.ProbeCount);
-        Assert.AreEqual(1, result.Measurements.Count);
-        Assert.IsFalse(result.Measurements[0].IsConfirmedOutage);
+        Assert.IsNull(store.GetSnapshot(ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress!)).Aggregate);
     }
 
     [TestMethod]
-    public async Task DisposeDuringProbe_CancelsWithoutRecordingAnOutage()
+    public async Task ChangedServiceRoute_ClearsPreviousEvidence()
     {
-        FakeServerHealthClock clock = new();
         QueueServerHealthSource source = Source();
-        source.Enqueue(async cancellationToken =>
-        {
-            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-            return Success(clock, 40, 4);
-        });
-        ServerHealthHistoryStore store = new(clock);
-        List<ServerHealthSnapshot> observed = [];
-        store.SnapshotChanged += (_, args) => observed.Add(args.Snapshot);
-        Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, CancellationToken.None);
-        Assert.IsTrue(SpinWait.SpinUntil(() => source.ProbeCount == 1, TimeSpan.FromSeconds(1)));
+        source.Enqueue(ServerHealthSamples.FixedCheck(_clock.UtcNow, 110, replies: 3, route: "route-one"));
+        using ServerHealthHistoryStore store = new(_clock);
+        await store.ProbeAsync(source, CancellationToken.None);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        source.Enqueue(ServerHealthSamples.FixedCheck(_clock.UtcNow, 25, route: "route-two"));
+        ServerHealthSnapshot next = await store.ProbeAsync(source, CancellationToken.None);
 
-        store.Dispose();
-
-        await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => pending);
-        Assert.IsFalse(observed.Any(snapshot => snapshot.Aggregate is not null));
+        Assert.AreEqual(25d, next.CurrentLatencyMilliseconds);
+        Assert.AreEqual(4, next.Aggregate!.TotalSamples);
+        Assert.AreEqual(0, next.Aggregate.MissedSamples);
+        Assert.AreEqual(1, next.Measurements.Count);
     }
 
     [TestMethod]
-    public async Task SecondConsumerWithSameKey_SeesExistingHistory()
+    public async Task DelayedDiscoveryResult_CannotOverwriteNewerRouteOrLoss()
     {
-        FakeServerHealthClock clock = new();
         QueueServerHealthSource source = Source();
-        source.Enqueue(Success(clock, 40, 4));
-        using ServerHealthHistoryStore store = new(clock);
-        ServerHealthSnapshot first = await store.ProbeAsync(source, CancellationToken.None);
-        ServerHealthSnapshot second = store.GetSnapshot(ServerHealthHistoryKey.Create(
-            source.HealthServerId,
-            source.HealthProbeAddress!));
+        TaskCompletionSource<ServerHealthProbeMeasurement> reply = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        source.Enqueue(_ => reply.Task);
+        using ServerHealthHistoryStore store = new(_clock);
+        Task<ServerHealthSnapshot> discovery = store.ProbeAsync(source, CancellationToken.None, quickFirstResponse: true);
+        DateTimeOffset earlier = _clock.UtcNow;
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        source.Enqueue(ServerHealthSamples.FixedCheck(_clock.UtcNow, 25, replies: 3, route: "route-two"));
+        await store.ProbeAsync(source, CancellationToken.None);
 
-        CollectionAssert.AreEqual(first.Measurements.ToArray(), second.Measurements.ToArray());
-        Assert.AreEqual(first.Aggregate, second.Aggregate);
+        reply.SetResult(ServerHealthSamples.FixedCheck(earlier, 90, route: "route-one"));
+        ServerHealthSnapshot result = await discovery;
+
+        Assert.AreEqual("route-two", result.LatestMeasurement!.RouteContext);
+        Assert.AreEqual(25d, result.CurrentLatencyMilliseconds);
+        Assert.AreEqual(4, result.Aggregate!.TotalSamples);
+        Assert.AreEqual(1, result.Aggregate.MissedSamples);
     }
 
-    private static QueueServerHealthSource Source() => new()
+    [TestMethod]
+    public async Task GraphHistoryExpiresAfterTenMinutesAndKeepsSavedLatency()
     {
-        HealthServerId = "server-1",
+        QueueServerHealthSource source = Source();
+        source.Enqueue(ServerHealthSamples.FixedCheck(_clock.UtcNow));
+        using ServerHealthHistoryStore store = new(_clock);
+
+        ServerHealthSnapshot snapshot = await store.ProbeAsync(source, CancellationToken.None);
+        _clock.Advance(TimeSpan.FromMinutes(10) + TimeSpan.FromMilliseconds(1));
+        ServerHealthSnapshot saved = store.GetSnapshot(snapshot.Key);
+
+        Assert.AreEqual(0, saved.Measurements.Count);
+        Assert.IsTrue(saved.IsCached);
+        Assert.AreEqual("42 ms", ServerHealthPresentation.FromSnapshot(saved).LatencyText);
+        Assert.AreEqual("—", ServerHealthPresentation.FromSnapshot(saved).PacketLossText);
+    }
+
+    private static QueueServerHealthSource Source(string id = "server-1") => new()
+    {
+        HealthServerId = id,
         HealthProbeAddress = "10.0.0.1",
-        HealthServerLoad = 0.25,
     };
-
-    private static ServerHealthProbeMeasurement Success(
-        FakeServerHealthClock clock,
-        double latency,
-        int successful) =>
-        new(latency, successful, 4, clock.UtcNow, true, null, 0.25);
-
-    private static ServerHealthProbeMeasurement Failure(
-        FakeServerHealthClock clock,
-        string error) =>
-        new(null, 0, 4, clock.UtcNow, false, error, 0.25);
 }

@@ -51,7 +51,7 @@ public abstract class ServiceCallerBase<TController> : IServiceCaller
     }
 
     protected async Task<Result<T>> InvokeAsync<T>(Func<TController, CancellationToken, Task<T>> serviceCall,
-        [CallerMemberName] string memberName = "", CancellationToken cancellationToken = default)
+        [CallerMemberName] string memberName = "", CancellationToken cancellationToken = default, bool recoverOnFailure = true)
     {
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
             _cancellationTokenSource.Token, cancellationToken);
@@ -80,6 +80,11 @@ public abstract class ServiceCallerBase<TController> : IServiceCaller
             }
             catch (Exception e)
             {
+                if (!recoverOnFailure)
+                {
+                    return Result.Fail<T>(e.CombinedMessage());
+                }
+
                 if (!_cancellationTokenSource.IsCancellationRequested)
                 {
                     await _serviceCommunicationErrorHandler.Value.HandleAsync();

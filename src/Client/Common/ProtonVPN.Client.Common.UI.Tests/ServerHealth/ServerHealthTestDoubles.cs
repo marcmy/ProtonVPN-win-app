@@ -2,6 +2,20 @@ using ProtonVPN.Client.Common.UI.ServerHealth;
 
 namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
 
+internal static class ServerHealthSamples
+{
+    internal static ServerHealthProbeMeasurement FixedCheck(
+        DateTimeOffset checkedAt, double? latency = 42, int replies = 4, double load = 0.25, string? route = null) =>
+        new(latency, replies, 4, checkedAt, true, null, load, RouteContext: route,
+            Observations: Enumerable.Range(0, 4)
+                .Select(index => index < replies
+                    ? new ServerHealthObservation(ServerHealthObservationOutcome.Reply, latency, checkedAt)
+                    : new ServerHealthObservation(ServerHealthObservationOutcome.TimedOut, null, checkedAt))
+                .ToArray());
+
+    internal static string Address(int index) => $"198.18.{index / 256}.{index % 256}";
+}
+
 internal sealed class FakeServerHealthClock : IServerHealthClock
 {
     private TaskCompletionSource? _pendingDelay;

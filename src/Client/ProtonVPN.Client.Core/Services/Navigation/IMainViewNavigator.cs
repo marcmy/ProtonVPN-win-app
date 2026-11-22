@@ -27,4 +27,6 @@ public interface IMainViewNavigator : IViewNavigator
     Task<bool> NavigateToHomeViewAsync(bool forceNavigation = false);
 
     Task<bool> NavigateToSettingsViewAsync();
+
+    Task<bool> NavigateToServerBrowserViewAsync();
 }

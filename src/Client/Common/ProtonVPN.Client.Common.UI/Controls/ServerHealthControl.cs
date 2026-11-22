@@ -215,7 +215,7 @@ public sealed class ServerHealthControl : Grid
         {
             if (_isLoaded && _historyKey == e.Snapshot.Key)
             {
-                ApplySnapshot(e.Snapshot);
+                ApplySnapshot(_historyStore.GetSnapshot(key));
             }
         });
     }

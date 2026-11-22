@@ -21,14 +21,16 @@ public class ServerHealthRefreshSchedulerTest
     public void Cleanup() { _scheduler.Dispose(); _store.Dispose(); }
 
     [TestMethod]
-    public async Task OpeningTab_MeasuresItsEntireCatalogueWithQuickRequestsNotSmallSelection()
+    [DataRow(1_000)]
+    [DataRow(10_000)]
+    public async Task OpeningTab_MeasuresItsEntireCatalogueWithQuickRequestsNotSmallSelection(int endpointCount)
     {
-        QueueServerHealthSource[] sources = Enumerable.Range(1, 1000).Select(Source).ToArray();
+        QueueServerHealthSource[] sources = Enumerable.Range(1, endpointCount).Select(Source).ToArray();
         using ServerHealthRefreshScheduler.Discovery discovery = _scheduler.StartDiscovery(sources);
         await discovery.Completion;
         Assert.IsTrue(sources.All(source => source.ProbeCount == 1));
         Assert.IsTrue(sources.All(source => source.QuickRequests.SequenceEqual([true])));
-        Assert.AreEqual(1000, discovery.CompletedSources);
+        Assert.AreEqual(endpointCount, discovery.CompletedSources);
         Assert.IsFalse(_scheduler.IsMeasuring);
         Assert.AreEqual(0, _clock.Delays.Count); // No per-server pacing or slow failure retry.
     }
@@ -41,7 +43,7 @@ public class ServerHealthRefreshSchedulerTest
         int entered = 0, active = 0, maximum = 0;
         QueueServerHealthSource[] sources = Enumerable.Range(1, 96).Select(index =>
         {
-            QueueServerHealthSource source = new() { HealthServerId = $"pending-{index}", HealthProbeAddress = "192.0.2.1" };
+            QueueServerHealthSource source = new() { HealthServerId = $"pending-{index}", HealthProbeAddress = ServerHealthSamples.Address(index) };
             source.Enqueue(async _ =>
             {
                 int running = Interlocked.Increment(ref active);
@@ -131,7 +133,7 @@ public class ServerHealthRefreshSchedulerTest
         int entered = 0;
         QueueServerHealthSource[] oldSources = Enumerable.Range(1, 100).Select(index =>
         {
-            QueueServerHealthSource source = new() { HealthServerId = $"old-{index}", HealthProbeAddress = "192.0.2.1" };
+            QueueServerHealthSource source = new() { HealthServerId = $"old-{index}", HealthProbeAddress = ServerHealthSamples.Address(index + 100) };
             source.Enqueue(async _ => { if (Interlocked.Increment(ref entered) == 32) { started.SetResult(); } await release.Task; return Success(); });
             return source;
         }).ToArray();
@@ -154,7 +156,7 @@ public class ServerHealthRefreshSchedulerTest
         int entered = 0;
         QueueServerHealthSource[] sources = Enumerable.Range(1, 100).Select(index =>
         {
-            QueueServerHealthSource source = new() { HealthServerId = $"closing-{index}", HealthProbeAddress = "192.0.2.1" };
+            QueueServerHealthSource source = new() { HealthServerId = $"closing-{index}", HealthProbeAddress = ServerHealthSamples.Address(index) };
             source.Enqueue(async _ => { if (Interlocked.Increment(ref entered) == 32) { started.SetResult(); } await release.Task; return Success(); });
             return source;
         }).ToArray();
@@ -180,6 +182,31 @@ public class ServerHealthRefreshSchedulerTest
     }
 
     [TestMethod]
+    public async Task SharedEndpointRows_DoNotOccupyTheDiscoveryQueueOrDelayIndependentPings()
+    {
+        var first = new QueueServerHealthSource { HealthServerId = "slow", HealthProbeAddress = "192.0.2.1" };
+        var next = new QueueServerHealthSource { HealthServerId = "fast", HealthProbeAddress = "192.0.2.2" };
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource fast = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        first.Enqueue(async _ => { await release.Task; return Success(); });
+        next.Enqueue(_ => { fast.SetResult(); return Task.FromResult(Success()); });
+        QueueServerHealthSource[] aliases = Enumerable.Range(1, 64)
+            .Select(i => new QueueServerHealthSource { HealthServerId = $"alias-{i}", HealthProbeAddress = "192.0.2.1" })
+            .ToArray();
+        using ServerHealthRefreshScheduler.Discovery discovery = _scheduler.StartDiscovery([first, .. aliases, next]);
+
+        await fast.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        release.SetResult();
+        await discovery.Completion;
+
+        Assert.AreEqual(66, discovery.CompletedSources);
+        Assert.AreEqual(1, first.ProbeCount);
+        Assert.AreEqual(1, next.ProbeCount);
+        Assert.IsTrue(aliases.All(alias => alias.ProbeCount == 0 && _store.GetSnapshot(
+            ServerHealthHistoryKey.Create(alias.HealthServerId, alias.HealthProbeAddress!)).CurrentLatencyMilliseconds == 42));
+    }
+
+    [TestMethod]
     public async Task Filter_ShowsPendingRowsAndUpdatesFromFirstReplyWithoutRestartingPass()
     {
         ServerPingFilterSession filter = new(_store);
@@ -190,7 +217,7 @@ public class ServerHealthRefreshSchedulerTest
         high.Enqueue(new ServerHealthProbeMeasurement(180, 1, 1, _clock.UtcNow, true, null, 0));
         TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource<ServerHealthProbeMeasurement> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        QueueServerHealthSource pending = new() { HealthServerId = "pending", HealthProbeAddress = "192.0.2.1" };
+        QueueServerHealthSource pending = new() { HealthServerId = "pending", HealthProbeAddress = "192.0.2.2" };
         pending.Enqueue(_ => { started.SetResult(); return completion.Task; });
         Assert.IsTrue(filter.Matches(saved));
         Assert.IsTrue(filter.Matches(pending)); // Not hidden just because the first pass has not reached it.
@@ -247,23 +274,83 @@ public class ServerHealthRefreshSchedulerTest
     }
 
     [TestMethod]
-    public async Task NormalRefinement_RetainsFailureRetry()
+    public async Task LastVisibleInterestReleased_CancelsRefinementWhileTabStaysOpen()
+    {
+        QueueServerHealthSource source = SourceWithChecks(1, checks: 0);
+        TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource cancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        source.Enqueue(_ => Task.FromResult(Success()));
+        source.Enqueue(async token =>
+        {
+            started.TrySetResult();
+            using CancellationTokenRegistration registration = token.Register(() => cancelled.TrySetResult());
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return Success();
+        });
+        using ServerHealthRefreshScheduler.Discovery discovery = _scheduler.StartDiscovery([source]);
+        await discovery.Completion;
+        using IDisposable interest = _scheduler.Track(source);
+        Task refine = _scheduler.TickAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        interest.Dispose();
+
+        await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await refine.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsFalse(discovery.IsDisposed);
+        Assert.AreEqual(1, _store.GetSnapshot(
+            ServerHealthHistoryKey.Create(source.HealthServerId, source.HealthProbeAddress!)).Measurements.Count);
+    }
+
+    [TestMethod]
+    public async Task SelectedDuringRefinement_RunsAfterCurrentPassWithoutWaitingForTimer()
+    {
+        QueueServerHealthSource passive = SourceWithChecks(1, checks: 0);
+        QueueServerHealthSource selected = SourceWithChecks(2, checks: 0);
+        TaskCompletionSource passiveStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource selectedStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        passive.Enqueue(async token =>
+        {
+            passiveStarted.TrySetResult();
+            await release.Task.WaitAsync(token);
+            return Success();
+        });
+        selected.Enqueue(_ =>
+        {
+            selectedStarted.TrySetResult();
+            return Task.FromResult(Success());
+        });
+        using IDisposable passiveInterest = _scheduler.Track(passive);
+        Task refinement = _scheduler.TickAsync();
+        await passiveStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        using IDisposable selectedInterest = _scheduler.Track(selected, prioritize: true);
+        release.SetResult();
+        await refinement;
+
+        await selectedStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(1, selected.ProbeCount);
+    }
+
+    [TestMethod]
+    public async Task NormalRefinement_ReportsFailureWithoutImmediateRetry()
     {
         QueueServerHealthSource source = new() { HealthServerId = "retry", HealthProbeAddress = "192.0.2.1" };
         source.Enqueue(new ServerHealthProbeMeasurement(null, 0, 4, _clock.UtcNow, true, "No reply", 0));
         source.Enqueue(_ => Task.FromResult(Success()));
         using IDisposable interest = _scheduler.Track(source);
         await _scheduler.TickAsync();
-        Assert.AreEqual(2, source.ProbeCount);
-        CollectionAssert.AreEqual(new[] { false, false }, source.QuickRequests.ToArray());
-        Assert.IsTrue(_clock.Delays.Contains(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual(1, source.ProbeCount);
+        CollectionAssert.AreEqual(new[] { false }, source.QuickRequests.ToArray());
+        Assert.AreEqual(0, _clock.Delays.Count);
     }
 
     [TestMethod]
     public async Task VisibleRefinementBound_DoesNotLimitInitialCatalogueCoverage()
     {
         QueueServerHealthSource[] sources = Enumerable.Range(1, 100).Select(Source).ToArray();
-        List<IDisposable> interests = sources.Select(_scheduler.Track).ToList();
+        List<IDisposable> interests = sources.Select(source => _scheduler.Track(source)).ToList();
         await _scheduler.TickAsync();
         Assert.AreEqual(64, sources.Sum(source => source.ProbeCount));
         using ServerHealthRefreshScheduler.Discovery discovery = _scheduler.StartDiscovery(sources);
@@ -273,10 +360,17 @@ public class ServerHealthRefreshSchedulerTest
     }
 
     private ServerHealthProbeMeasurement Success() => new(42, 4, 4, _clock.UtcNow, true, null, 0.25);
-    private QueueServerHealthSource Source(int index)
+    private QueueServerHealthSource Source(int index) => SourceWithChecks(index, checks: 4);
+
+    private QueueServerHealthSource SourceWithChecks(int index, int checks)
     {
-        QueueServerHealthSource source = new() { HealthServerId = $"server-{index:D3}", HealthProbeAddress = "192.0.2.1", HealthServerLoad = 0.25 };
-        for (int i = 0; i < 4; i++) { source.Enqueue(_ => Task.FromResult(Success())); }
+        QueueServerHealthSource source = new()
+        {
+            HealthServerId = $"server-{index:D3}",
+            HealthProbeAddress = ServerHealthSamples.Address(index),
+            HealthServerLoad = 0.25,
+        };
+        for (int i = 0; i < checks; i++) { source.Enqueue(_ => Task.FromResult(Success())); }
         return source;
     }
 }

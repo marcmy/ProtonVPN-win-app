@@ -36,6 +36,8 @@ namespace ProtonVPN.Service.ServerHealth;
 internal sealed class ServerHealthProbeService : IServerHealthProbeService
 {
     private const int ROUTE_SETTLE_DELAY_IN_MILLISECONDS = 50;
+    private const int MAX_CONCURRENT_ECHOES = 32;
+    private const int MAX_CONCURRENT_FIXED_CHECKS = 4;
 
     private readonly IConfiguration _configuration;
     private readonly IServiceSettings _serviceSettings;
@@ -44,7 +46,10 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
     private readonly IServerHealthPermitManager _permitManager;
     private readonly IServerHealthPingProbe _pingProbe;
     private readonly IIpv6 _ipv6;
-    private readonly SemaphoreSlim _probeSlots = new(32, 32);
+    private readonly Func<RouteConfiguration, string?> _getRouteContext;
+    private readonly SemaphoreSlim _echoSlots = new(MAX_CONCURRENT_ECHOES, MAX_CONCURRENT_ECHOES);
+    private readonly SemaphoreSlim _fixedCheckSlots = new(MAX_CONCURRENT_FIXED_CHECKS, MAX_CONCURRENT_FIXED_CHECKS);
+    private readonly SemaphoreSlim _fixedReservation = new(1, 1);
     private readonly object _addressLocksSync = new();
     private readonly Dictionary<string, AddressLock> _addressLocks = new(StringComparer.OrdinalIgnoreCase);
 
@@ -67,6 +72,20 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         IServerHealthPermitManager permitManager,
         IServerHealthPingProbe pingProbe,
         IIpv6 ipv6)
+        : this(configuration, serviceSettings, networkInterfaces, routingTableHelper, permitManager, pingProbe,
+            ipv6, ServerHealthRouteContext.Get)
+    {
+    }
+
+    internal ServerHealthProbeService(
+        IConfiguration configuration,
+        IServiceSettings serviceSettings,
+        ISystemNetworkInterfaces networkInterfaces,
+        IRoutingTableHelper routingTableHelper,
+        IServerHealthPermitManager permitManager,
+        IServerHealthPingProbe pingProbe,
+        IIpv6 ipv6,
+        Func<RouteConfiguration, string?> getRouteContext)
     {
         _configuration = configuration;
         _serviceSettings = serviceSettings;
@@ -75,6 +94,7 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         _permitManager = permitManager;
         _pingProbe = pingProbe;
         _ipv6 = ipv6;
+        _getRouteContext = getRouteContext;
     }
 
     public async Task<ServerHealthProbeResultIpcEntity> ProbeAsync(
@@ -82,15 +102,16 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         CancellationToken cancellationToken,
         bool quickFirstResponse = false)
     {
+        // An unspecified address would create a default route.
         if (!IPAddress.TryParse(address, out IPAddress? ipAddress) ||
-            ipAddress.AddressFamily != AddressFamily.InterNetwork)
+            ipAddress.AddressFamily != AddressFamily.InterNetwork || ipAddress.Equals(IPAddress.Any))
         {
-            return CreateUnavailableResult("Only IPv4 server endpoints can currently be probed directly.");
+            return CreateUnavailableResult("The endpoint must be a valid IPv4 server address.");
         }
 
         using AddressLockLease addressLock =
             await AcquireAddressLockAsync(ipAddress.ToString(), cancellationToken);
-        await _probeSlots.WaitAsync(cancellationToken);
+        await ReserveEchoSlotsAsync(quickFirstResponse, cancellationToken);
         try
         {
             try
@@ -108,7 +129,55 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         }
         finally
         {
-            _probeSlots.Release();
+            if (quickFirstResponse)
+            {
+                _echoSlots.Release();
+            }
+            else
+            {
+                _echoSlots.Release(ServerHealthPingProbe.ProbeSampleCount);
+                _fixedCheckSlots.Release();
+            }
+        }
+    }
+
+    private async Task ReserveEchoSlotsAsync(bool quickFirstResponse, CancellationToken cancellationToken)
+    {
+        if (quickFirstResponse)
+        {
+            await _echoSlots.WaitAsync(cancellationToken);
+            return;
+        }
+
+        // Keep capacity for discovery and reserve the entire burst before taking a route lease.
+        await _fixedCheckSlots.WaitAsync(cancellationToken);
+        int reserved = 0;
+        try
+        {
+            // Only one burst can hold a partial reservation while waiting for more slots.
+            await _fixedReservation.WaitAsync(cancellationToken);
+            try
+            {
+                while (reserved < ServerHealthPingProbe.ProbeSampleCount)
+                {
+                    await _echoSlots.WaitAsync(cancellationToken);
+                    reserved++;
+                }
+            }
+            finally
+            {
+                _fixedReservation.Release();
+            }
+        }
+        catch
+        {
+            if (reserved > 0)
+            {
+                _echoSlots.Release(reserved);
+            }
+
+            _fixedCheckSlots.Release();
+            throw;
         }
     }
 
@@ -118,9 +187,12 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         bool quickFirstResponse)
     {
         string excludedHardwareId = _configuration.GetHardwareId(_ipv6.VpnProtocol, _serviceSettings.OpenVpnAdapter);
-        INetworkInterface physicalInterface = _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId);
+        INetworkInterface? physicalInterface = _networkInterfaces.GetBestInterfaceExcludingHardwareId(excludedHardwareId);
+        uint interfaceIndex = physicalInterface?.Index ?? 0;
+        IPAddress? gateway = physicalInterface?.DefaultGateway;
 
-        if (!HasUsableGateway(physicalInterface))
+        if (interfaceIndex == 0 || gateway is null || gateway.AddressFamily != AddressFamily.InterNetwork ||
+            gateway.Equals(IPAddress.Any) || gateway.Equals(IPAddress.None))
         {
             return CreateUnavailableResult("No usable physical network gateway was found.");
         }
@@ -128,8 +200,8 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         RouteConfiguration directRoute = new()
         {
             Destination = new NetworkAddress(ipAddress),
-            Gateway = new NetworkAddress(physicalInterface.DefaultGateway),
-            InterfaceIndex = physicalInterface.Index,
+            Gateway = new NetworkAddress(gateway),
+            InterfaceIndex = interfaceIndex,
             Metric = 1,
             IsIpv6 = false,
         };
@@ -139,6 +211,7 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         IServerHealthPermitLease? permitLease = null;
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             permitLease = _permitManager.TryCreate(ipAddress);
             if (permitLease is null)
             {
@@ -160,16 +233,37 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
             }
 
             await Task.Delay(ROUTE_SETTLE_DELAY_IN_MILLISECONDS, cancellationToken);
-            return await _pingProbe.MeasureAsync(ipAddress, cancellationToken, quickFirstResponse);
+            string? routeContext = _getRouteContext(directRoute);
+            if (routeContext is null)
+            {
+                return CreateUnavailableResult("The direct route through the physical adapter could not be verified.");
+            }
+
+            ServerHealthProbeResultIpcEntity result =
+                await _pingProbe.MeasureAsync(ipAddress, cancellationToken, quickFirstResponse);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_getRouteContext(directRoute) != routeContext)
+            {
+                return CreateUnavailableResult("The direct route changed during the health check.");
+            }
+
+            result.UsedPhysicalRoute = true;
+            result.RouteContext = routeContext;
+            return result;
         }
         finally
         {
-            if (ownsRoute)
+            try
             {
-                _routingTableHelper.TryDeleteRoute(directRoute);
+                if (ownsRoute)
+                {
+                    _routingTableHelper.TryDeleteRoute(directRoute);
+                }
             }
-
-            permitLease?.Dispose();
+            finally
+            {
+                permitLease?.Dispose();
+            }
         }
     }
 
@@ -236,25 +330,12 @@ internal sealed class ServerHealthProbeService : IServerHealthProbeService
         }
     }
 
-    private static bool HasUsableGateway(INetworkInterface networkInterface)
-    {
-        return networkInterface is not null &&
-               networkInterface.Index > 0 &&
-               networkInterface.DefaultGateway is not null &&
-               !networkInterface.DefaultGateway.Equals(IPAddress.Any) &&
-               !networkInterface.DefaultGateway.Equals(IPAddress.None);
-    }
-
     private static ServerHealthProbeResultIpcEntity CreateUnavailableResult(string error)
     {
         return new()
         {
-            AverageLatencyMilliseconds = null,
-            PacketLossPercent = 100,
-            SuccessfulSamples = 0,
-            TotalSamples = ServerHealthPingProbe.ProbeSampleCount,
             CheckedAtUtc = DateTime.UtcNow,
-            UsedPhysicalRoute = false,
+            Samples = [],
             Error = error,
         };
     }

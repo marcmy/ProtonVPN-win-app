@@ -8,4 +8,12 @@ public sealed record ServerHealthAggregate(
     double ServerLoad,
     double Score,
     ServerHealthGrade Grade,
-    int MeasurementCount);
+    int MeasurementCount,
+    bool IsLossEstablished = false,
+    bool IsLatencyEstimate = false,
+    double? VariationMilliseconds = null,
+    bool HasObservedReply = false)
+{
+    public int MissedSamples => TotalSamples - SuccessfulSamples;
+    public bool HasLossEvidence => TotalSamples > 0 && HasObservedReply;
+}

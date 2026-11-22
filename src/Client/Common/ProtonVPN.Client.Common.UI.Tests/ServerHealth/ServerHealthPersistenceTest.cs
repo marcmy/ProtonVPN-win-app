@@ -36,7 +36,7 @@ public class ServerHealthPersistenceTest
         Assert.IsTrue(snapshot.IsStale);
         Assert.AreEqual("Saved measurement", ServerHealthPresentation.FromSnapshot(snapshot).ConfidenceText);
         StringAssert.Contains(ServerHealthPresentation.FromSnapshot(snapshot).LastCheckedText, "Saved");
-        StringAssert.Contains(ServerHealthPresentation.FromSnapshot(snapshot).LastCheckedText, "refresh due");
+        Assert.AreEqual("—", ServerHealthPresentation.FromSnapshot(snapshot).PacketLossText);
         Assert.AreEqual(1, source.ProbeCount);
         Assert.IsNull(restored.GetSnapshot(ServerHealthHistoryKey.Create(source.HealthServerId, "192.0.2.99")).Aggregate);
     }
@@ -61,7 +61,8 @@ public class ServerHealthPersistenceTest
         store.InvalidateFreshness();
         Assert.IsTrue(store.NeedsRefresh(source, TimeSpan.FromMinutes(5)));
         Assert.IsTrue(store.GetSnapshot(Key(source)).IsStale);
-        Assert.AreEqual(42d, new ServerPingFilterSession(store).GetAverageLatencyMilliseconds(source));
+        Assert.IsNull(new ServerPingFilterSession(store).GetAverageLatencyMilliseconds(source));
+        Assert.AreEqual("42 ms", ServerHealthPresentation.FromSnapshot(store.GetSnapshot(Key(source))).LatencyText);
         Assert.AreEqual(1, source.ProbeCount);
     }
 
@@ -75,7 +76,7 @@ public class ServerHealthPersistenceTest
         Task<ServerHealthSnapshot> pending = store.ProbeAsync(source, CancellationToken.None);
         store.InvalidateFreshness();
         completion.SetResult(Success());
-        Assert.IsTrue((await pending).IsStale);
+        Assert.IsNull((await pending).LatestMeasurement);
         Assert.IsTrue(store.NeedsRefresh(source, TimeSpan.FromMinutes(5)));
     }
 
@@ -140,16 +141,16 @@ public class ServerHealthPersistenceTest
         {
             for (int i = 0; i < 65; i++)
             {
-                QueueServerHealthSource source = new() { HealthServerId = $"bounded-{i}", HealthProbeAddress = "192.0.2.1" };
+                QueueServerHealthSource source = new() { HealthServerId = $"bounded-{i}", HealthProbeAddress = ServerHealthSamples.Address(i) };
                 source.Enqueue(Success());
                 await store.ProbeAsync(source, CancellationToken.None);
                 _clock.Advance(TimeSpan.FromSeconds(1));
             }
-            Assert.IsNull(store.GetSnapshot(ServerHealthHistoryKey.Create("bounded-0", "192.0.2.1")).LatestMeasurement);
+            Assert.IsNull(store.GetSnapshot(ServerHealthHistoryKey.Create("bounded-0", ServerHealthSamples.Address(0))).LatestMeasurement);
         }
         Assert.AreEqual(64, JsonSerializer.Deserialize<List<SavedServerHealth>>(File.ReadAllText(CachePath))!.Count);
         using ServerHealthHistoryStore restored = new(_clock, cachePath: CachePath);
-        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("bounded-64", "192.0.2.1")).LatestMeasurement);
+        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("bounded-64", ServerHealthSamples.Address(64))).LatestMeasurement);
     }
 
     [TestMethod]
@@ -159,16 +160,16 @@ public class ServerHealthPersistenceTest
         {
             for (int i = 0; i < 5000; i++)
             {
-                QueueServerHealthSource source = new() { HealthServerId = $"catalogue-{i}", HealthProbeAddress = "192.0.2.1" };
+                QueueServerHealthSource source = new() { HealthServerId = $"catalogue-{i}", HealthProbeAddress = ServerHealthSamples.Address(i) };
                 source.Enqueue(Success());
                 await store.ProbeAsync(source, CancellationToken.None);
             }
-            Assert.IsNotNull(store.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-0", "192.0.2.1")).LatestMeasurement);
+            Assert.IsNotNull(store.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-0", ServerHealthSamples.Address(0))).LatestMeasurement);
         }
         Assert.AreEqual(5000, JsonSerializer.Deserialize<List<SavedServerHealth>>(File.ReadAllText(CachePath))!.Count);
         using ServerHealthHistoryStore restored = new(_clock, cachePath: CachePath);
-        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-0", "192.0.2.1")).LatestMeasurement);
-        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-4999", "192.0.2.1")).LatestMeasurement);
+        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-0", ServerHealthSamples.Address(0))).LatestMeasurement);
+        Assert.IsNotNull(restored.GetSnapshot(ServerHealthHistoryKey.Create("catalogue-4999", ServerHealthSamples.Address(4999))).LatestMeasurement);
     }
 
     [TestMethod]

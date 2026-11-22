@@ -25,6 +25,7 @@ using ProtonVPN.Client.EventMessaging.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts.Messages;
 using ProtonVPN.Client.Logic.Connection.Contracts.Enums;
 using ProtonVPN.Client.Logic.Connection.Contracts.Messages;
+using ProtonVPN.Client.UI.Main.ServerBrowser;
 using ProtonVPN.Client.UI.Main.Settings;
 using ProtonVPN.Logging.Contracts;
 
@@ -53,6 +54,11 @@ public class MainViewNavigator : ViewNavigatorBase, IMainViewNavigator,
         return NavigateToAsync<SettingsPageViewModel>();
     }
 
+    public Task<bool> NavigateToServerBrowserViewAsync()
+    {
+        return NavigateToAsync<ServerBrowserPageViewModel>();
+    }
+
     public override Task<bool> NavigateToDefaultAsync()
     {
         return NavigateToHomeViewAsync();
@@ -70,7 +76,13 @@ public class MainViewNavigator : ViewNavigatorBase, IMainViewNavigator,
         if (message.ConnectionStatus == ConnectionStatus.Connecting)
         {
             // Force navigation to automatically discard any unsaved changes
-            UIThreadDispatcher.TryEnqueue(() => NavigateToHomeViewAsync(forceNavigation: true));
+            UIThreadDispatcher.TryEnqueue(async () =>
+            {
+                if (GetCurrentPageContext() is not ServerBrowserPageViewModel)
+                {
+                    await NavigateToHomeViewAsync(forceNavigation: true);
+                }
+            });
         }
     }
 

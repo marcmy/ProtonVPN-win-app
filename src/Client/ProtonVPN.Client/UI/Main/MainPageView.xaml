@@ -84,7 +84,8 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="0"
-                            Width="8">
+                            Width="8"
+                            Visibility="{x:Bind ViewModel.IsServerBrowserDisplayed, Converter={StaticResource NotBooleanToVisibilityConverter}}">
                         <controls:PropertySizer x:Name="SidebarSizeGrip"
                                                 IsTabStop="False"
                                                 Margin="-8,0,0,0"

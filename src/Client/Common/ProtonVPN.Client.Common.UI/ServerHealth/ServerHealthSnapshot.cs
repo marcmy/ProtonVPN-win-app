@@ -12,7 +12,9 @@ public sealed record ServerHealthSnapshot(
     bool IsRechecking,
     string? PendingError,
     bool IsCached = false,
-    bool IsStale = false)
+    bool IsStale = false,
+    double? SavedLatencyMilliseconds = null,
+    DateTimeOffset? FreshUntil = null)
 {
     public static ServerHealthSnapshot Empty(ServerHealthHistoryKey key) =>
         new(key, [], null, null, false, false, null);
@@ -30,5 +32,10 @@ public sealed record ServerHealthSnapshot(
             false,
             null);
 
-    public int ConfidenceCount => Math.Min(Measurements.Count, 3);
+    public int ConfidenceCount => Aggregate?.MeasurementCount ?? 0;
+
+    public double? CurrentLatencyMilliseconds =>
+        IsStale || IsCached || LatestMeasurement?.IsCompleteFailure != false
+            ? null
+            : Aggregate?.AverageLatencyMilliseconds;
 }

@@ -98,6 +98,7 @@ using ProtonVPN.Client.UI.Main.Home.Status;
 using ProtonVPN.Client.UI.Main.Home.Upsell;
 using ProtonVPN.Client.UI.Main.Map;
 using ProtonVPN.Client.UI.Main.Profiles;
+using ProtonVPN.Client.UI.Main.ServerBrowser;
 using ProtonVPN.Client.UI.Main.Profiles.Components;
 using ProtonVPN.Client.UI.Main.Settings;
 using ProtonVPN.Client.UI.Main.Settings.Connection;
@@ -352,6 +353,7 @@ public class AppModule : Module
         RegisterViewModel<P2PCountriesComponentViewModel>(builder);
         RegisterViewModel<TorCountriesComponentViewModel>(builder);
         RegisterViewModel<SearchResultsPageViewModel>(builder);
+        RegisterViewModel<ServerBrowserPageViewModel>(builder);
         RegisterViewModel<HomeComponentViewModel>(builder);
         RegisterViewModel<MapComponentViewModel>(builder).AutoActivate();
         RegisterViewModel<ConnectionCardComponentViewModel>(builder);

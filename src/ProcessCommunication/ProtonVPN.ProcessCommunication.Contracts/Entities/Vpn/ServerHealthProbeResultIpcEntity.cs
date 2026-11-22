@@ -17,6 +17,8 @@
  * along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#nullable enable
+
 using System.Runtime.Serialization;
 
 namespace ProtonVPN.ProcessCommunication.Contracts.Entities.Vpn;
@@ -43,5 +45,25 @@ public class ServerHealthProbeResultIpcEntity
     public bool UsedPhysicalRoute { get; set; }
 
     [DataMember(Order = 7, IsRequired = false)]
-    public string Error { get; set; }
+    public string? Error { get; set; }
+
+    // The wrapper distinguishes a legacy result from a current result with no sends.
+    [DataMember(Name = nameof(Samples), Order = 8, EmitDefaultValue = false)]
+    private SampleCollection? SampleData { get; set; }
+
+    public ServerHealthProbeSampleIpcEntity[]? Samples
+    {
+        get => SampleData is { } data ? data.Items ?? [] : null;
+        set => SampleData = value is null ? null : new() { Items = value };
+    }
+
+    [DataMember(Order = 9, EmitDefaultValue = false)]
+    public string? RouteContext { get; set; }
+
+    [DataContract]
+    private sealed class SampleCollection
+    {
+        [DataMember(Order = 1)]
+        public ServerHealthProbeSampleIpcEntity[]? Items { get; set; }
+    }
 }

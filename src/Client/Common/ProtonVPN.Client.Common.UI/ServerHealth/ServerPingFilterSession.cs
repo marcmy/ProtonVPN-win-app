@@ -67,7 +67,7 @@ public sealed class ServerPingFilterSession : INotifyPropertyChanged
         }
 
         ServerHealthHistoryKey key = ServerHealthHistoryKey.Create(source.HealthServerId, probeAddress);
-        return _historyStore.GetSnapshot(key).Aggregate?.AverageLatencyMilliseconds;
+        return _historyStore.GetSnapshot(key).CurrentLatencyMilliseconds;
     }
 
     public bool Matches(IServerHealthSource source)
@@ -82,7 +82,8 @@ public sealed class ServerPingFilterSession : INotifyPropertyChanged
         if (string.IsNullOrWhiteSpace(address)) { return false; }
         ServerHealthSnapshot snapshot = _historyStore.GetSnapshot(ServerHealthHistoryKey.Create(source.HealthServerId, address));
         // Keep unmeasured rows visible while the first pass runs, rather than presenting a nearly empty list.
-        return snapshot.LatestMeasurement is null || snapshot.Aggregate?.AverageLatencyMilliseconds <= maximumLatency.Value;
+        return snapshot.LatestMeasurement is null || snapshot.IsStale ||
+            snapshot.CurrentLatencyMilliseconds <= maximumLatency.Value;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

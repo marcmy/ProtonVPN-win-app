@@ -7,6 +7,21 @@ namespace ProtonVPN.Client.Common.UI.Tests.ServerHealth;
 public class ServerHealthCalculatorTest
 {
     [TestMethod]
+    public void Aggregate_LocalRouteFailureDoesNotCountAsPacketLoss()
+    {
+        ServerHealthProbeMeasurement failure = Measurement(null, 0, 4, 0.10, 30) with
+        {
+            UsedPhysicalRoute = false,
+            Error = "Route unavailable",
+        };
+        ServerHealthAggregate result = ServerHealthCalculator.Aggregate(
+            [Measurement(20, 4, 4, 0.10, 0), failure]);
+
+        Assert.AreEqual(4, result.TotalSamples);
+        Assert.AreEqual(0d, result.PacketLossPercent);
+    }
+
+    [TestMethod]
     public void Aggregate_OneMissAcrossSixBatches_UsesOneOfTwentyFourLoss()
     {
         ServerHealthProbeMeasurement[] measurements =
@@ -25,11 +40,12 @@ public class ServerHealthCalculatorTest
         Assert.AreEqual(24, result.TotalSamples);
         Assert.AreEqual(100d / 24d, result.PacketLossPercent, 0.001);
         Assert.AreEqual(6, result.MeasurementCount);
-        Assert.IsTrue(result.Grade is ServerHealthGrade.Good or ServerHealthGrade.Excellent);
+        Assert.AreEqual(ServerHealthGrade.Good, result.Grade);
+        Assert.IsTrue(result.IsLossEstablished);
     }
 
     [TestMethod]
-    public void Aggregate_WeightsLatencyBySuccessfulReplies()
+    public void Aggregate_UsesMedianInsteadOfHighLatencyOutliers()
     {
         ServerHealthProbeMeasurement[] measurements =
         [
@@ -39,7 +55,60 @@ public class ServerHealthCalculatorTest
 
         ServerHealthAggregate result = ServerHealthCalculator.Aggregate(measurements);
 
-        Assert.AreEqual(36d, result.AverageLatencyMilliseconds!.Value, 0.001);
+        Assert.AreEqual(20d, result.AverageLatencyMilliseconds!.Value, 0.001);
+    }
+
+    [TestMethod]
+    public void Aggregate_MixedDiscoveryAndLegacyResultsOnlyPublishQualifiedEvidence()
+    {
+        ServerHealthProbeMeasurement[] measurements =
+        [
+            new(19, 1, 1, DateTimeOffset.UnixEpoch, true, null, 0.20, IsDiscovery: true),
+            Measurement(20, 4, 4, 0.20, 30),
+            Measurement(21, 4, 4, 0.20, 60) with { Observations = null },
+            Measurement(22, 4, 4, 0.20, 90),
+            Measurement(24, 3, 4, 0.20, 120),
+        ];
+        ServerHealthAggregate aggregate = ServerHealthCalculator.Aggregate(measurements);
+        ServerHealthSnapshot snapshot = ServerHealthSnapshot.CreateRecorded(
+            ServerHealthHistoryKey.Create("server-1", "192.0.2.1"), measurements, aggregate);
+        ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
+
+        Assert.AreEqual(12, aggregate.TotalSamples);
+        Assert.AreEqual("8%", presentation.PacketLossText);
+        Assert.AreEqual("1 of 12 missed", presentation.LossCountText);
+        Assert.AreEqual(25d, snapshot.LatestMeasurement!.PacketLossPercent);
+        Assert.AreEqual(3, presentation.ActiveBarCount);
+    }
+
+    [TestMethod]
+    public void Aggregate_ThreeRapidBurstsDoNotPublishLossAsEstablished()
+    {
+        ServerHealthAggregate result = ServerHealthCalculator.Aggregate(
+            [Measurement(20, 4, 4, 0.2, 0), Measurement(20, 4, 4, 0.2, 1), Measurement(20, 4, 4, 0.2, 2)]);
+        Assert.IsFalse(result.IsLossEstablished);
+    }
+
+    [TestMethod]
+    public void FromSnapshot_PreviouslyResponsiveEndpointCanReportCompleteRecentIcmpLoss()
+    {
+        ServerHealthProbeMeasurement first = Measurement(20, 4, 4, 0, 0) with { IsDiscovery = true };
+        ServerHealthProbeMeasurement[] measurements =
+        [
+            first,
+            Measurement(null, 0, 4, 0, 30),
+            Measurement(null, 0, 4, 0, 60),
+            Measurement(null, 0, 4, 0, 90),
+        ];
+        var snapshot = ServerHealthSnapshot.CreateRecorded(
+            ServerHealthHistoryKey.Create("responsive", "192.0.2.1"),
+            measurements, ServerHealthCalculator.Aggregate(measurements));
+        ServerHealthPresentation presentation = ServerHealthPresentation.FromSnapshot(snapshot);
+
+        Assert.AreEqual("No ICMP reply", presentation.StatusText);
+        Assert.AreEqual("100%", presentation.PacketLossText);
+        Assert.AreEqual("12 of 12 missed", presentation.LossCountText);
+        Assert.AreEqual(0, presentation.ActiveBarCount);
     }
 
     [TestMethod]
@@ -140,12 +209,12 @@ public class ServerHealthCalculatorTest
     }
 
     [TestMethod]
-    [DataRow(1, "Based on 1 of 6 checks")]
-    [DataRow(2, "Based on 2 of 6 checks")]
-    [DataRow(3, "Based on 3 of 6 checks")]
-    [DataRow(4, "Based on 4 of 6 checks")]
-    [DataRow(5, "Based on 5 of 6 checks")]
-    [DataRow(6, "Based on 6 checks")]
+    [DataRow(1, "Last 1 fixed check")]
+    [DataRow(2, "Last 2 fixed checks")]
+    [DataRow(3, "Last 3 fixed checks")]
+    [DataRow(4, "Last 4 fixed checks")]
+    [DataRow(5, "Last 5 fixed checks")]
+    [DataRow(6, "Last 6 fixed checks")]
     public void FromSnapshot_FormatsConfidence(int count, string expected)
     {
         ServerHealthProbeMeasurement[] measurements = Enumerable.Range(0, count)
@@ -179,14 +248,6 @@ public class ServerHealthCalculatorTest
         double load,
         int seconds,
         bool outage = false) =>
-        new(
-            latency,
-            successful,
-            total,
-            DateTimeOffset.UnixEpoch.AddSeconds(seconds),
-            true,
-            outage ? "No replies." : null,
-            load,
-            WasRetried: outage,
-            IsConfirmedOutage: outage);
+        ServerHealthSamples.FixedCheck(DateTimeOffset.UnixEpoch.AddSeconds(seconds), latency, successful, load)
+            with { TotalSamples = total, Error = outage ? "No replies." : null };
 }

@@ -98,6 +98,7 @@
     <None Remove="UI\Main\MainPageView.xaml" />
     <None Remove="UI\Main\Profiles\Components\ProfileOptionsSelectorView.xaml" />
     <None Remove="UI\Main\Profiles\ProfilePageView.xaml" />
+    <None Remove="UI\Main\ServerBrowser\ServerBrowserPageView.xaml" />
     <None Remove="UI\Main\Settings\Pages\About\AboutPageView.xaml" />
     <None Remove="UI\Main\Settings\Pages\About\LicensingPageView.xaml" />
     <None Remove="UI\Main\Settings\Pages\AdvancedSettingsPageView.xaml" />
@@ -649,6 +650,10 @@
 
   <ItemGroup>
     <Page Update="UI\Main\Sidebar\Search\SearchResultsPageView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+
+    <Page Update="UI\Main\ServerBrowser\ServerBrowserPageView.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

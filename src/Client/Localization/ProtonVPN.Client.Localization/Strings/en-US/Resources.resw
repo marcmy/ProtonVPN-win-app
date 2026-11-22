@@ -4540,4 +4540,113 @@
   <data name="ServerPing_CachedFilterHint" xml:space="preserve">
     <value>First replies are used immediately; later checks refine the average. Unmeasured servers stay visible while pings arrive.</value>
   </data>
+  <data name="ServerBrowser_Title" xml:space="preserve">
+    <value>Browse all servers</value>
+  </data>
+  <data name="ServerBrowser_Search" xml:space="preserve">
+    <value>Search country, city, or server ID</value>
+  </data>
+  <data name="ServerBrowser_Sort" xml:space="preserve">
+    <value>Sort</value>
+  </data>
+  <data name="ServerBrowser_SortRecommended" xml:space="preserve">
+    <value>Recommended</value>
+  </data>
+  <data name="ServerBrowser_SortPing" xml:space="preserve">
+    <value>Fastest ping</value>
+  </data>
+  <data name="ServerBrowser_SortLoss" xml:space="preserve">
+    <value>Lowest loss</value>
+  </data>
+  <data name="ServerBrowser_SortLoad" xml:space="preserve">
+    <value>Lowest load</value>
+  </data>
+  <data name="ServerBrowser_MaxPing" xml:space="preserve">
+    <value>Max ping</value>
+  </data>
+  <data name="ServerBrowser_PingAny" xml:space="preserve">
+    <value>Any ping</value>
+  </data>
+  <data name="ServerBrowser_PingLimit" xml:space="preserve">
+    <value>≤ {0} ms</value>
+  </data>
+  <data name="ServerBrowser_ResultCount" xml:space="preserve">
+    <value>{0:N0} shown</value>
+  </data>
+  <data name="ServerBrowser_PingProgress" xml:space="preserve">
+    <value>Ping checked {0:N0} of {1:N0}</value>
+  </data>
+  <data name="ServerBrowser_Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="ServerBrowser_Loss" xml:space="preserve">
+    <value>Loss</value>
+  </data>
+  <data name="ServerBrowser_Load" xml:space="preserve">
+    <value>Load</value>
+  </data>
+  <data name="ServerBrowser_CityCountry" xml:space="preserve">
+    <value>{0}, {1}</value>
+    <comment>{0} is a city. {1} is its country.</comment>
+  </data>
+  <data name="ServerBrowser_SecureCoreLocation" xml:space="preserve">
+    <value>{0} via {1}</value>
+    <comment>{0} is the VPN exit location. {1} is the Secure Core entry country.</comment>
+  </data>
+  <data name="ServerBrowser_RowAutomationName" xml:space="preserve">
+    <value>{0}, {1}. {2} Ping {3}. Loss {4}. Server load {5}. {6}</value>
+    <comment>Location, server name, eligibility, ping, loss, load and measurement status.</comment>
+  </data>
+  <data name="ServerBrowser_Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="ServerBrowser_Maintenance" xml:space="preserve">
+    <value>Maintenance</value>
+  </data>
+  <data name="ServerBrowser_Sampling" xml:space="preserve">
+    <value>Sampling</value>
+  </data>
+  <data name="ServerBrowser_Saved" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="ServerBrowser_NoReply" xml:space="preserve">
+    <value>No ICMP reply</value>
+  </data>
+  <data name="ServerBrowser_RouteUnavailable" xml:space="preserve">
+    <value>Route unavailable</value>
+  </data>
+  <data name="ServerBrowser_Unavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="ServerBrowser_CheckIncomplete" xml:space="preserve">
+    <value>Check incomplete</value>
+  </data>
+  <data name="ServerBrowser_Checking" xml:space="preserve">
+    <value>Checking…</value>
+  </data>
+  <data name="ServerBrowser_NotMeasured" xml:space="preserve">
+    <value>Not measured</value>
+  </data>
+  <data name="ServerBrowser_Estimate" xml:space="preserve">
+    <value>Estimate</value>
+  </data>
+  <data name="ServerBrowser_Pending" xml:space="preserve">
+    <value>Current ping pending or unavailable</value>
+  </data>
+  <data name="ServerBrowser_ResetFilters" xml:space="preserve">
+    <value>Reset filters</value>
+  </data>
+  <data name="ServerBrowser_BackToResults" xml:space="preserve">
+    <value>Back to results</value>
+  </data>
+  <data name="ServerBrowser_SwitchServer" xml:space="preserve">
+    <value>Switch server</value>
+  </data>
+  <data name="ServerBrowser_SecureCoreMeasuredLeg" xml:space="preserve">
+    <value>Round-trip ICMP measurements to the Secure Core entry server in {0}.</value>
+    <comment>{0} is the country of the Secure Core entry server.</comment>
+  </data>
+  <data name="ServerBrowser_MeasuredLeg" xml:space="preserve">
+    <value>Round-trip ICMP measurements to the physical entry server.</value>
+  </data>
 </root>

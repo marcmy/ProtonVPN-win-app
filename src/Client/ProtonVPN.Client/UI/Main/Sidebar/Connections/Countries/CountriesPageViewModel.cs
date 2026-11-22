@@ -20,6 +20,7 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using ProtonVPN.Client.Common.UI.Assets.Icons.Base;
 using ProtonVPN.Client.Common.UI.Assets.Icons.PathIcons;
 using ProtonVPN.Client.Common.UI.ServerHealth;
@@ -35,6 +36,7 @@ using ProtonVPN.Client.Logic.Servers.Contracts.Extensions;
 using ProtonVPN.Client.Logic.Servers.Contracts.Models;
 using ProtonVPN.Client.Models.Connections;
 using ProtonVPN.Client.Settings.Contracts;
+using ProtonVPN.Client.UI.Main.ServerBrowser;
 using ProtonVPN.Client.UI.Main.Sidebar.Connections.Bases.Contracts;
 using ProtonVPN.Client.UI.Main.Sidebar.Connections.Bases.ViewModels;
 
@@ -43,6 +45,7 @@ namespace ProtonVPN.Client.UI.Main.Sidebar.Connections.Countries;
 public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 {
     private readonly IExclusionChecker _exclusionChecker;
+    private readonly IMainViewNavigator _mainViewNavigator;
     private ServerHealthRefreshScheduler.Discovery? _pingDiscovery;
     private ServerHealthUiRefreshQueue? _pingUiRefresh;
 
@@ -81,6 +84,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 
     public CountriesPageViewModel(
         IConnectionsViewNavigator parentViewNavigator,
+        IMainViewNavigator mainViewNavigator,
         ISettings settings,
         IServersLoader serversLoader,
         IConnectionManager connectionManager,
@@ -97,6 +101,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     {
         CountriesComponents = new(countriesComponents.OrderBy(p => p.SortIndex));
         _exclusionChecker = exclusionChecker;
+        _mainViewNavigator = mainViewNavigator;
 
         _selectedCountriesComponent = CountriesComponents.First();
         PingFilter.PropertyChanged += OnPingFilterPropertyChanged;
@@ -113,6 +118,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     {
         base.OnActivated();
         _pingUiRefresh = new(action => ExecuteOnUIThread(action), RefreshPingPresentation);
+        _mainViewNavigator.Navigated += OnMainViewNavigated;
         ServerHealthHistorySession.Current.SnapshotChanged += OnPingCacheChanged;
         ServerHealthHistorySession.Refresh.ProgressChanged += OnPingProgressChanged;
         StartPingDiscovery();
@@ -125,12 +131,31 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
     protected override void OnDeactivated()
     {
         ServerHealthHistorySession.Current.SnapshotChanged -= OnPingCacheChanged;
+        _mainViewNavigator.Navigated -= OnMainViewNavigated;
         ServerHealthHistorySession.Refresh.ProgressChanged -= OnPingProgressChanged;
         _pingUiRefresh?.Dispose();
         _pingUiRefresh = null;
+        StopPingDiscovery();
+        base.OnDeactivated();
+    }
+
+    private void OnMainViewNavigated(object sender, NavigationEventArgs args)
+    {
+        if (_mainViewNavigator.GetCurrentPageContext() is ServerBrowserPageViewModel)
+        {
+            StopPingDiscovery();
+        }
+        else if (_pingDiscovery is null)
+        {
+            StartPingDiscovery();
+            _pingUiRefresh?.Request();
+        }
+    }
+
+    private void StopPingDiscovery()
+    {
         _pingDiscovery?.Dispose();
         _pingDiscovery = null;
-        base.OnDeactivated();
     }
 
     private void OnPingCacheChanged(object? sender, ServerHealthSnapshotChangedEventArgs args)
@@ -145,7 +170,7 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 
     private void RefreshPingPresentation()
     {
-        if (!IsActive) { return; }
+        if (!IsActive || _mainViewNavigator.GetCurrentPageContext() is ServerBrowserPageViewModel) { return; }
         OnPropertyChanged(nameof(IsMeasuringPings));
         OnPropertyChanged(nameof(PingProgressText));
         if (PingFilter.IsActive) { RefreshCachedFilter(); }
@@ -185,9 +210,8 @@ public partial class CountriesPageViewModel : ConnectionPageViewModelBase
 
     private void StartPingDiscovery()
     {
-        _pingDiscovery?.Dispose();
-        _pingDiscovery = null;
-        if (!IsActive) { return; }
+        StopPingDiscovery();
+        if (!IsActive || _mainViewNavigator.GetCurrentPageContext() is ServerBrowserPageViewModel) { return; }
         ServerFeatures? features = SelectedCountriesComponent.ConnectionType switch
         {
             CountriesConnectionType.SecureCore => ServerFeatures.SecureCore,

@@ -46,6 +46,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                 <ToolTipService.ToolTip>
                     <ToolTip Placement="Top">
                         <commonControls:ServerHealthHistoryDetailsControl
+                            Width="344"
                             Snapshot="{x:Bind ViewModel.CurrentServerHealthSnapshot, Mode=OneWay}" />
                     </ToolTip>
                 </ToolTipService.ToolTip>
@@ -154,14 +155,18 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                         </StackPanel>
 
                         <StackPanel Grid.Column="2"
-                                    MinWidth="66"
+                                    MinWidth="85"
                                     VerticalAlignment="Center"
                                     Spacing="0">
                             <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}"
                                        Text="{x:Bind ViewModel.HealthPacketLoss}" />
                             <TextBlock FontSize="12"
                                        Foreground="{ThemeResource TextWeakColorBrush}"
-                                       Text="Packet loss" />
+                                       Text="Recent ICMP loss" />
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextWeakColorBrush}"
+                                       Text="{x:Bind ViewModel.HealthLossCount}"
+                                       Visibility="{x:Bind ViewModel.HealthLossCount, Converter={StaticResource StringVisibilityConverter}}" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="3"
@@ -172,7 +177,7 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                                        Text="{x:Bind ViewModel.HealthLoad}" />
                             <TextBlock FontSize="12"
                                        Foreground="{ThemeResource TextWeakColorBrush}"
-                                       Text="Load" />
+                                       Text="Server load" />
                         </StackPanel>
                     </Grid>
 
@@ -183,16 +188,37 @@ along with ProtonVPN.  If not, see <https://www.gnu.org/licenses/>.
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource TextWeakColorBrush}"
-                                   Text="{x:Bind ViewModel.HealthRoute}"
-                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="0"
+                                    VerticalAlignment="Center">
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextWeakColorBrush}"
+                                       Text="{x:Bind ViewModel.HealthStatus}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{x:Bind ViewModel.HealthStatus, Converter={StaticResource StringVisibilityConverter}}" />
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextWeakColorBrush}"
+                                       Text="{x:Bind ViewModel.HealthRoute}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextWeakColorBrush}"
+                                       Text="{x:Bind ViewModel.HealthLastChecked}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Column="1"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource TextWeakColorBrush}"
-                                   Text="{x:Bind ViewModel.HealthLastChecked}" />
+                        <Button Grid.Column="1"
+                                Padding="8,4"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Current server health history"
+                                Content="History"
+                                FontSize="12">
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <commonControls:ServerHealthHistoryDetailsControl
+                                        Width="344"
+                                        Snapshot="{x:Bind ViewModel.CurrentServerHealthSnapshot, Mode=OneWay}" />
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
                     </Grid>
                 </Grid>
             </Border>

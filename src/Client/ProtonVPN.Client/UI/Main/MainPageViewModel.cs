@@ -31,6 +31,7 @@ using ProtonVPN.Client.EventMessaging.Contracts;
 using ProtonVPN.Client.Logic.Auth.Contracts;
 using ProtonVPN.Client.Settings.Contracts;
 using ProtonVPN.Client.UI.Main.Profiles;
+using ProtonVPN.Client.UI.Main.ServerBrowser;
 using ProtonVPN.Client.UI.Main.Settings;
 
 namespace ProtonVPN.Client.UI.Main;
@@ -68,6 +69,9 @@ public partial class MainPageViewModel : PageViewModelBase<IMainWindowViewNaviga
 
     [ObservableProperty]
     public partial double WidgetBarWidth { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsServerBrowserDisplayed { get; set; }
 
     public double EffectiveSidebarWidth => SidebarDisplayMode switch
     {
@@ -163,6 +167,13 @@ public partial class MainPageViewModel : PageViewModelBase<IMainWindowViewNaviga
 
         OnPropertyChanged(nameof(IsHomePageDisplayed));
 
+        bool isServerBrowserDisplayed = ChildViewNavigator.GetCurrentPageContext() is ServerBrowserPageViewModel;
+        if (IsServerBrowserDisplayed != isServerBrowserDisplayed)
+        {
+            IsServerBrowserDisplayed = isServerBrowserDisplayed;
+            InvalidateSidebarDisplayMode();
+        }
+
         if (IsHomePageDisplayed)
         {
             _eventMessageSender.Send<NavigatedToHomePageMessage>();
@@ -186,7 +197,7 @@ public partial class MainPageViewModel : PageViewModelBase<IMainWindowViewNaviga
 
         SidebarDisplayMode = isAboveThreshold
             ? SplitViewDisplayMode.CompactInline
-            : SplitViewDisplayMode.CompactOverlay;
+            : IsServerBrowserDisplayed ? SplitViewDisplayMode.Overlay : SplitViewDisplayMode.CompactOverlay;
         IsSidebarExpanded = isAboveThreshold;
     }
 
