@@ -4603,9 +4603,6 @@
   <data name="ServerBrowser_Maintenance" xml:space="preserve">
     <value>Maintenance</value>
   </data>
-  <data name="ServerBrowser_Sampling" xml:space="preserve">
-    <value>Sampling</value>
-  </data>
   <data name="ServerBrowser_Saved" xml:space="preserve">
     <value>Saved</value>
   </data>
