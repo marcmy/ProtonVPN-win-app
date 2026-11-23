@@ -301,3 +301,9 @@ csharp_style_unused_value_expression_statement_preference = discard_variable:non
 
 # Disable IDE0290 - Use primary constructor
 csharp_style_prefer_primary_constructors = false
+
+# Workaround for WinUI XAML code generation deprecation warnings:
+# https://github.com/microsoft/microsoft-ui-xaml/issues/10855
+# Keep obsolete-API diagnostics enabled for application source files.
+[XamlTypeInfo.g.cs]
+dotnet_diagnostic.CS0618.severity = none
