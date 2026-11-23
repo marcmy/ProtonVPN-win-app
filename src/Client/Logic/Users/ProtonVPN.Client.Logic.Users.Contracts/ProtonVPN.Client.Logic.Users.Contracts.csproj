@@ -11,6 +11,7 @@
     <ItemGroup>
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="System.ServiceProcess.ServiceController" />
       <ProjectReference Include="..\..\..\..\Api\ProtonVPN.Api.Contracts\ProtonVPN.Api.Contracts.csproj" />
       <ProjectReference Include="..\..\..\Common\ProtonVPN.Client.Common\ProtonVPN.Client.Common.csproj" />
     </ItemGroup>
