@@ -102,6 +102,6 @@
     <PackageVersion Include="Vanara.PInvoke.User32" Version="5.0.0" />
     <PackageVersion Include="Vanara.PInvoke.IpHlpApi" Version="5.0.0" />
     <PackageVersion Include="WinUI3Localizer" Version="2.3.0" />
-    <PackageVersion Include="WinUIEx" Version="2.9.0" />
+    <PackageVersion Include="WinUIEx" Version="2.9.3" />
   </ItemGroup>
 </Project>
