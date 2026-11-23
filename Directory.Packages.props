@@ -86,7 +86,7 @@
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="11.0.0" />
     <PackageVersion Include="System.Security.Cryptography.X509Certificates" Version="4.3.2" />
-    <PackageVersion Include="System.ServiceModel.Primitives" Version="10.0.652802" />
+    <PackageVersion Include="System.ServiceModel.Primitives" Version="10.1.0" />
     <PackageVersion Include="System.ServiceProcess.ServiceController" Version="11.0.0" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="11.0.0" />
     <PackageVersion Include="System.Text.Json" Version="11.0.0" />
