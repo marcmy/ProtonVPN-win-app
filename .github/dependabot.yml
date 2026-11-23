@@ -7,7 +7,7 @@ updates:
       interval: "daily"
       time: "12:00"
       timezone: "America/New_York"
-    open-pull-requests-limit: 20
+    open-pull-requests-limit: 100
     cooldown:
       default-days: 7
 
@@ -17,22 +17,13 @@ updates:
       interval: "daily"
       time: "12:00"
       timezone: "America/New_York"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 100
     # Avoid repeated graph-wide rebases after every merge. Update PR branches
     # explicitly when needed; all dependencies remain eligible for new updates.
     rebase-strategy: disabled
     cooldown:
       default-days: 7
     ignore:
-      - dependency-name: "Microsoft.Windows.Compatibility"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "System.Collections.Immutable"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "System.ComponentModel.Composition"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "System.Diagnostics.DiagnosticSource"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "System.Diagnostics.EventLog"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "System.Security.Cryptography.Pkcs"
+      # Stay on the Windows App SDK major that upstream uses; still take its servicing releases.
+      - dependency-name: "Microsoft.WindowsAppSDK"
         update-types: ["version-update:semver-major"]
