@@ -95,7 +95,7 @@
     <PackageVersion Include="System.ValueTuple" Version="4.6.2" />
     <PackageVersion Include="TaskScheduler" Version="2.12.2" />
     <PackageVersion Include="TimeZoneConverter" Version="7.2.0" />
-    <PackageVersion Include="Vanara.PInvoke.PowrProf" Version="5.0.0" />
+    <PackageVersion Include="Vanara.PInvoke.PowrProf" Version="5.0.8" />
     <PackageVersion Include="Vanara.PInvoke.Security" Version="5.0.0" />
     <PackageVersion Include="Vanara.PInvoke.SHCore" Version="5.0.0" />
     <PackageVersion Include="Vanara.PInvoke.Shell32" Version="5.0.0" />
