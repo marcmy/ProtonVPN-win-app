@@ -27,3 +27,8 @@ updates:
       # Stay on the Windows App SDK major that upstream uses; still take its servicing releases.
       - dependency-name: "Microsoft.WindowsAppSDK"
         update-types: ["version-update:semver-major"]
+    groups:
+      # Vanara packages share Vanara.Core and must move to the same version together.
+      vanara:
+        patterns:
+          - "Vanara.*"
