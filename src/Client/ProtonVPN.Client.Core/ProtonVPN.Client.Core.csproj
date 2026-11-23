@@ -39,5 +39,6 @@
   
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.Xml" />
+    <PackageReference Include="System.ServiceModel.Primitives" VersionOverride="10.1.0" />
   </ItemGroup>
 </Project>
