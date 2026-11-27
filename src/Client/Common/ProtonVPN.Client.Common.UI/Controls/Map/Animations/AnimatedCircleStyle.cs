@@ -18,10 +18,11 @@
  */
 
 using Mapsui.Styles;
+using Microsoft.UI.Xaml;
 
 namespace ProtonVPN.Client.Common.UI.Controls.Map.Animations;
 
-public class AnimatedCircleStyle : IStyle
+public class AnimatedCircleStyle : BaseStyle
 {
     public const float TRANSPARENT_CIRCLE_RADIUS_DEFAULT = 8f;
     public const float TRANSPARENT_CIRCLE_RADIUS_HOVER = 16f;
@@ -42,9 +43,10 @@ public class AnimatedCircleStyle : IStyle
     public float NeutralCircleRadius { get; set; } = NEUTRAL_CIRCLE_RADIUS_DEFAULT;
     public float CenterCircleRadius { get; set; } = CENTER_CIRCLE_RADIUS_DEFAULT;
 
-    public double MinVisible { get; set; } = double.MinValue;
-    public double MaxVisible { get; set; } = double.MaxValue;
+    public AnimatedCircleStyle()
+    {
+        MinVisible = double.MinValue;
+    }
 
-    public bool Enabled { get; set; } = true;
-    public float Opacity { get; set; } = 1f;
+    public ElementTheme ElementTheme { get; set; }
 }
