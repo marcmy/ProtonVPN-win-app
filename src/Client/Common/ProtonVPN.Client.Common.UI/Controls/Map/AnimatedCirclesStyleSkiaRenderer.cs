@@ -20,6 +20,7 @@
 using Mapsui;
 using Mapsui.Extensions;
 using Mapsui.Layers;
+using Mapsui.Manipulations;
 using Mapsui.Nts;
 using Mapsui.Nts.Extensions;
 using Mapsui.Rendering;
@@ -34,13 +35,11 @@ namespace ProtonVPN.Client.Common.UI.Controls.Map;
 
 public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
 {
-    public ElementTheme ElementTheme { get; set; }
-
-    private string GreenColor => ElementTheme == ElementTheme.Dark
+    private static string GreenColor(AnimatedCircleStyle style) => style.ElementTheme == ElementTheme.Dark
         ? "#2CFFCC"
         : "#1C9C7C";
 
-    private string RedColor => ElementTheme == ElementTheme.Dark
+    private static string RedColor(AnimatedCircleStyle style) => style.ElementTheme == ElementTheme.Dark
         ? "#F7607B"
         : "#B71432";
 
@@ -50,7 +49,7 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
         ILayer layer,
         IFeature feature,
         IStyle style,
-        IRenderCache renderCache,
+        RenderService renderService,
         long iteration)
     {
         if (style is not AnimatedCircleStyle animatedCircleStyle)
@@ -68,7 +67,7 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
             return false;
         }
 
-        MPoint screenPos = viewport.WorldToScreen(point.ToMPoint());
+        ScreenPosition screenPos = viewport.WorldToScreen(point.ToMPoint());
 
         double layerOpacity = feature.IsCurrentCountry() || feature.IsConnecting()
             ? 1
@@ -84,15 +83,15 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
     private void DrawTransparentCircle(
         SKCanvas canvas,
         AnimatedCircleStyle style,
-        MPoint screenPos,
+        ScreenPosition screenPos,
         IFeature feature,
         double layerOpacity)
     {
         if (feature.IsCurrentCountry() && !feature.IsOnHover())
         {
             SKColor baseColor = SKColor.Parse(feature.IsConnected()
-                ? GreenColor
-                : RedColor);
+                ? GreenColor(style)
+                : RedColor(style));
 
             SKColor centerColor = baseColor.WithAlpha(0);
             SKColor edgeColor = baseColor.WithAlpha(255);
@@ -121,7 +120,7 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
         }
         else
         {
-            SKColor color = ElementTheme == ElementTheme.Dark
+            SKColor color = style.ElementTheme == ElementTheme.Dark
                 ? SKColors.White.WithAlpha(40)
                 : SKColor.Parse("#BCBCC3").WithAlpha(40);
 
@@ -143,20 +142,14 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
     private void DrawNeutralCircle(
         SKCanvas canvas,
         AnimatedCircleStyle style,
-        MPoint screenPos,
+        ScreenPosition screenPos,
         IFeature feature,
         double layerOpacity)
     {
-        SKColor color = ElementTheme == ElementTheme.Dark
-            ? SKColors.White
-            : feature.IsCurrentCountry()
-                ? SKColors.White
-                : SKColor.Parse("#BCBCC3");
-
         using SKPaint middlePaint = new()
         {
             IsAntialias = true,
-            Color = GetNeutralCircleColor(feature, layerOpacity)
+            Color = GetNeutralCircleColor(style, feature, layerOpacity)
         };
         canvas.DrawCircle((float)screenPos.X, (float)screenPos.Y, style.NeutralCircleRadius, middlePaint);
     }
@@ -164,7 +157,7 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
     private void DrawCenterCircle(
         SKCanvas canvas,
         AnimatedCircleStyle style,
-        MPoint screenPos,
+        ScreenPosition screenPos,
         IFeature feature,
         double layerOpacity)
     {
@@ -173,20 +166,20 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
             using SKPaint innerPaint = new()
             {
                 IsAntialias = true,
-                Color = GetCenterCircleColor(feature, layerOpacity),
+                Color = GetCenterCircleColor(style, feature, layerOpacity),
             };
             canvas.DrawCircle((float)screenPos.X, (float)screenPos.Y, style.CenterCircleRadius, innerPaint);
         }
     }
 
-    private SKColor GetNeutralCircleColor(IFeature feature, double layerOpacity)
+    private static SKColor GetNeutralCircleColor(AnimatedCircleStyle style, IFeature feature, double layerOpacity)
     {
-        bool isHighlighted = feature.IsOnHover() || feature.IsCurrentCountry() || ElementTheme == ElementTheme.Dark;
+        bool isHighlighted = feature.IsOnHover() || feature.IsCurrentCountry() || style.ElementTheme == ElementTheme.Dark;
         SKColor baseColor = isHighlighted ? SKColors.White : SKColor.Parse("#898990");
         return baseColor.WithAlpha((byte)(layerOpacity * 255));
     }
 
-    private SKColor GetCenterCircleColor(IFeature feature, double layerOpacity)
+    private static SKColor GetCenterCircleColor(AnimatedCircleStyle style, IFeature feature, double layerOpacity)
     {
         SKColor color = SKColors.White;
 
@@ -196,7 +189,7 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
         }
         else if (feature.IsConnected())
         {
-            color = SKColor.Parse(GreenColor);
+            color = SKColor.Parse(GreenColor(style));
         }
         else if (feature.IsConnecting())
         {
@@ -204,7 +197,7 @@ public class AnimatedCirclesStyleSkiaRenderer : ISkiaStyleRenderer
         }
         else if (feature.IsCurrentCountry())
         {
-            color = SKColor.Parse(RedColor);
+            color = SKColor.Parse(RedColor(style));
         }
 
         return color.WithAlpha((byte)(layerOpacity * 255));

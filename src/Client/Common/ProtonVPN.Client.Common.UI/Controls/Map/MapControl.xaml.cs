@@ -30,10 +30,12 @@ using Mapsui;
 using Mapsui.Animations;
 using Mapsui.Extensions;
 using Mapsui.Layers;
+using Mapsui.Manipulations;
 using Mapsui.Nts;
 using Mapsui.Nts.Extensions;
 using Mapsui.Nts.Providers;
 using Mapsui.Providers;
+using Mapsui.Rendering.Skia;
 using Mapsui.Styles;
 using Mapsui.Utilities;
 using Microsoft.UI.Input;
@@ -270,9 +272,13 @@ public sealed partial class MapControl
 
     private AnimationEntry<double>? _pinFadeAnimation;
     private readonly ConcurrentDictionary<AnimatedCircleStyle, List<AnimationEntry<AnimatedCircleStyle>>> _activeAnimations = [];
-    private readonly AnimatedCirclesStyleSkiaRenderer _animatedCirclesStyleSkiaRenderer = new();
 
     private readonly InputSystemCursor _handCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+
+    static MapControl()
+    {
+        MapRenderer.RegisterStyleRenderer(typeof(AnimatedCircleStyle), new AnimatedCirclesStyleSkiaRenderer());
+    }
 
     public MapControl()
     {
@@ -290,12 +296,11 @@ public sealed partial class MapControl
 
         _map.Navigator.OverridePanBounds = _mapBounds;
         _map.Navigator.MouseWheelAnimation.Duration = ZOOM_ANIMATION_DURATION_IN_MS;
-        _map.Home = (Navigator n) => n.ZoomToBox(_mapBounds);
+        _map.Navigator.ZoomToBox(_mapBounds);
 
-        _map.Info += HandleMapClick;
+        _map.Tapped += HandleMapClick;
         _map.Navigator.ViewportChanged += OnViewportChanged;
         MapCanvas.Children.Add(_countryCallout);
-        Map.Renderer.StyleRenderers.Add(typeof(AnimatedCircleStyle), _animatedCirclesStyleSkiaRenderer);
 
         Map.ManipulationMode = ManipulationModes.TranslateX | ManipulationModes.TranslateY | ManipulationModes.TranslateInertia;
 
@@ -374,8 +379,6 @@ public sealed partial class MapControl
                 PenStyle = PenStyle.Dash
             };
         }
-
-        _animatedCirclesStyleSkiaRenderer.ElementTheme = ActualTheme;
     }
 
     private void InvalidateZoomLevels()
@@ -427,14 +430,9 @@ public sealed partial class MapControl
         InvalidateCurrentCountry();
     }
 
-    private void HandleMapClick(object? s, MapInfoEventArgs a)
+    private void HandleMapClick(object? sender, MapEventArgs e)
     {
-        if (a.MapInfo?.WorldPosition == null)
-        {
-            return;
-        }
-
-        MRect searchArea = GetMouseBufferBounds();
+        MRect searchArea = GetPinHitBounds(e.WorldPosition);
         List<IFeature> pins = GetAllPins();
         foreach (GeometryFeature feature in pins.Cast<GeometryFeature>())
         {
@@ -451,13 +449,18 @@ public sealed partial class MapControl
     private MRect GetMouseBufferBounds()
     {
         MPoint mousePosition = _map.Navigator.Viewport.ScreenToWorld(_currentMousePosition.X, _currentMousePosition.Y);
+        return GetPinHitBounds(mousePosition);
+    }
+
+    private MRect GetPinHitBounds(MPoint worldPosition)
+    {
         double buffer = 15 * _map.Navigator.Viewport.Resolution;
 
         return new MRect(
-            mousePosition.X - buffer,
-            mousePosition.Y - buffer,
-            mousePosition.X + buffer,
-            mousePosition.Y + buffer
+            worldPosition.X - buffer,
+            worldPosition.Y - buffer,
+            worldPosition.X + buffer,
+            worldPosition.Y + buffer
         );
     }
 
@@ -498,7 +501,7 @@ public sealed partial class MapControl
         }
 
         MPoint point = _countryCallout.Country.GetMapPoint();
-        MPoint screenPosition = _map.Navigator.Viewport.WorldToScreen(point);
+        ScreenPosition screenPosition = _map.Navigator.Viewport.WorldToScreen(point);
 
         double left = screenPosition.X - _countryCallout.ActualWidth / 2.0;
         double top = screenPosition.Y - _countryCallout.ActualHeight - 20;
@@ -718,8 +721,7 @@ public sealed partial class MapControl
         {
             Name = "Countries",
             DataSource = new CustomMemoryProvider(features),
-            Style = _countriesStyle,
-            IsMapInfoLayer = true,
+            Style = _countriesStyle
         };
     }
 
@@ -738,7 +740,6 @@ public sealed partial class MapControl
                 CRS = "EPSG:3857",
             },
             Style = _disputedTerritoriesStyle,
-            IsMapInfoLayer = true
         };
     }
 
@@ -757,7 +758,6 @@ public sealed partial class MapControl
                 CRS = "EPSG:3857",
             },
             Style = _statesStyle,
-            IsMapInfoLayer = true
         };
     }
 
@@ -939,11 +939,13 @@ public sealed partial class MapControl
                 T factor = T.CreateChecked(e.Easing.Ease(v));
                 T interpolated = (T)e.Start + ((T)e.End - (T)e.Start) * factor;
                 updateAction(symbolStyle, interpolated);
+                symbolStyle.Modified();
                 return new AnimationResult<AnimatedCircleStyle>(symbolStyle, true);
             },
             final: (symbolStyle, e) =>
             {
                 updateAction(symbolStyle, (T)e.End);
+                symbolStyle.Modified();
                 _map.RefreshGraphics();
 
                 DispatcherQueue?.TryEnqueue(() =>
@@ -1123,7 +1125,7 @@ public sealed partial class MapControl
                 Geometry = country.GetMapPoint().ToPoint(),
             };
 
-            AnimatedCircleStyle style = new();
+            AnimatedCircleStyle style = new() { ElementTheme = ActualTheme };
             bool isCurrentCountry = country.Code == CurrentCountry?.Code;
             if (isCurrentCountry)
             {
